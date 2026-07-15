@@ -1,0 +1,58 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: pfd_user
+      POSTGRES_PASSWORD: pfd_password
+      POSTGRES_DB: pfd_pro
+    ports:
+      - "5432:5432"
+    volumes:
+      - pfd_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pfd_user -d pfd_pro"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://pfd_user:pfd_password@postgres:5432/pfd_pro?schema=public
+      PORT: 4000
+      CORS_ORIGIN: http://localhost:3000
+      NODE_ENV: production
+      JWT_ACCESS_SECRET: "${JWT_ACCESS_SECRET:-change-me-access-secret}"
+      JWT_REFRESH_SECRET: "${JWT_REFRESH_SECRET:-change-me-refresh-secret}"
+      COOKIE_SECRET: "${COOKIE_SECRET:-change-me-cookie-secret}"
+      ADMIN_UID: "${ADMIN_UID:-9704347240}"
+      ADMIN_PASSWORD: "${ADMIN_PASSWORD:-Hashed@2005}"
+    ports:
+      - "4000:4000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:4000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  frontend:
+    build:
+      context: ./frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:4000
+    ports:
+      - "3000:3000"
+
+volumes:
+  pfd_pg_data:
