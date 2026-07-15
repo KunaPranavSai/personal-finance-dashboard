@@ -1,0 +1,175 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum EntryType {
+  INCOME
+  EXPENSE
+}
+
+enum FixedVariable {
+  FIXED
+  VARIABLE
+}
+
+enum Essentiality {
+  ESSENTIAL
+  NON_ESSENTIAL
+}
+
+enum PaymentMethod {
+  CASH
+  UPI
+  CREDIT_CARD
+  DEBIT_CARD
+  NET_BANKING
+  WALLET
+}
+
+enum BudgetPeriod {
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+enum BudgetStatus {
+  UNDER_BUDGET
+  NEAR_LIMIT
+  OVER_BUDGET
+}
+
+model Category {
+  id            String        @id @default(cuid())
+  name          String        @unique
+  type          EntryType
+  subcategories Subcategory[]
+  transactions  Transaction[]
+  budgets       Budget[]
+  createdAt     DateTime      @default(now())
+}
+
+model Subcategory {
+  id         String       @id @default(cuid())
+  name       String
+  category   Category     @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  categoryId String
+  transactions Transaction[]
+
+  @@unique([categoryId, name])
+}
+
+model Account {
+  id           String        @id @default(cuid())
+  name         String        @unique
+  transactions Transaction[]
+  createdAt    DateTime      @default(now())
+}
+
+model Transaction {
+  id             String         @id @default(cuid())
+  date           DateTime
+  description    String
+  amount         Decimal        @db.Decimal(14, 2)
+  type           EntryType
+  category       Category       @relation(fields: [categoryId], references: [id])
+  categoryId     String
+  subcategory    Subcategory?   @relation(fields: [subcategoryId], references: [id])
+  subcategoryId  String?
+  merchant       String?
+  account        Account?       @relation(fields: [accountId], references: [id])
+  accountId      String?
+  paymentMethod  PaymentMethod?
+  location       String?
+  tags           String[]       @default([])
+  notes          String?
+  recurring      Boolean        @default(false)
+  fixedVariable  FixedVariable?
+  essentiality   Essentiality?
+  attachmentUrl  String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@index([date])
+  @@index([categoryId])
+  @@index([type])
+}
+
+model Budget {
+  id         String       @id @default(cuid())
+  category   Category     @relation(fields: [categoryId], references: [id])
+  categoryId String
+  period     BudgetPeriod @default(MONTHLY)
+  periodKey  String       // e.g. "2026-07" for monthly, "2026-Q2", "2026" for yearly
+  amount     Decimal      @db.Decimal(14, 2)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  @@unique([categoryId, period, periodKey])
+}
+
+model Investment {
+  id                 String   @id @default(cuid())
+  instrument         String
+  category           String
+  currentValue       Decimal  @db.Decimal(14, 2)
+  monthlyContribution Decimal @db.Decimal(14, 2) @default(0)
+  annualReturnPct    Decimal  @db.Decimal(5, 2)  @default(0)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model Bill {
+  id            String    @id @default(cuid())
+  name          String
+  type          String
+  dueDate       DateTime
+  amount        Decimal   @db.Decimal(14, 2)
+  paidAmount    Decimal   @db.Decimal(14, 2) @default(0)
+  autoPay       Boolean   @default(false)
+  interestRate  Decimal?  @db.Decimal(5, 2)
+  tenureMonths  Int?
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Goal {
+  id                 String   @id @default(cuid())
+  name               String
+  category           String
+  targetAmount       Decimal  @db.Decimal(14, 2)
+  currentAmount      Decimal  @db.Decimal(14, 2) @default(0)
+  monthlyContribution Decimal @db.Decimal(14, 2) @default(0)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  type      String
+  title     String
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([read])
+}
+
+model AppSettings {
+  id   String @id @default("singleton")
+  data Json   @default("{}")
+
+  @@map("app_settings")
+}
+
+model AppProfile {
+  id   String @id @default("singleton")
+  data Json   @default("{}")
+
+  @@map("app_profile")
+}
