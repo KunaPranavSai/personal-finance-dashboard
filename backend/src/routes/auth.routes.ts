@@ -30,7 +30,7 @@ function setTokenCookies(res: Response, accessToken: string, refreshToken: strin
     httpOnly: true,
     signed: true,
     secure: IS_PROD,
-    sameSite: "lax" as const,
+    sameSite: (IS_PROD ? "none" : "lax") as "none" | "lax",
   };
   res.cookie("access_token", accessToken, { ...cookieOptions, maxAge: ACCESS_TOKEN_TTL * 1000, path: "/" });
   res.cookie("refresh_token", refreshToken, { ...cookieOptions, maxAge: REFRESH_TOKEN_TTL * 1000, path: "/api/auth" });
