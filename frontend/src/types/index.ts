@@ -70,7 +70,6 @@ export interface DashboardSummary {
     totalIncome: number;
     totalExpenses: number;
     totalSavings: number;
-    remainingBalance: number;
     netWorth: number;
     budgetUtilizationPct: number;
     savingsRatePct: number;

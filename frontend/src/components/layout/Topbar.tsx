@@ -6,6 +6,7 @@ import { useNotifications, useProfile } from "@/lib/reference";
 import { useSettingsContext } from "@/lib/SettingsContext";
 import { useAuth } from "@/lib/AuthContext";
 import { useEffect, useRef, useState, useCallback } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
@@ -126,7 +127,7 @@ export function Topbar({ title }: { title: string }) {
           )}
         </Link>
 
-        <div className="relative" ref={menuRef}>
+        <div ref={menuRef}>
           <button
             onClick={() => setAvatarOpen(!avatarOpen)}
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-teal/10 text-teal hover:bg-teal/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal/50 overflow-hidden"
@@ -141,9 +142,10 @@ export function Topbar({ title }: { title: string }) {
             )}
           </button>
 
-          {avatarOpen && (
+          {avatarOpen && createPortal(
             <div
-              className="absolute right-0 top-full mt-2 w-48 overflow-hidden rounded-xl border border-black/5 bg-white shadow-lg dark:border-white/10 dark:bg-navy-dark"
+              className="fixed right-4 top-14 z-50 w-48 overflow-hidden rounded-xl border border-black/5 bg-white shadow-lg dark:border-white/10 dark:bg-navy-dark"
+              ref={menuRef}
               role="menu"
               aria-label="User menu"
             >
@@ -200,7 +202,8 @@ export function Topbar({ title }: { title: string }) {
                   {isLoggingOut ? "Signing out…" : "Sign out"}
                 </button>
               </div>
-            </div>
+            </div>,
+            document.body
           )}
         </div>
       </div>

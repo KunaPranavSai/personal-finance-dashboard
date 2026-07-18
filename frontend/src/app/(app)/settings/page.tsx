@@ -2,8 +2,8 @@
 
 import { Suspense, useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
-import { API_BASE_URL } from "@/lib/api";
 import { useAuth } from "@/lib/AuthContext";
+import { downloadExport } from "@/lib/export";
 
 import { Topbar } from "@/components/layout/Topbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
@@ -63,32 +63,6 @@ const AUTO_LOCK_OPTIONS = [
   { value: "60", label: "1 hour" },
   { value: "never", label: "Never" },
 ];
-
-async function downloadExport(format: string, toast: any) {
-  try {
-    const res = await fetch(`${API_BASE_URL}/api/export?format=${format === "excel" ? "xlsx" : format}`);
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({ error: "Export failed" }));
-      throw new Error(err.error || `Export failed (${res.status})`);
-    }
-    const blob = await res.blob();
-    const disposition = res.headers.get("Content-Disposition") || "";
-    const match = disposition.match(/filename="?(.+?)"?$/);
-    const ext = format === "excel" ? "xlsx" : format;
-    const filename = match ? match[1] : `finance-export-${new Date().toISOString().split("T")[0]}.${ext}`;
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    toast(`${format.toUpperCase()} downloaded successfully`, "success");
-  } catch (err) {
-    toast(err instanceof Error ? err.message : "Download failed", "error");
-  }
-}
 
 function ExportTab() {
   const { toast } = useToast();
