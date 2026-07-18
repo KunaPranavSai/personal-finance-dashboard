@@ -4,10 +4,20 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { DataInit } from "@/components/DataInit";
+import { SessionWarningModal } from "@/components/ui/SessionWarningModal";
+import { LockScreen } from "@/components/ui/LockScreen";
 import { useAuth } from "@/lib/AuthContext";
 
 export default function AppShellLayout({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isLoading } = useAuth();
+  const {
+    isAuthenticated,
+    isLoading,
+    sessionTimeoutWarning,
+    isLocked,
+    logout,
+    unlock,
+    dismissTimeoutWarning,
+  } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
@@ -34,6 +44,12 @@ export default function AppShellLayout({ children }: { children: React.ReactNode
       <DataInit />
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">{children}</div>
+      <SessionWarningModal
+        isOpen={sessionTimeoutWarning}
+        onDismiss={dismissTimeoutWarning}
+        onLogout={logout}
+      />
+      <LockScreen isOpen={isLocked} onUnlock={unlock} />
     </div>
   );
 }

@@ -60,10 +60,26 @@ export async function getDashboardSummary(_req: Request, res: Response) {
   const totalBudgetActual = curExpense; // simplification: current-month actual vs monthly budgets
   const budgetUtilization = totalBudget > 0 ? totalBudgetActual / totalBudget : 0;
 
+  const totalContributions = investments.reduce((s, i) => s + Number(i.monthlyContribution), 0);
+
   const emergencyFund = goals.find((g) => g.name.toLowerCase().includes("emergency"));
   const emergencyFundProgress = emergencyFund
     ? Number(emergencyFund.currentAmount) / Math.max(Number(emergencyFund.targetAmount), 1)
     : 0;
+
+  // Calculate cash flow: income - expenses in trailing 30 days
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000);
+  const [recentIncomeAgg, recentExpenseAgg] = await Promise.all([
+    prisma.transaction.aggregate({
+      where: { type: "INCOME", date: { gte: thirtyDaysAgo } },
+      _sum: { amount: true },
+    }),
+    prisma.transaction.aggregate({
+      where: { type: "EXPENSE", date: { gte: thirtyDaysAgo } },
+      _sum: { amount: true },
+    }),
+  ]);
+  const cashFlow = Number(recentIncomeAgg._sum.amount ?? 0) - Number(recentExpenseAgg._sum.amount ?? 0);
 
   // Financial Health Score (0-100), weighted like the workbook version
   const budgetAdherence = 1 - Math.min(budgetUtilization, 1.5) / 1.5;
@@ -89,19 +105,18 @@ export async function getDashboardSummary(_req: Request, res: Response) {
       totalIncome,
       totalExpenses: totalExpense,
       totalSavings,
-      remainingBalance: totalSavings,
       netWorth,
       budgetUtilizationPct: budgetUtilization,
       savingsRatePct: savingsRate,
       financialHealthScore: healthScore,
       emergencyFundProgressPct: emergencyFundProgress,
-      investmentGrowth: portfolioValue - investments.reduce((s, i) => s + Number(i.monthlyContribution) * 0, 0),
+      investmentGrowth: portfolioValue - totalContributions,
       highestSpendingCategory: highestCategory?.name ?? null,
       largestExpense: largestExpense ? Number(largestExpense.amount) : 0,
       avgDailySpending,
       avgTransactionAmount,
       transactionCount: txCount,
-      cashFlow: totalSavings,
+      cashFlow,
       monthlyBalance: curIncome - curExpense,
       currentMonth: { income: curIncome, expense: curExpense },
       changeVsPrevMonth: {

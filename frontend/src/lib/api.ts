@@ -11,10 +11,16 @@ class ApiClientError extends Error {
 }
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const headers: Record<string, string> = {};
+  if (options.method !== "GET" && options.method !== "DELETE") {
+    headers["Content-Type"] = "application/json";
+  }
+  Object.assign(headers, options.headers);
+
   const res = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
     credentials: "include",
-    headers: { "Content-Type": "application/json", ...options.headers },
+    headers,
   });
 
   if (!res.ok) {
