@@ -38,21 +38,8 @@ export function createApp() {
   );
 
   // CORS
-  const allowedOrigins = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:3001",
-    "http://127.0.0.1:3001",
-    ...(process.env.CORS_ORIGIN?.split(",").map((s) => s.trim()).filter(Boolean) ?? []),
-  ];
   app.use(cors({
-    origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
+    origin: true,
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
