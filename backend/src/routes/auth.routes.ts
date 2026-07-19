@@ -5,9 +5,12 @@ import crypto from "crypto";
 import rateLimit from "express-rate-limit";
 import { generateSecret, generateURI, verify as verifyTotp } from "otplib";
 import QRCode from "qrcode";
+import { Resend } from "resend";
 import { asyncHandler } from "../utils/asyncHandler";
 import { prisma } from "../lib/prisma";
 import { authenticate, AuthPayload } from "../middleware/auth";
+import { getAppSettingsData, patchAppSettingsData } from "../lib/appSettings";
+import { getSessionVersion, bumpSessionVersion } from "../lib/sessionVersion";
 
 const router = Router();
 
@@ -29,12 +32,12 @@ const IS_PROD = process.env.NODE_ENV === "production";
 const ACCESS_TOKEN_TTL = 60 * 60; // 1 hour
 const REFRESH_TOKEN_TTL = 7 * 24 * 60 * 60; // 7 days
 
-function signAccess(uid: string) {
-  return jwt.sign({ uid }, ACCESS_SECRET, { expiresIn: ACCESS_TOKEN_TTL });
+function signAccess(uid: string, sv: number) {
+  return jwt.sign({ uid, sv }, ACCESS_SECRET, { expiresIn: ACCESS_TOKEN_TTL });
 }
 
-function signRefresh(uid: string) {
-  return jwt.sign({ uid }, REFRESH_SECRET, { expiresIn: REFRESH_TOKEN_TTL });
+function signRefresh(uid: string, sv: number) {
+  return jwt.sign({ uid, sv }, REFRESH_SECRET, { expiresIn: REFRESH_TOKEN_TTL });
 }
 
 function setTokenCookies(res: Response, accessToken: string, refreshToken: string) {
@@ -68,21 +71,6 @@ interface SecurityState {
   twoFactorSecret?: string;
   twoFactorPendingSecret?: string;
   twoFactorBackupCodes: string[];
-}
-
-async function getAppSettingsData(): Promise<Record<string, unknown>> {
-  const rec = await prisma.appSettings.findUnique({ where: { id: "singleton" } });
-  return (rec?.data ?? {}) as Record<string, unknown>;
-}
-
-async function patchAppSettingsData(patch: Record<string, unknown>): Promise<void> {
-  const data = await getAppSettingsData();
-  const merged = { ...data, ...patch };
-  await prisma.appSettings.upsert({
-    where: { id: "singleton" },
-    create: { id: "singleton", data: merged as object },
-    update: { data: merged as object },
-  });
 }
 
 async function getSecurityState(): Promise<SecurityState> {
@@ -147,8 +135,9 @@ router.post(
       return;
     }
 
-    const accessToken = signAccess(uid);
-    const refreshToken = signRefresh(uid);
+    const sv = bumpSessionVersion();
+    const accessToken = signAccess(uid, sv);
+    const refreshToken = signRefresh(uid, sv);
     setTokenCookies(res, accessToken, refreshToken);
     res.json({ user: { uid, name: "Admin" } });
   })
@@ -181,8 +170,9 @@ router.post(
       res.status(401).json({ error: "Invalid verification code" });
       return;
     }
-    const accessToken = signAccess(payload.uid);
-    const refreshToken = signRefresh(payload.uid);
+    const sv = bumpSessionVersion();
+    const accessToken = signAccess(payload.uid, sv);
+    const refreshToken = signRefresh(payload.uid, sv);
     setTokenCookies(res, accessToken, refreshToken);
     res.json({ user: { uid: payload.uid, name: "Admin" } });
   })
@@ -204,7 +194,7 @@ router.post(
   authenticate,
   asyncHandler(async (req: Request, res: Response) => {
     const secret = generateSecret();
-    const otpauth = generateURI({ strategy: "totp", issuer: "Finance Dashboard Pro", label: req.auth!.uid, secret });
+    const otpauth = generateURI({ strategy: "totp", issuer: "Penny Pilot", label: req.auth!.uid, secret });
     const qrCode = await QRCode.toDataURL(otpauth);
     await patchAppSettingsData({ __twoFactorPendingSecret: secret });
     res.json({ secret, qrCode });
@@ -304,6 +294,89 @@ router.post(
   })
 );
 
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
+const RESET_OTP_TTL_MS = 10 * 60 * 1000; // 10 minutes
+
+async function getProfileEmail(): Promise<string | null> {
+  const rec = await prisma.appProfile.findUnique({ where: { id: "singleton" } });
+  const data = (rec?.data ?? {}) as Record<string, unknown>;
+  const email = typeof data.email === "string" ? data.email : null;
+  return email && email !== "user@example.com" ? email : null;
+}
+
+function generateOtp(): string {
+  return String(crypto.randomInt(100000, 1000000));
+}
+
+// ─── POST /api/auth/forgot-password ─────────────────────────────────────────
+router.post(
+  "/forgot-password",
+  loginLimiter,
+  asyncHandler(async (req: Request, res: Response) => {
+    const { uid } = req.body as { uid?: string };
+    if (!uid) {
+      res.status(400).json({ error: "UID is required" });
+      return;
+    }
+    if (uid === ADMIN_UID) {
+      const email = await getProfileEmail();
+      if (email && resend) {
+        const otp = generateOtp();
+        const hash = await bcrypt.hash(otp, 10);
+        await patchAppSettingsData({ __resetOtpHash: hash, __resetOtpExpiry: Date.now() + RESET_OTP_TTL_MS });
+        try {
+          await resend.emails.send({
+            from: "Penny Pilot <onboarding@resend.dev>",
+            to: email,
+            subject: "Your Penny Pilot password reset code",
+            html: `<p>Your password reset code is:</p><h2 style="letter-spacing:4px">${otp}</h2><p>This code expires in 10 minutes. If you didn't request this, you can ignore this email.</p>`,
+          });
+        } catch (err) {
+          console.error("Failed to send password reset email:", err);
+        }
+      }
+    }
+    // Always respond identically so we don't leak whether the UID or email exists.
+    res.json({ ok: true, message: "If the account exists and has an email on file, a reset code has been sent." });
+  })
+);
+
+// ─── POST /api/auth/reset-password ──────────────────────────────────────────
+router.post(
+  "/reset-password",
+  loginLimiter,
+  asyncHandler(async (req: Request, res: Response) => {
+    const { uid, code, newPassword } = req.body as { uid?: string; code?: string; newPassword?: string };
+    if (!uid || !code || !newPassword) {
+      res.status(400).json({ error: "UID, code, and new password are required" });
+      return;
+    }
+    if (newPassword.length < 8) {
+      res.status(400).json({ error: "New password must be at least 8 characters" });
+      return;
+    }
+    if (uid !== ADMIN_UID) {
+      res.status(400).json({ error: "Invalid or expired code" });
+      return;
+    }
+    const data = await getAppSettingsData();
+    const hash = typeof data.__resetOtpHash === "string" ? data.__resetOtpHash : null;
+    const expiry = typeof data.__resetOtpExpiry === "number" ? data.__resetOtpExpiry : 0;
+    if (!hash || Date.now() > expiry) {
+      res.status(400).json({ error: "Invalid or expired code" });
+      return;
+    }
+    const valid = await bcrypt.compare(code, hash);
+    if (!valid) {
+      res.status(400).json({ error: "Invalid or expired code" });
+      return;
+    }
+    const newHash = await bcrypt.hash(newPassword, 12);
+    await patchAppSettingsData({ __passwordHash: newHash, __resetOtpHash: null, __resetOtpExpiry: null });
+    res.json({ ok: true, message: "Password reset successfully" });
+  })
+);
+
 // ─── POST /api/auth/logout ───────────────────────────────────────────────────
 router.post("/logout", (_req: Request, res: Response) => {
   res.clearCookie("access_token", { path: "/" });
@@ -322,8 +395,14 @@ router.post(
     }
     try {
       const payload = jwt.verify(token, REFRESH_SECRET) as AuthPayload;
-      const accessToken = signAccess(payload.uid);
-      const refreshToken = signRefresh(payload.uid);
+      if (payload.sv !== getSessionVersion()) {
+        res.clearCookie("access_token", { path: "/" });
+        res.clearCookie("refresh_token", { path: "/api/auth" });
+        res.status(401).json({ error: "Session ended: you were signed in elsewhere" });
+        return;
+      }
+      const accessToken = signAccess(payload.uid, payload.sv);
+      const refreshToken = signRefresh(payload.uid, payload.sv);
       setTokenCookies(res, accessToken, refreshToken);
       res.json({ user: { uid: payload.uid, name: "Admin" } });
     } catch {

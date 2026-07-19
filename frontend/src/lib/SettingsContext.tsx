@@ -36,7 +36,7 @@ const DEFAULT_SETTINGS: AppSettingsData = {
   language: "en",
   timezone: "Asia/Kolkata",
   firstDayOfWeek: "monday",
-  applicationName: "Finance Dashboard Pro",
+  applicationName: "Penny Pilot",
   defaultDashboard: "dashboard",
   startupPreferences: "last-viewed",
   currencySymbol: "INR",

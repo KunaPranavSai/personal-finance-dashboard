@@ -4,7 +4,7 @@ import { prisma } from "../lib/prisma";
 import { z } from "zod";
 
 const defaultSettings = {
-  applicationName: "Finance Dashboard Pro",
+  applicationName: "Penny Pilot",
   defaultDashboard: "dashboard",
   startupPreferences: "last-viewed",
   dateFormat: "DD-MM-YYYY",

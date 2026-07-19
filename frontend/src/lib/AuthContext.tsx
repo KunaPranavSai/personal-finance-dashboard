@@ -29,6 +29,8 @@ interface AuthContextType {
   setupTwoFactor: () => Promise<{ secret: string; qrCode: string }>;
   confirmTwoFactor: (code: string) => Promise<{ backupCodes: string[] }>;
   disableTwoFactor: (password: string, code: string) => Promise<void>;
+  requestPasswordReset: (uid: string) => Promise<void>;
+  confirmPasswordReset: (uid: string, code: string, newPassword: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -291,6 +293,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setTwoFactorEnabled(false);
   }, []);
 
+  const requestPasswordReset = useCallback(async (uid: string) => {
+    const res = await apiFetch("/api/auth/forgot-password", {
+      method: "POST",
+      body: JSON.stringify({ uid }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || "Failed to request password reset");
+    }
+  }, []);
+
+  const confirmPasswordReset = useCallback(async (uid: string, code: string, newPassword: string) => {
+    const res = await apiFetch("/api/auth/reset-password", {
+      method: "POST",
+      body: JSON.stringify({ uid, code, newPassword }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || "Failed to reset password");
+    }
+  }, []);
+
   return (
     <AuthContext.Provider value={{
       user,
@@ -308,6 +332,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setupTwoFactor,
       confirmTwoFactor,
       disableTwoFactor,
+      requestPasswordReset,
+      confirmPasswordReset,
     }}>
       {children}
     </AuthContext.Provider>

@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Sidebar } from "@/components/layout/Sidebar";
+import { Footer } from "@/components/layout/Footer";
 import { DataInit } from "@/components/DataInit";
 import { SessionWarningModal } from "@/components/ui/SessionWarningModal";
 import { LockScreen } from "@/components/ui/LockScreen";
@@ -43,7 +44,10 @@ export default function AppShellLayout({ children }: { children: React.ReactNode
     <div className="flex min-h-screen bg-surface dark:bg-navy-dark">
       <DataInit />
       <Sidebar />
-      <div className="flex min-w-0 flex-1 flex-col">{children}</div>
+      <div className="flex min-w-0 flex-1 flex-col">
+        {children}
+        <Footer />
+      </div>
       <SessionWarningModal
         isOpen={sessionTimeoutWarning}
         onDismiss={dismissTimeoutWarning}
