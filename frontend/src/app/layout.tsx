@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Providers } from "./providers";
-import { SplashScreen } from "@/components/SplashScreen";
+import { Preloader } from "@/components/Preloader";
 
 export const metadata: Metadata = {
   title: "Penny Pilot",
@@ -30,7 +30,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body>
-        <SplashScreen />
+        <Preloader />
         <Providers>{children}</Providers>
       </body>
     </html>
