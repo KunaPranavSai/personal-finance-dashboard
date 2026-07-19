@@ -22,7 +22,7 @@ export async function generatePDF(data: ExportData): Promise<Buffer> {
     let y = 50;
 
     // Cover page
-    doc.fontSize(28).font("Helvetica-Bold").fillColor("#1F2A44").text("Finance Dashboard Pro", 50, y, { align: "center" });
+    doc.fontSize(28).font("Helvetica-Bold").fillColor("#1F2A44").text("Penny Pilot", 50, y, { align: "center" });
     y += 50;
     doc.fontSize(16).font("Helvetica").fillColor("#555").text("Financial Report", { align: "center" });
     y += 30;
@@ -177,7 +177,7 @@ export async function generatePDF(data: ExportData): Promise<Buffer> {
     for (let i = 0; i < totalPages; i++) {
       doc.switchToPage(i);
       doc.fontSize(8).fillColor("#999");
-      doc.text(`Finance Dashboard Pro - Page ${i + 1} of ${totalPages}`, 50, doc.page.height - 40, { align: "center", width: pageWidth });
+      doc.text(`Penny Pilot - Page ${i + 1} of ${totalPages}`, 50, doc.page.height - 40, { align: "center", width: pageWidth });
     }
 
     doc.end();

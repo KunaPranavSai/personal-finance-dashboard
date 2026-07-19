@@ -1,8 +1,10 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
+import { getSessionVersion } from "../lib/sessionVersion";
 
 export interface AuthPayload {
   uid: string;
+  sv: number;
   iat?: number;
   exp?: number;
 }
@@ -28,6 +30,10 @@ export function authenticate(req: Request, res: Response, next: NextFunction): v
   try {
     const secret = process.env.JWT_ACCESS_SECRET ?? "pfd-access-secret";
     const payload = jwt.verify(token, secret) as AuthPayload;
+    if (payload.sv !== getSessionVersion()) {
+      res.status(401).json({ error: "Session ended: you were signed in elsewhere" });
+      return;
+    }
     req.auth = payload;
     next();
   } catch {

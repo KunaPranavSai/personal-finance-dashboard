@@ -2,8 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+import Image from "next/image";
 import { useAuth } from "@/lib/AuthContext";
-import { Eye, EyeOff, TrendingUp, Shield, Lock } from "lucide-react";
+import { Footer } from "@/components/layout/Footer";
+import { Eye, EyeOff, Shield, Lock } from "lucide-react";
 
 export default function LoginPage() {
   const { login, verifyLogin2FA, isAuthenticated, isLoading } = useAuth();
@@ -74,11 +77,9 @@ export default function LoginPage() {
       <div className="relative w-full max-w-md">
         {/* Logo / Brand */}
         <div className="mb-8 flex flex-col items-center gap-3 text-center">
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-teal to-teal/70 shadow-lg shadow-teal/25">
-            <TrendingUp className="h-8 w-8 text-white" />
-          </div>
+          <Image src="/logo.png" alt="Penny Pilot" width={64} height={64} className="h-16 w-16 rounded-2xl object-cover shadow-lg shadow-teal/25" />
           <div>
-            <h1 className="text-2xl font-bold text-white">Finance Dashboard Pro</h1>
+            <h1 className="text-2xl font-bold text-white">Penny Pilot</h1>
             <p className="mt-1 text-sm text-white/50">Sign in to manage your finances</p>
           </div>
         </div>
@@ -183,6 +184,11 @@ export default function LoginPage() {
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
+              <div className="mt-2 text-right">
+                <Link href="/forgot-password" className="text-xs text-white/40 hover:text-white/60 transition-colors">
+                  Forgot password?
+                </Link>
+              </div>
             </div>
 
             {/* Error */}
@@ -221,9 +227,7 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <p className="mt-4 text-center text-xs text-white/20">
-          Personal Finance Dashboard Pro © {new Date().getFullYear()}
-        </p>
+        <Footer variant="dark" />
       </div>
     </div>
   );

@@ -370,7 +370,7 @@ function CategoryFormModal({ onClose, onSave, isPending, error }: {
           </div>
           <div>
             <label className="text-xs font-medium text-navy/60 dark:text-white/60">Type</label>
-            <select {...register("type")} className="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 text-sm dark:bg-white/5">
+            <select {...register("type")} className="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
               <option value="EXPENSE">Expense</option>
               <option value="INCOME">Income</option>
             </select>

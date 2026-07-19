@@ -248,13 +248,13 @@ export default function ProfilePage() {
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div>
                       <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Currency</label>
-                      <select {...register("currency")} disabled={!editing} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm disabled:opacity-60 dark:border-white/10">
+                      <select {...register("currency")} disabled={!editing} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm disabled:opacity-60 dark:border-white/10 dark:bg-navy-dark dark:text-white">
                         {CURRENCIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
                       </select>
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Timezone</label>
-                      <select {...register("timezone")} disabled={!editing} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm disabled:opacity-60 dark:border-white/10">
+                      <select {...register("timezone")} disabled={!editing} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm disabled:opacity-60 dark:border-white/10 dark:bg-navy-dark dark:text-white">
                         {TIMEZONES.map((t) => <option key={t} value={t}>{t}</option>)}
                       </select>
                     </div>
@@ -262,7 +262,7 @@ export default function ProfilePage() {
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div>
                       <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Language</label>
-                      <select {...register("language")} disabled={!editing} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm disabled:opacity-60 dark:border-white/10">
+                      <select {...register("language")} disabled={!editing} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm disabled:opacity-60 dark:border-white/10 dark:bg-navy-dark dark:text-white">
                         {LANGUAGES.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}
                       </select>
                     </div>
@@ -280,13 +280,13 @@ export default function ProfilePage() {
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div>
                       <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Risk Appetite</label>
-                      <select {...register("riskAppetite")} disabled={!editing} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm disabled:opacity-60 dark:border-white/10">
+                      <select {...register("riskAppetite")} disabled={!editing} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm disabled:opacity-60 dark:border-white/10 dark:bg-navy-dark dark:text-white">
                         {RISK_APPETITE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                       </select>
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Investment Experience</label>
-                      <select {...register("investmentExperience")} disabled={!editing} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm disabled:opacity-60 dark:border-white/10">
+                      <select {...register("investmentExperience")} disabled={!editing} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm disabled:opacity-60 dark:border-white/10 dark:bg-navy-dark dark:text-white">
                         {INVESTMENT_EXPERIENCE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                       </select>
                     </div>
@@ -318,7 +318,7 @@ export default function ProfilePage() {
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div>
                       <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Risk Tolerance</label>
-                      <select {...register("financialPreferences.riskTolerance")} disabled={!editing} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm disabled:opacity-60 dark:border-white/10">
+                      <select {...register("financialPreferences.riskTolerance")} disabled={!editing} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm disabled:opacity-60 dark:border-white/10 dark:bg-navy-dark dark:text-white">
                         <option value="low">Low</option>
                         <option value="moderate">Moderate</option>
                         <option value="high">High</option>
@@ -326,7 +326,7 @@ export default function ProfilePage() {
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Budget Method</label>
-                      <select {...register("financialPreferences.budgetMethod")} disabled={!editing} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm disabled:opacity-60 dark:border-white/10">
+                      <select {...register("financialPreferences.budgetMethod")} disabled={!editing} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm disabled:opacity-60 dark:border-white/10 dark:bg-navy-dark dark:text-white">
                         <option value="envelope">Envelope</option>
                         <option value="zero-based">Zero-Based</option>
                         <option value="50-30-20">50/30/20</option>

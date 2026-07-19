@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, ArrowLeftRight, Wallet, PiggyBank, Target,
@@ -152,12 +153,9 @@ export function Sidebar() {
       >
         <div className="mb-6 flex items-center justify-between px-3">
           <Link href="/dashboard" className="flex items-center gap-2" onClick={closeSidebar}>
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-teal text-sm font-bold text-white">
-              ₹
-            </div>
+            <Image src="/logo.png" alt="Penny Pilot" width={32} height={32} className="h-8 w-8 shrink-0 rounded-lg object-cover" />
             <div className="min-w-0">
-              <p className="truncate text-sm font-bold leading-tight text-navy dark:text-white">Finance Dashboard</p>
-              <p className="text-[11px] leading-tight text-navy/40 dark:text-white/40">Pro</p>
+              <p className="truncate text-sm font-bold leading-tight text-navy dark:text-white">Penny Pilot</p>
             </div>
           </Link>
           {sidebarToggle}

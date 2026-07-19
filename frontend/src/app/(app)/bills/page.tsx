@@ -85,7 +85,7 @@ function BillModal({ open, editing, onClose }: {
             {errors.name && <p className="text-xs text-red-500">{errors.name.message}</p>}
           </div>
           <div><label className="text-xs text-navy/50 dark:text-white/50">Type *</label>
-            <select {...register("type")} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10">
+            <select {...register("type")} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
               {BILL_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
@@ -220,11 +220,11 @@ export default function BillsPage() {
                   <Search className="h-3.5 w-3.5 text-navy/40" />
                   <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search..." className="w-24 bg-transparent text-xs outline-none placeholder:text-navy/30 dark:text-white" />
                 </div>
-                <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="rounded-lg border border-black/10 px-2 py-1 text-xs dark:border-white/10 dark:bg-white/5">
+                <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="rounded-lg border border-black/10 px-2 py-1 text-xs dark:border-white/10 dark:bg-navy-dark dark:text-white">
                   <option value="">All Types</option>
                   {BILL_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
                 </select>
-                <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)} className="rounded-lg border border-black/10 px-2 py-1 text-xs dark:border-white/10 dark:bg-white/5">
+                <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)} className="rounded-lg border border-black/10 px-2 py-1 text-xs dark:border-white/10 dark:bg-navy-dark dark:text-white">
                   <option value="all">All Status</option>
                   <option value="paid">Paid</option>
                   <option value="overdue">Overdue</option>

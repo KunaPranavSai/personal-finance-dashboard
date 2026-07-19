@@ -346,13 +346,13 @@ function SettingsContent() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Default Dashboard</label>
-                  <select value={String(s.defaultDashboard ?? "dashboard")} onChange={(e) => handleChange("defaultDashboard", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10">
+                  <select value={String(s.defaultDashboard ?? "dashboard")} onChange={(e) => handleChange("defaultDashboard", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
                     {DEFAULT_DASHBOARDS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
                   </select>
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Startup Preference</label>
-                  <select value={String(s.startupPreferences ?? "last-viewed")} onChange={(e) => handleChange("startupPreferences", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10">
+                  <select value={String(s.startupPreferences ?? "last-viewed")} onChange={(e) => handleChange("startupPreferences", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
                     {STARTUP_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
                 </div>
@@ -360,13 +360,13 @@ function SettingsContent() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Date Format</label>
-                  <select value={String(s.dateFormat ?? "DD-MM-YYYY")} onChange={(e) => handleChange("dateFormat", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10">
+                  <select value={String(s.dateFormat ?? "DD-MM-YYYY")} onChange={(e) => handleChange("dateFormat", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
                     {DATE_FORMATS.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
                   </select>
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Time Format</label>
-                  <select value={String(s.timeFormat ?? "24h")} onChange={(e) => handleChange("timeFormat", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10">
+                  <select value={String(s.timeFormat ?? "24h")} onChange={(e) => handleChange("timeFormat", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
                     <option value="24h">24-Hour</option>
                     <option value="12h">12-Hour (AM/PM)</option>
                   </select>
@@ -375,13 +375,13 @@ function SettingsContent() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Timezone</label>
-                  <select value={String(s.timezone ?? "Asia/Kolkata")} onChange={(e) => handleChange("timezone", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10">
+                  <select value={String(s.timezone ?? "Asia/Kolkata")} onChange={(e) => handleChange("timezone", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
                     {TIMEZONES.map((t) => <option key={t} value={t}>{t}</option>)}
                   </select>
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">First Day of Week</label>
-                  <select value={String(s.firstDayOfWeek ?? "monday")} onChange={(e) => handleChange("firstDayOfWeek", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10">
+                  <select value={String(s.firstDayOfWeek ?? "monday")} onChange={(e) => handleChange("firstDayOfWeek", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
                     {FIRST_DAY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
                 </div>
@@ -389,7 +389,7 @@ function SettingsContent() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Language</label>
-                  <select value={String(s.language ?? "en")} onChange={(e) => handleChange("language", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10">
+                  <select value={String(s.language ?? "en")} onChange={(e) => handleChange("language", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
                     {LANGUAGES.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}
                   </select>
                 </div>
@@ -433,7 +433,7 @@ function SettingsContent() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Currency</label>
-                  <select value={String(s.currency ?? "INR")} onChange={(e) => { handleChange("currency", e.target.value); handleChange("currencySymbol", e.target.value); }} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10">
+                  <select value={String(s.currency ?? "INR")} onChange={(e) => { handleChange("currency", e.target.value); handleChange("currencySymbol", e.target.value); }} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
                     {CURRENCIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
                   </select>
                   <p className="mt-1 text-xs text-navy/40 dark:text-white/40">All monetary values update instantly across the app.</p>
@@ -446,13 +446,13 @@ function SettingsContent() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Number Format</label>
-                  <select value={String(s.numberFormat ?? "1,234.56")} onChange={(e) => handleChange("numberFormat", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10">
+                  <select value={String(s.numberFormat ?? "1,234.56")} onChange={(e) => handleChange("numberFormat", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
                     {NUMBER_FORMATS.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
                   </select>
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">First Day of Week</label>
-                  <select value={String(s.firstDayOfWeek ?? "monday")} onChange={(e) => handleChange("firstDayOfWeek", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10">
+                  <select value={String(s.firstDayOfWeek ?? "monday")} onChange={(e) => handleChange("firstDayOfWeek", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
                     {FIRST_DAY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
                 </div>
@@ -460,13 +460,13 @@ function SettingsContent() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Timezone</label>
-                  <select value={String(s.timezone ?? "Asia/Kolkata")} onChange={(e) => handleChange("timezone", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10">
+                  <select value={String(s.timezone ?? "Asia/Kolkata")} onChange={(e) => handleChange("timezone", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
                     {TIMEZONES.map((t) => <option key={t} value={t}>{t}</option>)}
                   </select>
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Date Format</label>
-                  <select value={String(s.dateFormat ?? "DD-MM-YYYY")} onChange={(e) => handleChange("dateFormat", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10">
+                  <select value={String(s.dateFormat ?? "DD-MM-YYYY")} onChange={(e) => handleChange("dateFormat", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
                     {DATE_FORMATS.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
                   </select>
                 </div>
@@ -474,7 +474,7 @@ function SettingsContent() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Time Format</label>
-                  <select value={String(s.timeFormat ?? "24h")} onChange={(e) => handleChange("timeFormat", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10">
+                  <select value={String(s.timeFormat ?? "24h")} onChange={(e) => handleChange("timeFormat", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
                     <option value="24h">24-Hour</option>
                     <option value="12h">12-Hour (AM/PM)</option>
                   </select>
@@ -504,7 +504,7 @@ function SettingsContent() {
               </div>
               <div>
                 <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Reminder Frequency</label>
-                <select value={String(notifs.reminderFrequency ?? "daily")} onChange={(e) => handleNestedChange("notifications", "reminderFrequency", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10">
+                <select value={String(notifs.reminderFrequency ?? "daily")} onChange={(e) => handleNestedChange("notifications", "reminderFrequency", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
                   {REMINDER_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
               </div>
@@ -558,9 +558,32 @@ function SettingsContent() {
               </div>
               <div>
                 <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Auto Lock</label>
-                <select value={String(sec.autoLock ?? "15")} onChange={(e) => handleNestedChange("security", "autoLock", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10">
-                  {AUTO_LOCK_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                </select>
+                {(() => {
+                  const autoLockValue = String(sec.autoLock ?? "15");
+                  const isPreset = AUTO_LOCK_OPTIONS.some((o) => o.value === autoLockValue);
+                  return (
+                    <>
+                      <select
+                        value={isPreset ? autoLockValue : "custom"}
+                        onChange={(e) => handleNestedChange("security", "autoLock", e.target.value === "custom" ? "10" : e.target.value)}
+                        className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white"
+                      >
+                        {AUTO_LOCK_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                        <option value="custom">Custom…</option>
+                      </select>
+                      {!isPreset && (
+                        <input
+                          type="number"
+                          min={1}
+                          value={Number(autoLockValue) || 1}
+                          onChange={(e) => handleNestedChange("security", "autoLock", String(Math.max(1, Number(e.target.value))))}
+                          placeholder="Minutes"
+                          className="mt-2 w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10"
+                        />
+                      )}
+                    </>
+                  );
+                })()}
               </div>
               <div className="pt-2">
                 <Button onClick={handleSave} disabled={isSaving}><Save className="h-4 w-4" /> {isSaving ? "Saving..." : "Save Settings"}</Button>
@@ -584,7 +607,7 @@ function SettingsContent() {
               </label>
               <div>
                 <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Backup Frequency</label>
-                <select value={String(backup.backupFrequency ?? "weekly")} onChange={(e) => handleNestedChange("backup", "backupFrequency", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10">
+                <select value={String(backup.backupFrequency ?? "weekly")} onChange={(e) => handleNestedChange("backup", "backupFrequency", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
                   <option value="daily">Daily</option>
                   <option value="weekly">Weekly</option>
                   <option value="monthly">Monthly</option>
@@ -635,7 +658,7 @@ function SettingsContent() {
             <CardContent className="space-y-4">
               <div>
                 <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Default Dashboard</label>
-                <select value={String(pref.defaultCharts ?? "income-expense")} onChange={(e) => handleNestedChange("preferences", "defaultCharts", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10">
+                <select value={String(pref.defaultCharts ?? "income-expense")} onChange={(e) => handleNestedChange("preferences", "defaultCharts", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
                   <option value="income-expense">Income vs Expense</option>
                   <option value="category-breakdown">Category Breakdown</option>
                   <option value="net-worth">Net Worth</option>
@@ -643,7 +666,7 @@ function SettingsContent() {
               </div>
               <div>
                 <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Default Filters</label>
-                <select value={String(pref.defaultFilters ?? "all")} onChange={(e) => handleNestedChange("preferences", "defaultFilters", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10">
+                <select value={String(pref.defaultFilters ?? "all")} onChange={(e) => handleNestedChange("preferences", "defaultFilters", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
                   <option value="all">All Transactions</option>
                   <option value="income">Income Only</option>
                   <option value="expense">Expense Only</option>
@@ -666,7 +689,7 @@ function SettingsContent() {
               </div>
               <div>
                 <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Default Transaction Type</label>
-                <select value={String(pref.defaultTransactionType ?? "EXPENSE")} onChange={(e) => handleNestedChange("preferences", "defaultTransactionType", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10">
+                <select value={String(pref.defaultTransactionType ?? "EXPENSE")} onChange={(e) => handleNestedChange("preferences", "defaultTransactionType", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
                   <option value="EXPENSE">Expense</option>
                   <option value="INCOME">Income</option>
                 </select>

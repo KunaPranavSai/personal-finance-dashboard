@@ -69,7 +69,7 @@ function GoalModal({ open, editing, onClose }: {
             {errors.name && <p className="text-xs text-red-500">{errors.name.message}</p>}
           </div>
           <div><label className="text-xs text-navy/50 dark:text-white/50">Category *</label>
-            <select {...register("category")} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10">
+            <select {...register("category")} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
               <option value="">Select category…</option>
               {GOAL_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>

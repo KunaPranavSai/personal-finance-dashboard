@@ -45,7 +45,7 @@ export function BudgetFormModal({
         <form onSubmit={handleSubmit((v) => mutation.mutate(v))} className="mt-4 space-y-4">
           <div>
             <label className="text-xs font-medium text-navy/60 dark:text-white/60">Category</label>
-            <select {...register("categoryId")} className="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 text-sm dark:bg-white/5">
+            <select {...register("categoryId")} className="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
               <option value="">{isLoading ? "Loading…" : "Select…"}</option>
               {(categories?.items ?? []).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>

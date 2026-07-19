@@ -57,7 +57,7 @@ export function TransactionsTable({ onEdit }: { onEdit: (tx: Transaction) => voi
         <select
           value={type}
           onChange={(e) => { setType(e.target.value as any); setPage(1); }}
-          className="rounded-lg border border-black/10 px-3 py-2 text-sm dark:border-white/10 dark:bg-white/5"
+          className="rounded-lg border border-black/10 px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white"
         >
           <option value="">All Types</option>
           <option value="INCOME">Income</option>

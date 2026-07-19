@@ -1,7 +1,7 @@
 {
-  "name": "pfd-pro-backend",
+  "name": "penny-pilot-backend",
   "version": "1.0.0",
-  "description": "Personal Finance Dashboard Pro - API",
+  "description": "Penny Pilot - API",
   "main": "dist/src/index.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
@@ -33,6 +33,7 @@
     "otplib": "^13.4.1",
     "pdfkit": "^0.19.1",
     "qrcode": "^1.5.4",
+    "resend": "^6.17.2",
     "zod": "^4.4.3"
   },
   "devDependencies": {

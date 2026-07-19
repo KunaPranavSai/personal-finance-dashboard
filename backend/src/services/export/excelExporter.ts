@@ -68,7 +68,7 @@ function addSheet(workbook: ExcelJS.Workbook, name: string, columns: { header: s
 
 export async function generateExcel(data: ExportData): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook();
-  workbook.creator = "Finance Dashboard Pro";
+  workbook.creator = "Penny Pilot";
   workbook.created = new Date();
 
   addSheet(workbook, "Transactions", [

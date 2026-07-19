@@ -70,7 +70,7 @@ function InvestmentModal({ open, editing, onClose }: {
             {errors.instrument && <p className="text-xs text-red-500">{errors.instrument.message}</p>}
           </div>
           <div><label className="text-xs text-navy/50 dark:text-white/50">Category *</label>
-            <select {...register("category")} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10">
+            <select {...register("category")} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
               <option value="">Select category…</option>
               {INVESTMENT_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
@@ -183,7 +183,7 @@ export default function InvestmentsPage() {
                   <Search className="h-3.5 w-3.5 text-navy/40" />
                   <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search..." className="w-28 bg-transparent text-xs outline-none placeholder:text-navy/30 dark:text-white" />
                 </div>
-                <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} className="rounded-lg border border-black/10 px-2 py-1 text-xs dark:border-white/10 dark:bg-white/5">
+                <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} className="rounded-lg border border-black/10 px-2 py-1 text-xs dark:border-white/10 dark:bg-navy-dark dark:text-white">
                   <option value="">All Categories</option>
                   {INVESTMENT_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>

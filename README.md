@@ -1,8 +1,8 @@
-# Personal Finance Dashboard Pro
+# Penny Pilot
 
 A modern personal finance management web app: Next.js 15 + TypeScript frontend,
 Express + Prisma + PostgreSQL backend. Built to replace the Excel-based
-Personal Finance Dashboard Pro workbook with a real SaaS-style application.
+personal finance workbook with a real SaaS-style application.
 
 ## What's implemented in this pass
 

@@ -58,7 +58,7 @@ export async function ensureReferenceData(): Promise<void> {
   await prisma.notification.create({
     data: {
       type: "insight",
-      title: "Welcome to Finance Dashboard Pro",
+      title: "Welcome to Penny Pilot",
       message: "Start by adding your transactions and setting up budgets.",
     },
   });

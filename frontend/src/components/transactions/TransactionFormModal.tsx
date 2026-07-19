@@ -101,7 +101,7 @@ export function TransactionFormModal({
         >
           <div className="col-span-1">
             <label className="text-xs font-medium text-navy/60 dark:text-white/60">Type</label>
-            <select {...register("type")} className="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 text-sm dark:bg-white/5">
+            <select {...register("type")} className="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
               {ENTRY_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
             </select>
           </div>
@@ -126,7 +126,7 @@ export function TransactionFormModal({
 
           <div className="col-span-1">
             <label className="text-xs font-medium text-navy/60 dark:text-white/60">Category</label>
-            <select {...register("categoryId")} className="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 text-sm dark:bg-white/5">
+            <select {...register("categoryId")} className="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
               <option value="">{catLoading ? "Loading…" : "Select…"}</option>
               {filteredCategories.map((c) => (
                 <option key={c.id} value={c.id}>{c.name}</option>
@@ -137,7 +137,7 @@ export function TransactionFormModal({
 
           <div className="col-span-1">
             <label className="text-xs font-medium text-navy/60 dark:text-white/60">Account</label>
-            <select {...register("accountId")} className="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 text-sm dark:bg-white/5">
+            <select {...register("accountId")} className="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
               <option value="">{accLoading ? "Loading…" : "None"}</option>
               {(accounts?.items ?? []).map((a) => (
                 <option key={a.id} value={a.id}>{a.name}</option>
@@ -147,7 +147,7 @@ export function TransactionFormModal({
 
           <div className="col-span-1">
             <label className="text-xs font-medium text-navy/60 dark:text-white/60">Payment Method</label>
-            <select {...register("paymentMethodTypeId")} className="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 text-sm dark:bg-white/5">
+            <select {...register("paymentMethodTypeId")} className="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
               <option value="">{pmLoading ? "Loading…" : "None"}</option>
               {(paymentMethods?.items ?? []).map((pm) => (
                 <option key={pm.id} value={pm.id}>{pm.name}</option>
