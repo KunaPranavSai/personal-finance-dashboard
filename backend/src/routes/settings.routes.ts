@@ -62,7 +62,7 @@ function deepMerge(target: Record<string, unknown>, source: Record<string, unkno
   for (const [key, value] of Object.entries(source)) {
     if (value !== null && typeof value === "object" && !Array.isArray(value) && typeof result[key] === "object" && result[key] !== null) {
       result[key] = deepMerge(result[key] as Record<string, unknown>, value as Record<string, unknown>);
-    } else if (!(key in result)) {
+    } else {
       result[key] = value;
     }
   }
@@ -85,7 +85,7 @@ async function getOrCreateSettings(): Promise<Record<string, unknown>> {
 
 async function updateSettings(data: Record<string, unknown>): Promise<Record<string, unknown>> {
   const current = await getOrCreateSettings();
-  const merged = { ...current, ...data };
+  const merged = deepMerge(current, data);
   await prisma.appSettings.upsert({
     where: { id: "singleton" },
     update: { data: merged as object },
@@ -96,13 +96,23 @@ async function updateSettings(data: Record<string, unknown>): Promise<Record<str
 
 const updateSettingsSchema = z.object({}).passthrough();
 
+/** Strip internal (double-underscore-prefixed) fields such as password hashes and 2FA secrets before returning settings to the client. */
+function stripInternal(data: Record<string, unknown>): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(data)) {
+    if (key.startsWith("__")) continue;
+    result[key] = value;
+  }
+  return result;
+}
+
 const router = Router();
 
 router.get(
   "/",
   asyncHandler(async (_req, res) => {
     const settings = await getOrCreateSettings();
-    res.json(settings);
+    res.json(stripInternal(settings));
   })
 );
 
@@ -111,7 +121,7 @@ router.patch(
   asyncHandler(async (req, res) => {
     const data = updateSettingsSchema.parse(req.body);
     const updated = await updateSettings(data);
-    res.json(updated);
+    res.json(stripInternal(updated));
   })
 );
 

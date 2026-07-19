@@ -1,11 +1,23 @@
 import { Router, Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import crypto from "crypto";
+import rateLimit from "express-rate-limit";
+import { generateSecret, generateURI, verify as verifyTotp } from "otplib";
+import QRCode from "qrcode";
 import { asyncHandler } from "../utils/asyncHandler";
 import { prisma } from "../lib/prisma";
 import { authenticate, AuthPayload } from "../middleware/auth";
 
 const router = Router();
+
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many attempts. Please try again later." },
+});
 
 const ACCESS_SECRET = process.env.JWT_ACCESS_SECRET ?? "pfd-access-secret";
 const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET ?? "pfd-refresh-secret";
@@ -51,9 +63,66 @@ async function getStoredPasswordHash(): Promise<string> {
   return hash;
 }
 
+interface SecurityState {
+  twoFactorEnabled: boolean;
+  twoFactorSecret?: string;
+  twoFactorPendingSecret?: string;
+  twoFactorBackupCodes: string[];
+}
+
+async function getAppSettingsData(): Promise<Record<string, unknown>> {
+  const rec = await prisma.appSettings.findUnique({ where: { id: "singleton" } });
+  return (rec?.data ?? {}) as Record<string, unknown>;
+}
+
+async function patchAppSettingsData(patch: Record<string, unknown>): Promise<void> {
+  const data = await getAppSettingsData();
+  const merged = { ...data, ...patch };
+  await prisma.appSettings.upsert({
+    where: { id: "singleton" },
+    create: { id: "singleton", data: merged as object },
+    update: { data: merged as object },
+  });
+}
+
+async function getSecurityState(): Promise<SecurityState> {
+  const data = await getAppSettingsData();
+  return {
+    twoFactorEnabled: data.__twoFactorEnabled === true,
+    twoFactorSecret: typeof data.__twoFactorSecret === "string" ? data.__twoFactorSecret : undefined,
+    twoFactorPendingSecret: typeof data.__twoFactorPendingSecret === "string" ? data.__twoFactorPendingSecret : undefined,
+    twoFactorBackupCodes: Array.isArray(data.__twoFactorBackupCodes) ? (data.__twoFactorBackupCodes as string[]) : [],
+  };
+}
+
+function generateBackupCodes(count = 8): string[] {
+  return Array.from({ length: count }, () => crypto.randomBytes(5).toString("hex"));
+}
+
+/** Verify a 2FA code against the TOTP secret, falling back to (and consuming) a backup code. Returns true if valid. */
+async function verifyTwoFactorCode(security: SecurityState, code: string): Promise<boolean> {
+  if (!security.twoFactorSecret) return false;
+  if (/^\d{6}$/.test(code)) {
+    const { valid } = await verifyTotp({ secret: security.twoFactorSecret, token: code });
+    if (valid) return true;
+  }
+
+  for (const hashedCode of security.twoFactorBackupCodes) {
+    if (await bcrypt.compare(code, hashedCode)) {
+      const remaining = security.twoFactorBackupCodes.filter((c) => c !== hashedCode);
+      await patchAppSettingsData({ __twoFactorBackupCodes: remaining });
+      return true;
+    }
+  }
+  return false;
+}
+
+const CHALLENGE_TOKEN_TTL = 5 * 60; // 5 minutes
+
 // ─── POST /api/auth/login ────────────────────────────────────────────────────
 router.post(
   "/login",
+  loginLimiter,
   asyncHandler(async (req: Request, res: Response) => {
     const { uid, password } = req.body as { uid?: string; password?: string };
     if (!uid || !password) {
@@ -70,10 +139,168 @@ router.post(
       res.status(401).json({ error: "Invalid credentials" });
       return;
     }
+
+    const security = await getSecurityState();
+    if (security.twoFactorEnabled) {
+      const challengeToken = jwt.sign({ uid, twoFactor: true }, ACCESS_SECRET, { expiresIn: CHALLENGE_TOKEN_TTL });
+      res.json({ requires2FA: true, challengeToken });
+      return;
+    }
+
     const accessToken = signAccess(uid);
     const refreshToken = signRefresh(uid);
     setTokenCookies(res, accessToken, refreshToken);
     res.json({ user: { uid, name: "Admin" } });
+  })
+);
+
+// ─── POST /api/auth/2fa/login-verify ─────────────────────────────────────────
+router.post(
+  "/2fa/login-verify",
+  loginLimiter,
+  asyncHandler(async (req: Request, res: Response) => {
+    const { challengeToken, code } = req.body as { challengeToken?: string; code?: string };
+    if (!challengeToken || !code) {
+      res.status(400).json({ error: "Challenge token and code are required" });
+      return;
+    }
+    let payload: AuthPayload & { twoFactor?: boolean };
+    try {
+      payload = jwt.verify(challengeToken, ACCESS_SECRET) as AuthPayload & { twoFactor?: boolean };
+    } catch {
+      res.status(401).json({ error: "Invalid or expired challenge. Please log in again." });
+      return;
+    }
+    if (!payload.twoFactor) {
+      res.status(401).json({ error: "Invalid challenge" });
+      return;
+    }
+    const security = await getSecurityState();
+    const valid = await verifyTwoFactorCode(security, code);
+    if (!valid) {
+      res.status(401).json({ error: "Invalid verification code" });
+      return;
+    }
+    const accessToken = signAccess(payload.uid);
+    const refreshToken = signRefresh(payload.uid);
+    setTokenCookies(res, accessToken, refreshToken);
+    res.json({ user: { uid: payload.uid, name: "Admin" } });
+  })
+);
+
+// ─── GET /api/auth/2fa/status ────────────────────────────────────────────────
+router.get(
+  "/2fa/status",
+  authenticate,
+  asyncHandler(async (_req: Request, res: Response) => {
+    const security = await getSecurityState();
+    res.json({ enabled: security.twoFactorEnabled });
+  })
+);
+
+// ─── POST /api/auth/2fa/setup ────────────────────────────────────────────────
+router.post(
+  "/2fa/setup",
+  authenticate,
+  asyncHandler(async (req: Request, res: Response) => {
+    const secret = generateSecret();
+    const otpauth = generateURI({ strategy: "totp", issuer: "Finance Dashboard Pro", label: req.auth!.uid, secret });
+    const qrCode = await QRCode.toDataURL(otpauth);
+    await patchAppSettingsData({ __twoFactorPendingSecret: secret });
+    res.json({ secret, qrCode });
+  })
+);
+
+// ─── POST /api/auth/2fa/verify ───────────────────────────────────────────────
+router.post(
+  "/2fa/verify",
+  authenticate,
+  asyncHandler(async (req: Request, res: Response) => {
+    const { code } = req.body as { code?: string };
+    if (!code) {
+      res.status(400).json({ error: "Code is required" });
+      return;
+    }
+    const security = await getSecurityState();
+    if (!security.twoFactorPendingSecret) {
+      res.status(400).json({ error: "No pending 2FA setup. Start setup again." });
+      return;
+    }
+    if (!/^\d{6}$/.test(code)) {
+      res.status(401).json({ error: "Invalid verification code" });
+      return;
+    }
+    const { valid } = await verifyTotp({ secret: security.twoFactorPendingSecret, token: code });
+    if (!valid) {
+      res.status(401).json({ error: "Invalid verification code" });
+      return;
+    }
+    const backupCodes = generateBackupCodes();
+    const hashedBackupCodes = await Promise.all(backupCodes.map((c) => bcrypt.hash(c, 10)));
+    await patchAppSettingsData({
+      __twoFactorEnabled: true,
+      __twoFactorSecret: security.twoFactorPendingSecret,
+      __twoFactorPendingSecret: null,
+      __twoFactorBackupCodes: hashedBackupCodes,
+    });
+    res.json({ ok: true, backupCodes });
+  })
+);
+
+// ─── POST /api/auth/2fa/disable ──────────────────────────────────────────────
+router.post(
+  "/2fa/disable",
+  authenticate,
+  asyncHandler(async (req: Request, res: Response) => {
+    const { password, code } = req.body as { password?: string; code?: string };
+    if (!password || !code) {
+      res.status(400).json({ error: "Password and verification code are required" });
+      return;
+    }
+    const hash = await getStoredPasswordHash();
+    const validPassword = await bcrypt.compare(password, hash);
+    if (!validPassword) {
+      res.status(401).json({ error: "Incorrect password" });
+      return;
+    }
+    const security = await getSecurityState();
+    if (!security.twoFactorEnabled) {
+      res.status(400).json({ error: "2FA is not enabled" });
+      return;
+    }
+    const validCode = await verifyTwoFactorCode(security, code);
+    if (!validCode) {
+      res.status(401).json({ error: "Invalid verification code" });
+      return;
+    }
+    await patchAppSettingsData({
+      __twoFactorEnabled: false,
+      __twoFactorSecret: null,
+      __twoFactorPendingSecret: null,
+      __twoFactorBackupCodes: [],
+    });
+    res.json({ ok: true });
+  })
+);
+
+// ─── POST /api/auth/verify-password ─────────────────────────────────────────
+router.post(
+  "/verify-password",
+  loginLimiter,
+  authenticate,
+  asyncHandler(async (req: Request, res: Response) => {
+    const { password } = req.body as { password?: string };
+    if (!password) {
+      res.status(400).json({ error: "Password is required" });
+      return;
+    }
+    const hash = await getStoredPasswordHash();
+    const valid = await bcrypt.compare(password, hash);
+    if (!valid) {
+      res.status(401).json({ error: "Incorrect password" });
+      return;
+    }
+    res.json({ ok: true });
   })
 );
 

@@ -1,5 +1,4 @@
 export type EntryType = "INCOME" | "EXPENSE";
-export type PaymentMethod = "CASH" | "UPI" | "CREDIT_CARD" | "DEBIT_CARD" | "NET_BANKING" | "WALLET";
 export type FixedVariable = "FIXED" | "VARIABLE";
 export type Essentiality = "ESSENTIAL" | "NON_ESSENTIAL";
 export type BudgetPeriod = "MONTHLY" | "QUARTERLY" | "YEARLY";
@@ -23,6 +22,11 @@ export interface Account {
   name: string;
 }
 
+export interface PaymentMethodType {
+  id: string;
+  name: string;
+}
+
 export interface Transaction {
   id: string;
   date: string;
@@ -36,7 +40,8 @@ export interface Transaction {
   merchant?: string | null;
   account?: Account | null;
   accountId?: string | null;
-  paymentMethod?: PaymentMethod | null;
+  paymentMethodType?: PaymentMethodType | null;
+  paymentMethodTypeId?: string | null;
   location?: string | null;
   tags: string[];
   notes?: string | null;
@@ -138,7 +143,9 @@ export interface SavingsSummary {
 export interface AnalyticsSummary {
   totalTransactions: number;
   averageTransaction: number;
+  averageMonthlyVolume: number;
   categoryBreakdown: { category: string; total: number; count: number }[];
+  incomeCategoryBreakdown: { category: string; total: number; count: number }[];
   monthlyTrend: { month: string; income: number; expense: number; count: number }[];
   paymentMethodBreakdown: { method: string; total: number; count: number }[];
 }

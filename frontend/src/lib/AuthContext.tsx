@@ -8,17 +8,27 @@ interface AuthUser {
   name: string;
 }
 
+interface LoginResult {
+  requires2FA: boolean;
+  challengeToken?: string;
+}
+
 interface AuthContextType {
   user: AuthUser | null;
   isLoading: boolean;
   isAuthenticated: boolean;
   sessionTimeoutWarning: boolean;
   isLocked: boolean;
-  login: (uid: string, password: string) => Promise<void>;
+  twoFactorEnabled: boolean;
+  login: (uid: string, password: string) => Promise<LoginResult>;
+  verifyLogin2FA: (challengeToken: string, code: string) => Promise<void>;
   logout: () => Promise<void>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   unlock: (password: string) => Promise<void>;
   dismissTimeoutWarning: () => void;
+  setupTwoFactor: () => Promise<{ secret: string; qrCode: string }>;
+  confirmTwoFactor: (code: string) => Promise<{ backupCodes: string[] }>;
+  disableTwoFactor: (password: string, code: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -52,6 +62,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLocked, setIsLocked] = useState(false);
   const [sessionTimeout, setSessionTimeout] = useState(30); // minutes
   const [autoLockTimeout, setAutoLockTimeout] = useState(15); // minutes
+  const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
+
+  const refreshTwoFactorStatus = useCallback(async () => {
+    try {
+      const res = await apiFetch("/api/auth/2fa/status");
+      if (res.ok) {
+        const data = await res.json();
+        setTwoFactorEnabled(Boolean(data.enabled));
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
 
   const restore = useCallback(async () => {
     try {
@@ -59,12 +82,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (res.ok) {
         const data = await res.json();
         setUser(data.user);
+        refreshTwoFactorStatus();
       } else if (res.status === 401) {
         // Try refresh
         const ref = await apiFetch("/api/auth/refresh", { method: "POST" });
         if (ref.ok) {
           const data = await ref.json();
           setUser(data.user);
+          refreshTwoFactorStatus();
         } else {
           setUser(null);
         }
@@ -74,7 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [refreshTwoFactorStatus]);
 
   useEffect(() => {
     restore();
@@ -165,7 +190,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => clearInterval(iv);
   }, [user, isLocked]);
 
-  const login = useCallback(async (uid: string, password: string) => {
+  const login = useCallback(async (uid: string, password: string): Promise<LoginResult> => {
     const res = await apiFetch("/api/auth/login", {
       method: "POST",
       body: JSON.stringify({ uid, password }),
@@ -175,7 +200,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error(data.error || "Login failed");
     }
     const data = await res.json();
+    if (data.requires2FA) {
+      return { requires2FA: true, challengeToken: data.challengeToken };
+    }
     setUser(data.user);
+    refreshTwoFactorStatus();
+    return { requires2FA: false };
+  }, [refreshTwoFactorStatus]);
+
+  const verifyLogin2FA = useCallback(async (challengeToken: string, code: string) => {
+    const res = await apiFetch("/api/auth/2fa/login-verify", {
+      method: "POST",
+      body: JSON.stringify({ challengeToken, code }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || "Verification failed");
+    }
+    const data = await res.json();
+    setUser(data.user);
+    setTwoFactorEnabled(true);
   }, []);
 
   const logout = useCallback(async () => {
@@ -212,6 +256,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLastActivity(Date.now());
   }, []);
 
+  const setupTwoFactor = useCallback(async () => {
+    const res = await apiFetch("/api/auth/2fa/setup", { method: "POST" });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || "Failed to start 2FA setup");
+    }
+    return res.json();
+  }, []);
+
+  const confirmTwoFactor = useCallback(async (code: string) => {
+    const res = await apiFetch("/api/auth/2fa/verify", {
+      method: "POST",
+      body: JSON.stringify({ code }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || "Invalid verification code");
+    }
+    const data = await res.json();
+    setTwoFactorEnabled(true);
+    return { backupCodes: data.backupCodes as string[] };
+  }, []);
+
+  const disableTwoFactor = useCallback(async (password: string, code: string) => {
+    const res = await apiFetch("/api/auth/2fa/disable", {
+      method: "POST",
+      body: JSON.stringify({ password, code }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || "Failed to disable 2FA");
+    }
+    setTwoFactorEnabled(false);
+  }, []);
+
   return (
     <AuthContext.Provider value={{
       user,
@@ -219,11 +298,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAuthenticated: !!user,
       sessionTimeoutWarning,
       isLocked,
+      twoFactorEnabled,
       login,
+      verifyLogin2FA,
       logout,
       changePassword,
       unlock,
       dismissTimeoutWarning,
+      setupTwoFactor,
+      confirmTwoFactor,
+      disableTwoFactor,
     }}>
       {children}
     </AuthContext.Provider>

@@ -6,13 +6,15 @@ import { useAuth } from "@/lib/AuthContext";
 import { Eye, EyeOff, TrendingUp, Shield, Lock } from "lucide-react";
 
 export default function LoginPage() {
-  const { login, isAuthenticated, isLoading } = useAuth();
+  const { login, verifyLogin2FA, isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
   const [uid, setUid] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [isPending, setIsPending] = useState(false);
+  const [challengeToken, setChallengeToken] = useState<string | null>(null);
+  const [code, setCode] = useState("");
 
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
@@ -25,10 +27,29 @@ export default function LoginPage() {
     setError("");
     setIsPending(true);
     try {
-      await login(uid.trim(), password);
-      router.replace("/dashboard");
+      const result = await login(uid.trim(), password);
+      if (result.requires2FA && result.challengeToken) {
+        setChallengeToken(result.challengeToken);
+      } else {
+        router.replace("/dashboard");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
+    } finally {
+      setIsPending(false);
+    }
+  };
+
+  const handleVerifyCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!challengeToken) return;
+    setError("");
+    setIsPending(true);
+    try {
+      await verifyLogin2FA(challengeToken, code.trim());
+      router.replace("/dashboard");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Verification failed");
     } finally {
       setIsPending(false);
     }
@@ -64,6 +85,61 @@ export default function LoginPage() {
 
         {/* Card */}
         <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl p-8 shadow-2xl">
+          {challengeToken ? (
+            <form onSubmit={handleVerifyCode} className="space-y-5">
+              <div>
+                <label htmlFor="code" className="block text-xs font-semibold uppercase tracking-wider text-white/50 mb-2">
+                  Verification Code
+                </label>
+                <p className="mb-3 text-xs text-white/40">Enter the 6-digit code from your authenticator app, or a backup code.</p>
+                <input
+                  id="code"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                  placeholder="123456"
+                  required
+                  autoFocus
+                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-center text-lg tracking-widest text-white placeholder:text-white/30 focus:border-teal/50 focus:outline-none focus:ring-2 focus:ring-teal/20 transition-all"
+                />
+              </div>
+
+              {error && (
+                <div className="flex items-center gap-2 rounded-lg bg-red-500/10 border border-red-500/20 px-3 py-2 text-sm text-red-400">
+                  <Shield className="h-4 w-4 shrink-0" />
+                  {error}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={isPending || !code}
+                className="w-full rounded-xl bg-gradient-to-r from-teal to-teal/80 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-teal/25 transition-all hover:from-teal/90 hover:to-teal/70 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {isPending ? (
+                  <>
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                    Verifying…
+                  </>
+                ) : (
+                  <>
+                    <Shield className="h-4 w-4" />
+                    Verify
+                  </>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { setChallengeToken(null); setCode(""); setError(""); }}
+                className="w-full text-center text-xs text-white/40 hover:text-white/60 transition-colors"
+              >
+                Back to sign in
+              </button>
+            </form>
+          ) : (
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* UID */}
             <div>
@@ -136,6 +212,7 @@ export default function LoginPage() {
               )}
             </button>
           </form>
+          )}
 
           {/* Security note */}
           <div className="mt-6 flex items-center justify-center gap-2 text-xs text-white/30">

@@ -14,13 +14,24 @@ export interface ExportData {
   dashboard: Record<string, unknown> | null;
 }
 
-export async function fetchAllExportData(): Promise<ExportData> {
+export interface ExportDateRange {
+  from?: Date;
+  to?: Date;
+}
+
+export async function fetchAllExportData(range?: ExportDateRange): Promise<ExportData> {
+  const dateFilter =
+    range?.from || range?.to
+      ? { date: { ...(range.from && { gte: range.from }), ...(range.to && { lte: range.to }) } }
+      : {};
+
   const [profileRow, settingsRow, transactions, budgets, investments, bills, goals, accounts, categories] =
     await Promise.all([
       prisma.appProfile.findUnique({ where: { id: "singleton" } }),
       prisma.appSettings.findUnique({ where: { id: "singleton" } }),
       prisma.transaction.findMany({
-        include: { category: true, account: true },
+        where: dateFilter,
+        include: { category: true, account: true, paymentMethodType: true },
         orderBy: { date: "desc" },
         take: 10000,
       }),
@@ -33,10 +44,10 @@ export async function fetchAllExportData(): Promise<ExportData> {
     ]);
 
   const totalIncome = Number(
-    (await prisma.transaction.aggregate({ where: { type: "INCOME" }, _sum: { amount: true } }))._sum.amount ?? 0
+    (await prisma.transaction.aggregate({ where: { ...dateFilter, type: "INCOME" }, _sum: { amount: true } }))._sum.amount ?? 0
   );
   const totalExpenses = Number(
-    (await prisma.transaction.aggregate({ where: { type: "EXPENSE" }, _sum: { amount: true } }))._sum.amount ?? 0
+    (await prisma.transaction.aggregate({ where: { ...dateFilter, type: "EXPENSE" }, _sum: { amount: true } }))._sum.amount ?? 0
   );
 
   const portfolioValue = investments.reduce((s, i) => s + Number(i.currentValue), 0);
@@ -44,7 +55,7 @@ export async function fetchAllExportData(): Promise<ExportData> {
   const categoriesMap = Object.fromEntries(categories.map((c) => [c.id, c.name]));
   const expenseByCategory = await prisma.transaction.groupBy({
     by: ["categoryId"],
-    where: { type: "EXPENSE" },
+    where: { ...dateFilter, type: "EXPENSE" },
     _sum: { amount: true },
     _count: true,
   });
@@ -61,7 +72,7 @@ export async function fetchAllExportData(): Promise<ExportData> {
       category: t.category ? { id: t.category.id, name: t.category.name, type: t.category.type } : null,
       account: t.account ? { id: t.account.id, name: t.account.name } : null,
       merchant: t.merchant,
-      paymentMethod: t.paymentMethod,
+      paymentMethod: t.paymentMethodType?.name ?? null,
       notes: t.notes,
     })),
     budgets: budgets.map((b) => ({

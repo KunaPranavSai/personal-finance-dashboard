@@ -101,7 +101,7 @@ export function TransactionsTable({ onEdit }: { onEdit: (tx: Transaction) => voi
                   <td className="px-4 py-3">
                     <Badge tone="teal">{tx.category?.name}</Badge>
                   </td>
-                  <td className="px-4 py-3 text-navy/60 dark:text-white/60">{tx.paymentMethod ?? "—"}</td>
+                  <td className="px-4 py-3 text-navy/60 dark:text-white/60">{tx.paymentMethodType?.name ?? "—"}</td>
                   <td className={`px-4 py-3 text-right font-semibold ${tx.type === "INCOME" ? "text-emerald-600" : "text-red-600"}`}>
                     {tx.type === "INCOME" ? "+" : "-"}{formatINR(tx.amount)}
                   </td>

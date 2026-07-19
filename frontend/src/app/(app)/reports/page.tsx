@@ -19,15 +19,17 @@ export default function ReportsPage() {
   const cur = settings.currency;
   const [tab, setTab] = useState<"monthly" | "categories" | "budgets">("monthly");
   const [exporting, setExporting] = useState<string | null>(null);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   const handleExport = useCallback(async (format: string) => {
     setExporting(format);
     try {
-      await downloadExport(format, toast);
+      await downloadExport(format, toast, { from: dateFrom || undefined, to: dateTo || undefined });
     } finally {
       setExporting(null);
     }
-  }, [toast]);
+  }, [toast, dateFrom, dateTo]);
 
   const { data: monthly, isLoading: loadingMonthly } = useQuery({
     queryKey: ["reports-monthly"],
@@ -64,6 +66,22 @@ export default function ReportsPage() {
     <>
       <Topbar title="Reports" />
       <main className="flex-1 overflow-y-auto p-4 lg:p-6">
+        <div className="mb-4 flex flex-wrap items-end gap-3">
+          <div>
+            <label className="mb-1 block text-xs font-medium text-navy/50 dark:text-white/50">From</label>
+            <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="rounded-lg border border-black/10 bg-transparent px-3 py-1.5 text-sm dark:border-white/10" />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-navy/50 dark:text-white/50">To</label>
+            <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="rounded-lg border border-black/10 bg-transparent px-3 py-1.5 text-sm dark:border-white/10" />
+          </div>
+          {(dateFrom || dateTo) && (
+            <button onClick={() => { setDateFrom(""); setDateTo(""); }} className="pb-1.5 text-xs text-navy/50 hover:text-navy dark:text-white/50 dark:hover:text-white">
+              Clear range
+            </button>
+          )}
+        </div>
+
         <div className="mb-6 flex flex-wrap gap-2">
           {formats.map((fmt) => (
             <button

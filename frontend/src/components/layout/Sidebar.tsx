@@ -5,30 +5,65 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, ArrowLeftRight, Wallet, PiggyBank, Target,
   Receipt, TrendingUp, BarChart3, FileText, Bell, Settings, User, X, Landmark,
+  SlidersHorizontal, ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/format";
 import { useUiStore } from "@/store/uiStore";
 import { useEffect, useCallback } from "react";
 
-const NAV_ITEMS = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/transactions", label: "Transactions", icon: ArrowLeftRight },
-  { href: "/budget", label: "Budget Planner", icon: Wallet },
-  { href: "/savings", label: "Savings", icon: PiggyBank },
-  { href: "/investments", label: "Investments", icon: TrendingUp },
-  { href: "/bills", label: "Bills & EMI", icon: Receipt },
-  { href: "/goals", label: "Financial Goals", icon: Target },
-  { href: "/analytics", label: "Analytics", icon: BarChart3 },
-  { href: "/reports", label: "Reports", icon: FileText },
-  { href: "/accounts", label: "Accounts", icon: Landmark },
-  { href: "/notifications", label: "Notifications", icon: Bell },
-  { href: "/settings", label: "Settings", icon: Settings },
-  { href: "/profile", label: "Profile", icon: User },
+interface NavGroup {
+  id: string;
+  label: string | null;
+  items: { href: string; label: string; icon: typeof LayoutDashboard }[];
+}
+
+const NAV_GROUPS: NavGroup[] = [
+  {
+    id: "overview",
+    label: null,
+    items: [{ href: "/dashboard", label: "Dashboard", icon: LayoutDashboard }],
+  },
+  {
+    id: "money",
+    label: "Money",
+    items: [
+      { href: "/transactions", label: "Transactions", icon: ArrowLeftRight },
+      { href: "/budget", label: "Budget Planner", icon: Wallet },
+      { href: "/bills", label: "Bills & EMI", icon: Receipt },
+    ],
+  },
+  {
+    id: "wealth",
+    label: "Wealth",
+    items: [
+      { href: "/savings", label: "Savings", icon: PiggyBank },
+      { href: "/investments", label: "Investments", icon: TrendingUp },
+      { href: "/goals", label: "Financial Goals", icon: Target },
+    ],
+  },
+  {
+    id: "insights",
+    label: "Insights",
+    items: [
+      { href: "/analytics", label: "Analytics", icon: BarChart3 },
+      { href: "/reports", label: "Reports", icon: FileText },
+    ],
+  },
+  {
+    id: "manage",
+    label: "Manage",
+    items: [
+      { href: "/customizations", label: "Customizations", icon: SlidersHorizontal },
+      { href: "/notifications", label: "Notifications", icon: Bell },
+      { href: "/settings", label: "Settings", icon: Settings },
+      { href: "/profile", label: "Profile", icon: User },
+    ],
+  },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { sidebarOpen, setSidebarOpen, sidebarCollapsed, setSidebarCollapsed } = useUiStore();
+  const { sidebarOpen, setSidebarOpen, sidebarCollapsed, setSidebarCollapsed, collapsedNavGroups, toggleNavGroup } = useUiStore();
 
   useEffect(() => {
     if (window.innerWidth < 1024) setSidebarOpen(false);
@@ -36,26 +71,52 @@ export function Sidebar() {
 
   const closeSidebar = useCallback(() => setSidebarOpen(false), [setSidebarOpen]);
 
+  const isItemActive = (href: string) => pathname === href || pathname?.startsWith(href + "/");
+
   const sidebarContent = (
     <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-2 scrollbar-thin" aria-label="Main navigation">
-      {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
-        const active = pathname === href || pathname?.startsWith(href + "/");
+      {NAV_GROUPS.map((group) => {
+        const groupActive = group.items.some((item) => isItemActive(item.href));
+        const isCollapsed = Boolean(collapsedNavGroups[group.id]) && !groupActive;
+
         return (
-          <Link
-            key={href}
-            href={href}
-            onClick={closeSidebar}
-            className={cn(
-              "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal/50",
-              active
-                ? "bg-teal/10 text-teal"
-                : "text-navy/60 hover:bg-black/5 dark:text-white/60 dark:hover:bg-white/5"
+          <div key={group.id} className="mb-1">
+            {group.label && (
+              <button
+                type="button"
+                onClick={() => toggleNavGroup(group.id)}
+                className="flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-navy/40 hover:text-navy/60 dark:text-white/30 dark:hover:text-white/50"
+                aria-expanded={!isCollapsed}
+              >
+                <span>{group.label}</span>
+                <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", isCollapsed && "-rotate-90")} />
+              </button>
             )}
-            aria-current={active ? "page" : undefined}
-          >
-            <Icon className="h-4 w-4 shrink-0" />
-            <span className="truncate">{label}</span>
-          </Link>
+            {!isCollapsed && (
+              <div className="flex flex-col gap-1">
+                {group.items.map(({ href, label, icon: Icon }) => {
+                  const active = isItemActive(href);
+                  return (
+                    <Link
+                      key={href}
+                      href={href}
+                      onClick={closeSidebar}
+                      className={cn(
+                        "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal/50",
+                        active
+                          ? "bg-teal/10 text-teal"
+                          : "text-navy/60 hover:bg-black/5 dark:text-white/60 dark:hover:bg-white/5"
+                      )}
+                      aria-current={active ? "page" : undefined}
+                    >
+                      <Icon className="h-4 w-4 shrink-0" />
+                      <span className="truncate">{label}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         );
       })}
     </nav>

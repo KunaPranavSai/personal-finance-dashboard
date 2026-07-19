@@ -45,7 +45,7 @@ function deepMerge(target: Record<string, unknown>, source: Record<string, unkno
   for (const [key, value] of Object.entries(source)) {
     if (value !== null && typeof value === "object" && !Array.isArray(value) && typeof result[key] === "object" && result[key] !== null) {
       result[key] = deepMerge(result[key] as Record<string, unknown>, value as Record<string, unknown>);
-    } else if (!(key in result)) {
+    } else {
       result[key] = value;
     }
   }
@@ -68,7 +68,7 @@ async function getOrCreateProfile(): Promise<Record<string, unknown>> {
 
 async function updateProfile(data: Record<string, unknown>): Promise<Record<string, unknown>> {
   const current = await getOrCreateProfile();
-  const merged = { ...current, ...data };
+  const merged = deepMerge(current, data);
   await prisma.appProfile.upsert({
     where: { id: "singleton" },
     update: { data: merged as object },

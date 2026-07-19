@@ -27,7 +27,12 @@ router.get(
     }
 
     try {
-      const data = await fetchAllExportData();
+      const from = req.query.from ? new Date(req.query.from as string) : undefined;
+      const to = req.query.to ? new Date(req.query.to as string) : undefined;
+      const data = await fetchAllExportData({
+        from: from && !isNaN(from.getTime()) ? from : undefined,
+        to: to && !isNaN(to.getTime()) ? to : undefined,
+      });
       const ds = dateStr();
 
       switch (format) {

@@ -12,7 +12,7 @@ export async function listTransactions(req: Request, res: Response) {
   const where: Prisma.TransactionWhereInput = {
     ...(query.type && { type: query.type }),
     ...(query.categoryId && { categoryId: query.categoryId }),
-    ...(query.paymentMethod && { paymentMethod: query.paymentMethod }),
+    ...(query.paymentMethodTypeId && { paymentMethodTypeId: query.paymentMethodTypeId }),
     ...(query.accountId && { accountId: query.accountId }),
     ...((query.dateFrom || query.dateTo) && {
       date: { ...(query.dateFrom && { gte: query.dateFrom }), ...(query.dateTo && { lte: query.dateTo }) },
@@ -29,7 +29,7 @@ export async function listTransactions(req: Request, res: Response) {
   const [items, total] = await Promise.all([
     prisma.transaction.findMany({
       where,
-      include: { category: true, subcategory: true, account: true },
+      include: { category: true, subcategory: true, account: true, paymentMethodType: true },
       orderBy: { [query.sortBy]: query.sortDir },
       skip: (query.page - 1) * query.pageSize,
       take: query.pageSize,
@@ -47,7 +47,7 @@ export async function getTransaction(req: Request, res: Response) {
   const id = safeParam(req, "id");
   const tx = await prisma.transaction.findUnique({
     where: { id },
-    include: { category: true, subcategory: true, account: true },
+    include: { category: true, subcategory: true, account: true, paymentMethodType: true },
   });
   if (!tx) throw new ApiError(404, "Transaction not found");
   res.json(tx);
@@ -57,7 +57,7 @@ export async function createTransaction(req: Request, res: Response) {
   const data = safeBody(createTransactionSchema, req);
   const tx = await prisma.transaction.create({
     data,
-    include: { category: true, subcategory: true, account: true },
+    include: { category: true, subcategory: true, account: true, paymentMethodType: true },
   });
   res.status(201).json(tx);
 }
@@ -68,7 +68,7 @@ export async function updateTransaction(req: Request, res: Response) {
   const tx = await prisma.transaction.update({
     where: { id },
     data,
-    include: { category: true, subcategory: true, account: true },
+    include: { category: true, subcategory: true, account: true, paymentMethodType: true },
   });
   res.json(tx);
 }

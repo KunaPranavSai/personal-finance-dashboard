@@ -1,9 +1,6 @@
 import { z } from "zod";
 
 export const entryTypeEnum = z.enum(["INCOME", "EXPENSE"]);
-export const paymentMethodEnum = z.enum([
-  "CASH", "UPI", "CREDIT_CARD", "DEBIT_CARD", "NET_BANKING", "WALLET",
-]);
 export const fixedVariableEnum = z.enum(["FIXED", "VARIABLE"]);
 export const essentialityEnum = z.enum(["ESSENTIAL", "NON_ESSENTIAL"]);
 
@@ -16,7 +13,7 @@ export const createTransactionSchema = z.object({
   subcategoryId: z.string().optional().nullable(),
   merchant: z.string().max(100).optional().nullable(),
   accountId: z.string().optional().nullable(),
-  paymentMethod: paymentMethodEnum.optional().nullable(),
+  paymentMethodTypeId: z.string().optional().nullable(),
   location: z.string().max(100).optional().nullable(),
   tags: z.array(z.string()).default([]),
   notes: z.string().max(1000).optional().nullable(),
@@ -35,7 +32,7 @@ export const updateTransactionSchema = z.object({
   subcategoryId: z.string().optional().nullable(),
   merchant: z.string().max(100).optional().nullable(),
   accountId: z.string().optional().nullable(),
-  paymentMethod: paymentMethodEnum.optional().nullable(),
+  paymentMethodTypeId: z.string().optional().nullable(),
   location: z.string().max(100).optional().nullable(),
   tags: z.array(z.string()).optional(),
   notes: z.string().max(1000).optional().nullable(),
@@ -50,7 +47,7 @@ export const listTransactionsQuerySchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(200).default(25),
   type: entryTypeEnum.optional(),
   categoryId: z.string().optional(),
-  paymentMethod: paymentMethodEnum.optional(),
+  paymentMethodTypeId: z.string().optional(),
   accountId: z.string().optional(),
   search: z.string().optional(),
   dateFrom: z.coerce.date().optional(),

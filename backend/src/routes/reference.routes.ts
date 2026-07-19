@@ -86,4 +86,50 @@ router.delete(
   })
 );
 
+router.get(
+  "/payment-methods",
+  asyncHandler(async (_req, res) => {
+    const items = await prisma.paymentMethodType.findMany({ orderBy: { name: "asc" } });
+    res.json({ items });
+  })
+);
+
+const updatePaymentMethodSchema = z.object({
+  name: z.string().min(1).optional(),
+});
+
+router.post(
+  "/payment-methods",
+  validateBody(z.object({ name: z.string().min(1) })),
+  asyncHandler(async (req, res) => {
+    const paymentMethod = await prisma.paymentMethodType.create({ data: req.body });
+    res.status(201).json(paymentMethod);
+  })
+);
+
+router.patch(
+  "/payment-methods/:id",
+  validateBody(updatePaymentMethodSchema),
+  asyncHandler(async (req, res) => {
+    const id = String(req.params.id);
+    const existing = await prisma.paymentMethodType.findUnique({ where: { id } });
+    if (!existing) throw new ApiError(404, "Payment method not found");
+    const paymentMethod = await prisma.paymentMethodType.update({ where: { id }, data: req.body });
+    res.json(paymentMethod);
+  })
+);
+
+router.delete(
+  "/payment-methods/:id",
+  asyncHandler(async (req, res) => {
+    const id = String(req.params.id);
+    const existing = await prisma.paymentMethodType.findUnique({ where: { id } });
+    if (!existing) throw new ApiError(404, "Payment method not found");
+    const txnCount = await prisma.transaction.count({ where: { paymentMethodTypeId: id } });
+    if (txnCount > 0) throw new ApiError(400, `Cannot delete payment method with ${txnCount} linked transaction(s).`);
+    await prisma.paymentMethodType.delete({ where: { id } });
+    res.json({ success: true });
+  })
+);
+
 export default router;

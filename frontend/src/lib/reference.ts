@@ -1,15 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "./api";
-import { Category, Account, Profile } from "@/types";
-
-export const PAYMENT_METHODS: { value: string; label: string }[] = [
-  { value: "CASH", label: "Cash" },
-  { value: "UPI", label: "UPI" },
-  { value: "CREDIT_CARD", label: "Credit Card" },
-  { value: "DEBIT_CARD", label: "Debit Card" },
-  { value: "NET_BANKING", label: "Net Banking" },
-  { value: "WALLET", label: "Wallet" },
-];
+import { Category, Account, PaymentMethodType, Profile } from "@/types";
 
 export const ENTRY_TYPES: { value: string; label: string }[] = [
   { value: "EXPENSE", label: "Expense" },
@@ -98,6 +89,15 @@ export function useAccounts() {
   return useQuery({
     queryKey: ["accounts"],
     queryFn: () => api.get<{ items: Account[] }>("/api/accounts"),
+    staleTime: 30000,
+    refetchOnWindowFocus: false,
+  });
+}
+
+export function usePaymentMethods() {
+  return useQuery({
+    queryKey: ["payment-methods"],
+    queryFn: () => api.get<{ items: PaymentMethodType[] }>("/api/payment-methods"),
     staleTime: 30000,
     refetchOnWindowFocus: false,
   });
