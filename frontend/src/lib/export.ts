@@ -2,11 +2,15 @@ import { API_BASE_URL } from "./api";
 
 export async function downloadExport(
   format: string,
-  toast?: (msg: string, type: "success" | "error") => void
+  toast?: (msg: string, type: "success" | "error") => void,
+  range?: { from?: string; to?: string }
 ) {
   try {
+    const params = new URLSearchParams({ format: format === "excel" ? "xlsx" : format });
+    if (range?.from) params.set("from", range.from);
+    if (range?.to) params.set("to", range.to);
     const res = await fetch(
-      `${API_BASE_URL}/api/export?format=${format === "excel" ? "xlsx" : format}`,
+      `${API_BASE_URL}/api/export?${params.toString()}`,
       { credentials: "include" }
     );
     if (!res.ok) {

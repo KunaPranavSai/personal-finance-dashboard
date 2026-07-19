@@ -9,7 +9,7 @@ import { Button } from "../ui/Button";
 import { FocusTrap } from "../ui/FocusTrap";
 import { Transaction } from "@/types";
 import { useEffect } from "react";
-import { useCategories, useAccounts, PAYMENT_METHODS, ENTRY_TYPES } from "@/lib/reference";
+import { useCategories, useAccounts, usePaymentMethods, ENTRY_TYPES } from "@/lib/reference";
 
 const schema = z.object({
   date: z.string().min(1, "Date is required"),
@@ -19,7 +19,7 @@ const schema = z.object({
   categoryId: z.string().min(1, "Category is required"),
   merchant: z.string().optional(),
   accountId: z.string().optional(),
-  paymentMethod: z.string().optional(),
+  paymentMethodTypeId: z.string().optional(),
   notes: z.string().optional(),
 });
 
@@ -37,6 +37,7 @@ export function TransactionFormModal({
   const queryClient = useQueryClient();
   const { data: categories, isLoading: catLoading, error: catError } = useCategories();
   const { data: accounts, isLoading: accLoading, error: accError } = useAccounts();
+  const { data: paymentMethods, isLoading: pmLoading } = usePaymentMethods();
 
   const {
     register, handleSubmit, reset, watch,
@@ -56,7 +57,7 @@ export function TransactionFormModal({
         categoryId: editing.categoryId,
         merchant: editing.merchant ?? "",
         accountId: editing.accountId ?? "",
-        paymentMethod: editing.paymentMethod ?? undefined,
+        paymentMethodTypeId: editing.paymentMethodTypeId ?? "",
         notes: editing.notes ?? "",
       });
     } else {
@@ -146,10 +147,10 @@ export function TransactionFormModal({
 
           <div className="col-span-1">
             <label className="text-xs font-medium text-navy/60 dark:text-white/60">Payment Method</label>
-            <select {...register("paymentMethod")} className="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 text-sm dark:bg-white/5">
-              <option value="">None</option>
-              {PAYMENT_METHODS.map((pm) => (
-                <option key={pm.value} value={pm.value}>{pm.label}</option>
+            <select {...register("paymentMethodTypeId")} className="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 text-sm dark:bg-white/5">
+              <option value="">{pmLoading ? "Loading…" : "None"}</option>
+              {(paymentMethods?.items ?? []).map((pm) => (
+                <option key={pm.id} value={pm.id}>{pm.name}</option>
               ))}
             </select>
           </div>

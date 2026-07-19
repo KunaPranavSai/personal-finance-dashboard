@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { useSettingsContext } from "@/lib/SettingsContext";
 import { useToast } from "@/components/ui/Toast";
-import { Settings as SettingsIcon, Palette, Globe, Bell, Shield, Download, Database, Eye, Sliders, Save } from "lucide-react";
+import { Settings as SettingsIcon, Palette, Globe, Bell, Shield, Download, Database, Eye, Sliders, Save, Copy, Check } from "lucide-react";
 import { cn } from "@/lib/format";
 import { CURRENCIES, DATE_FORMATS, WEEK_START_OPTIONS, LANGUAGES, TIMEZONES } from "@/lib/reference";
 
@@ -122,6 +122,146 @@ function ExportTab() {
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function TwoFactorSection() {
+  const { twoFactorEnabled, setupTwoFactor, confirmTwoFactor, disableTwoFactor } = useAuth();
+  const { toast } = useToast();
+  const [step, setStep] = useState<"idle" | "qr" | "backup" | "disable">("idle");
+  const [qrCode, setQrCode] = useState("");
+  const [secret, setSecret] = useState("");
+  const [code, setCode] = useState("");
+  const [backupCodes, setBackupCodes] = useState<string[]>([]);
+  const [disablePassword, setDisablePassword] = useState("");
+  const [disableCode, setDisableCode] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const startSetup = useCallback(async () => {
+    setError("");
+    setBusy(true);
+    try {
+      const data = await setupTwoFactor();
+      setQrCode(data.qrCode);
+      setSecret(data.secret);
+      setStep("qr");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to start setup");
+    } finally {
+      setBusy(false);
+    }
+  }, [setupTwoFactor]);
+
+  const handleConfirm = useCallback(async () => {
+    setError("");
+    setBusy(true);
+    try {
+      const data = await confirmTwoFactor(code.trim());
+      setBackupCodes(data.backupCodes);
+      setStep("backup");
+      setCode("");
+      toast("Two-factor authentication enabled", "success");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Invalid code");
+    } finally {
+      setBusy(false);
+    }
+  }, [code, confirmTwoFactor, toast]);
+
+  const handleDisable = useCallback(async () => {
+    setError("");
+    setBusy(true);
+    try {
+      await disableTwoFactor(disablePassword, disableCode.trim());
+      setStep("idle");
+      setDisablePassword("");
+      setDisableCode("");
+      toast("Two-factor authentication disabled", "success");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to disable 2FA");
+    } finally {
+      setBusy(false);
+    }
+  }, [disablePassword, disableCode, disableTwoFactor, toast]);
+
+  const copyBackupCodes = useCallback(() => {
+    navigator.clipboard.writeText(backupCodes.join("\n"));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }, [backupCodes]);
+
+  if (step === "backup") {
+    return (
+      <div className="rounded-lg border border-black/5 p-4 space-y-3 dark:border-white/10">
+        <p className="text-sm font-semibold text-navy dark:text-white">Save your backup codes</p>
+        <p className="text-xs text-navy/50 dark:text-white/50">Each code can be used once if you lose access to your authenticator app. Store them somewhere safe — they won&apos;t be shown again.</p>
+        <div className="grid grid-cols-2 gap-2 rounded-lg bg-black/5 p-3 font-mono text-sm dark:bg-white/5">
+          {backupCodes.map((c) => <span key={c}>{c}</span>)}
+        </div>
+        <Button type="button" size="sm" variant="secondary" onClick={copyBackupCodes}>
+          {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />} {copied ? "Copied" : "Copy codes"}
+        </Button>
+        <Button type="button" size="sm" onClick={() => setStep("idle")}>Done</Button>
+      </div>
+    );
+  }
+
+  if (step === "qr") {
+    return (
+      <div className="rounded-lg border border-black/5 p-4 space-y-3 dark:border-white/10">
+        <p className="text-sm font-semibold text-navy dark:text-white">Scan this QR code</p>
+        <p className="text-xs text-navy/50 dark:text-white/50">Use Google Authenticator, Microsoft Authenticator, Authy, or 2FAS to scan the code below, or enter the key manually.</p>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={qrCode} alt="2FA QR code" className="h-40 w-40 rounded-lg bg-white p-2" />
+        <p className="break-all rounded-lg bg-black/5 p-2 font-mono text-xs dark:bg-white/5">{secret}</p>
+        <div>
+          <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Enter the 6-digit code from your app</label>
+          <input type="text" inputMode="numeric" value={code} onChange={(e) => setCode(e.target.value)} placeholder="123456" className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" />
+        </div>
+        {error && <p className="text-xs text-red-500">{error}</p>}
+        <div className="flex gap-2">
+          <Button type="button" size="sm" onClick={handleConfirm} disabled={busy || !code}>{busy ? "Verifying…" : "Verify & Enable"}</Button>
+          <Button type="button" size="sm" variant="secondary" onClick={() => setStep("idle")}>Cancel</Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (step === "disable") {
+    return (
+      <div className="rounded-lg border border-black/5 p-4 space-y-3 dark:border-white/10">
+        <p className="text-sm font-semibold text-navy dark:text-white">Disable Two-Factor Authentication</p>
+        <div>
+          <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Password</label>
+          <input type="password" value={disablePassword} onChange={(e) => setDisablePassword(e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Verification code</label>
+          <input type="text" inputMode="numeric" value={disableCode} onChange={(e) => setDisableCode(e.target.value)} placeholder="123456" className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" />
+        </div>
+        {error && <p className="text-xs text-red-500">{error}</p>}
+        <div className="flex gap-2">
+          <Button type="button" size="sm" onClick={handleDisable} disabled={busy || !disablePassword || !disableCode}>{busy ? "Disabling…" : "Disable 2FA"}</Button>
+          <Button type="button" size="sm" variant="secondary" onClick={() => setStep("idle")}>Cancel</Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-sm font-medium text-navy dark:text-white">Two-Factor Authentication</p>
+        <p className="text-xs text-navy/50">{twoFactorEnabled ? "Enabled — your account requires a code at sign-in" : "Add an extra layer of security"}</p>
+      </div>
+      {twoFactorEnabled ? (
+        <Button type="button" size="sm" variant="secondary" onClick={() => setStep("disable")}>Disable</Button>
+      ) : (
+        <Button type="button" size="sm" onClick={startSetup} disabled={busy}>{busy ? "Starting…" : "Enable"}</Button>
+      )}
+    </div>
   );
 }
 
@@ -411,13 +551,7 @@ function SettingsContent() {
                 {pwError && <p className="text-xs text-red-500">{pwError}</p>}
                 <Button type="button" size="sm" onClick={handlePasswordChange} disabled={pwChanging || !pwForm.current || !pwForm.next || !pwForm.confirm}>{pwChanging ? "Changing…" : "Change Password"}</Button>
               </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-navy dark:text-white">Two-Factor Authentication</p>
-                  <p className="text-xs text-navy/50">Add an extra layer of security</p>
-                </div>
-                <input type="checkbox" checked={Boolean(sec.twoFactorEnabled ?? false)} onChange={(e) => handleNestedChange("security", "twoFactorEnabled", e.target.checked)} className="h-4 w-4 rounded border-black/20 text-teal dark:border-white/20" />
-              </div>
+              <TwoFactorSection />
               <div>
                 <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Session Timeout (minutes)</label>
                 <input type="number" value={Number(sec.sessionTimeout ?? 30)} onChange={(e) => handleNestedChange("security", "sessionTimeout", Number(e.target.value))} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" min={1} />
