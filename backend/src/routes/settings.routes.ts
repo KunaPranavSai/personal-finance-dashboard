@@ -69,11 +69,11 @@ function deepMerge(target: Record<string, unknown>, source: Record<string, unkno
   return result;
 }
 
-async function getOrCreateSettings(): Promise<Record<string, unknown>> {
-  let row = await prisma.appSettings.findUnique({ where: { id: "singleton" } });
+async function getOrCreateSettings(userId: string): Promise<Record<string, unknown>> {
+  let row = await prisma.appSettings.findUnique({ where: { userId } });
   if (!row) {
     row = await prisma.appSettings.create({
-      data: { id: "singleton", data: defaultSettings as object },
+      data: { userId, data: defaultSettings as object },
     });
   }
   const data = row.data as Record<string, unknown>;
@@ -83,13 +83,13 @@ async function getOrCreateSettings(): Promise<Record<string, unknown>> {
   return deepMerge(defaultSettings as unknown as Record<string, unknown>, data);
 }
 
-async function updateSettings(data: Record<string, unknown>): Promise<Record<string, unknown>> {
-  const current = await getOrCreateSettings();
+async function updateSettings(userId: string, data: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const current = await getOrCreateSettings(userId);
   const merged = deepMerge(current, data);
   await prisma.appSettings.upsert({
-    where: { id: "singleton" },
+    where: { userId },
     update: { data: merged as object },
-    create: { id: "singleton", data: merged as object },
+    create: { userId, data: merged as object },
   });
   return merged;
 }
@@ -110,8 +110,8 @@ const router = Router();
 
 router.get(
   "/",
-  asyncHandler(async (_req, res) => {
-    const settings = await getOrCreateSettings();
+  asyncHandler(async (req, res) => {
+    const settings = await getOrCreateSettings(req.auth!.userId);
     res.json(stripInternal(settings));
   })
 );
@@ -120,7 +120,7 @@ router.patch(
   "/",
   asyncHandler(async (req, res) => {
     const data = updateSettingsSchema.parse(req.body);
-    const updated = await updateSettings(data);
+    const updated = await updateSettings(req.auth!.userId, data);
     res.json(stripInternal(updated));
   })
 );

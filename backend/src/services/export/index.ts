@@ -19,7 +19,7 @@ export interface ExportDateRange {
   to?: Date;
 }
 
-export async function fetchAllExportData(range?: ExportDateRange): Promise<ExportData> {
+export async function fetchAllExportData(userId: string, range?: ExportDateRange): Promise<ExportData> {
   const dateFilter =
     range?.from || range?.to
       ? { date: { ...(range.from && { gte: range.from }), ...(range.to && { lte: range.to }) } }
@@ -27,27 +27,27 @@ export async function fetchAllExportData(range?: ExportDateRange): Promise<Expor
 
   const [profileRow, settingsRow, transactions, budgets, investments, bills, goals, accounts, categories] =
     await Promise.all([
-      prisma.appProfile.findUnique({ where: { id: "singleton" } }),
-      prisma.appSettings.findUnique({ where: { id: "singleton" } }),
+      prisma.appProfile.findUnique({ where: { userId } }),
+      prisma.appSettings.findUnique({ where: { userId } }),
       prisma.transaction.findMany({
-        where: dateFilter,
+        where: { userId, ...dateFilter },
         include: { category: true, account: true, paymentMethodType: true },
         orderBy: { date: "desc" },
         take: 10000,
       }),
-      prisma.budget.findMany({ include: { category: true } }),
-      prisma.investment.findMany(),
-      prisma.bill.findMany({ orderBy: { dueDate: "asc" } }),
-      prisma.goal.findMany(),
-      prisma.account.findMany({ orderBy: { name: "asc" } }),
-      prisma.category.findMany({ include: { subcategories: true }, orderBy: { name: "asc" } }),
+      prisma.budget.findMany({ where: { userId }, include: { category: true } }),
+      prisma.investment.findMany({ where: { userId } }),
+      prisma.bill.findMany({ where: { userId }, orderBy: { dueDate: "asc" } }),
+      prisma.goal.findMany({ where: { userId } }),
+      prisma.account.findMany({ where: { userId }, orderBy: { name: "asc" } }),
+      prisma.category.findMany({ where: { userId }, include: { subcategories: true }, orderBy: { name: "asc" } }),
     ]);
 
   const totalIncome = Number(
-    (await prisma.transaction.aggregate({ where: { ...dateFilter, type: "INCOME" }, _sum: { amount: true } }))._sum.amount ?? 0
+    (await prisma.transaction.aggregate({ where: { userId, ...dateFilter, type: "INCOME" }, _sum: { amount: true } }))._sum.amount ?? 0
   );
   const totalExpenses = Number(
-    (await prisma.transaction.aggregate({ where: { ...dateFilter, type: "EXPENSE" }, _sum: { amount: true } }))._sum.amount ?? 0
+    (await prisma.transaction.aggregate({ where: { userId, ...dateFilter, type: "EXPENSE" }, _sum: { amount: true } }))._sum.amount ?? 0
   );
 
   const portfolioValue = investments.reduce((s, i) => s + Number(i.currentValue), 0);
@@ -55,7 +55,7 @@ export async function fetchAllExportData(range?: ExportDateRange): Promise<Expor
   const categoriesMap = Object.fromEntries(categories.map((c) => [c.id, c.name]));
   const expenseByCategory = await prisma.transaction.groupBy({
     by: ["categoryId"],
-    where: { ...dateFilter, type: "EXPENSE" },
+    where: { userId, ...dateFilter, type: "EXPENSE" },
     _sum: { amount: true },
     _count: true,
   });

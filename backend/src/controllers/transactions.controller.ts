@@ -8,8 +8,10 @@ import { ApiError } from "../middleware/errorHandler";
 
 export async function listTransactions(req: Request, res: Response) {
   const query = safeQuery(listTransactionsQuerySchema, req);
+  const userId = req.auth!.userId;
 
   const where: Prisma.TransactionWhereInput = {
+    userId,
     ...(query.type && { type: query.type }),
     ...(query.categoryId && { categoryId: query.categoryId }),
     ...(query.paymentMethodTypeId && { paymentMethodTypeId: query.paymentMethodTypeId }),
@@ -45,8 +47,8 @@ export async function listTransactions(req: Request, res: Response) {
 
 export async function getTransaction(req: Request, res: Response) {
   const id = safeParam(req, "id");
-  const tx = await prisma.transaction.findUnique({
-    where: { id },
+  const tx = await prisma.transaction.findFirst({
+    where: { id, userId: req.auth!.userId },
     include: { category: true, subcategory: true, account: true, paymentMethodType: true },
   });
   if (!tx) throw new ApiError(404, "Transaction not found");
@@ -56,7 +58,7 @@ export async function getTransaction(req: Request, res: Response) {
 export async function createTransaction(req: Request, res: Response) {
   const data = safeBody(createTransactionSchema, req);
   const tx = await prisma.transaction.create({
-    data,
+    data: { ...data, userId: req.auth!.userId },
     include: { category: true, subcategory: true, account: true, paymentMethodType: true },
   });
   res.status(201).json(tx);
@@ -65,6 +67,8 @@ export async function createTransaction(req: Request, res: Response) {
 export async function updateTransaction(req: Request, res: Response) {
   const id = safeParam(req, "id");
   const data = safeBody(updateTransactionSchema, req);
+  const existing = await prisma.transaction.findFirst({ where: { id, userId: req.auth!.userId } });
+  if (!existing) throw new ApiError(404, "Transaction not found");
   const tx = await prisma.transaction.update({
     where: { id },
     data,
@@ -75,7 +79,8 @@ export async function updateTransaction(req: Request, res: Response) {
 
 export async function deleteTransaction(req: Request, res: Response) {
   const id = safeParam(req, "id");
-  await prisma.transaction.delete({ where: { id } });
+  const result = await prisma.transaction.deleteMany({ where: { id, userId: req.auth!.userId } });
+  if (result.count === 0) throw new ApiError(404, "Transaction not found");
   res.status(204).send();
 }
 
@@ -84,6 +89,6 @@ export async function bulkDeleteTransactions(req: Request, res: Response) {
     z.object({ ids: z.array(z.string()).nonempty() }),
     req
   );
-  const result = await prisma.transaction.deleteMany({ where: { id: { in: ids } } });
+  const result = await prisma.transaction.deleteMany({ where: { id: { in: ids }, userId: req.auth!.userId } });
   res.json({ deleted: result.count });
 }

@@ -10,8 +10,9 @@ const router = Router();
 
 router.get(
   "/categories",
-  asyncHandler(async (_req, res) => {
+  asyncHandler(async (req, res) => {
     const categories = await prisma.category.findMany({
+      where: { userId: req.auth!.userId },
       include: { subcategories: true },
       orderBy: { name: "asc" },
     });
@@ -23,7 +24,7 @@ router.post(
   "/categories",
   validateBody(z.object({ name: z.string().min(1), type: z.enum(["INCOME", "EXPENSE"]) })),
   asyncHandler(async (req, res) => {
-    const category = await prisma.category.create({ data: req.body });
+    const category = await prisma.category.create({ data: { ...req.body, userId: req.auth!.userId } });
     res.status(201).json(category);
   })
 );
@@ -33,6 +34,8 @@ router.post(
   validateBody(z.object({ name: z.string().min(1) })),
   asyncHandler(async (req, res) => {
     const categoryId = safeParam(req, "id");
+    const category = await prisma.category.findFirst({ where: { id: categoryId, userId: req.auth!.userId } });
+    if (!category) throw new ApiError(404, "Category not found");
     const sub = await prisma.subcategory.create({
       data: { name: req.body.name, categoryId },
     });
@@ -42,8 +45,8 @@ router.post(
 
 router.get(
   "/accounts",
-  asyncHandler(async (_req, res) => {
-    const accounts = await prisma.account.findMany({ orderBy: { name: "asc" } });
+  asyncHandler(async (req, res) => {
+    const accounts = await prisma.account.findMany({ where: { userId: req.auth!.userId }, orderBy: { name: "asc" } });
     res.json({ items: accounts });
   })
 );
@@ -56,7 +59,7 @@ router.post(
   "/accounts",
   validateBody(z.object({ name: z.string().min(1) })),
   asyncHandler(async (req, res) => {
-    const account = await prisma.account.create({ data: req.body });
+    const account = await prisma.account.create({ data: { ...req.body, userId: req.auth!.userId } });
     res.status(201).json(account);
   })
 );
@@ -66,7 +69,7 @@ router.patch(
   validateBody(updateAccountSchema),
   asyncHandler(async (req, res) => {
     const id = String(req.params.id);
-    const existing = await prisma.account.findUnique({ where: { id } });
+    const existing = await prisma.account.findFirst({ where: { id, userId: req.auth!.userId } });
     if (!existing) throw new ApiError(404, "Account not found");
     const account = await prisma.account.update({ where: { id }, data: req.body });
     res.json(account);
@@ -77,9 +80,10 @@ router.delete(
   "/accounts/:id",
   asyncHandler(async (req, res) => {
     const id = String(req.params.id);
-    const existing = await prisma.account.findUnique({ where: { id } });
+    const userId = req.auth!.userId;
+    const existing = await prisma.account.findFirst({ where: { id, userId } });
     if (!existing) throw new ApiError(404, "Account not found");
-    const txnCount = await prisma.transaction.count({ where: { accountId: id } });
+    const txnCount = await prisma.transaction.count({ where: { accountId: id, userId } });
     if (txnCount > 0) throw new ApiError(400, `Cannot delete account with ${txnCount} linked transaction(s). Archive instead.`);
     await prisma.account.delete({ where: { id } });
     res.json({ success: true });
@@ -88,8 +92,8 @@ router.delete(
 
 router.get(
   "/payment-methods",
-  asyncHandler(async (_req, res) => {
-    const items = await prisma.paymentMethodType.findMany({ orderBy: { name: "asc" } });
+  asyncHandler(async (req, res) => {
+    const items = await prisma.paymentMethodType.findMany({ where: { userId: req.auth!.userId }, orderBy: { name: "asc" } });
     res.json({ items });
   })
 );
@@ -102,7 +106,7 @@ router.post(
   "/payment-methods",
   validateBody(z.object({ name: z.string().min(1) })),
   asyncHandler(async (req, res) => {
-    const paymentMethod = await prisma.paymentMethodType.create({ data: req.body });
+    const paymentMethod = await prisma.paymentMethodType.create({ data: { ...req.body, userId: req.auth!.userId } });
     res.status(201).json(paymentMethod);
   })
 );
@@ -112,7 +116,7 @@ router.patch(
   validateBody(updatePaymentMethodSchema),
   asyncHandler(async (req, res) => {
     const id = String(req.params.id);
-    const existing = await prisma.paymentMethodType.findUnique({ where: { id } });
+    const existing = await prisma.paymentMethodType.findFirst({ where: { id, userId: req.auth!.userId } });
     if (!existing) throw new ApiError(404, "Payment method not found");
     const paymentMethod = await prisma.paymentMethodType.update({ where: { id }, data: req.body });
     res.json(paymentMethod);
@@ -123,9 +127,10 @@ router.delete(
   "/payment-methods/:id",
   asyncHandler(async (req, res) => {
     const id = String(req.params.id);
-    const existing = await prisma.paymentMethodType.findUnique({ where: { id } });
+    const userId = req.auth!.userId;
+    const existing = await prisma.paymentMethodType.findFirst({ where: { id, userId } });
     if (!existing) throw new ApiError(404, "Payment method not found");
-    const txnCount = await prisma.transaction.count({ where: { paymentMethodTypeId: id } });
+    const txnCount = await prisma.transaction.count({ where: { paymentMethodTypeId: id, userId } });
     if (txnCount > 0) throw new ApiError(400, `Cannot delete payment method with ${txnCount} linked transaction(s).`);
     await prisma.paymentMethodType.delete({ where: { id } });
     res.json({ success: true });

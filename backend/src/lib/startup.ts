@@ -31,49 +31,26 @@ const incomeCategories: Record<string, string[]> = {
 
 const accounts = ["Bank Account", "Credit Card", "Wallet", "Cash", "Savings Account"];
 
-export async function ensureReferenceData(): Promise<void> {
-  const catCount = await prisma.category.count();
-  if (catCount > 0) return;
-
-  console.log("Database empty — seeding reference data...");
+/** Seed default categories/accounts and a welcome notification for a newly approved user. */
+export async function seedDefaultDataForUser(userId: string): Promise<void> {
+  const existing = await prisma.category.count({ where: { userId } });
+  if (existing > 0) return;
 
   for (const [name, subs] of Object.entries(expenseCategories)) {
-    const category = await prisma.category.create({ data: { name, type: "EXPENSE" } });
+    const category = await prisma.category.create({ data: { userId, name, type: "EXPENSE" } });
     for (const sub of subs) {
       await prisma.subcategory.create({ data: { name: sub, categoryId: category.id } });
     }
   }
 
   for (const [name, subs] of Object.entries(incomeCategories)) {
-    const category = await prisma.category.create({ data: { name, type: "INCOME" } });
+    const category = await prisma.category.create({ data: { userId, name, type: "INCOME" } });
     for (const sub of subs) {
       await prisma.subcategory.create({ data: { name: sub, categoryId: category.id } });
     }
   }
 
   for (const name of accounts) {
-    await prisma.account.create({ data: { name } });
+    await prisma.account.create({ data: { userId, name } });
   }
-
-  await prisma.notification.create({
-    data: {
-      type: "insight",
-      title: "Welcome to Penny Pilot",
-      message: "Start by adding your transactions and setting up budgets.",
-    },
-  });
-
-  await prisma.appSettings.upsert({
-    where: { id: "singleton" },
-    update: {},
-    create: { id: "singleton", data: {} as object },
-  });
-
-  await prisma.appProfile.upsert({
-    where: { id: "singleton" },
-    update: {},
-    create: { id: "singleton", data: {} as object },
-  });
-
-  console.log("Reference data seeded successfully.");
 }

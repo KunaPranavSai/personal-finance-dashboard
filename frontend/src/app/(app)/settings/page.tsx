@@ -13,7 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { useSettingsContext } from "@/lib/SettingsContext";
 import { useToast } from "@/components/ui/Toast";
-import { Settings as SettingsIcon, Palette, Globe, Bell, Shield, Download, Database, Eye, Sliders, Save, Copy, Check, History, KeyRound } from "lucide-react";
+import { Settings as SettingsIcon, Palette, Globe, Bell, Shield, Download, Database, Eye, Sliders, Save, Copy, Check, History, KeyRound, Users, UserCheck, UserX, Mail, Phone, Clock } from "lucide-react";
 import { cn } from "@/lib/format";
 import { CURRENCIES, DATE_FORMATS, WEEK_START_OPTIONS, LANGUAGES, TIMEZONES } from "@/lib/reference";
 
@@ -402,11 +402,184 @@ function ActivityTab() {
   );
 }
 
+interface ManagedUser {
+  id: string;
+  uid: string;
+  name: string;
+  email: string;
+  phone?: string | null;
+  role: "SUPER_ADMIN" | "ADMIN" | "USER";
+  status: "PENDING" | "ACTIVE" | "REJECTED" | "SUSPENDED";
+  createdAt: string;
+  approvedAt?: string | null;
+}
+
+const STATUS_STYLES: Record<string, string> = {
+  PENDING: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+  ACTIVE: "bg-teal/10 text-teal",
+  REJECTED: "bg-red-500/10 text-red-500",
+  SUSPENDED: "bg-navy/10 text-navy/60 dark:bg-white/10 dark:text-white/60",
+};
+
+function UserManagementTab() {
+  const { toast } = useToast();
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [rejectTarget, setRejectTarget] = useState<ManagedUser | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
+
+  const { data: pending, isLoading: pendingLoading, refetch: refetchPending } = useQuery({
+    queryKey: ["users-pending"],
+    queryFn: () => api.get<{ items: ManagedUser[] }>("/api/auth/users/pending"),
+  });
+
+  const { data: allUsers, isLoading: allLoading, refetch: refetchAll } = useQuery({
+    queryKey: ["users-all"],
+    queryFn: () => api.get<{ items: ManagedUser[] }>("/api/auth/users"),
+  });
+
+  const refetchBoth = useCallback(() => {
+    refetchPending();
+    refetchAll();
+  }, [refetchPending, refetchAll]);
+
+  const handleApprove = useCallback(async (u: ManagedUser) => {
+    setBusyId(u.id);
+    try {
+      await api.post(`/api/auth/users/${u.id}/approve`);
+      toast(`${u.name} approved — a welcome email was sent`, "success");
+      refetchBoth();
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Failed to approve user", "error");
+    } finally {
+      setBusyId(null);
+    }
+  }, [toast, refetchBoth]);
+
+  const handleReject = useCallback(async () => {
+    if (!rejectTarget) return;
+    setBusyId(rejectTarget.id);
+    try {
+      await api.post(`/api/auth/users/${rejectTarget.id}/reject`, { reason: rejectReason.trim() || undefined });
+      toast(`${rejectTarget.name} rejected`, "success");
+      setRejectTarget(null);
+      setRejectReason("");
+      refetchBoth();
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Failed to reject user", "error");
+    } finally {
+      setBusyId(null);
+    }
+  }, [rejectTarget, rejectReason, toast, refetchBoth]);
+
+  const pendingItems = pending?.items ?? [];
+  const allItems = allUsers?.items ?? [];
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader><CardTitle>Pending Approvals</CardTitle></CardHeader>
+        <CardContent>
+          {pendingLoading ? (
+            <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-14 animate-pulse rounded-lg bg-black/5 dark:bg-white/5" />)}</div>
+          ) : pendingItems.length === 0 ? (
+            <p className="py-8 text-center text-sm text-navy/50 dark:text-white/50">No accounts awaiting approval.</p>
+          ) : (
+            <div className="space-y-3">
+              {pendingItems.map((u) => (
+                <div key={u.id} className="flex flex-col gap-3 rounded-lg border border-black/5 p-4 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-navy dark:text-white">{u.name}</p>
+                    <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-navy/50 dark:text-white/50">
+                      <span className="flex items-center gap-1"><Mail className="h-3 w-3" /> {u.email}</span>
+                      {u.phone && <span className="flex items-center gap-1"><Phone className="h-3 w-3" /> {u.phone}</span>}
+                      <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {new Date(u.createdAt).toLocaleDateString()}</span>
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 gap-2">
+                    <Button type="button" size="sm" onClick={() => handleApprove(u)} disabled={busyId === u.id}>
+                      <UserCheck className="h-4 w-4" /> {busyId === u.id ? "Approving…" : "Approve"}
+                    </Button>
+                    <Button type="button" size="sm" variant="secondary" onClick={() => setRejectTarget(u)} disabled={busyId === u.id}>
+                      <UserX className="h-4 w-4" /> Reject
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {rejectTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl dark:bg-navy-dark">
+            <p className="text-sm font-semibold text-navy dark:text-white">Reject {rejectTarget.name}?</p>
+            <p className="mt-1 text-xs text-navy/50 dark:text-white/50">Optionally include a reason — it will be sent to the applicant by email.</p>
+            <textarea
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              rows={3}
+              placeholder="Reason (optional)"
+              className="mt-3 w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10"
+            />
+            <div className="mt-4 flex justify-end gap-2">
+              <Button type="button" size="sm" variant="secondary" onClick={() => { setRejectTarget(null); setRejectReason(""); }}>Cancel</Button>
+              <Button type="button" size="sm" onClick={handleReject} disabled={busyId === rejectTarget.id}>
+                {busyId === rejectTarget.id ? "Rejecting…" : "Reject"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <Card>
+        <CardHeader><CardTitle>All Users</CardTitle></CardHeader>
+        <CardContent>
+          {allLoading ? (
+            <div className="space-y-2">{Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-12 animate-pulse rounded-lg bg-black/5 dark:bg-white/5" />)}</div>
+          ) : allItems.length === 0 ? (
+            <p className="py-8 text-center text-sm text-navy/50 dark:text-white/50">No users found.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-black/5 dark:border-white/10 text-left text-navy/50 dark:text-white/50">
+                    <th className="pb-2 pr-3 font-medium">Name</th>
+                    <th className="pb-2 pr-3 font-medium">Email</th>
+                    <th className="pb-2 pr-3 font-medium">Role</th>
+                    <th className="pb-2 pr-3 font-medium">Status</th>
+                    <th className="pb-2 font-medium">Registered</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {allItems.map((u) => (
+                    <tr key={u.id} className="border-b border-black/5 dark:border-white/5">
+                      <td className="py-2 pr-3 font-medium text-navy dark:text-white">{u.name}</td>
+                      <td className="py-2 pr-3 text-navy/70 dark:text-white/70">{u.email}</td>
+                      <td className="py-2 pr-3 text-navy/60 dark:text-white/60">{u.role.replace("_", " ")}</td>
+                      <td className="py-2 pr-3">
+                        <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", STATUS_STYLES[u.status])}>{u.status}</span>
+                      </td>
+                      <td className="py-2 text-navy/60 dark:text-white/60 whitespace-nowrap">{new Date(u.createdAt).toLocaleDateString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 function SettingsContent() {
   const searchParams = useSearchParams();
   const { settings, updateSettings, isLoading, isSaving } = useSettingsContext();
   const { toast } = useToast();
-  const { changePassword } = useAuth();
+  const { user, changePassword } = useAuth();
+  const isAdmin = user?.role === "SUPER_ADMIN" || user?.role === "ADMIN";
+  const tabs = isAdmin ? [...TABS, { id: "users", label: "User Management", icon: Users }] : TABS;
   const [activeTab, setActiveTab] = useState(searchParams.get("tab") ?? "general");
   const [localSettings, setLocalSettings] = useState<Record<string, unknown>>({});
   const [isBackingUp, setIsBackingUp] = useState(false);
@@ -738,6 +911,9 @@ function SettingsContent() {
       case "activity":
         return <ActivityTab />;
 
+      case "users":
+        return isAdmin ? <UserManagementTab /> : null;
+
       case "export":
         return (
           <ExportTab />
@@ -862,7 +1038,7 @@ function SettingsContent() {
             <div className="flex flex-col gap-6 lg:flex-row">
               <nav className="shrink-0 overflow-x-auto lg:w-48" aria-label="Settings tabs">
                 <div className="flex gap-1 lg:flex-col">
-                  {TABS.map((tab) => (
+                  {tabs.map((tab) => (
                     <button
                       key={tab.id}
                       onClick={() => setActiveTab(tab.id)}

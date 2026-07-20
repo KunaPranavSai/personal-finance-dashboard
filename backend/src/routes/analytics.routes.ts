@@ -17,8 +17,10 @@ router.get(
 
     const validFrom = from && !isNaN(from.getTime()) ? from : undefined;
     const validTo = to && !isNaN(to.getTime()) ? to : undefined;
+    const userId = req.auth!.userId;
 
     const where: Prisma.TransactionWhereInput = {
+      userId,
       ...((validFrom || validTo) && {
         date: { ...(validFrom && { gte: validFrom }), ...(validTo && { lte: validTo }) },
       }),
@@ -28,7 +30,7 @@ router.get(
     };
 
     // The raw monthly-trend query needs the same filters expressed as SQL conditions.
-    const conditions: Prisma.Sql[] = [];
+    const conditions: Prisma.Sql[] = [Prisma.sql`"userId" = ${userId}`];
     if (validFrom) conditions.push(Prisma.sql`"date" >= ${validFrom}`);
     if (validTo) conditions.push(Prisma.sql`"date" <= ${validTo}`);
     if (categoryId) conditions.push(Prisma.sql`"categoryId" = ${categoryId}`);

@@ -1,11 +1,14 @@
 "use client";
 
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { Topbar } from "@/components/layout/Topbar";
 import { KpiCard } from "@/components/kpi/KpiCard";
 import { IncomeExpenseChart } from "@/components/charts/IncomeExpenseChart";
 import { CategoryDonutChart } from "@/components/charts/CategoryDonutChart";
 import { FinancialHealthGauge } from "@/components/charts/FinancialHealthGauge";
+import { WelcomeTour } from "@/components/ui/WelcomeTour";
 import { api } from "@/lib/api";
 import { formatCurrency, formatPercent } from "@/lib/format";
 import { useSettingsContext } from "@/lib/SettingsContext";
@@ -15,7 +18,18 @@ import {
   HeartPulse, ShieldCheck, TrendingUp, ArrowLeftRight, Receipt, BarChart3,
 } from "lucide-react";
 
-export default function DashboardPage() {
+function DashboardContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [showTour, setShowTour] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get("welcome") === "1") {
+      setShowTour(true);
+      router.replace("/dashboard");
+    }
+  }, [searchParams, router]);
+
   const { settings } = useSettingsContext();
   const cur = settings.currency;
   const f = (v: number) => formatCurrency(v, cur);
@@ -106,6 +120,21 @@ export default function DashboardPage() {
           </>
         )}
       </main>
+      <WelcomeTour isOpen={showTour} onClose={() => setShowTour(false)} />
     </>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={
+      <><Topbar title="Dashboard" /><main className="flex-1 overflow-y-auto p-4 lg:p-6">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+          {Array.from({ length: 12 }).map((_, i) => <div key={i} className="h-28 animate-pulse rounded-xl2 bg-black/5 dark:bg-white/5" />)}
+        </div>
+      </main></>
+    }>
+      <DashboardContent />
+    </Suspense>
   );
 }

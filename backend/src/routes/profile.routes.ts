@@ -52,11 +52,11 @@ function deepMerge(target: Record<string, unknown>, source: Record<string, unkno
   return result;
 }
 
-async function getOrCreateProfile(): Promise<Record<string, unknown>> {
-  let row = await prisma.appProfile.findUnique({ where: { id: "singleton" } });
+async function getOrCreateProfile(userId: string): Promise<Record<string, unknown>> {
+  let row = await prisma.appProfile.findUnique({ where: { userId } });
   if (!row) {
     row = await prisma.appProfile.create({
-      data: { id: "singleton", data: defaultProfile as object },
+      data: { userId, data: defaultProfile as object },
     });
   }
   const data = row.data as Record<string, unknown>;
@@ -66,13 +66,13 @@ async function getOrCreateProfile(): Promise<Record<string, unknown>> {
   return deepMerge(defaultProfile as unknown as Record<string, unknown>, data);
 }
 
-async function updateProfile(data: Record<string, unknown>): Promise<Record<string, unknown>> {
-  const current = await getOrCreateProfile();
+async function updateProfile(userId: string, data: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const current = await getOrCreateProfile(userId);
   const merged = deepMerge(current, data);
   await prisma.appProfile.upsert({
-    where: { id: "singleton" },
+    where: { userId },
     update: { data: merged as object },
-    create: { id: "singleton", data: merged as object },
+    create: { userId, data: merged as object },
   });
   return merged;
 }
@@ -118,8 +118,8 @@ const router = Router();
 
 router.get(
   "/",
-  asyncHandler(async (_req, res) => {
-    const profile = await getOrCreateProfile();
+  asyncHandler(async (req, res) => {
+    const profile = await getOrCreateProfile(req.auth!.userId);
     res.json(profile);
   })
 );
@@ -128,7 +128,7 @@ router.patch(
   "/",
   asyncHandler(async (req, res) => {
     const data = updateProfileSchema.parse(req.body);
-    const updated = await updateProfile(data);
+    const updated = await updateProfile(req.auth!.userId, data);
     res.json(updated);
   })
 );
