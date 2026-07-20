@@ -2,9 +2,29 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/lib/AuthContext";
 import { Footer } from "@/components/layout/Footer";
-import { Shield, KeyRound, ArrowLeft, Mail, Smartphone, FileKey } from "lucide-react";
+import { PasswordInput } from "@/components/ui/PasswordInput";
+import { Shield, KeyRound, ArrowLeft, Mail, Smartphone, FileKey, CheckCircle } from "lucide-react";
+
+function ShakeError({ children }: { children: React.ReactNode }) {
+  return (
+    <AnimatePresence mode="wait">
+      <motion.div
+        key={typeof children === "string" ? children : "error"}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1, x: [0, -8, 8, -6, 6, -2, 2, 0] }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.4 }}
+        className="flex items-center gap-2 rounded-lg bg-red-500/10 border border-red-500/20 px-3 py-2 text-sm text-red-400"
+      >
+        <Shield className="h-4 w-4 shrink-0" />
+        {children}
+      </motion.div>
+    </AnimatePresence>
+  );
+}
 
 type Method = "email" | "totp" | "backup";
 
@@ -138,12 +158,7 @@ export default function ForgotPasswordPage() {
                 />
               </div>
 
-              {error && (
-                <div className="flex items-center gap-2 rounded-lg bg-red-500/10 border border-red-500/20 px-3 py-2 text-sm text-red-400">
-                  <Shield className="h-4 w-4 shrink-0" />
-                  {error}
-                </div>
-              )}
+              {error && <ShakeError>{error}</ShakeError>}
 
               <button
                 type="submit"
@@ -180,12 +195,7 @@ export default function ForgotPasswordPage() {
                   </button>
                 ))
               )}
-              {error && (
-                <div className="flex items-center gap-2 rounded-lg bg-red-500/10 border border-red-500/20 px-3 py-2 text-sm text-red-400">
-                  <Shield className="h-4 w-4 shrink-0" />
-                  {error}
-                </div>
-              )}
+              {error && <ShakeError>{error}</ShakeError>}
               <button
                 type="button"
                 onClick={() => { setStep("uid"); setError(""); }}
@@ -218,37 +228,32 @@ export default function ForgotPasswordPage() {
                 <label htmlFor="newPassword" className="block text-xs font-semibold uppercase tracking-wider text-white/50 mb-2">
                   New Password
                 </label>
-                <input
+                <PasswordInput
                   id="newPassword"
-                  type="password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   placeholder="New password (min 8 chars)"
                   required
                   className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/30 focus:border-teal/50 focus:outline-none focus:ring-2 focus:ring-teal/20 transition-all"
+                  toggleClassName="text-white/30 hover:text-white/60"
                 />
               </div>
               <div>
                 <label htmlFor="confirmPassword" className="block text-xs font-semibold uppercase tracking-wider text-white/50 mb-2">
                   Confirm New Password
                 </label>
-                <input
+                <PasswordInput
                   id="confirmPassword"
-                  type="password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="Confirm new password"
                   required
                   className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/30 focus:border-teal/50 focus:outline-none focus:ring-2 focus:ring-teal/20 transition-all"
+                  toggleClassName="text-white/30 hover:text-white/60"
                 />
               </div>
 
-              {error && (
-                <div className="flex items-center gap-2 rounded-lg bg-red-500/10 border border-red-500/20 px-3 py-2 text-sm text-red-400">
-                  <Shield className="h-4 w-4 shrink-0" />
-                  {error}
-                </div>
-              )}
+              {error && <ShakeError>{error}</ShakeError>}
 
               <button
                 type="submit"
@@ -270,6 +275,14 @@ export default function ForgotPasswordPage() {
 
           {step === "done" && (
             <div className="space-y-5 text-center">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.5 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: "spring", stiffness: 260, damping: 18 }}
+                className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-teal/10"
+              >
+                <CheckCircle className="h-8 w-8 text-teal" />
+              </motion.div>
               <p className="text-sm text-white/70">Your password has been reset successfully. You can now sign in with your new password.</p>
               <button
                 type="button"

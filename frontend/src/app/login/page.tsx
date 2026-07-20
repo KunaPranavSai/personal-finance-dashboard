@@ -6,14 +6,14 @@ import Link from "next/link";
 import Image from "next/image";
 import { useAuth } from "@/lib/AuthContext";
 import { Footer } from "@/components/layout/Footer";
-import { Eye, EyeOff, Shield, Lock } from "lucide-react";
+import { PasswordInput } from "@/components/ui/PasswordInput";
+import { Shield, Lock } from "lucide-react";
 
 export default function LoginPage() {
   const { login, verifyLogin2FA, forceChangePassword, isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
   const [uid, setUid] = useState("");
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [isPending, setIsPending] = useState(false);
   const [challengeToken, setChallengeToken] = useState<string | null>(null);
@@ -122,9 +122,8 @@ export default function LoginPage() {
                 <label htmlFor="newPassword" className="block text-xs font-semibold uppercase tracking-wider text-white/50 mb-2">
                   New Password
                 </label>
-                <input
+                <PasswordInput
                   id="newPassword"
-                  type="password"
                   autoComplete="new-password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
@@ -132,21 +131,22 @@ export default function LoginPage() {
                   required
                   autoFocus
                   className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/30 focus:border-teal/50 focus:outline-none focus:ring-2 focus:ring-teal/20 transition-all"
+                  toggleClassName="text-white/30 hover:text-white/60"
                 />
               </div>
               <div>
                 <label htmlFor="confirmNewPassword" className="block text-xs font-semibold uppercase tracking-wider text-white/50 mb-2">
                   Confirm Password
                 </label>
-                <input
+                <PasswordInput
                   id="confirmNewPassword"
-                  type="password"
                   autoComplete="new-password"
                   value={confirmNewPassword}
                   onChange={(e) => setConfirmNewPassword(e.target.value)}
                   placeholder="Re-enter new password"
                   required
                   className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/30 focus:border-teal/50 focus:outline-none focus:ring-2 focus:ring-teal/20 transition-all"
+                  toggleClassName="text-white/30 hover:text-white/60"
                 />
               </div>
 
@@ -253,26 +253,16 @@ export default function LoginPage() {
               <label htmlFor="password" className="block text-xs font-semibold uppercase tracking-wider text-white/50 mb-2">
                 Password
               </label>
-              <div className="relative">
-                <input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  autoComplete="current-password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter your password"
-                  required
-                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 pr-12 text-sm text-white placeholder:text-white/30 focus:border-teal/50 focus:outline-none focus:ring-2 focus:ring-teal/20 transition-all"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors"
-                  aria-label={showPassword ? "Hide password" : "Show password"}
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
+              <PasswordInput
+                id="password"
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter your password"
+                required
+                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/30 focus:border-teal/50 focus:outline-none focus:ring-2 focus:ring-teal/20 transition-all"
+                toggleClassName="text-white/30 hover:text-white/60"
+              />
               <div className="mt-2 text-right">
                 <Link href="/forgot-password" className="text-xs text-white/40 hover:text-white/60 transition-colors">
                   Forgot password?

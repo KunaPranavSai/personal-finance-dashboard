@@ -24,6 +24,8 @@ interface AuthContextType {
   sessionTimeoutWarning: boolean;
   isLocked: boolean;
   twoFactorEnabled: boolean;
+  sessionTimeoutMinutes: number;
+  lastActivity: number;
   login: (uid: string, password: string) => Promise<LoginResult>;
   signup: (name: string, email: string, phone: string) => Promise<void>;
   verifyLogin2FA: (challengeToken: string, code: string) => Promise<void>;
@@ -385,6 +387,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       sessionTimeoutWarning,
       isLocked,
       twoFactorEnabled,
+      sessionTimeoutMinutes: sessionTimeout,
+      lastActivity,
       login,
       signup,
       verifyLogin2FA,

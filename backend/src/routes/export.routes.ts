@@ -5,6 +5,7 @@ import { generateCSV } from "../services/export/csvExporter";
 import { generateExcel } from "../services/export/excelExporter";
 import { generateJSON } from "../services/export/jsonExporter";
 import { generatePDF } from "../services/export/pdfExporter";
+import { prisma } from "../lib/prisma";
 
 const router = Router();
 
@@ -15,6 +16,39 @@ function dateStr(): string {
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
 }
+
+// ─── GET /api/export/preview ─────────────────────────────────────────────────
+// Cheap record-count summary of what an export/backup would include, shown to
+// the user before they commit to a download.
+router.get(
+  "/preview",
+  asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.auth!.userId;
+    const from = req.query.from ? new Date(req.query.from as string) : undefined;
+    const to = req.query.to ? new Date(req.query.to as string) : undefined;
+    const validFrom = from && !isNaN(from.getTime()) ? from : undefined;
+    const validTo = to && !isNaN(to.getTime()) ? to : undefined;
+    const dateFilter =
+      validFrom || validTo
+        ? { date: { ...(validFrom && { gte: validFrom }), ...(validTo && { lte: validTo }) } }
+        : {};
+
+    const [transactions, budgets, investments, bills, goals, categories, accounts] = await Promise.all([
+      prisma.transaction.count({ where: { userId, ...dateFilter } }),
+      prisma.budget.count({ where: { userId } }),
+      prisma.investment.count({ where: { userId } }),
+      prisma.bill.count({ where: { userId } }),
+      prisma.goal.count({ where: { userId } }),
+      prisma.category.count({ where: { userId } }),
+      prisma.account.count({ where: { userId } }),
+    ]);
+
+    res.json({
+      counts: { transactions, budgets, investments, bills, goals, categories, accounts },
+      range: { from: validFrom?.toISOString() ?? null, to: validTo?.toISOString() ?? null },
+    });
+  })
+);
 
 router.get(
   "/",

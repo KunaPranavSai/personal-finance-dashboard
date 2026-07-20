@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react";
 import { Lock } from "lucide-react";
 import { Button } from "./Button";
+import { PasswordInput } from "./PasswordInput";
 
 interface LockScreenProps {
   isOpen: boolean;
@@ -46,8 +47,7 @@ export function LockScreen({ isOpen, onUnlock }: LockScreenProps) {
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
           <div>
-            <input
-              type="password"
+            <PasswordInput
               placeholder="Password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}

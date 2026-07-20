@@ -31,7 +31,7 @@ export function CategoryDonutChart({ data }: { data: Slice[] }) {
                 ))}
               </Pie>
               <Tooltip formatter={(v: number) => formatCompactCurrency(v)} />
-              <Legend />
+              <Legend wrapperStyle={{ color: "var(--foreground)", fontSize: 12, opacity: 0.8 }} />
             </PieChart>
           </ResponsiveContainer>
         )}

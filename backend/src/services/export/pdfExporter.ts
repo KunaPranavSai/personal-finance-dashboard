@@ -10,9 +10,13 @@ function catName(cat: unknown): string {
   return cat ? String((cat as Record<string, unknown>).name ?? "") : "";
 }
 
+function truncate(str: string, max: number): string {
+  return str.length > max ? str.slice(0, max - 1) + "…" : str;
+}
+
 export async function generatePDF(data: ExportData): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ margin: 50, size: "A4" });
+    const doc = new PDFDocument({ margin: 50, size: "A4", bufferPages: true });
     const chunks: Buffer[] = [];
     doc.on("data", (chunk: Buffer) => chunks.push(chunk));
     doc.on("end", () => resolve(Buffer.concat(chunks)));
@@ -81,11 +85,12 @@ export async function generatePDF(data: ExportData): Promise<Buffer> {
 
       const colW = (pageWidth) / Math.max(headers.length, 1);
       const rowH = 18;
+      const maxChars = Math.max(4, Math.floor((colW - 10) / 4.2));
 
       doc.rect(50, y, pageWidth, rowH).fill("#1F2A44");
       doc.fontSize(8).font("Helvetica-Bold").fillColor("#FFFFFF");
       headers.forEach((h, i) => {
-        doc.text(h, 55 + i * colW, y + 5, { width: colW - 10 });
+        doc.text(truncate(h, maxChars), 55 + i * colW, y + 5, { width: colW - 10 });
       });
       y += rowH;
 
@@ -96,7 +101,7 @@ export async function generatePDF(data: ExportData): Promise<Buffer> {
           doc.rect(50, y, pageWidth, rowH).fill("#F7F8FA");
         }
         row.forEach((cell, ci) => {
-          doc.fillColor("#333").text(cell, 55 + ci * colW, y + 4, { width: colW - 10 });
+          doc.fillColor("#333").text(truncate(cell, maxChars), 55 + ci * colW, y + 4, { width: colW - 10, height: rowH - 4, ellipsis: true });
         });
         y += rowH;
       });
