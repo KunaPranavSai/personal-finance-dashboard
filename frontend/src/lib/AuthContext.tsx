@@ -29,7 +29,7 @@ interface AuthContextType {
   login: (uid: string, password: string) => Promise<LoginResult>;
   signup: (name: string, email: string, phone: string) => Promise<void>;
   verifyLogin2FA: (challengeToken: string, code: string) => Promise<void>;
-  forceChangePassword: (passwordChangeToken: string, newPassword: string) => Promise<{ justOnboarded: boolean }>;
+  forceChangePassword: (passwordChangeToken: string, newPassword: string) => Promise<{ justOnboarded: boolean; user: AuthUser }>;
   logout: () => Promise<void>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   unlock: (password: string) => Promise<void>;
@@ -246,7 +246,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const data = await res.json();
     setUser(data.user);
     refreshTwoFactorStatus();
-    return { justOnboarded: Boolean(data.justOnboarded) };
+    return { justOnboarded: Boolean(data.justOnboarded), user: data.user as AuthUser };
   }, [refreshTwoFactorStatus]);
 
   const verifyLogin2FA = useCallback(async (challengeToken: string, code: string) => {
