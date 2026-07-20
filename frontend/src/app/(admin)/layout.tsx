@@ -1,15 +1,14 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter, usePathname } from "next/navigation";
-import { Sidebar } from "@/components/layout/Sidebar";
+import { useRouter } from "next/navigation";
+import { AdminSidebar } from "@/components/layout/AdminSidebar";
 import { Footer } from "@/components/layout/Footer";
-import { DataInit } from "@/components/DataInit";
 import { SessionWarningModal } from "@/components/ui/SessionWarningModal";
 import { LockScreen } from "@/components/ui/LockScreen";
 import { useAuth } from "@/lib/AuthContext";
 
-export default function AppShellLayout({ children }: { children: React.ReactNode }) {
+export default function AdminShellLayout({ children }: { children: React.ReactNode }) {
   const {
     user,
     isAuthenticated,
@@ -21,20 +20,16 @@ export default function AppShellLayout({ children }: { children: React.ReactNode
     dismissTimeoutWarning,
   } = useAuth();
   const router = useRouter();
-  const pathname = usePathname();
-  // Admins keep self-service access to their own Settings (password/UID/2FA), but
-  // every other personal-finance page belongs to the USER role's dashboard only.
-  const isSelfServiceRoute = pathname?.startsWith("/settings");
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       router.replace("/login");
-    } else if (!isLoading && user && user.role !== "USER" && !isSelfServiceRoute) {
-      router.replace("/admin");
+    } else if (!isLoading && user && user.role === "USER") {
+      router.replace("/dashboard");
     }
-  }, [isAuthenticated, isLoading, user, isSelfServiceRoute, router]);
+  }, [isAuthenticated, isLoading, user, router]);
 
-  if (isLoading || (user && user.role !== "USER" && !isSelfServiceRoute)) {
+  if (isLoading || (user && user.role === "USER")) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-surface dark:bg-navy-dark">
         <div className="flex flex-col items-center gap-4">
@@ -49,8 +44,7 @@ export default function AppShellLayout({ children }: { children: React.ReactNode
 
   return (
     <div className="flex min-h-screen bg-surface dark:bg-navy-dark">
-      <DataInit />
-      <Sidebar />
+      <AdminSidebar />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         {children}
         <Footer />

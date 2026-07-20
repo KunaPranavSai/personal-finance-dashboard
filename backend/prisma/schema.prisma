@@ -70,6 +70,7 @@ model User {
   approvedById           String?
   rejectedAt             DateTime?
   rejectionReason        String?
+  lastLoginAt            DateTime?
   createdAt              DateTime   @default(now())
   updatedAt              DateTime   @updatedAt
 

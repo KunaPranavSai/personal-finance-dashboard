@@ -231,6 +231,7 @@ router.post(
     }
     const valid = await bcrypt.compare(password, user.passwordHash);
     if (!valid) {
+      void logActivity(req, "login_failed", "Wrong password", user.id);
       void createNotification(user.id, "security", "Failed login attempt", "A login attempt with an incorrect password was made on your account.");
       res.status(401).json({ error: "Invalid credentials" });
       return;
@@ -250,6 +251,7 @@ router.post(
 
     const sv = bumpSessionVersion(user.id);
     setTokenCookies(res, signAccess(user, sv), signRefresh(user, sv));
+    void prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
     void createNotification(user.id, "security", "New sign-in", "Your account was signed in from a new session.");
     res.json({ user: toUserJson(user) });
   })
@@ -289,7 +291,7 @@ router.post(
     const newHash = await bcrypt.hash(newPassword, 12);
     const updated = await prisma.user.update({
       where: { id: user.id },
-      data: { passwordHash: newHash, mustChangePassword: false, onboardedAt: user.onboardedAt ?? new Date() },
+      data: { passwordHash: newHash, mustChangePassword: false, onboardedAt: user.onboardedAt ?? new Date(), lastLoginAt: new Date() },
     });
     const sv = bumpSessionVersion(updated.id);
     setTokenCookies(res, signAccess(updated, sv), signRefresh(updated, sv));
@@ -345,11 +347,13 @@ router.post(
     }
     const valid = await verifyTwoFactorCode(user.id, user, code);
     if (!valid) {
+      void logActivity(req, "login_failed", "Invalid 2FA code", user.id);
       res.status(401).json({ error: "Invalid verification code" });
       return;
     }
     const sv = bumpSessionVersion(user.id);
     setTokenCookies(res, signAccess(user, sv), signRefresh(user, sv));
+    void prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
     void createNotification(user.id, "security", "New sign-in", "Your account was signed in with two-factor authentication.");
     res.json({ user: toUserJson(user) });
   })
@@ -721,6 +725,7 @@ router.get(
       select: {
         id: true, uid: true, email: true, name: true, phone: true, role: true, status: true,
         createdAt: true, approvedAt: true, rejectedAt: true, rejectionReason: true,
+        lastLoginAt: true, twoFactorEnabled: true,
       },
     });
     res.json({ items: users });

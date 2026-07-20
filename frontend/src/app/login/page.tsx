@@ -10,7 +10,7 @@ import { PasswordInput } from "@/components/ui/PasswordInput";
 import { Shield, Lock } from "lucide-react";
 
 export default function LoginPage() {
-  const { login, verifyLogin2FA, forceChangePassword, isAuthenticated, isLoading } = useAuth();
+  const { user, login, verifyLogin2FA, forceChangePassword, isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
   const [uid, setUid] = useState("");
   const [password, setPassword] = useState("");
@@ -23,10 +23,10 @@ export default function LoginPage() {
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
 
   useEffect(() => {
-    if (!isLoading && isAuthenticated) {
-      router.replace("/dashboard");
+    if (!isLoading && isAuthenticated && user) {
+      router.replace(user.role === "USER" ? "/dashboard" : "/admin");
     }
-  }, [isAuthenticated, isLoading, router]);
+  }, [isAuthenticated, isLoading, user, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,9 +38,8 @@ export default function LoginPage() {
         setPasswordChangeToken(result.passwordChangeToken);
       } else if (result.requires2FA && result.challengeToken) {
         setChallengeToken(result.challengeToken);
-      } else {
-        router.replace("/dashboard");
       }
+      // else: the auth-state effect above redirects once `user` is populated.
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
     } finally {
@@ -55,7 +54,7 @@ export default function LoginPage() {
     setIsPending(true);
     try {
       await verifyLogin2FA(challengeToken, code.trim());
-      router.replace("/dashboard");
+      // The auth-state effect above redirects once `user` is populated.
     } catch (err) {
       setError(err instanceof Error ? err.message : "Verification failed");
     } finally {
@@ -77,8 +76,9 @@ export default function LoginPage() {
     }
     setIsPending(true);
     try {
-      const { justOnboarded } = await forceChangePassword(passwordChangeToken, newPassword);
-      router.replace(justOnboarded ? "/dashboard?welcome=1" : "/dashboard");
+      const { justOnboarded, user: updatedUser } = await forceChangePassword(passwordChangeToken, newPassword);
+      const isUser = updatedUser?.role === "USER";
+      router.replace(isUser ? (justOnboarded ? "/dashboard?welcome=1" : "/dashboard") : "/admin");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to set new password");
     } finally {

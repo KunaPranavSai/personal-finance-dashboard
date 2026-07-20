@@ -18,8 +18,9 @@ import settingsRoutes from "./routes/settings.routes";
 import exportRoutes from "./routes/export.routes";
 import authRoutes from "./routes/auth.routes";
 import activityRoutes from "./routes/activity.routes";
+import adminRoutes from "./routes/admin.routes";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler";
-import { authenticate } from "./middleware/auth";
+import { authenticate, requireRole } from "./middleware/auth";
 
 const isProd = process.env.NODE_ENV === "production";
 const COOKIE_SECRET = process.env.COOKIE_SECRET ?? "pfd-cookie-secret";
@@ -75,6 +76,7 @@ export function createApp() {
   app.use("/api/settings", authenticate, settingsRoutes);
   app.use("/api/export", authenticate, exportRoutes);
   app.use("/api/activity", authenticate, activityRoutes);
+  app.use("/api/admin", authenticate, requireRole("SUPER_ADMIN", "ADMIN"), adminRoutes);
 
   app.use(notFoundHandler);
   app.use(errorHandler);
