@@ -8,7 +8,8 @@ function monthRange(offset = 0) {
   return { start, end };
 }
 
-export async function getDashboardSummary(_req: Request, res: Response) {
+export async function getDashboardSummary(req: Request, res: Response) {
+  const userId = req.auth!.userId;
   const { start: curStart, end: curEnd } = monthRange(0);
   const { start: prevStart, end: prevEnd } = monthRange(-1);
 
@@ -18,19 +19,19 @@ export async function getDashboardSummary(_req: Request, res: Response) {
     prevIncomeAgg, prevExpenseAgg,
     txCount, largestExpense, allExpenseTx, budgets, investments, upcomingBills, goals,
   ] = await Promise.all([
-    prisma.transaction.aggregate({ where: { type: "INCOME" }, _sum: { amount: true } }),
-    prisma.transaction.aggregate({ where: { type: "EXPENSE" }, _sum: { amount: true } }),
-    prisma.transaction.aggregate({ where: { type: "INCOME", date: { gte: curStart, lt: curEnd } }, _sum: { amount: true } }),
-    prisma.transaction.aggregate({ where: { type: "EXPENSE", date: { gte: curStart, lt: curEnd } }, _sum: { amount: true } }),
-    prisma.transaction.aggregate({ where: { type: "INCOME", date: { gte: prevStart, lt: prevEnd } }, _sum: { amount: true } }),
-    prisma.transaction.aggregate({ where: { type: "EXPENSE", date: { gte: prevStart, lt: prevEnd } }, _sum: { amount: true } }),
-    prisma.transaction.count(),
-    prisma.transaction.findFirst({ where: { type: "EXPENSE" }, orderBy: { amount: "desc" }, include: { category: true } }),
-    prisma.transaction.groupBy({ by: ["categoryId"], where: { type: "EXPENSE" }, _sum: { amount: true } }),
-    prisma.budget.findMany({ include: { category: true } }),
-    prisma.investment.findMany(),
-    prisma.bill.findMany({ where: { dueDate: { gte: new Date() } }, orderBy: { dueDate: "asc" }, take: 5 }),
-    prisma.goal.findMany(),
+    prisma.transaction.aggregate({ where: { userId, type: "INCOME" }, _sum: { amount: true } }),
+    prisma.transaction.aggregate({ where: { userId, type: "EXPENSE" }, _sum: { amount: true } }),
+    prisma.transaction.aggregate({ where: { userId, type: "INCOME", date: { gte: curStart, lt: curEnd } }, _sum: { amount: true } }),
+    prisma.transaction.aggregate({ where: { userId, type: "EXPENSE", date: { gte: curStart, lt: curEnd } }, _sum: { amount: true } }),
+    prisma.transaction.aggregate({ where: { userId, type: "INCOME", date: { gte: prevStart, lt: prevEnd } }, _sum: { amount: true } }),
+    prisma.transaction.aggregate({ where: { userId, type: "EXPENSE", date: { gte: prevStart, lt: prevEnd } }, _sum: { amount: true } }),
+    prisma.transaction.count({ where: { userId } }),
+    prisma.transaction.findFirst({ where: { userId, type: "EXPENSE" }, orderBy: { amount: "desc" }, include: { category: true } }),
+    prisma.transaction.groupBy({ by: ["categoryId"], where: { userId, type: "EXPENSE" }, _sum: { amount: true } }),
+    prisma.budget.findMany({ where: { userId }, include: { category: true } }),
+    prisma.investment.findMany({ where: { userId } }),
+    prisma.bill.findMany({ where: { userId, dueDate: { gte: new Date() } }, orderBy: { dueDate: "asc" }, take: 5 }),
+    prisma.goal.findMany({ where: { userId } }),
   ]);
 
   const totalIncome = Number(totalIncomeAgg._sum.amount ?? 0);
@@ -71,11 +72,11 @@ export async function getDashboardSummary(_req: Request, res: Response) {
   const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000);
   const [recentIncomeAgg, recentExpenseAgg] = await Promise.all([
     prisma.transaction.aggregate({
-      where: { type: "INCOME", date: { gte: thirtyDaysAgo } },
+      where: { userId, type: "INCOME", date: { gte: thirtyDaysAgo } },
       _sum: { amount: true },
     }),
     prisma.transaction.aggregate({
-      where: { type: "EXPENSE", date: { gte: thirtyDaysAgo } },
+      where: { userId, type: "EXPENSE", date: { gte: thirtyDaysAgo } },
       _sum: { amount: true },
     }),
   ]);
@@ -93,7 +94,7 @@ export async function getDashboardSummary(_req: Request, res: Response) {
     ))
   );
 
-  const daysSpan = await prisma.transaction.aggregate({ _min: { date: true }, _max: { date: true } });
+  const daysSpan = await prisma.transaction.aggregate({ where: { userId }, _min: { date: true }, _max: { date: true } });
   const minDate = daysSpan._min.date;
   const maxDate = daysSpan._max.date;
   const spanDays = minDate && maxDate ? Math.max(1, Math.round((maxDate.getTime() - minDate.getTime()) / 86400000)) : 1;
@@ -129,22 +130,25 @@ export async function getDashboardSummary(_req: Request, res: Response) {
   });
 }
 
-export async function getIncomeExpenseTrend(_req: Request, res: Response) {
+export async function getIncomeExpenseTrend(req: Request, res: Response) {
+  const userId = req.auth!.userId;
   const rows = await prisma.$queryRaw<
     { month: string; type: string; total: string }[]
   >`
     SELECT to_char(date_trunc('month', "date"), 'YYYY-MM') as month, "type", SUM("amount")::text as total
     FROM "Transaction"
+    WHERE "userId" = ${userId}
     GROUP BY 1, 2
     ORDER BY 1 ASC
   `;
   res.json({ items: rows });
 }
 
-export async function getCategoryBreakdown(_req: Request, res: Response) {
+export async function getCategoryBreakdown(req: Request, res: Response) {
+  const userId = req.auth!.userId;
   const rows = await prisma.transaction.groupBy({
     by: ["categoryId"],
-    where: { type: "EXPENSE" },
+    where: { userId, type: "EXPENSE" },
     _sum: { amount: true },
   });
   const cats = await prisma.category.findMany({ where: { id: { in: rows.map((r) => r.categoryId) } } });

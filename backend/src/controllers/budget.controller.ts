@@ -31,9 +31,10 @@ function computeStatus(utilization: number): "UNDER_BUDGET" | "NEAR_LIMIT" | "OV
 
 export async function listBudgets(req: Request, res: Response) {
   const query = safeQuery(listBudgetsQuerySchema, req);
+  const userId = req.auth!.userId;
 
   const budgets = await prisma.budget.findMany({
-    where: { ...(query.period && { period: query.period }), ...(query.periodKey && { periodKey: query.periodKey }) },
+    where: { userId, ...(query.period && { period: query.period }), ...(query.periodKey && { periodKey: query.periodKey }) },
     include: { category: true },
     orderBy: { category: { name: "asc" } },
   });
@@ -42,7 +43,7 @@ export async function listBudgets(req: Request, res: Response) {
     budgets.map(async (b: Prisma.BudgetGetPayload<{ include: { category: true } }>) => {
       const { start, end } = periodToRange(b.period, b.periodKey);
       const agg = await prisma.transaction.aggregate({
-        where: { categoryId: b.categoryId, type: "EXPENSE", date: { gte: start, lt: end } },
+        where: { userId, categoryId: b.categoryId, type: "EXPENSE", date: { gte: start, lt: end } },
         _sum: { amount: true },
       });
       const actual = Number(agg._sum.amount ?? 0);
@@ -67,7 +68,7 @@ export async function listBudgets(req: Request, res: Response) {
 export async function createBudget(req: Request, res: Response) {
   const data = safeBody(createBudgetSchema, req);
   const budget = await prisma.budget.create({
-    data: { categoryId: data.categoryId, period: data.period, periodKey: data.periodKey, amount: data.amount },
+    data: { userId: req.auth!.userId, categoryId: data.categoryId, period: data.period, periodKey: data.periodKey, amount: data.amount },
     include: { category: true },
   });
   res.status(201).json(budget);
@@ -76,6 +77,8 @@ export async function createBudget(req: Request, res: Response) {
 export async function updateBudget(req: Request, res: Response) {
   const id = safeParam(req, "id");
   const data = safeBody(updateBudgetSchema, req);
+  const existing = await prisma.budget.findFirst({ where: { id, userId: req.auth!.userId } });
+  if (!existing) { res.status(404).json({ error: "Budget not found" }); return; }
   const budget = await prisma.budget.update({
     where: { id },
     data,
@@ -86,6 +89,7 @@ export async function updateBudget(req: Request, res: Response) {
 
 export async function deleteBudget(req: Request, res: Response) {
   const id = safeParam(req, "id");
-  await prisma.budget.delete({ where: { id } });
+  const result = await prisma.budget.deleteMany({ where: { id, userId: req.auth!.userId } });
+  if (result.count === 0) { res.status(404).json({ error: "Budget not found" }); return; }
   res.status(204).send();
 }

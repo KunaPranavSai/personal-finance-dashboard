@@ -32,13 +32,15 @@ export function getClientIp(req: Request): string {
   return req.ip ?? "unknown";
 }
 
-/** Record a security/audit event. Fire-and-forget safe: failures never break the request. */
-export async function logActivity(req: Request, event: string, detail?: string): Promise<void> {
+/** Record a security/audit event. Fire-and-forget safe: failures never break the request. `userId` is
+ * omitted for events with no resolvable account (e.g. a login attempt with an unknown UID). */
+export async function logActivity(req: Request, event: string, detail?: string, userId?: string): Promise<void> {
   try {
     const ua = String(req.headers["user-agent"] ?? "");
     const { browser, os, device } = parseUserAgent(ua);
     await prisma.activityLog.create({
       data: {
+        userId: userId ?? null,
         event,
         detail: detail ?? null,
         ip: getClientIp(req),

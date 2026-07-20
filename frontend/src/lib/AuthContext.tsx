@@ -6,11 +6,15 @@ import { API_BASE_URL } from "./api";
 interface AuthUser {
   uid: string;
   name: string;
+  email: string;
+  role: "SUPER_ADMIN" | "ADMIN" | "USER";
 }
 
 interface LoginResult {
   requires2FA: boolean;
   challengeToken?: string;
+  requiresPasswordChange: boolean;
+  passwordChangeToken?: string;
 }
 
 interface AuthContextType {
@@ -21,7 +25,9 @@ interface AuthContextType {
   isLocked: boolean;
   twoFactorEnabled: boolean;
   login: (uid: string, password: string) => Promise<LoginResult>;
+  signup: (name: string, email: string, phone: string) => Promise<void>;
   verifyLogin2FA: (challengeToken: string, code: string) => Promise<void>;
+  forceChangePassword: (passwordChangeToken: string, newPassword: string) => Promise<{ justOnboarded: boolean }>;
   logout: () => Promise<void>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   unlock: (password: string) => Promise<void>;
@@ -204,12 +210,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error(data.error || "Login failed");
     }
     const data = await res.json();
+    if (data.requiresPasswordChange) {
+      return { requires2FA: false, requiresPasswordChange: true, passwordChangeToken: data.passwordChangeToken };
+    }
     if (data.requires2FA) {
-      return { requires2FA: true, challengeToken: data.challengeToken };
+      return { requires2FA: true, requiresPasswordChange: false, challengeToken: data.challengeToken };
     }
     setUser(data.user);
     refreshTwoFactorStatus();
-    return { requires2FA: false };
+    return { requires2FA: false, requiresPasswordChange: false };
+  }, [refreshTwoFactorStatus]);
+
+  const signup = useCallback(async (name: string, email: string, phone: string) => {
+    const res = await apiFetch("/api/auth/signup", {
+      method: "POST",
+      body: JSON.stringify({ name, email, phone }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || "Signup failed");
+    }
+  }, []);
+
+  const forceChangePassword = useCallback(async (passwordChangeToken: string, newPassword: string) => {
+    const res = await apiFetch("/api/auth/force-change-password", {
+      method: "POST",
+      body: JSON.stringify({ passwordChangeToken, newPassword }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || "Failed to set new password");
+    }
+    const data = await res.json();
+    setUser(data.user);
+    refreshTwoFactorStatus();
+    return { justOnboarded: Boolean(data.justOnboarded) };
   }, [refreshTwoFactorStatus]);
 
   const verifyLogin2FA = useCallback(async (challengeToken: string, code: string) => {
@@ -351,7 +386,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isLocked,
       twoFactorEnabled,
       login,
+      signup,
       verifyLogin2FA,
+      forceChangePassword,
       logout,
       changePassword,
       unlock,

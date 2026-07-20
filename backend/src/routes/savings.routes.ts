@@ -6,10 +6,11 @@ const router = Router();
 
 router.get(
   "/",
-  asyncHandler(async (_req, res) => {
+  asyncHandler(async (req, res) => {
+    const userId = req.auth!.userId;
     const [totalIncomeAgg, totalExpenseAgg, monthlyAgg] = await Promise.all([
-      prisma.transaction.aggregate({ where: { type: "INCOME" }, _sum: { amount: true } }),
-      prisma.transaction.aggregate({ where: { type: "EXPENSE" }, _sum: { amount: true } }),
+      prisma.transaction.aggregate({ where: { userId, type: "INCOME" }, _sum: { amount: true } }),
+      prisma.transaction.aggregate({ where: { userId, type: "EXPENSE" }, _sum: { amount: true } }),
       prisma.$queryRaw<
         { month: string; income: string; expense: string }[]
       >`
@@ -17,6 +18,7 @@ router.get(
                SUM(CASE WHEN "type" = 'INCOME' THEN "amount" ELSE 0 END)::text as income,
                SUM(CASE WHEN "type" = 'EXPENSE' THEN "amount" ELSE 0 END)::text as expense
         FROM "Transaction"
+        WHERE "userId" = ${userId}
         GROUP BY 1
         ORDER BY 1 DESC
         LIMIT 12

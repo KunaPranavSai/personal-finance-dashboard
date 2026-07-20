@@ -6,7 +6,8 @@ const router = Router();
 
 router.get(
   "/monthly",
-  asyncHandler(async (_req, res) => {
+  asyncHandler(async (req, res) => {
+    const userId = req.auth!.userId;
     const rows = await prisma.$queryRaw<
       { month: string; income: string; expense: string; count: string }[]
     >`
@@ -15,6 +16,7 @@ router.get(
              SUM(CASE WHEN "type" = 'EXPENSE' THEN "amount" ELSE 0 END)::text as expense,
              COUNT(*)::text as count
       FROM "Transaction"
+      WHERE "userId" = ${userId}
       GROUP BY 1
       ORDER BY 1 ASC
     `;
@@ -24,12 +26,13 @@ router.get(
 
 router.get(
   "/categories",
-  asyncHandler(async (_req, res) => {
+  asyncHandler(async (req, res) => {
+    const userId = req.auth!.userId;
     const expenses = await prisma.transaction.groupBy({
       by: ["categoryId"],
       _sum: { amount: true },
       _count: true,
-      where: { type: "EXPENSE" },
+      where: { userId, type: "EXPENSE" },
       orderBy: { _sum: { amount: "desc" } },
     });
     const cats = await prisma.category.findMany({
@@ -48,12 +51,13 @@ router.get(
 
 router.get(
   "/budgets",
-  asyncHandler(async (_req, res) => {
-    const budgets = await prisma.budget.findMany({ include: { category: true } });
+  asyncHandler(async (req, res) => {
+    const userId = req.auth!.userId;
+    const budgets = await prisma.budget.findMany({ where: { userId }, include: { category: true } });
     const enriched = await Promise.all(
       budgets.map(async (b) => {
         const agg = await prisma.transaction.aggregate({
-          where: { categoryId: b.categoryId, type: "EXPENSE" },
+          where: { userId, categoryId: b.categoryId, type: "EXPENSE" },
           _sum: { amount: true },
         });
         const actual = Number(agg._sum.amount ?? 0);

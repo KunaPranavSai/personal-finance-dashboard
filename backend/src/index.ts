@@ -1,17 +1,10 @@
 import "dotenv/config";
 import { createApp } from "./app";
-import { ensureReferenceData } from "./lib/startup";
 import { initSessionVersion } from "./lib/sessionVersion";
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 4000;
 
 async function main() {
-  try {
-    await ensureReferenceData();
-  } catch (err) {
-    console.warn("Reference data initialization skipped:", (err as Error).message);
-  }
-
   try {
     await initSessionVersion();
   } catch (err) {

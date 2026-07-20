@@ -35,14 +35,72 @@ enum BudgetStatus {
   OVER_BUDGET
 }
 
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  USER
+}
+
+enum UserStatus {
+  PENDING
+  ACTIVE
+  REJECTED
+  SUSPENDED
+}
+
+model User {
+  id                     String     @id @default(cuid())
+  uid                    String     @unique
+  email                  String     @unique
+  name                   String
+  phone                  String?
+  role                   UserRole   @default(USER)
+  status                 UserStatus @default(PENDING)
+  passwordHash           String?
+  mustChangePassword     Boolean    @default(false)
+  twoFactorEnabled       Boolean    @default(false)
+  twoFactorSecret        String?
+  twoFactorPendingSecret String?
+  twoFactorBackupCodes   String[]   @default([])
+  sessionVersion         Int        @default(0)
+  resetOtpHash           String?
+  resetOtpExpiry         DateTime?
+  onboardedAt            DateTime?
+  approvedAt             DateTime?
+  approvedById           String?
+  rejectedAt             DateTime?
+  rejectionReason        String?
+  createdAt              DateTime   @default(now())
+  updatedAt              DateTime   @updatedAt
+
+  categories     Category[]
+  accounts       Account[]
+  paymentMethods PaymentMethodType[]
+  transactions   Transaction[]
+  budgets        Budget[]
+  investments    Investment[]
+  bills          Bill[]
+  goals          Goal[]
+  notifications  Notification[]
+  activityLogs   ActivityLog[]
+  settings       AppSettings?
+  profile        AppProfile?
+
+  @@index([status])
+}
+
 model Category {
   id            String        @id @default(cuid())
-  name          String        @unique
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId        String
+  name          String
   type          EntryType
   subcategories Subcategory[]
   transactions  Transaction[]
   budgets       Budget[]
   createdAt     DateTime      @default(now())
+
+  @@unique([userId, name])
 }
 
 model Subcategory {
@@ -57,20 +115,30 @@ model Subcategory {
 
 model Account {
   id           String        @id @default(cuid())
-  name         String        @unique
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId       String
+  name         String
   transactions Transaction[]
   createdAt    DateTime      @default(now())
+
+  @@unique([userId, name])
 }
 
 model PaymentMethodType {
   id           String        @id @default(cuid())
-  name         String        @unique
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId       String
+  name         String
   transactions Transaction[]
   createdAt    DateTime      @default(now())
+
+  @@unique([userId, name])
 }
 
 model Transaction {
   id             String         @id @default(cuid())
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId         String
   date           DateTime
   description    String
   amount         Decimal        @db.Decimal(14, 2)
@@ -94,6 +162,7 @@ model Transaction {
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
+  @@index([userId])
   @@index([date])
   @@index([categoryId])
   @@index([type])
@@ -101,6 +170,8 @@ model Transaction {
 
 model Budget {
   id         String       @id @default(cuid())
+  user       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     String
   category   Category     @relation(fields: [categoryId], references: [id])
   categoryId String
   period     BudgetPeriod @default(MONTHLY)
@@ -114,6 +185,8 @@ model Budget {
 
 model Investment {
   id                 String   @id @default(cuid())
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId             String
   instrument         String
   category           String
   currentValue       Decimal  @db.Decimal(14, 2)
@@ -121,10 +194,14 @@ model Investment {
   annualReturnPct    Decimal  @db.Decimal(5, 2)  @default(0)
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
+
+  @@index([userId])
 }
 
 model Bill {
   id            String    @id @default(cuid())
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId        String
   name          String
   type          String
   dueDate       DateTime
@@ -136,10 +213,14 @@ model Bill {
   notes         String?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+
+  @@index([userId])
 }
 
 model Goal {
   id                 String   @id @default(cuid())
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId             String
   name               String
   category           String
   targetAmount       Decimal  @db.Decimal(14, 2)
@@ -147,21 +228,28 @@ model Goal {
   monthlyContribution Decimal @db.Decimal(14, 2) @default(0)
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
+
+  @@index([userId])
 }
 
 model Notification {
   id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
   type      String
   title     String
   message   String
   read      Boolean  @default(false)
   createdAt DateTime @default(now())
 
+  @@index([userId])
   @@index([read])
 }
 
 model ActivityLog {
   id        String   @id @default(cuid())
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String?
   event     String
   detail    String?
   ip        String?
@@ -171,19 +259,24 @@ model ActivityLog {
   device    String?
   createdAt DateTime @default(now())
 
+  @@index([userId])
   @@index([createdAt])
 }
 
 model AppSettings {
-  id   String @id @default("singleton")
-  data Json   @default("{}")
+  id     String @id @default(cuid())
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String @unique
+  data   Json   @default("{}")
 
   @@map("app_settings")
 }
 
 model AppProfile {
-  id   String @id @default("singleton")
-  data Json   @default("{}")
+  id     String @id @default(cuid())
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String @unique
+  data   Json   @default("{}")
 
   @@map("app_profile")
 }
