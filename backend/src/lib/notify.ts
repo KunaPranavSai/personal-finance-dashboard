@@ -2,7 +2,11 @@ import { Resend } from "resend";
 import { prisma } from "./prisma";
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
-const FROM = "Penny Pilot <onboarding@resend.dev>";
+// Resend's sandbox sender (onboarding@resend.dev) only delivers to the email address
+// that owns the Resend account itself — sends to any other recipient are silently
+// dropped. Set RESEND_FROM_EMAIL (e.g. "Penny Pilot <noreply@yourdomain.com>") once a
+// domain is verified in the Resend dashboard to send to real users.
+const FROM = process.env.RESEND_FROM_EMAIL ?? "Penny Pilot <onboarding@resend.dev>";
 
 /** Create an in-app notification for a specific user. Failures never break the calling request. */
 export async function createNotification(userId: string, type: string, title: string, message: string): Promise<void> {
