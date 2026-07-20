@@ -17,6 +17,7 @@ import profileRoutes from "./routes/profile.routes";
 import settingsRoutes from "./routes/settings.routes";
 import exportRoutes from "./routes/export.routes";
 import authRoutes from "./routes/auth.routes";
+import activityRoutes from "./routes/activity.routes";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler";
 import { authenticate } from "./middleware/auth";
 
@@ -25,6 +26,9 @@ const COOKIE_SECRET = process.env.COOKIE_SECRET ?? "pfd-cookie-secret";
 
 export function createApp() {
   const app = express();
+
+  // Behind Render/reverse proxies — needed so req.ip reflects the real client.
+  app.set("trust proxy", 1);
 
   // Security headers
   app.use(
@@ -70,6 +74,7 @@ export function createApp() {
   app.use("/api/profile", authenticate, profileRoutes);
   app.use("/api/settings", authenticate, settingsRoutes);
   app.use("/api/export", authenticate, exportRoutes);
+  app.use("/api/activity", authenticate, activityRoutes);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

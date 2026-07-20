@@ -30,7 +30,9 @@ interface AuthContextType {
   confirmTwoFactor: (code: string) => Promise<{ backupCodes: string[] }>;
   disableTwoFactor: (password: string, code: string) => Promise<void>;
   requestPasswordReset: (uid: string) => Promise<void>;
-  confirmPasswordReset: (uid: string, code: string, newPassword: string) => Promise<void>;
+  confirmPasswordReset: (uid: string, code: string, newPassword: string, method?: string) => Promise<void>;
+  getRecoveryOptions: (uid: string) => Promise<{ email: boolean; totp: boolean; backup: boolean }>;
+  changeUid: (password: string, newUid: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -304,15 +306,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const confirmPasswordReset = useCallback(async (uid: string, code: string, newPassword: string) => {
+  const confirmPasswordReset = useCallback(async (uid: string, code: string, newPassword: string, method?: string) => {
     const res = await apiFetch("/api/auth/reset-password", {
       method: "POST",
-      body: JSON.stringify({ uid, code, newPassword }),
+      body: JSON.stringify({ uid, code, newPassword, method }),
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
       throw new Error(data.error || "Failed to reset password");
     }
+  }, []);
+
+  const getRecoveryOptions = useCallback(async (uid: string) => {
+    const res = await apiFetch("/api/auth/recovery-options", {
+      method: "POST",
+      body: JSON.stringify({ uid }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || "Failed to load recovery options");
+    }
+    return res.json();
+  }, []);
+
+  const changeUid = useCallback(async (password: string, newUid: string) => {
+    const res = await apiFetch("/api/auth/change-uid", {
+      method: "POST",
+      body: JSON.stringify({ password, newUid }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || "Failed to change UID");
+    }
+    const data = await res.json();
+    setUser((u) => (u ? { ...u, uid: data.uid } : u));
   }, []);
 
   return (
@@ -334,6 +361,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       disableTwoFactor,
       requestPasswordReset,
       confirmPasswordReset,
+      getRecoveryOptions,
+      changeUid,
     }}>
       {children}
     </AuthContext.Provider>

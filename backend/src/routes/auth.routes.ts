@@ -11,6 +11,8 @@ import { prisma } from "../lib/prisma";
 import { authenticate, AuthPayload } from "../middleware/auth";
 import { getAppSettingsData, patchAppSettingsData } from "../lib/appSettings";
 import { getSessionVersion, bumpSessionVersion } from "../lib/sessionVersion";
+import { logActivity } from "../lib/activityLog";
+import { notifySecurityEvent } from "../lib/notify";
 
 const router = Router();
 
@@ -49,6 +51,12 @@ function setTokenCookies(res: Response, accessToken: string, refreshToken: strin
   };
   res.cookie("access_token", accessToken, { ...cookieOptions, maxAge: ACCESS_TOKEN_TTL * 1000, path: "/" });
   res.cookie("refresh_token", refreshToken, { ...cookieOptions, maxAge: REFRESH_TOKEN_TTL * 1000, path: "/api/auth" });
+}
+
+/** Resolve the current admin UID: stored override first, env fallback. */
+async function getStoredUid(): Promise<string> {
+  const data = await getAppSettingsData();
+  return typeof data.__adminUid === "string" && data.__adminUid.length > 0 ? data.__adminUid : ADMIN_UID;
 }
 
 /** GET the stored password hash (or fallback to env ADMIN_PASSWORD as plain-text on first run) */
@@ -117,13 +125,17 @@ router.post(
       res.status(400).json({ error: "UID and password are required" });
       return;
     }
-    if (uid !== ADMIN_UID) {
+    const currentUid = await getStoredUid();
+    if (uid !== currentUid) {
+      void logActivity(req, "login_failed", "Unknown UID");
       res.status(401).json({ error: "Invalid credentials" });
       return;
     }
     const hash = await getStoredPasswordHash();
     const valid = await bcrypt.compare(password, hash);
     if (!valid) {
+      void logActivity(req, "login_failed", "Wrong password");
+      void notifySecurityEvent("security", "Failed login attempt", "A login attempt with an incorrect password was made on your account.");
       res.status(401).json({ error: "Invalid credentials" });
       return;
     }
@@ -139,6 +151,8 @@ router.post(
     const accessToken = signAccess(uid, sv);
     const refreshToken = signRefresh(uid, sv);
     setTokenCookies(res, accessToken, refreshToken);
+    void logActivity(req, "login", "Signed in with password");
+    void notifySecurityEvent("security", "New sign-in", "Your account was signed in from a new session.");
     res.json({ user: { uid, name: "Admin" } });
   })
 );
@@ -167,6 +181,7 @@ router.post(
     const security = await getSecurityState();
     const valid = await verifyTwoFactorCode(security, code);
     if (!valid) {
+      void logActivity(req, "login_failed", "Invalid 2FA code");
       res.status(401).json({ error: "Invalid verification code" });
       return;
     }
@@ -174,6 +189,8 @@ router.post(
     const accessToken = signAccess(payload.uid, sv);
     const refreshToken = signRefresh(payload.uid, sv);
     setTokenCookies(res, accessToken, refreshToken);
+    void logActivity(req, "login", "Signed in with 2FA");
+    void notifySecurityEvent("security", "New sign-in", "Your account was signed in with two-factor authentication.");
     res.json({ user: { uid: payload.uid, name: "Admin" } });
   })
 );
@@ -233,6 +250,8 @@ router.post(
       __twoFactorPendingSecret: null,
       __twoFactorBackupCodes: hashedBackupCodes,
     });
+    void logActivity(req, "2fa_enabled", "Two-factor authentication enabled");
+    void notifySecurityEvent("security", "2FA enabled", "Two-factor authentication was enabled on your account.");
     res.json({ ok: true, backupCodes });
   })
 );
@@ -269,7 +288,48 @@ router.post(
       __twoFactorPendingSecret: null,
       __twoFactorBackupCodes: [],
     });
+    void logActivity(req, "2fa_disabled", "Two-factor authentication disabled");
+    void notifySecurityEvent("security", "2FA disabled", "Two-factor authentication was disabled on your account.");
     res.json({ ok: true });
+  })
+);
+
+// ─── POST /api/auth/change-uid ──────────────────────────────────────────────
+router.post(
+  "/change-uid",
+  authenticate,
+  asyncHandler(async (req: Request, res: Response) => {
+    const { password, newUid } = req.body as { password?: string; newUid?: string };
+    if (!password || !newUid) {
+      res.status(400).json({ error: "Password and new UID are required" });
+      return;
+    }
+    const trimmed = newUid.trim();
+    if (!/^[a-zA-Z0-9_.@-]{4,50}$/.test(trimmed)) {
+      res.status(400).json({ error: "UID must be 4-50 characters (letters, numbers, _ . @ -)" });
+      return;
+    }
+    const hash = await getStoredPasswordHash();
+    const valid = await bcrypt.compare(password, hash);
+    if (!valid) {
+      void logActivity(req, "uid_change_failed", "Wrong password");
+      res.status(401).json({ error: "Incorrect password" });
+      return;
+    }
+    const currentUid = await getStoredUid();
+    if (trimmed === currentUid) {
+      res.status(400).json({ error: "New UID is the same as the current one" });
+      return;
+    }
+    await patchAppSettingsData({ __adminUid: trimmed });
+    // Invalidate all existing sessions and issue fresh tokens for this one.
+    const sv = bumpSessionVersion();
+    const accessToken = signAccess(trimmed, sv);
+    const refreshToken = signRefresh(trimmed, sv);
+    setTokenCookies(res, accessToken, refreshToken);
+    void logActivity(req, "uid_changed", `UID changed from ${currentUid} to ${trimmed}`);
+    void notifySecurityEvent("security", "User ID changed", `Your sign-in User ID was changed to "${trimmed}".`);
+    res.json({ ok: true, uid: trimmed });
   })
 );
 
@@ -295,7 +355,7 @@ router.post(
 );
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
-const RESET_OTP_TTL_MS = 10 * 60 * 1000; // 10 minutes
+const RESET_OTP_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 async function getProfileEmail(): Promise<string | null> {
   const rec = await prisma.appProfile.findUnique({ where: { id: "singleton" } });
@@ -308,6 +368,28 @@ function generateOtp(): string {
   return String(crypto.randomInt(100000, 1000000));
 }
 
+// ─── POST /api/auth/recovery-options ────────────────────────────────────────
+// Returns which recovery methods are available for the given UID. Responds
+// identically (all false) for unknown UIDs to avoid account enumeration.
+router.post(
+  "/recovery-options",
+  loginLimiter,
+  asyncHandler(async (req: Request, res: Response) => {
+    const { uid } = req.body as { uid?: string };
+    const currentUid = await getStoredUid();
+    if (!uid || uid !== currentUid) {
+      res.json({ email: false, totp: false, backup: false });
+      return;
+    }
+    const [email, security] = await Promise.all([getProfileEmail(), getSecurityState()]);
+    res.json({
+      email: Boolean(email && resend),
+      totp: security.twoFactorEnabled,
+      backup: security.twoFactorEnabled && security.twoFactorBackupCodes.length > 0,
+    });
+  })
+);
+
 // ─── POST /api/auth/forgot-password ─────────────────────────────────────────
 router.post(
   "/forgot-password",
@@ -318,7 +400,8 @@ router.post(
       res.status(400).json({ error: "UID is required" });
       return;
     }
-    if (uid === ADMIN_UID) {
+    const currentUid = await getStoredUid();
+    if (uid === currentUid) {
       const email = await getProfileEmail();
       if (email && resend) {
         const otp = generateOtp();
@@ -329,12 +412,13 @@ router.post(
             from: "Penny Pilot <onboarding@resend.dev>",
             to: email,
             subject: "Your Penny Pilot password reset code",
-            html: `<p>Your password reset code is:</p><h2 style="letter-spacing:4px">${otp}</h2><p>This code expires in 10 minutes. If you didn't request this, you can ignore this email.</p>`,
+            html: `<p>Your password reset code is:</p><h2 style="letter-spacing:4px">${otp}</h2><p>This code expires in 5 minutes. If you didn't request this, you can ignore this email.</p>`,
           });
         } catch (err) {
           console.error("Failed to send password reset email:", err);
         }
       }
+      void logActivity(req, "password_reset_requested", "Email OTP requested");
     }
     // Always respond identically so we don't leak whether the UID or email exists.
     res.json({ ok: true, message: "If the account exists and has an email on file, a reset code has been sent." });
@@ -342,11 +426,15 @@ router.post(
 );
 
 // ─── POST /api/auth/reset-password ──────────────────────────────────────────
+// method: "email" (default) verifies the emailed OTP; "totp" verifies an
+// authenticator code; "backup" consumes a one-time backup code.
 router.post(
   "/reset-password",
   loginLimiter,
   asyncHandler(async (req: Request, res: Response) => {
-    const { uid, code, newPassword } = req.body as { uid?: string; code?: string; newPassword?: string };
+    const { uid, code, newPassword, method } = req.body as {
+      uid?: string; code?: string; newPassword?: string; method?: string;
+    };
     if (!uid || !code || !newPassword) {
       res.status(400).json({ error: "UID, code, and new password are required" });
       return;
@@ -355,32 +443,49 @@ router.post(
       res.status(400).json({ error: "New password must be at least 8 characters" });
       return;
     }
-    if (uid !== ADMIN_UID) {
+    const currentUid = await getStoredUid();
+    if (uid !== currentUid) {
       res.status(400).json({ error: "Invalid or expired code" });
       return;
     }
-    const data = await getAppSettingsData();
-    const hash = typeof data.__resetOtpHash === "string" ? data.__resetOtpHash : null;
-    const expiry = typeof data.__resetOtpExpiry === "number" ? data.__resetOtpExpiry : 0;
-    if (!hash || Date.now() > expiry) {
+
+    const chosen = method === "totp" || method === "backup" ? method : "email";
+    let verified = false;
+
+    if (chosen === "email") {
+      const data = await getAppSettingsData();
+      const hash = typeof data.__resetOtpHash === "string" ? data.__resetOtpHash : null;
+      const expiry = typeof data.__resetOtpExpiry === "number" ? data.__resetOtpExpiry : 0;
+      if (hash && Date.now() <= expiry && (await bcrypt.compare(code, hash))) {
+        verified = true;
+      }
+    } else {
+      const security = await getSecurityState();
+      if (security.twoFactorEnabled) {
+        verified = await verifyTwoFactorCode(security, code);
+      }
+    }
+
+    if (!verified) {
+      void logActivity(req, "password_reset_failed", `Failed verification via ${chosen}`);
       res.status(400).json({ error: "Invalid or expired code" });
       return;
     }
-    const valid = await bcrypt.compare(code, hash);
-    if (!valid) {
-      res.status(400).json({ error: "Invalid or expired code" });
-      return;
-    }
+
     const newHash = await bcrypt.hash(newPassword, 12);
     await patchAppSettingsData({ __passwordHash: newHash, __resetOtpHash: null, __resetOtpExpiry: null });
+    bumpSessionVersion(); // sign out any existing sessions after a reset
+    void logActivity(req, "password_reset", `Password reset via ${chosen}`);
+    void notifySecurityEvent("security", "Password reset", `Your password was reset using ${chosen === "email" ? "an email code" : chosen === "totp" ? "an authenticator code" : "a backup code"}.`);
     res.json({ ok: true, message: "Password reset successfully" });
   })
 );
 
 // ─── POST /api/auth/logout ───────────────────────────────────────────────────
-router.post("/logout", (_req: Request, res: Response) => {
+router.post("/logout", (req: Request, res: Response) => {
   res.clearCookie("access_token", { path: "/" });
   res.clearCookie("refresh_token", { path: "/api/auth" });
+  void logActivity(req, "logout", "Signed out");
   res.json({ ok: true });
 });
 
@@ -453,6 +558,8 @@ router.patch(
       create: { id: "singleton", data: { ...data, __passwordHash: newHash } },
       update: { data: { ...data, __passwordHash: newHash } },
     });
+    void logActivity(req, "password_changed", "Password changed from settings");
+    void notifySecurityEvent("security", "Password changed", "Your account password was changed.");
     res.json({ ok: true, message: "Password changed successfully" });
   })
 );
