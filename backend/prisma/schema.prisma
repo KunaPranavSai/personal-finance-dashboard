@@ -160,6 +160,20 @@ model Notification {
   @@index([read])
 }
 
+model ActivityLog {
+  id        String   @id @default(cuid())
+  event     String
+  detail    String?
+  ip        String?
+  userAgent String?
+  browser   String?
+  os        String?
+  device    String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
 model AppSettings {
   id   String @id @default("singleton")
   data Json   @default("{}")

@@ -2,15 +2,18 @@
 
 import { Suspense, useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/AuthContext";
 import { downloadExport } from "@/lib/export";
+import { api } from "@/lib/api";
 
 import { Topbar } from "@/components/layout/Topbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { useSettingsContext } from "@/lib/SettingsContext";
 import { useToast } from "@/components/ui/Toast";
-import { Settings as SettingsIcon, Palette, Globe, Bell, Shield, Download, Database, Eye, Sliders, Save, Copy, Check } from "lucide-react";
+import { Settings as SettingsIcon, Palette, Globe, Bell, Shield, Download, Database, Eye, Sliders, Save, Copy, Check, History, KeyRound } from "lucide-react";
 import { cn } from "@/lib/format";
 import { CURRENCIES, DATE_FORMATS, WEEK_START_OPTIONS, LANGUAGES, TIMEZONES } from "@/lib/reference";
 
@@ -20,6 +23,7 @@ const TABS = [
   { id: "currency", label: "Currency & Format", icon: Globe },
   { id: "notifications", label: "Notifications", icon: Bell },
   { id: "security", label: "Security", icon: Shield },
+  { id: "activity", label: "Activity", icon: History },
   { id: "export", label: "Data Export", icon: Download },
   { id: "backup", label: "Backup", icon: Database },
   { id: "privacy", label: "Privacy", icon: Eye },
@@ -262,6 +266,139 @@ function TwoFactorSection() {
         <Button type="button" size="sm" onClick={startSetup} disabled={busy}>{busy ? "Starting…" : "Enable"}</Button>
       )}
     </div>
+  );
+}
+
+function ChangeUidSection() {
+  const { user, changeUid } = useAuth();
+  const { toast } = useToast();
+  const [newUid, setNewUid] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const handleChange = useCallback(async () => {
+    setError("");
+    if (!/^[a-zA-Z0-9_.@-]{4,50}$/.test(newUid.trim())) {
+      setError("UID must be 4-50 characters (letters, numbers, _ . @ -)");
+      return;
+    }
+    setBusy(true);
+    try {
+      await changeUid(password, newUid.trim());
+      setNewUid("");
+      setPassword("");
+      toast("User ID changed successfully", "success");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to change UID");
+    } finally {
+      setBusy(false);
+    }
+  }, [newUid, password, changeUid, toast]);
+
+  return (
+    <div className="rounded-lg border border-black/5 p-4 space-y-3 dark:border-white/10">
+      <p className="text-sm font-semibold text-navy dark:text-white">Change User ID</p>
+      <p className="text-xs text-navy/50 dark:text-white/50">Current User ID: <span className="font-mono font-semibold">{user?.uid}</span></p>
+      <div>
+        <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">New User ID</label>
+        <input type="text" value={newUid} onChange={(e) => setNewUid(e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" placeholder="New User ID" />
+      </div>
+      <div>
+        <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Confirm with Password</label>
+        <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" placeholder="Current password" />
+      </div>
+      {error && <p className="text-xs text-red-500">{error}</p>}
+      <Button type="button" size="sm" onClick={handleChange} disabled={busy || !newUid || !password}>{busy ? "Changing…" : "Change User ID"}</Button>
+    </div>
+  );
+}
+
+interface ActivityItem {
+  id: string;
+  event: string;
+  detail?: string | null;
+  ip?: string | null;
+  browser?: string | null;
+  os?: string | null;
+  device?: string | null;
+  createdAt: string;
+}
+
+const EVENT_LABELS: Record<string, string> = {
+  login: "Login",
+  login_failed: "Failed login",
+  logout: "Logout",
+  password_changed: "Password changed",
+  password_reset: "Password reset",
+  password_reset_requested: "Reset code requested",
+  password_reset_failed: "Failed password reset",
+  uid_changed: "User ID changed",
+  uid_change_failed: "Failed UID change",
+  "2fa_enabled": "2FA enabled",
+  "2fa_disabled": "2FA disabled",
+};
+
+function ActivityTab() {
+  const [page, setPage] = useState(1);
+  const { data, isLoading } = useQuery({
+    queryKey: ["activity", page],
+    queryFn: () => api.get<{ items: ActivityItem[]; pagination: { page: number; totalPages: number; total: number } }>(`/api/activity?page=${page}&pageSize=25`),
+  });
+
+  const items = data?.items ?? [];
+  const totalPages = data?.pagination.totalPages ?? 1;
+
+  return (
+    <Card>
+      <CardHeader><CardTitle>Account Activity</CardTitle></CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="space-y-2">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="h-12 animate-pulse rounded-lg bg-black/5 dark:bg-white/5" />)}</div>
+        ) : items.length === 0 ? (
+          <p className="py-8 text-center text-sm text-navy/50 dark:text-white/50">No activity recorded yet.</p>
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-black/5 dark:border-white/10 text-left text-navy/50 dark:text-white/50">
+                    <th className="pb-2 pr-3 font-medium">Event</th>
+                    <th className="pb-2 pr-3 font-medium">Time</th>
+                    <th className="pb-2 pr-3 font-medium">IP</th>
+                    <th className="pb-2 pr-3 font-medium">Browser</th>
+                    <th className="pb-2 pr-3 font-medium">OS</th>
+                    <th className="pb-2 font-medium">Device</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((a) => (
+                    <tr key={a.id} className="border-b border-black/5 dark:border-white/5">
+                      <td className="py-2 pr-3">
+                        <span className="font-medium text-navy dark:text-white">{EVENT_LABELS[a.event] ?? a.event}</span>
+                        {a.detail && <span className="block text-xs text-navy/40 dark:text-white/40">{a.detail}</span>}
+                      </td>
+                      <td className="py-2 pr-3 text-navy/70 dark:text-white/70 whitespace-nowrap">{new Date(a.createdAt).toLocaleString()}</td>
+                      <td className="py-2 pr-3 font-mono text-xs text-navy/60 dark:text-white/60">{a.ip ?? "—"}</td>
+                      <td className="py-2 pr-3 text-navy/60 dark:text-white/60">{a.browser ?? "—"}</td>
+                      <td className="py-2 pr-3 text-navy/60 dark:text-white/60">{a.os ?? "—"}</td>
+                      <td className="py-2 text-navy/60 dark:text-white/60">{a.device ?? "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {totalPages > 1 && (
+              <div className="mt-4 flex items-center justify-between text-sm">
+                <Button type="button" size="sm" variant="secondary" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}>Previous</Button>
+                <span className="text-navy/50 dark:text-white/50">Page {page} of {totalPages}</span>
+                <Button type="button" size="sm" variant="secondary" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages}>Next</Button>
+              </div>
+            )}
+          </>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -549,8 +686,14 @@ function SettingsContent() {
                   <input type="password" value={pwForm.confirm} onChange={(e) => setPwForm((p) => ({ ...p, confirm: e.target.value }))} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" placeholder="Confirm new password" />
                 </div>
                 {pwError && <p className="text-xs text-red-500">{pwError}</p>}
-                <Button type="button" size="sm" onClick={handlePasswordChange} disabled={pwChanging || !pwForm.current || !pwForm.next || !pwForm.confirm}>{pwChanging ? "Changing…" : "Change Password"}</Button>
+                <div className="flex flex-wrap items-center gap-3">
+                  <Button type="button" size="sm" onClick={handlePasswordChange} disabled={pwChanging || !pwForm.current || !pwForm.next || !pwForm.confirm}>{pwChanging ? "Changing…" : "Change Password"}</Button>
+                  <Link href="/forgot-password" className="flex items-center gap-1.5 text-xs font-medium text-teal hover:underline">
+                    <KeyRound className="h-3.5 w-3.5" /> Forgot password?
+                  </Link>
+                </div>
               </div>
+              <ChangeUidSection />
               <TwoFactorSection />
               <div>
                 <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Session Timeout (minutes)</label>
@@ -591,6 +734,9 @@ function SettingsContent() {
             </CardContent>
           </Card>
         );
+
+      case "activity":
+        return <ActivityTab />;
 
       case "export":
         return (
