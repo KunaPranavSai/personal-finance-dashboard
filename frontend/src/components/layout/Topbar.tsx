@@ -1,15 +1,47 @@
 "use client";
 
-import { Moon, Sun, Search, Menu, Bell, User, Settings, Palette, LogOut } from "lucide-react";
+import { Moon, Sun, Search, Menu, Bell, User, Settings, Palette, LogOut, Clock } from "lucide-react";
 import { useUiStore } from "@/store/uiStore";
 import { useNotifications, useProfile } from "@/lib/reference";
 import { useSettingsContext } from "@/lib/SettingsContext";
 import { useAuth } from "@/lib/AuthContext";
+import { cn } from "@/lib/format";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+
+function SessionCountdown() {
+  const { sessionTimeoutMinutes, lastActivity } = useAuth();
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const iv = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(iv);
+  }, []);
+
+  if (!sessionTimeoutMinutes || sessionTimeoutMinutes <= 0) return null;
+
+  const remainingMs = Math.max(0, sessionTimeoutMinutes * 60 * 1000 - (now - lastActivity));
+  const totalSeconds = Math.floor(remainingMs / 1000);
+  const mm = Math.floor(totalSeconds / 60);
+  const ss = totalSeconds % 60;
+  const isLow = totalSeconds <= 60;
+
+  return (
+    <div
+      className={cn(
+        "hidden h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium tabular-nums sm:flex",
+        isLow ? "bg-amber-500/10 text-amber-600 dark:text-amber-400" : "bg-black/5 text-navy/50 dark:bg-white/5 dark:text-white/40"
+      )}
+      title="Time until session auto-logout"
+    >
+      <Clock className="h-3.5 w-3.5" />
+      {String(mm).padStart(2, "0")}:{String(ss).padStart(2, "0")}
+    </div>
+  );
+}
 
 export function Topbar({ title }: { title: string }) {
   const { toggleSidebar, unreadNotifications, setUnreadNotifications } = useUiStore();
@@ -106,6 +138,8 @@ export function Topbar({ title }: { title: string }) {
           />
         </div>
 
+        <SessionCountdown />
+
         <button
           onClick={toggleTheme}
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-black/5 text-navy hover:bg-black/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10"
@@ -144,7 +178,7 @@ export function Topbar({ title }: { title: string }) {
 
           {avatarOpen && createPortal(
             <div
-              className="fixed right-4 top-14 z-50 w-48 overflow-hidden rounded-xl border border-black/5 bg-white shadow-lg dark:border-white/10 dark:bg-navy-dark"
+              className="fixed right-4 top-14 z-50 w-48 overflow-hidden rounded-xl border border-black/5 bg-white shadow-lg dark:border-white/10 dark:bg-navy-dark sm:top-16"
               ref={menuRef}
               role="menu"
               aria-label="User menu"

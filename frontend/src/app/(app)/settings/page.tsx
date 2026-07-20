@@ -3,17 +3,19 @@
 import { Suspense, useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { motion, AnimatePresence } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/AuthContext";
-import { downloadExport } from "@/lib/export";
 import { api } from "@/lib/api";
 
 import { Topbar } from "@/components/layout/Topbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { PasswordInput } from "@/components/ui/PasswordInput";
+import { ExportPreviewModal } from "@/components/ui/ExportPreviewModal";
 import { useSettingsContext } from "@/lib/SettingsContext";
 import { useToast } from "@/components/ui/Toast";
-import { Settings as SettingsIcon, Palette, Globe, Bell, Shield, Download, Database, Eye, Sliders, Save, Copy, Check, History, KeyRound, Users, UserCheck, UserX, Mail, Phone, Clock } from "lucide-react";
+import { Settings as SettingsIcon, Palette, Globe, Bell, Shield, Download, Database, Eye, Sliders, Save, Copy, Check, History, KeyRound, Users, UserCheck, UserX, Mail, Phone, Clock, CheckCircle, MoreVertical, Pencil, RotateCcw, IdCard, HardDrive, Trash2 } from "lucide-react";
 import { cn } from "@/lib/format";
 import { CURRENCIES, DATE_FORMATS, WEEK_START_OPTIONS, LANGUAGES, TIMEZONES } from "@/lib/reference";
 
@@ -69,62 +71,25 @@ const AUTO_LOCK_OPTIONS = [
 ];
 
 function ExportTab() {
-  const { toast } = useToast();
-  const [exporting, setExporting] = useState<string | null>(null);
-
-  const handleExport = useCallback(async (format: string) => {
-    setExporting(format);
-    await downloadExport(format, toast);
-    setExporting(null);
-  }, [toast]);
-
-  const formats = [
-    { id: "csv", label: "CSV" },
-    { id: "excel", label: "Excel" },
-    { id: "json", label: "JSON" },
-    { id: "pdf", label: "PDF" },
-  ];
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   return (
     <Card>
-      <CardHeader><CardTitle>Data Export</CardTitle></CardHeader>
+      <CardHeader><CardTitle>Data Export &amp; Backup</CardTitle></CardHeader>
       <CardContent className="space-y-4">
         <p className="text-sm text-navy/60 dark:text-white/60">
-          Export your financial data in various formats.
+          Preview what will be included, then download your financial data in CSV, Excel, JSON, or PDF.
         </p>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {formats.map((fmt) => (
-            <button
-              key={fmt.id}
-              onClick={() => handleExport(fmt.id)}
-              disabled={exporting !== null}
-              className={cn(
-                "flex flex-col items-center gap-2 rounded-xl border-2 px-4 py-5 text-sm font-medium transition-all",
-                exporting === fmt.id
-                  ? "border-teal bg-teal/10 text-teal animate-pulse"
-                  : exporting !== null
-                  ? "border-black/5 bg-black/2 text-navy/30 dark:border-white/5 dark:bg-white/2 dark:text-white/30 cursor-not-allowed"
-                  : "border-black/10 text-navy hover:border-teal/50 hover:bg-teal/5 dark:border-white/10 dark:text-white dark:hover:border-teal/50"
-              )}
-            >
-              {exporting === fmt.id ? (
-                <svg className="h-6 w-6 animate-spin" viewBox="0 0 24 24" fill="none">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                </svg>
-              ) : (
-                <Download className="h-6 w-6" />
-              )}
-              <span>{fmt.label}</span>
-            </button>
-          ))}
-        </div>
+        <Button type="button" onClick={() => setPreviewOpen(true)}>
+          <Download className="h-4 w-4" /> Export data
+        </Button>
         <div className="rounded-lg border border-black/5 bg-black/2 p-3 dark:border-white/5 dark:bg-white/2">
           <p className="text-xs text-navy/40 dark:text-white/40">
             Exports include transactions, budgets, investments, bills, goals, accounts, and categories.
           </p>
         </div>
       </CardContent>
+      <ExportPreviewModal isOpen={previewOpen} onClose={() => setPreviewOpen(false)} />
     </Card>
   );
 }
@@ -142,6 +107,8 @@ function TwoFactorSection() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [justVerified, setJustVerified] = useState(false);
+  const [justDisabled, setJustDisabled] = useState(false);
 
   const startSetup = useCallback(async () => {
     setError("");
@@ -163,9 +130,13 @@ function TwoFactorSection() {
     setBusy(true);
     try {
       const data = await confirmTwoFactor(code.trim());
-      setBackupCodes(data.backupCodes);
-      setStep("backup");
-      setCode("");
+      setJustVerified(true);
+      setTimeout(() => {
+        setBackupCodes(data.backupCodes);
+        setStep("backup");
+        setCode("");
+        setJustVerified(false);
+      }, 700);
       toast("Two-factor authentication enabled", "success");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Invalid code");
@@ -179,9 +150,13 @@ function TwoFactorSection() {
     setBusy(true);
     try {
       await disableTwoFactor(disablePassword, disableCode.trim());
-      setStep("idle");
-      setDisablePassword("");
-      setDisableCode("");
+      setJustDisabled(true);
+      setTimeout(() => {
+        setStep("idle");
+        setDisablePassword("");
+        setDisableCode("");
+        setJustDisabled(false);
+      }, 700);
       toast("Two-factor authentication disabled", "success");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to disable 2FA");
@@ -224,7 +199,24 @@ function TwoFactorSection() {
           <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Enter the 6-digit code from your app</label>
           <input type="text" inputMode="numeric" value={code} onChange={(e) => setCode(e.target.value)} placeholder="123456" className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" />
         </div>
-        {error && <p className="text-xs text-red-500">{error}</p>}
+        {justVerified ? (
+          <motion.p
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="flex items-center gap-1.5 text-sm font-medium text-teal"
+          >
+            <CheckCircle className="h-4 w-4" /> Verified — enabling 2FA…
+          </motion.p>
+        ) : error ? (
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1, x: [0, -8, 8, -6, 6, -2, 2, 0] }}
+            transition={{ duration: 0.4 }}
+            className="text-xs text-red-500"
+          >
+            {error}
+          </motion.p>
+        ) : null}
         <div className="flex gap-2">
           <Button type="button" size="sm" onClick={handleConfirm} disabled={busy || !code}>{busy ? "Verifying…" : "Verify & Enable"}</Button>
           <Button type="button" size="sm" variant="secondary" onClick={() => setStep("idle")}>Cancel</Button>
@@ -239,13 +231,30 @@ function TwoFactorSection() {
         <p className="text-sm font-semibold text-navy dark:text-white">Disable Two-Factor Authentication</p>
         <div>
           <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Password</label>
-          <input type="password" value={disablePassword} onChange={(e) => setDisablePassword(e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" />
+          <PasswordInput value={disablePassword} onChange={(e) => setDisablePassword(e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" />
         </div>
         <div>
           <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Verification code</label>
           <input type="text" inputMode="numeric" value={disableCode} onChange={(e) => setDisableCode(e.target.value)} placeholder="123456" className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" />
         </div>
-        {error && <p className="text-xs text-red-500">{error}</p>}
+        {justDisabled ? (
+          <motion.p
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="flex items-center gap-1.5 text-sm font-medium text-teal"
+          >
+            <CheckCircle className="h-4 w-4" /> 2FA disabled
+          </motion.p>
+        ) : error ? (
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1, x: [0, -8, 8, -6, 6, -2, 2, 0] }}
+            transition={{ duration: 0.4 }}
+            className="text-xs text-red-500"
+          >
+            {error}
+          </motion.p>
+        ) : null}
         <div className="flex gap-2">
           <Button type="button" size="sm" onClick={handleDisable} disabled={busy || !disablePassword || !disableCode}>{busy ? "Disabling…" : "Disable 2FA"}</Button>
           <Button type="button" size="sm" variant="secondary" onClick={() => setStep("idle")}>Cancel</Button>
@@ -306,7 +315,7 @@ function ChangeUidSection() {
       </div>
       <div>
         <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Confirm with Password</label>
-        <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" placeholder="Current password" />
+        <PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" placeholder="Current password" />
       </div>
       {error && <p className="text-xs text-red-500">{error}</p>}
       <Button type="button" size="sm" onClick={handleChange} disabled={busy || !newUid || !password}>{busy ? "Changing…" : "Change User ID"}</Button>
@@ -326,9 +335,6 @@ interface ActivityItem {
 }
 
 const EVENT_LABELS: Record<string, string> = {
-  login: "Login",
-  login_failed: "Failed login",
-  logout: "Logout",
   password_changed: "Password changed",
   password_reset: "Password reset",
   password_reset_requested: "Reset code requested",
@@ -337,6 +343,12 @@ const EVENT_LABELS: Record<string, string> = {
   uid_change_failed: "Failed UID change",
   "2fa_enabled": "2FA enabled",
   "2fa_disabled": "2FA disabled",
+  user_updated: "Account updated by admin",
+  password_reset_by_admin: "Password reset by admin",
+  uid_reset_by_admin: "UID reset by admin",
+  user_approved: "Account approved",
+  user_rejected: "Account rejected",
+  user_deleted: "Account deleted",
 };
 
 function ActivityTab() {
@@ -414,6 +426,11 @@ interface ManagedUser {
   approvedAt?: string | null;
 }
 
+interface UsageCounts {
+  transactions: number; budgets: number; investments: number; bills: number; goals: number;
+  categories: number; accounts: number; paymentMethods: number; notifications: number; activityLogs: number;
+}
+
 const STATUS_STYLES: Record<string, string> = {
   PENDING: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
   ACTIVE: "bg-teal/10 text-teal",
@@ -421,11 +438,52 @@ const STATUS_STYLES: Record<string, string> = {
   SUSPENDED: "bg-navy/10 text-navy/60 dark:bg-white/10 dark:text-white/60",
 };
 
+const USAGE_LABELS: Record<keyof UsageCounts, string> = {
+  transactions: "Transactions", budgets: "Budgets", investments: "Investments", bills: "Bills", goals: "Goals",
+  categories: "Categories", accounts: "Accounts", paymentMethods: "Payment Methods", notifications: "Notifications", activityLogs: "Activity Log Entries",
+};
+
+function ModalShell({ onClose, children, maxWidth = "max-w-sm" }: { onClose: () => void; children: React.ReactNode; maxWidth?: string }) {
+  return (
+    <AnimatePresence>
+      <motion.div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={onClose}
+      >
+        <motion.div
+          className={cn("w-full rounded-2xl bg-white p-6 shadow-2xl dark:bg-navy-dark", maxWidth)}
+          initial={{ opacity: 0, scale: 0.95, y: 10 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.95, y: 10 }}
+          transition={{ duration: 0.2 }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {children}
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
+type ModalState =
+  | { type: "approve"; user: ManagedUser }
+  | { type: "reject"; user: ManagedUser }
+  | { type: "edit"; user: ManagedUser }
+  | { type: "reset-password"; user: ManagedUser }
+  | { type: "reset-uid"; user: ManagedUser }
+  | { type: "usage"; user: ManagedUser }
+  | { type: "delete"; user: ManagedUser }
+  | null;
+
 function UserManagementTab() {
+  const { user: currentUser } = useAuth();
   const { toast } = useToast();
-  const [busyId, setBusyId] = useState<string | null>(null);
-  const [rejectTarget, setRejectTarget] = useState<ManagedUser | null>(null);
-  const [rejectReason, setRejectReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [modal, setModal] = useState<ModalState>(null);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
   const { data: pending, isLoading: pendingLoading, refetch: refetchPending } = useQuery({
     queryKey: ["users-pending"],
@@ -442,37 +500,11 @@ function UserManagementTab() {
     refetchAll();
   }, [refetchPending, refetchAll]);
 
-  const handleApprove = useCallback(async (u: ManagedUser) => {
-    setBusyId(u.id);
-    try {
-      await api.post(`/api/auth/users/${u.id}/approve`);
-      toast(`${u.name} approved — a welcome email was sent`, "success");
-      refetchBoth();
-    } catch (err) {
-      toast(err instanceof Error ? err.message : "Failed to approve user", "error");
-    } finally {
-      setBusyId(null);
-    }
-  }, [toast, refetchBoth]);
-
-  const handleReject = useCallback(async () => {
-    if (!rejectTarget) return;
-    setBusyId(rejectTarget.id);
-    try {
-      await api.post(`/api/auth/users/${rejectTarget.id}/reject`, { reason: rejectReason.trim() || undefined });
-      toast(`${rejectTarget.name} rejected`, "success");
-      setRejectTarget(null);
-      setRejectReason("");
-      refetchBoth();
-    } catch (err) {
-      toast(err instanceof Error ? err.message : "Failed to reject user", "error");
-    } finally {
-      setBusyId(null);
-    }
-  }, [rejectTarget, rejectReason, toast, refetchBoth]);
+  const closeModal = useCallback(() => setModal(null), []);
 
   const pendingItems = pending?.items ?? [];
   const allItems = allUsers?.items ?? [];
+  const superAdminCount = allItems.filter((u) => u.role === "SUPER_ADMIN").length;
 
   return (
     <div className="space-y-6">
@@ -496,10 +528,10 @@ function UserManagementTab() {
                     </div>
                   </div>
                   <div className="flex shrink-0 gap-2">
-                    <Button type="button" size="sm" onClick={() => handleApprove(u)} disabled={busyId === u.id}>
-                      <UserCheck className="h-4 w-4" /> {busyId === u.id ? "Approving…" : "Approve"}
+                    <Button type="button" size="sm" onClick={() => setModal({ type: "approve", user: u })}>
+                      <UserCheck className="h-4 w-4" /> Approve
                     </Button>
-                    <Button type="button" size="sm" variant="secondary" onClick={() => setRejectTarget(u)} disabled={busyId === u.id}>
+                    <Button type="button" size="sm" variant="secondary" onClick={() => setModal({ type: "reject", user: u })}>
                       <UserX className="h-4 w-4" /> Reject
                     </Button>
                   </div>
@@ -509,28 +541,6 @@ function UserManagementTab() {
           )}
         </CardContent>
       </Card>
-
-      {rejectTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl dark:bg-navy-dark">
-            <p className="text-sm font-semibold text-navy dark:text-white">Reject {rejectTarget.name}?</p>
-            <p className="mt-1 text-xs text-navy/50 dark:text-white/50">Optionally include a reason — it will be sent to the applicant by email.</p>
-            <textarea
-              value={rejectReason}
-              onChange={(e) => setRejectReason(e.target.value)}
-              rows={3}
-              placeholder="Reason (optional)"
-              className="mt-3 w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10"
-            />
-            <div className="mt-4 flex justify-end gap-2">
-              <Button type="button" size="sm" variant="secondary" onClick={() => { setRejectTarget(null); setRejectReason(""); }}>Cancel</Button>
-              <Button type="button" size="sm" onClick={handleReject} disabled={busyId === rejectTarget.id}>
-                {busyId === rejectTarget.id ? "Rejecting…" : "Reject"}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
 
       <Card>
         <CardHeader><CardTitle>All Users</CardTitle></CardHeader>
@@ -548,28 +558,449 @@ function UserManagementTab() {
                     <th className="pb-2 pr-3 font-medium">Email</th>
                     <th className="pb-2 pr-3 font-medium">Role</th>
                     <th className="pb-2 pr-3 font-medium">Status</th>
-                    <th className="pb-2 font-medium">Registered</th>
+                    <th className="pb-2 pr-3 font-medium">Registered</th>
+                    <th className="pb-2 font-medium text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {allItems.map((u) => (
-                    <tr key={u.id} className="border-b border-black/5 dark:border-white/5">
-                      <td className="py-2 pr-3 font-medium text-navy dark:text-white">{u.name}</td>
-                      <td className="py-2 pr-3 text-navy/70 dark:text-white/70">{u.email}</td>
-                      <td className="py-2 pr-3 text-navy/60 dark:text-white/60">{u.role.replace("_", " ")}</td>
-                      <td className="py-2 pr-3">
-                        <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", STATUS_STYLES[u.status])}>{u.status}</span>
-                      </td>
-                      <td className="py-2 text-navy/60 dark:text-white/60 whitespace-nowrap">{new Date(u.createdAt).toLocaleDateString()}</td>
-                    </tr>
-                  ))}
+                  {allItems.map((u) => {
+                    const isSelf = u.uid === currentUser?.uid;
+                    const isLastSuperAdmin = u.role === "SUPER_ADMIN" && superAdminCount <= 1;
+                    return (
+                      <tr key={u.id} className="border-b border-black/5 dark:border-white/5">
+                        <td className="py-2 pr-3 font-medium text-navy dark:text-white">{u.name}{isSelf && <span className="ml-1.5 text-xs text-navy/40 dark:text-white/40">(you)</span>}</td>
+                        <td className="py-2 pr-3 text-navy/70 dark:text-white/70">{u.email}</td>
+                        <td className="py-2 pr-3 text-navy/60 dark:text-white/60">{u.role.replace("_", " ")}</td>
+                        <td className="py-2 pr-3">
+                          <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", STATUS_STYLES[u.status])}>{u.status}</span>
+                        </td>
+                        <td className="py-2 pr-3 text-navy/60 dark:text-white/60 whitespace-nowrap">{new Date(u.createdAt).toLocaleDateString()}</td>
+                        <td className="py-2 text-right relative">
+                          <button
+                            type="button"
+                            onClick={() => setOpenMenuId(openMenuId === u.id ? null : u.id)}
+                            className="rounded-lg p-1.5 text-navy/50 hover:bg-black/5 dark:text-white/50 dark:hover:bg-white/10"
+                            aria-label="Row actions"
+                          >
+                            <MoreVertical className="h-4 w-4" />
+                          </button>
+                          {openMenuId === u.id && (
+                            <>
+                              <div className="fixed inset-0 z-40" onClick={() => setOpenMenuId(null)} />
+                              <div className="absolute right-0 top-8 z-50 w-44 overflow-hidden rounded-xl border border-black/5 bg-white shadow-lg dark:border-white/10 dark:bg-navy-dark">
+                                <button type="button" onClick={() => { setModal({ type: "edit", user: u }); setOpenMenuId(null); }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-navy/70 hover:bg-black/5 dark:text-white/70 dark:hover:bg-white/5">
+                                  <Pencil className="h-3.5 w-3.5" /> Edit details
+                                </button>
+                                <button type="button" onClick={() => { setModal({ type: "reset-password", user: u }); setOpenMenuId(null); }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-navy/70 hover:bg-black/5 dark:text-white/70 dark:hover:bg-white/5">
+                                  <RotateCcw className="h-3.5 w-3.5" /> Reset password
+                                </button>
+                                <button type="button" onClick={() => { setModal({ type: "reset-uid", user: u }); setOpenMenuId(null); }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-navy/70 hover:bg-black/5 dark:text-white/70 dark:hover:bg-white/5">
+                                  <IdCard className="h-3.5 w-3.5" /> Reset UID
+                                </button>
+                                <button type="button" onClick={() => { setModal({ type: "usage", user: u }); setOpenMenuId(null); }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-navy/70 hover:bg-black/5 dark:text-white/70 dark:hover:bg-white/5">
+                                  <HardDrive className="h-3.5 w-3.5" /> View storage used
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={isSelf || isLastSuperAdmin}
+                                  onClick={() => { setModal({ type: "delete", user: u }); setOpenMenuId(null); }}
+                                  className="flex w-full items-center gap-2 border-t border-black/5 px-3 py-2 text-left text-xs text-red-500 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/10 dark:hover:bg-red-500/10"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" /> Delete account
+                                </button>
+                              </div>
+                            </>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
           )}
         </CardContent>
       </Card>
+
+      {modal?.type === "approve" && (
+        <ApproveModal user={modal.user} busy={busy} setBusy={setBusy} onClose={closeModal} onDone={refetchBoth} toast={toast} />
+      )}
+      {modal?.type === "reject" && (
+        <RejectModal user={modal.user} busy={busy} setBusy={setBusy} onClose={closeModal} onDone={refetchBoth} toast={toast} />
+      )}
+      {modal?.type === "edit" && (
+        <EditUserModal user={modal.user} busy={busy} setBusy={setBusy} onClose={closeModal} onDone={refetchBoth} toast={toast} />
+      )}
+      {modal?.type === "reset-password" && (
+        <ResetPasswordModal user={modal.user} busy={busy} setBusy={setBusy} onClose={closeModal} toast={toast} />
+      )}
+      {modal?.type === "reset-uid" && (
+        <ResetUidModal user={modal.user} busy={busy} setBusy={setBusy} onClose={closeModal} onDone={refetchBoth} toast={toast} />
+      )}
+      {modal?.type === "usage" && (
+        <UsageModal user={modal.user} onClose={closeModal} />
+      )}
+      {modal?.type === "delete" && (
+        <DeleteUserModal user={modal.user} busy={busy} setBusy={setBusy} onClose={closeModal} onDone={refetchBoth} toast={toast} />
+      )}
     </div>
+  );
+}
+
+type ToastFn = (msg: string, type: "success" | "error") => void;
+interface UserModalProps {
+  user: ManagedUser;
+  busy: boolean;
+  setBusy: (b: boolean) => void;
+  onClose: () => void;
+  toast: ToastFn;
+}
+
+function ApproveModal({ user, busy, setBusy, onClose, onDone, toast }: UserModalProps & { onDone: () => void }) {
+  const [uid, setUid] = useState(user.email);
+  const [password, setPassword] = useState("");
+  const [sendEmail, setSendEmail] = useState(true);
+  const [generating, setGenerating] = useState(false);
+  const [result, setResult] = useState<{ emailSent: boolean; password?: string } | null>(null);
+
+  const generate = useCallback(async () => {
+    setGenerating(true);
+    try {
+      const data = await api.get<{ password: string }>("/api/auth/users/generate-temp-password");
+      setPassword(data.password);
+    } catch {
+      toast("Failed to generate password", "error");
+    } finally {
+      setGenerating(false);
+    }
+  }, [toast]);
+
+  const submit = useCallback(async () => {
+    setBusy(true);
+    try {
+      const data = await api.post<{ ok: boolean; emailSent: boolean; password?: string; message: string }>(`/api/auth/users/${user.id}/approve`, { uid, password: password || undefined, sendEmail });
+      setResult({ emailSent: data.emailSent, password: data.password });
+      toast(data.message, data.emailSent ? "success" : "error");
+      onDone();
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Failed to approve user", "error");
+    } finally {
+      setBusy(false);
+    }
+  }, [user.id, uid, password, sendEmail, setBusy, toast, onDone]);
+
+  if (result) {
+    return (
+      <ModalShell onClose={onClose}>
+        <div className="text-center">
+          <motion.div initial={{ opacity: 0, scale: 0.7 }} animate={{ opacity: 1, scale: 1 }} className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-teal/10">
+            {result.emailSent ? <CheckCircle className="h-7 w-7 text-teal" /> : <Shield className="h-7 w-7 text-amber-500" />}
+          </motion.div>
+          <p className="mt-3 text-sm font-semibold text-navy dark:text-white">{user.name} approved</p>
+          {result.emailSent ? (
+            <p className="mt-1 text-xs text-navy/50 dark:text-white/50">Credentials were emailed to {user.email}.</p>
+          ) : (
+            <div className="mt-3 space-y-2 text-left">
+              <p className="text-xs text-amber-600 dark:text-amber-400">Email delivery failed or was skipped — share these credentials with the user directly.</p>
+              <p className="rounded-lg bg-black/5 p-2 font-mono text-xs dark:bg-white/5">UID: {uid}<br />Password: {result.password}</p>
+            </div>
+          )}
+          <Button type="button" size="sm" className="mt-4 w-full" onClick={onClose}>Done</Button>
+        </div>
+      </ModalShell>
+    );
+  }
+
+  return (
+    <ModalShell onClose={onClose}>
+      <p className="text-sm font-semibold text-navy dark:text-white">Approve {user.name}</p>
+      <p className="mt-1 text-xs text-navy/50 dark:text-white/50">Create their sign-in credentials before sending the welcome email.</p>
+      <div className="mt-4 space-y-3">
+        <div>
+          <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">User ID</label>
+          <input value={uid} onChange={(e) => setUid(e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Temporary Password</label>
+          <div className="flex gap-2">
+            <PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Leave blank to auto-generate" className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" />
+            <Button type="button" size="sm" variant="secondary" onClick={generate} disabled={generating}>{generating ? "…" : "Generate"}</Button>
+          </div>
+        </div>
+        <label className="flex items-center gap-2 text-sm text-navy dark:text-white">
+          <input type="checkbox" checked={sendEmail} onChange={(e) => setSendEmail(e.target.checked)} className="h-4 w-4 rounded border-black/20 text-teal dark:border-white/20" />
+          Send credentials to {user.email}
+        </label>
+      </div>
+      <div className="mt-5 flex justify-end gap-2">
+        <Button type="button" size="sm" variant="secondary" onClick={onClose}>Cancel</Button>
+        <Button type="button" size="sm" onClick={submit} disabled={busy || !uid}>{busy ? "Approving…" : "Approve"}</Button>
+      </div>
+    </ModalShell>
+  );
+}
+
+function RejectModal({ user, busy, setBusy, onClose, onDone, toast }: UserModalProps & { onDone: () => void }) {
+  const [reason, setReason] = useState("");
+
+  const submit = useCallback(async () => {
+    setBusy(true);
+    try {
+      await api.post(`/api/auth/users/${user.id}/reject`, { reason: reason.trim() || undefined });
+      toast(`${user.name} rejected`, "success");
+      onDone();
+      onClose();
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Failed to reject user", "error");
+    } finally {
+      setBusy(false);
+    }
+  }, [user, reason, setBusy, toast, onDone, onClose]);
+
+  return (
+    <ModalShell onClose={onClose}>
+      <p className="text-sm font-semibold text-navy dark:text-white">Reject {user.name}?</p>
+      <p className="mt-1 text-xs text-navy/50 dark:text-white/50">Optionally include a reason — it will be sent to the applicant by email.</p>
+      <textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={3} placeholder="Reason (optional)" className="mt-3 w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" />
+      <div className="mt-4 flex justify-end gap-2">
+        <Button type="button" size="sm" variant="secondary" onClick={onClose}>Cancel</Button>
+        <Button type="button" size="sm" onClick={submit} disabled={busy}>{busy ? "Rejecting…" : "Reject"}</Button>
+      </div>
+    </ModalShell>
+  );
+}
+
+function EditUserModal({ user, busy, setBusy, onClose, onDone, toast }: UserModalProps & { onDone: () => void }) {
+  const [name, setName] = useState(user.name);
+  const [email, setEmail] = useState(user.email);
+  const [phone, setPhone] = useState(user.phone ?? "");
+  const [role, setRole] = useState(user.role);
+  const [status, setStatus] = useState(user.status);
+
+  const submit = useCallback(async () => {
+    setBusy(true);
+    try {
+      const data = await api.patch<{ ok: boolean; message: string }>(`/api/auth/users/${user.id}`, { name, email, phone, role, status });
+      toast(data.message, "success");
+      onDone();
+      onClose();
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Failed to update user", "error");
+    } finally {
+      setBusy(false);
+    }
+  }, [user.id, name, email, phone, role, status, setBusy, toast, onDone, onClose]);
+
+  return (
+    <ModalShell onClose={onClose}>
+      <p className="text-sm font-semibold text-navy dark:text-white">Edit {user.name}</p>
+      <div className="mt-4 space-y-3">
+        <div>
+          <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Name</label>
+          <input value={name} onChange={(e) => setName(e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Email</label>
+          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Phone</label>
+          <input value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Role</label>
+            <select value={role} onChange={(e) => setRole(e.target.value as ManagedUser["role"])} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
+              <option value="USER">User</option>
+              <option value="ADMIN">Admin</option>
+              <option value="SUPER_ADMIN">Super Admin</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Status</label>
+            <select value={status} onChange={(e) => setStatus(e.target.value as ManagedUser["status"])} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
+              <option value="ACTIVE">Active</option>
+              <option value="SUSPENDED">Suspended</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div className="mt-5 flex justify-end gap-2">
+        <Button type="button" size="sm" variant="secondary" onClick={onClose}>Cancel</Button>
+        <Button type="button" size="sm" onClick={submit} disabled={busy || !name || !email}>{busy ? "Saving…" : "Save changes"}</Button>
+      </div>
+    </ModalShell>
+  );
+}
+
+function ResetPasswordModal({ user, busy, setBusy, onClose, toast }: UserModalProps) {
+  const [password, setPassword] = useState("");
+  const [sendEmail, setSendEmail] = useState(true);
+  const [generating, setGenerating] = useState(false);
+  const [result, setResult] = useState<{ emailSent: boolean; password?: string } | null>(null);
+
+  const generate = useCallback(async () => {
+    setGenerating(true);
+    try {
+      const data = await api.get<{ password: string }>("/api/auth/users/generate-temp-password");
+      setPassword(data.password);
+    } catch {
+      toast("Failed to generate password", "error");
+    } finally {
+      setGenerating(false);
+    }
+  }, [toast]);
+
+  const submit = useCallback(async () => {
+    setBusy(true);
+    try {
+      const data = await api.post<{ ok: boolean; emailSent: boolean; password?: string }>(`/api/auth/users/${user.id}/reset-password`, { password: password || undefined, sendEmail });
+      setResult(data);
+      toast(data.emailSent ? "Password reset and emailed" : "Password reset", data.emailSent ? "success" : "error");
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Failed to reset password", "error");
+    } finally {
+      setBusy(false);
+    }
+  }, [user.id, password, sendEmail, setBusy, toast]);
+
+  if (result) {
+    return (
+      <ModalShell onClose={onClose}>
+        <div className="text-center">
+          <motion.div initial={{ opacity: 0, scale: 0.7 }} animate={{ opacity: 1, scale: 1 }} className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-teal/10">
+            <CheckCircle className="h-7 w-7 text-teal" />
+          </motion.div>
+          <p className="mt-3 text-sm font-semibold text-navy dark:text-white">Password reset for {user.name}</p>
+          {!result.emailSent && (
+            <p className="mt-2 rounded-lg bg-black/5 p-2 font-mono text-xs dark:bg-white/5">New password: {result.password}</p>
+          )}
+          <Button type="button" size="sm" className="mt-4 w-full" onClick={onClose}>Done</Button>
+        </div>
+      </ModalShell>
+    );
+  }
+
+  return (
+    <ModalShell onClose={onClose}>
+      <p className="text-sm font-semibold text-navy dark:text-white">Reset password for {user.name}</p>
+      <div className="mt-4 space-y-3">
+        <div>
+          <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">New Password</label>
+          <div className="flex gap-2">
+            <PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Leave blank to auto-generate" className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" />
+            <Button type="button" size="sm" variant="secondary" onClick={generate} disabled={generating}>{generating ? "…" : "Generate"}</Button>
+          </div>
+        </div>
+        <label className="flex items-center gap-2 text-sm text-navy dark:text-white">
+          <input type="checkbox" checked={sendEmail} onChange={(e) => setSendEmail(e.target.checked)} className="h-4 w-4 rounded border-black/20 text-teal dark:border-white/20" />
+          Send new password to {user.email}
+        </label>
+      </div>
+      <div className="mt-5 flex justify-end gap-2">
+        <Button type="button" size="sm" variant="secondary" onClick={onClose}>Cancel</Button>
+        <Button type="button" size="sm" onClick={submit} disabled={busy}>{busy ? "Resetting…" : "Reset password"}</Button>
+      </div>
+    </ModalShell>
+  );
+}
+
+function ResetUidModal({ user, busy, setBusy, onClose, onDone, toast }: UserModalProps & { onDone: () => void }) {
+  const [uid, setUid] = useState(user.uid);
+  const [sendEmail, setSendEmail] = useState(true);
+
+  const submit = useCallback(async () => {
+    setBusy(true);
+    try {
+      await api.post(`/api/auth/users/${user.id}/reset-uid`, { uid, sendEmail });
+      toast("UID updated", "success");
+      onDone();
+      onClose();
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Failed to reset UID", "error");
+    } finally {
+      setBusy(false);
+    }
+  }, [user.id, uid, sendEmail, setBusy, toast, onDone, onClose]);
+
+  return (
+    <ModalShell onClose={onClose}>
+      <p className="text-sm font-semibold text-navy dark:text-white">Reset UID for {user.name}</p>
+      <div className="mt-4 space-y-3">
+        <div>
+          <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">New User ID</label>
+          <input value={uid} onChange={(e) => setUid(e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" />
+        </div>
+        <label className="flex items-center gap-2 text-sm text-navy dark:text-white">
+          <input type="checkbox" checked={sendEmail} onChange={(e) => setSendEmail(e.target.checked)} className="h-4 w-4 rounded border-black/20 text-teal dark:border-white/20" />
+          Notify {user.email} of the change
+        </label>
+      </div>
+      <div className="mt-5 flex justify-end gap-2">
+        <Button type="button" size="sm" variant="secondary" onClick={onClose}>Cancel</Button>
+        <Button type="button" size="sm" onClick={submit} disabled={busy || !uid}>{busy ? "Saving…" : "Reset UID"}</Button>
+      </div>
+    </ModalShell>
+  );
+}
+
+function UsageModal({ user, onClose }: { user: ManagedUser; onClose: () => void }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ["user-usage", user.id],
+    queryFn: () => api.get<{ counts: UsageCounts; createdAt: string; approvedAt?: string | null }>(`/api/auth/users/${user.id}/usage`),
+  });
+
+  return (
+    <ModalShell onClose={onClose}>
+      <p className="text-sm font-semibold text-navy dark:text-white">Storage used by {user.name}</p>
+      {isLoading ? (
+        <div className="mt-4 space-y-2">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="h-6 animate-pulse rounded bg-black/5 dark:bg-white/5" />)}</div>
+      ) : data ? (
+        <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+          {(Object.keys(USAGE_LABELS) as (keyof UsageCounts)[]).map((k) => (
+            <div key={k} className="flex items-center justify-between rounded-lg bg-black/5 px-3 py-1.5 dark:bg-white/5">
+              <span className="text-navy/60 dark:text-white/60">{USAGE_LABELS[k]}</span>
+              <span className="font-semibold text-navy dark:text-white">{data.counts[k]}</span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+      <Button type="button" size="sm" className="mt-5 w-full" variant="secondary" onClick={onClose}>Close</Button>
+    </ModalShell>
+  );
+}
+
+function DeleteUserModal({ user, busy, setBusy, onClose, onDone, toast }: UserModalProps & { onDone: () => void }) {
+  const submit = useCallback(async () => {
+    setBusy(true);
+    try {
+      await api.delete(`/api/auth/users/${user.id}`);
+      toast(`${user.name}'s account has been permanently deleted`, "success");
+      onDone();
+      onClose();
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Failed to delete user", "error");
+    } finally {
+      setBusy(false);
+    }
+  }, [user, setBusy, toast, onDone, onClose]);
+
+  return (
+    <ModalShell onClose={onClose}>
+      <div className="flex items-start gap-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-500/10">
+          <Trash2 className="h-5 w-5 text-red-500" />
+        </div>
+        <div>
+          <p className="text-sm font-semibold text-navy dark:text-white">Permanently delete {user.name}?</p>
+          <p className="mt-1 text-xs text-navy/50 dark:text-white/50">This removes their account and all associated data (transactions, budgets, etc.) immediately. This cannot be undone.</p>
+        </div>
+      </div>
+      <div className="mt-5 flex justify-end gap-2">
+        <Button type="button" size="sm" variant="secondary" onClick={onClose}>Cancel</Button>
+        <Button type="button" size="sm" variant="danger" onClick={submit} disabled={busy}>{busy ? "Deleting…" : "Delete permanently"}</Button>
+      </div>
+    </ModalShell>
   );
 }
 
@@ -582,7 +1013,6 @@ function SettingsContent() {
   const tabs = isAdmin ? [...TABS, { id: "users", label: "User Management", icon: Users }] : TABS;
   const [activeTab, setActiveTab] = useState(searchParams.get("tab") ?? "general");
   const [localSettings, setLocalSettings] = useState<Record<string, unknown>>({});
-  const [isBackingUp, setIsBackingUp] = useState(false);
   const [pwForm, setPwForm] = useState({ current: "", next: "", confirm: "" });
   const [pwError, setPwError] = useState("");
   const [pwChanging, setPwChanging] = useState(false);
@@ -602,12 +1032,6 @@ function SettingsContent() {
       setPwChanging(false);
     }
   }, [pwForm, changePassword, toast]);
-
-  const handleBackup = useCallback(async () => {
-    setIsBackingUp(true);
-    await downloadExport("json", toast);
-    setIsBackingUp(false);
-  }, [toast]);
 
   useEffect(() => {
     const tab = searchParams.get("tab");
@@ -848,15 +1272,15 @@ function SettingsContent() {
                 <p className="text-sm font-semibold text-navy dark:text-white">Change Password</p>
                 <div>
                   <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Current Password</label>
-                  <input type="password" value={pwForm.current} onChange={(e) => setPwForm((p) => ({ ...p, current: e.target.value }))} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" placeholder="Current password" />
+                  <PasswordInput value={pwForm.current} onChange={(e) => setPwForm((p) => ({ ...p, current: e.target.value }))} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" placeholder="Current password" />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">New Password</label>
-                  <input type="password" value={pwForm.next} onChange={(e) => setPwForm((p) => ({ ...p, next: e.target.value }))} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" placeholder="New password (min 8 chars)" />
+                  <PasswordInput value={pwForm.next} onChange={(e) => setPwForm((p) => ({ ...p, next: e.target.value }))} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" placeholder="New password (min 8 chars)" />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Confirm New Password</label>
-                  <input type="password" value={pwForm.confirm} onChange={(e) => setPwForm((p) => ({ ...p, confirm: e.target.value }))} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" placeholder="Confirm new password" />
+                  <PasswordInput value={pwForm.confirm} onChange={(e) => setPwForm((p) => ({ ...p, confirm: e.target.value }))} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" placeholder="Confirm new password" />
                 </div>
                 {pwError && <p className="text-xs text-red-500">{pwError}</p>}
                 <div className="flex flex-wrap items-center gap-3">
@@ -935,9 +1359,11 @@ function SettingsContent() {
                   <option value="monthly">Monthly</option>
                 </select>
               </div>
-              <div className="pt-2 flex flex-wrap gap-2">
+              <p className="text-xs text-navy/40 dark:text-white/40">
+                To download a backup now, use <button type="button" onClick={() => setActiveTab("export")} className="font-medium text-teal hover:underline">Data Export &amp; Backup</button>.
+              </p>
+              <div className="pt-2">
                 <Button onClick={handleSave} disabled={isSaving}><Save className="h-4 w-4" /> {isSaving ? "Saving..." : "Save Settings"}</Button>
-                <Button type="button" variant="secondary" onClick={handleBackup} disabled={isBackingUp}>{isBackingUp ? "Backing up..." : "Backup Now"}</Button>
               </div>
             </CardContent>
           </Card>

@@ -134,6 +134,34 @@ const REJECTION_EMAIL_HTML = (name: string, reason?: string) => `
   <p>If you believe this is a mistake, please contact support.</p>
 `;
 
+const PASSWORD_RESET_BY_ADMIN_EMAIL_HTML = (name: string, uid: string, tempPassword: string) => `
+  <h2>Your Penny Pilot password was reset</h2>
+  <p>Hi ${name},</p>
+  <p>An administrator has reset your account password.</p>
+  <p><strong>User ID:</strong> ${uid}<br/>
+  <strong>Temporary Password:</strong> ${tempPassword}<br/>
+  <strong>Login URL:</strong> <a href="${APP_URL}/login">${APP_URL}/login</a></p>
+  <p>You will be required to set a new password the next time you log in.</p>
+  <p>If you didn't expect this change, contact your administrator immediately.</p>
+`;
+
+const UID_RESET_BY_ADMIN_EMAIL_HTML = (name: string, uid: string) => `
+  <h2>Your Penny Pilot User ID was changed</h2>
+  <p>Hi ${name},</p>
+  <p>An administrator has changed your sign-in User ID.</p>
+  <p><strong>New User ID:</strong> ${uid}<br/>
+  <strong>Login URL:</strong> <a href="${APP_URL}/login">${APP_URL}/login</a></p>
+  <p>If you didn't expect this change, contact your administrator immediately.</p>
+`;
+
+const ACCOUNT_UPDATED_BY_ADMIN_EMAIL_HTML = (name: string, changes: string[]) => `
+  <h2>Your Penny Pilot account was updated</h2>
+  <p>Hi ${name},</p>
+  <p>An administrator made the following changes to your account:</p>
+  <ul>${changes.map((c) => `<li>${c}</li>`).join("")}</ul>
+  <p>If you didn't expect this change, contact your administrator immediately.</p>
+`;
+
 // ─── POST /api/auth/signup ───────────────────────────────────────────────────
 router.post(
   "/signup",
@@ -186,7 +214,6 @@ router.post(
     }
     const user = await prisma.user.findUnique({ where: { uid: uid.trim() } });
     if (!user || !user.passwordHash) {
-      void logActivity(req, "login_failed", "Unknown UID");
       res.status(401).json({ error: "Invalid credentials" });
       return;
     }
@@ -204,15 +231,13 @@ router.post(
     }
     const valid = await bcrypt.compare(password, user.passwordHash);
     if (!valid) {
-      void logActivity(req, "login_failed", "Wrong password", user.id);
-      void notifySecurityEvent(user.id, "security", "Failed login attempt", "A login attempt with an incorrect password was made on your account.");
+      void createNotification(user.id, "security", "Failed login attempt", "A login attempt with an incorrect password was made on your account.");
       res.status(401).json({ error: "Invalid credentials" });
       return;
     }
 
     if (user.mustChangePassword) {
       const passwordChangeToken = jwt.sign({ userId: user.id, purpose: "change-password" }, ACCESS_SECRET, { expiresIn: PASSWORD_CHANGE_TOKEN_TTL });
-      void logActivity(req, "login", "Signed in with temporary password", user.id);
       res.json({ requiresPasswordChange: true, passwordChangeToken });
       return;
     }
@@ -225,8 +250,7 @@ router.post(
 
     const sv = bumpSessionVersion(user.id);
     setTokenCookies(res, signAccess(user, sv), signRefresh(user, sv));
-    void logActivity(req, "login", "Signed in with password", user.id);
-    void notifySecurityEvent(user.id, "security", "New sign-in", "Your account was signed in from a new session.");
+    void createNotification(user.id, "security", "New sign-in", "Your account was signed in from a new session.");
     res.json({ user: toUserJson(user) });
   })
 );
@@ -321,14 +345,12 @@ router.post(
     }
     const valid = await verifyTwoFactorCode(user.id, user, code);
     if (!valid) {
-      void logActivity(req, "login_failed", "Invalid 2FA code", user.id);
       res.status(401).json({ error: "Invalid verification code" });
       return;
     }
     const sv = bumpSessionVersion(user.id);
     setTokenCookies(res, signAccess(user, sv), signRefresh(user, sv));
-    void logActivity(req, "login", "Signed in with 2FA", user.id);
-    void notifySecurityEvent(user.id, "security", "New sign-in", "Your account was signed in with two-factor authentication.");
+    void createNotification(user.id, "security", "New sign-in", "Your account was signed in with two-factor authentication.");
     res.json({ user: toUserJson(user) });
   })
 );
@@ -605,7 +627,6 @@ router.post(
 router.post("/logout", (req: Request, res: Response) => {
   res.clearCookie("access_token", { path: "/" });
   res.clearCookie("refresh_token", { path: "/api/auth" });
-  void logActivity(req, "logout", "Signed out", req.auth?.userId);
   res.json({ ok: true });
 });
 
@@ -721,6 +742,18 @@ router.get(
   })
 );
 
+// ─── GET /api/auth/users/generate-temp-password ──────────────────────────────
+// Stateless helper for the admin approval/reset-password forms — generates a
+// candidate strong password without writing anything to the database.
+router.get(
+  "/users/generate-temp-password",
+  authenticate,
+  requireRole("SUPER_ADMIN", "ADMIN"),
+  asyncHandler(async (_req: Request, res: Response) => {
+    res.json({ password: generateTempPassword() });
+  })
+);
+
 // ─── POST /api/auth/users/:id/approve ────────────────────────────────────────
 router.post(
   "/users/:id/approve",
@@ -728,16 +761,34 @@ router.post(
   requireRole("SUPER_ADMIN", "ADMIN"),
   asyncHandler(async (req: Request, res: Response) => {
     const id = String(req.params.id);
+    const { uid, password, sendEmail: shouldSendEmail } = req.body as { uid?: string; password?: string; sendEmail?: boolean };
     const target = await prisma.user.findUnique({ where: { id } });
     if (!target || target.status !== "PENDING") {
       res.status(400).json({ error: "User not found or not pending approval" });
       return;
     }
-    const tempPassword = generateTempPassword();
-    const hash = await bcrypt.hash(tempPassword, 12);
+    const finalUid = (uid?.trim() || target.email).trim();
+    if (!/^[a-zA-Z0-9_.@-]{4,50}$/.test(finalUid)) {
+      res.status(400).json({ error: "UID must be 4-50 characters (letters, numbers, _ . @ -)" });
+      return;
+    }
+    const finalPassword = password?.trim() || generateTempPassword();
+    if (!isStrongPassword(finalPassword)) {
+      res.status(400).json({ error: "Password must be at least 8 characters and include a letter and a number" });
+      return;
+    }
+    if (finalUid !== target.uid) {
+      const conflict = await prisma.user.findFirst({ where: { uid: finalUid, id: { not: id } } });
+      if (conflict) {
+        res.status(409).json({ error: "That UID is already taken" });
+        return;
+      }
+    }
+    const hash = await bcrypt.hash(finalPassword, 12);
     const updated = await prisma.user.update({
       where: { id },
       data: {
+        uid: finalUid,
         status: "ACTIVE",
         passwordHash: hash,
         mustChangePassword: true,
@@ -746,9 +797,21 @@ router.post(
       },
     });
     void seedDefaultDataForUser(updated.id);
-    void sendEmail(updated.email, "Welcome to Penny Pilot — your account is approved", WELCOME_EMAIL_HTML(updated.name, updated.uid, tempPassword));
     void logActivity(req, "user_approved", `Approved ${updated.email}`, req.auth!.userId);
-    res.json({ ok: true, message: `${updated.name} has been approved and notified by email.` });
+
+    let emailSent = false;
+    if (shouldSendEmail !== false) {
+      emailSent = await sendEmail(updated.email, "Welcome to Penny Pilot — your account is approved", WELCOME_EMAIL_HTML(updated.name, updated.uid, finalPassword));
+    }
+    res.json({
+      ok: true,
+      emailSent,
+      message: emailSent
+        ? `${updated.name} has been approved and notified by email.`
+        : `${updated.name} has been approved. Share these credentials with them directly — the email was not sent.`,
+      uid: updated.uid,
+      password: emailSent ? undefined : finalPassword,
+    });
   })
 );
 
@@ -772,6 +835,228 @@ router.post(
     void sendEmail(updated.email, "Penny Pilot registration update", REJECTION_EMAIL_HTML(updated.name, updated.rejectionReason ?? undefined));
     void logActivity(req, "user_rejected", `Rejected ${updated.email}${reason ? `: ${reason}` : ""}`, req.auth!.userId);
     res.json({ ok: true, message: `${updated.name}'s registration has been rejected.` });
+  })
+);
+
+// ─── PATCH /api/auth/users/:id ───────────────────────────────────────────────
+router.patch(
+  "/users/:id",
+  authenticate,
+  requireRole("SUPER_ADMIN", "ADMIN"),
+  asyncHandler(async (req: Request, res: Response) => {
+    const id = String(req.params.id);
+    const { name, email, phone, role, status } = req.body as {
+      name?: string; email?: string; phone?: string; role?: string; status?: string;
+    };
+    const target = await prisma.user.findUnique({ where: { id } });
+    if (!target) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+
+    const data: Record<string, unknown> = {};
+    const changes: string[] = [];
+
+    if (name?.trim() && name.trim() !== target.name) {
+      data.name = name.trim();
+      changes.push(`Name changed to ${name.trim()}`);
+    }
+    if (email?.trim()) {
+      const normalized = email.trim().toLowerCase();
+      if (normalized !== target.email) {
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
+          res.status(400).json({ error: "Please enter a valid email address" });
+          return;
+        }
+        const conflict = await prisma.user.findFirst({ where: { email: normalized, id: { not: id } } });
+        if (conflict) {
+          res.status(409).json({ error: "That email is already in use" });
+          return;
+        }
+        data.email = normalized;
+        changes.push(`Email changed to ${normalized}`);
+      }
+    }
+    if (phone !== undefined && phone.trim() !== (target.phone ?? "")) {
+      data.phone = phone.trim() || null;
+      changes.push("Phone number updated");
+    }
+    if (role && role !== target.role) {
+      if (!["SUPER_ADMIN", "ADMIN", "USER"].includes(role)) {
+        res.status(400).json({ error: "Invalid role" });
+        return;
+      }
+      if (req.auth!.role !== "SUPER_ADMIN" && (role === "SUPER_ADMIN" || target.role === "SUPER_ADMIN")) {
+        res.status(403).json({ error: "Only a Super Admin can grant or modify Super Admin access" });
+        return;
+      }
+      if (target.role === "SUPER_ADMIN" && role !== "SUPER_ADMIN") {
+        const otherSuperAdmins = await prisma.user.count({ where: { role: "SUPER_ADMIN", id: { not: id } } });
+        if (otherSuperAdmins === 0) {
+          res.status(400).json({ error: "Cannot remove the last Super Admin" });
+          return;
+        }
+      }
+      data.role = role;
+      changes.push(`Role changed to ${role.replace("_", " ")}`);
+    }
+    if (status && status !== target.status) {
+      if (!["ACTIVE", "SUSPENDED", "REJECTED"].includes(status)) {
+        res.status(400).json({ error: "Invalid status" });
+        return;
+      }
+      if (target.status === "SUSPENDED" || target.status === "ACTIVE") {
+        data.status = status;
+        changes.push(`Status changed to ${status}`);
+        if (status !== "ACTIVE") data.sessionVersion = { increment: 1 };
+      }
+    }
+
+    if (Object.keys(data).length === 0) {
+      res.json({ ok: true, message: "No changes to apply." });
+      return;
+    }
+
+    const updated = await prisma.user.update({ where: { id }, data });
+    if (typeof data.sessionVersion === "object") bumpSessionVersion(updated.id);
+    void logActivity(req, "user_updated", `${changes.join(", ")} for ${updated.email}`, req.auth!.userId);
+    void sendEmail(updated.email, "Your Penny Pilot account was updated", ACCOUNT_UPDATED_BY_ADMIN_EMAIL_HTML(updated.name, changes));
+    res.json({ ok: true, message: "User updated successfully." });
+  })
+);
+
+// ─── POST /api/auth/users/:id/reset-password ─────────────────────────────────
+router.post(
+  "/users/:id/reset-password",
+  authenticate,
+  requireRole("SUPER_ADMIN", "ADMIN"),
+  asyncHandler(async (req: Request, res: Response) => {
+    const id = String(req.params.id);
+    const { password, sendEmail: shouldSendEmail } = req.body as { password?: string; sendEmail?: boolean };
+    const target = await prisma.user.findUnique({ where: { id } });
+    if (!target) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+    const finalPassword = password?.trim() || generateTempPassword();
+    if (!isStrongPassword(finalPassword)) {
+      res.status(400).json({ error: "Password must be at least 8 characters and include a letter and a number" });
+      return;
+    }
+    const hash = await bcrypt.hash(finalPassword, 12);
+    const updated = await prisma.user.update({
+      where: { id },
+      data: { passwordHash: hash, mustChangePassword: true },
+    });
+    bumpSessionVersion(updated.id);
+    void logActivity(req, "password_reset_by_admin", `Password reset for ${updated.email}`, req.auth!.userId);
+
+    let emailSent = false;
+    if (shouldSendEmail !== false) {
+      emailSent = await sendEmail(updated.email, "Your Penny Pilot password was reset", PASSWORD_RESET_BY_ADMIN_EMAIL_HTML(updated.name, updated.uid, finalPassword));
+    }
+    res.json({ ok: true, emailSent, password: emailSent ? undefined : finalPassword });
+  })
+);
+
+// ─── POST /api/auth/users/:id/reset-uid ──────────────────────────────────────
+router.post(
+  "/users/:id/reset-uid",
+  authenticate,
+  requireRole("SUPER_ADMIN", "ADMIN"),
+  asyncHandler(async (req: Request, res: Response) => {
+    const id = String(req.params.id);
+    const { uid, sendEmail: shouldSendEmail } = req.body as { uid?: string; sendEmail?: boolean };
+    const target = await prisma.user.findUnique({ where: { id } });
+    if (!target) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+    const trimmed = uid?.trim();
+    if (!trimmed || !/^[a-zA-Z0-9_.@-]{4,50}$/.test(trimmed)) {
+      res.status(400).json({ error: "UID must be 4-50 characters (letters, numbers, _ . @ -)" });
+      return;
+    }
+    if (trimmed !== target.uid) {
+      const conflict = await prisma.user.findUnique({ where: { uid: trimmed } });
+      if (conflict) {
+        res.status(409).json({ error: "That UID is already taken" });
+        return;
+      }
+    }
+    const updated = await prisma.user.update({ where: { id }, data: { uid: trimmed } });
+    bumpSessionVersion(updated.id);
+    void logActivity(req, "uid_reset_by_admin", `UID reset to ${trimmed} for ${updated.email}`, req.auth!.userId);
+
+    let emailSent = false;
+    if (shouldSendEmail !== false) {
+      emailSent = await sendEmail(updated.email, "Your Penny Pilot User ID was changed", UID_RESET_BY_ADMIN_EMAIL_HTML(updated.name, trimmed));
+    }
+    res.json({ ok: true, emailSent, uid: trimmed });
+  })
+);
+
+// ─── GET /api/auth/users/:id/usage ───────────────────────────────────────────
+router.get(
+  "/users/:id/usage",
+  authenticate,
+  requireRole("SUPER_ADMIN", "ADMIN"),
+  asyncHandler(async (req: Request, res: Response) => {
+    const id = String(req.params.id);
+    const target = await prisma.user.findUnique({ where: { id } });
+    if (!target) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+    const [
+      transactions, budgets, investments, bills, goals,
+      categories, accounts, paymentMethods, notifications, activityLogs,
+    ] = await Promise.all([
+      prisma.transaction.count({ where: { userId: id } }),
+      prisma.budget.count({ where: { userId: id } }),
+      prisma.investment.count({ where: { userId: id } }),
+      prisma.bill.count({ where: { userId: id } }),
+      prisma.goal.count({ where: { userId: id } }),
+      prisma.category.count({ where: { userId: id } }),
+      prisma.account.count({ where: { userId: id } }),
+      prisma.paymentMethodType.count({ where: { userId: id } }),
+      prisma.notification.count({ where: { userId: id } }),
+      prisma.activityLog.count({ where: { userId: id } }),
+    ]);
+    res.json({
+      counts: { transactions, budgets, investments, bills, goals, categories, accounts, paymentMethods, notifications, activityLogs },
+      createdAt: target.createdAt,
+      approvedAt: target.approvedAt,
+    });
+  })
+);
+
+// ─── DELETE /api/auth/users/:id ──────────────────────────────────────────────
+router.delete(
+  "/users/:id",
+  authenticate,
+  requireRole("SUPER_ADMIN", "ADMIN"),
+  asyncHandler(async (req: Request, res: Response) => {
+    const id = String(req.params.id);
+    if (id === req.auth!.userId) {
+      res.status(400).json({ error: "You cannot delete your own account" });
+      return;
+    }
+    const target = await prisma.user.findUnique({ where: { id } });
+    if (!target) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+    if (target.role === "SUPER_ADMIN") {
+      const otherSuperAdmins = await prisma.user.count({ where: { role: "SUPER_ADMIN", id: { not: id } } });
+      if (otherSuperAdmins === 0) {
+        res.status(400).json({ error: "Cannot delete the last Super Admin" });
+        return;
+      }
+    }
+    await prisma.user.delete({ where: { id } });
+    void logActivity(req, "user_deleted", `Deleted ${target.email}`, req.auth!.userId);
+    res.json({ ok: true, message: `${target.name}'s account has been permanently deleted.` });
   })
 );
 

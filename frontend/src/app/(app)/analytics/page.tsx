@@ -9,11 +9,10 @@ import {
 import { Topbar } from "@/components/layout/Topbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ExportPreviewModal } from "@/components/ui/ExportPreviewModal";
 import { api } from "@/lib/api";
 import { formatCurrency, cn } from "@/lib/format";
 import { useSettingsContext } from "@/lib/SettingsContext";
-import { useToast } from "@/components/ui/Toast";
-import { downloadExport } from "@/lib/export";
 import { useCategories, useAccounts, usePaymentMethods } from "@/lib/reference";
 import { AnalyticsSummary } from "@/types";
 import { BarChart3, TrendingUp, TrendingDown, Hash, Download, Wallet } from "lucide-react";
@@ -136,9 +135,9 @@ function BreakdownChart({ kind, data, cur }: { kind: ChartKind; data: { name: st
     return (
       <ResponsiveContainer width="100%" height={280}>
         <BarChart data={data} layout="vertical" margin={{ left: 20 }}>
-          <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
-          <XAxis type="number" tickFormatter={(v) => formatCurrency(Number(v), cur)} tick={{ fontSize: 11 }} />
-          <YAxis type="category" dataKey="name" width={110} tick={{ fontSize: 11 }} />
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--foreground)" strokeOpacity={0.1} />
+          <XAxis type="number" tickFormatter={(v) => formatCurrency(Number(v), cur)} tick={{ fontSize: 11, fill: "var(--foreground)", fillOpacity: 0.6 }} axisLine={{ stroke: "var(--foreground)", strokeOpacity: 0.15 }} tickLine={false} />
+          <YAxis type="category" dataKey="name" width={110} tick={{ fontSize: 11, fill: "var(--foreground)", fillOpacity: 0.6 }} axisLine={{ stroke: "var(--foreground)", strokeOpacity: 0.15 }} tickLine={false} />
           <Tooltip formatter={(v) => formatCurrency(Number(v), cur)} />
           <Bar dataKey="total" radius={[0, 6, 6, 0]}>
             {data.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
@@ -161,7 +160,7 @@ function BreakdownChart({ kind, data, cur }: { kind: ChartKind; data: { name: st
           {data.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
         </Pie>
         <Tooltip formatter={(v) => formatCurrency(Number(v), cur)} />
-        <Legend />
+        <Legend wrapperStyle={{ color: "var(--foreground)", fontSize: 12, opacity: 0.8 }} />
       </PieChart>
     </ResponsiveContainer>
   );
@@ -171,11 +170,11 @@ function TrendChart({ kind, data, cur }: { kind: ChartKind; data: { month: strin
   if (data.length === 0) return <EmptyState icon={BarChart3} title="No data for this selection" />;
   const common = (
     <>
-      <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
-      <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-      <YAxis tickFormatter={(v) => formatCurrency(Number(v), cur)} tick={{ fontSize: 11 }} width={80} />
+      <CartesianGrid strokeDasharray="3 3" stroke="var(--foreground)" strokeOpacity={0.1} />
+      <XAxis dataKey="month" tick={{ fontSize: 11, fill: "var(--foreground)", fillOpacity: 0.6 }} axisLine={{ stroke: "var(--foreground)", strokeOpacity: 0.15 }} tickLine={false} />
+      <YAxis tickFormatter={(v) => formatCurrency(Number(v), cur)} tick={{ fontSize: 11, fill: "var(--foreground)", fillOpacity: 0.6 }} axisLine={{ stroke: "var(--foreground)", strokeOpacity: 0.15 }} tickLine={false} width={80} />
       <Tooltip formatter={(v) => formatCurrency(Number(v), cur)} />
-      <Legend />
+      <Legend wrapperStyle={{ color: "var(--foreground)", fontSize: 12, opacity: 0.8 }} />
     </>
   );
   if (kind === "bar") {
@@ -219,7 +218,6 @@ interface FilteredAnalytics extends AnalyticsSummary {
 
 export default function AnalyticsPage() {
   const { settings } = useSettingsContext();
-  const { toast } = useToast();
   const cur = settings.currency;
 
   const [range, setRange] = useState<RangeKey>("all");
@@ -231,7 +229,7 @@ export default function AnalyticsPage() {
   const [trendChart, setTrendChart] = useState<ChartKind>("line");
   const [breakdownChart, setBreakdownChart] = useState<ChartKind>("donut");
   const [metrics, setMetrics] = useState<Set<MetricId>>(new Set(METRIC_OPTIONS.map((m) => m.id)));
-  const [exporting, setExporting] = useState<string | null>(null);
+  const [exportOpen, setExportOpen] = useState(false);
 
   const { data: categories } = useCategories();
   const { data: accounts } = useAccounts();
@@ -262,15 +260,6 @@ export default function AnalyticsPage() {
       return next;
     });
   }, []);
-
-  const handleExport = useCallback(async (format: string) => {
-    setExporting(format);
-    try {
-      await downloadExport(format, toast, { from, to });
-    } finally {
-      setExporting(null);
-    }
-  }, [toast, from, to]);
 
   const expenseData = (data?.categoryBreakdown ?? []).map((c) => ({ name: c.category, total: c.total }));
   const incomeData = (data?.incomeCategoryBreakdown ?? []).map((c) => ({ name: c.category, total: c.total }));
@@ -323,22 +312,13 @@ export default function AnalyticsPage() {
                   {(paymentMethods?.items ?? []).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
               </div>
-              <div className="ml-auto flex gap-2">
-                {["csv", "excel", "pdf"].map((fmt) => (
-                  <button
-                    key={fmt}
-                    onClick={() => handleExport(fmt)}
-                    disabled={exporting !== null}
-                    className={cn(
-                      "flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium uppercase transition-all",
-                      exporting === fmt
-                        ? "border-teal bg-teal/10 text-teal animate-pulse"
-                        : "border-black/10 text-navy hover:border-teal/50 dark:border-white/10 dark:text-white"
-                    )}
-                  >
-                    <Download className="h-3.5 w-3.5" /> {fmt}
-                  </button>
-                ))}
+              <div className="ml-auto">
+                <button
+                  onClick={() => setExportOpen(true)}
+                  className="flex items-center gap-1.5 rounded-lg border border-black/10 px-3 py-2 text-xs font-medium text-navy transition-all hover:border-teal/50 dark:border-white/10 dark:text-white"
+                >
+                  <Download className="h-3.5 w-3.5" /> Export this view
+                </button>
               </div>
             </div>
 
@@ -497,6 +477,7 @@ export default function AnalyticsPage() {
           </>
         )}
       </main>
+      <ExportPreviewModal isOpen={exportOpen} onClose={() => setExportOpen(false)} range={{ from, to }} />
     </>
   );
 }

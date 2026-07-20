@@ -13,13 +13,19 @@ export async function createNotification(userId: string, type: string, title: st
   }
 }
 
-/** Send an arbitrary email via Resend when configured; silently skips otherwise. */
-export async function sendEmail(to: string, subject: string, html: string): Promise<void> {
+/** Send an arbitrary email via Resend when configured; silently skips otherwise. Returns whether it was actually sent. */
+export async function sendEmail(to: string, subject: string, html: string): Promise<boolean> {
   try {
-    if (!resend) return;
-    await resend.emails.send({ from: FROM, to, subject, html });
+    if (!resend) return false;
+    const result = await resend.emails.send({ from: FROM, to, subject, html });
+    if (result.error) {
+      console.error("Failed to send email:", result.error);
+      return false;
+    }
+    return true;
   } catch (err) {
     console.error("Failed to send email:", err);
+    return false;
   }
 }
 
