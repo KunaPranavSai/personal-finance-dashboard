@@ -29,11 +29,18 @@ const COOKIE_SECRET = process.env.COOKIE_SECRET ?? "pfd-cookie-secret";
 // The set of origins allowed to make credentialed (cookie-bearing) requests.
 // APP_URL is the same env var already used to build links in outgoing emails
 // (see backend/src/lib/emailTemplates.ts), so it doubles as the canonical
-// frontend origin here rather than requiring a second env var.
+// frontend origin here rather than requiring a second env var. Both APP_URL
+// and FRONTEND_URL accept a comma-separated list, since Vercel projects can
+// have more than one live alias domain (e.g. after a project rename, the old
+// name often keeps resolving alongside the new one).
+function parseOriginList(value: string | undefined): string[] {
+  return (value ?? "").split(",").map((v) => v.trim()).filter(Boolean);
+}
+
 const ALLOWED_ORIGINS = new Set(
   [
-    process.env.APP_URL,
-    process.env.FRONTEND_URL,
+    ...parseOriginList(process.env.APP_URL),
+    ...parseOriginList(process.env.FRONTEND_URL),
     !isProd ? "http://localhost:3000" : null,
   ].filter((v): v is string => Boolean(v))
 );
