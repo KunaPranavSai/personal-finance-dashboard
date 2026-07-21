@@ -13,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { PasswordInput } from "@/components/ui/PasswordInput";
 import { ExportPreviewModal } from "@/components/ui/ExportPreviewModal";
+import { GoogleDriveBackupCard } from "@/components/settings/GoogleDriveBackupCard";
 import { useSettingsContext } from "@/lib/SettingsContext";
 import { useToast } from "@/components/ui/Toast";
 import { Settings as SettingsIcon, Palette, Globe, Bell, Shield, Download, Database, Eye, Sliders, Save, Copy, Check, History, KeyRound, CheckCircle } from "lucide-react";
@@ -34,14 +35,16 @@ const TABS = [
 
 const DEFAULT_DASHBOARDS = [
   { value: "dashboard", label: "Main Dashboard" },
-  { value: "transactions", label: "Transactions" },
+  { value: "expenses", label: "Expenses" },
+  { value: "income", label: "Income" },
   { value: "analytics", label: "Analytics" },
 ];
 
 const STARTUP_OPTIONS = [
   { value: "last-viewed", label: "Last Viewed Page" },
   { value: "dashboard", label: "Dashboard" },
-  { value: "transactions", label: "Transactions" },
+  { value: "expenses", label: "Expenses" },
+  { value: "income", label: "Income" },
 ];
 
 const NUMBER_FORMATS = [
@@ -481,10 +484,6 @@ function SettingsContent() {
           <Card>
             <CardHeader><CardTitle>General Settings</CardTitle></CardHeader>
             <CardContent className="space-y-4">
-              <div>
-                <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Application Name</label>
-                <input type="text" value={String(s.applicationName ?? "")} onChange={(e) => handleChange("applicationName", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" />
-              </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Default Dashboard</label>
@@ -749,29 +748,32 @@ function SettingsContent() {
         );
       case "backup":
         return (
-          <Card>
-            <CardHeader><CardTitle>Backup Settings</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input type="checkbox" checked={Boolean(backup.autoBackup ?? false)} onChange={(e) => handleNestedChange("backup", "autoBackup", e.target.checked)} className="h-4 w-4 rounded border-black/20 text-teal dark:border-white/20" />
-                <span className="text-sm text-navy dark:text-white">Automatic Backup</span>
-              </label>
-              <div>
-                <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Backup Frequency</label>
-                <select value={String(backup.backupFrequency ?? "weekly")} onChange={(e) => handleNestedChange("backup", "backupFrequency", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
-                  <option value="daily">Daily</option>
-                  <option value="weekly">Weekly</option>
-                  <option value="monthly">Monthly</option>
-                </select>
-              </div>
-              <p className="text-xs text-navy/40 dark:text-white/40">
-                To download a backup now, use <button type="button" onClick={() => setActiveTab("export")} className="font-medium text-teal hover:underline">Data Export &amp; Backup</button>.
-              </p>
-              <div className="pt-2">
-                <Button onClick={handleSave} disabled={isSaving}><Save className="h-4 w-4" /> {isSaving ? "Saving..." : "Save Settings"}</Button>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="space-y-4">
+            <GoogleDriveBackupCard />
+            <Card>
+              <CardHeader><CardTitle>Backup Settings</CardTitle></CardHeader>
+              <CardContent className="space-y-4">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input type="checkbox" checked={Boolean(backup.autoBackup ?? false)} onChange={(e) => handleNestedChange("backup", "autoBackup", e.target.checked)} className="h-4 w-4 rounded border-black/20 text-teal dark:border-white/20" />
+                  <span className="text-sm text-navy dark:text-white">Automatic Backup</span>
+                </label>
+                <div>
+                  <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Backup Frequency</label>
+                  <select value={String(backup.backupFrequency ?? "weekly")} onChange={(e) => handleNestedChange("backup", "backupFrequency", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                  </select>
+                </div>
+                <p className="text-xs text-navy/40 dark:text-white/40">
+                  To download a local copy instead, use <button type="button" onClick={() => setActiveTab("export")} className="font-medium text-teal hover:underline">Data Export &amp; Backup</button>.
+                </p>
+                <div className="pt-2">
+                  <Button onClick={handleSave} disabled={isSaving}><Save className="h-4 w-4" /> {isSaving ? "Saving..." : "Save Settings"}</Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         );
       case "privacy":
         return (
@@ -810,7 +812,7 @@ function SettingsContent() {
             <CardHeader><CardTitle>Application Preferences</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Default Dashboard</label>
+                <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Default Chart</label>
                 <select value={String(pref.defaultCharts ?? "income-expense")} onChange={(e) => handleNestedChange("preferences", "defaultCharts", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
                   <option value="income-expense">Income vs Expense</option>
                   <option value="category-breakdown">Category Breakdown</option>
@@ -818,11 +820,11 @@ function SettingsContent() {
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Default Filters</label>
+                <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Default Filter</label>
                 <select value={String(pref.defaultFilters ?? "all")} onChange={(e) => handleNestedChange("preferences", "defaultFilters", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
-                  <option value="all">All Transactions</option>
+                  <option value="all">All Expenses & Income</option>
                   <option value="income">Income Only</option>
-                  <option value="expense">Expense Only</option>
+                  <option value="expense">Expenses Only</option>
                   <option value="recurring">Recurring Only</option>
                 </select>
               </div>

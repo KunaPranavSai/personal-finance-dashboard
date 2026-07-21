@@ -19,9 +19,9 @@ const nameSchema = z.object({ name: z.string().min(1, "Name is required").max(50
 type NameForm = z.infer<typeof nameSchema>;
 
 const TABS = [
-  { id: "accounts", label: "Account Types", icon: Landmark },
+  { id: "accounts", label: "Wallets", icon: Landmark },
   { id: "categories", label: "Categories", icon: Tags },
-  { id: "payment-methods", label: "Payment Methods", icon: CreditCard },
+  { id: "payment-methods", label: "Money Sources", icon: CreditCard },
 ] as const;
 
 function CustomizationsContent() {
@@ -51,14 +51,14 @@ function CustomizationsContent() {
 
           {tab === "accounts" && (
             <EntityManager
-              title="Account Types"
+              title="Wallets"
               queryKey="accounts"
               apiPath="/api/accounts"
-              itemLabel="account type"
-              addLabel="Add Account Type"
+              itemLabel="wallet"
+              addLabel="Add Wallet"
               icon={Banknote}
-              emptyTitle="No account types yet"
-              emptyDescription="Create your first account type to start tracking transactions against it."
+              emptyTitle="No wallets yet"
+              emptyDescription="Create your first wallet to start tracking expenses and income against it."
             />
           )}
 
@@ -66,14 +66,14 @@ function CustomizationsContent() {
 
           {tab === "payment-methods" && (
             <EntityManager
-              title="Payment Methods"
+              title="Money Sources"
               queryKey="payment-methods"
               apiPath="/api/payment-methods"
-              itemLabel="payment method"
-              addLabel="Add Payment Method"
+              itemLabel="money source"
+              addLabel="Add Money Source"
               icon={CreditCard}
-              emptyTitle="No payment methods yet"
-              emptyDescription="Create payment methods like Cash, UPI, or Credit Card to tag your transactions."
+              emptyTitle="No money sources yet"
+              emptyDescription="Create money sources like Cash, UPI, or Credit Card to tag your expenses and income."
             />
           )}
         </div>

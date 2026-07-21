@@ -14,6 +14,7 @@ interface KpiCardProps {
   sparklineData?: number[];
   tooltip?: string;
   tone?: "positive" | "negative" | "neutral";
+  onClick?: () => void;
 }
 
 export function KpiCard({
@@ -24,6 +25,7 @@ export function KpiCard({
   sparklineData,
   tooltip,
   tone = "neutral",
+  onClick,
 }: KpiCardProps) {
   const isPositive = (changePct ?? 0) >= 0;
   const chartData = (sparklineData ?? []).map((v, i) => ({ i, v }));
@@ -34,7 +36,14 @@ export function KpiCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25 }}
     >
-      <Card className="group relative overflow-hidden p-3 sm:p-4" title={tooltip}>
+      <Card
+        className={cn("group relative overflow-hidden p-3 sm:p-4", onClick && "cursor-pointer transition-shadow hover:shadow-md")}
+        title={tooltip}
+        role={onClick ? "button" : undefined}
+        tabIndex={onClick ? 0 : undefined}
+        onClick={onClick}
+        onKeyDown={onClick ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } } : undefined}
+      >
         <div className="flex items-start justify-between">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-teal/10 sm:h-9 sm:w-9">
             <Icon className="h-4 w-4 text-teal sm:h-4.5 sm:w-4.5" />

@@ -24,14 +24,12 @@ export default function AdminShellLayout({ children }: { children: React.ReactNo
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       router.replace("/login");
-    } else if (!isLoading && user?.mustSetup2FA) {
-      router.replace("/setup-2fa");
     } else if (!isLoading && user && user.role === "USER") {
       router.replace("/dashboard");
     }
   }, [isAuthenticated, isLoading, user, router]);
 
-  if (isLoading || user?.mustSetup2FA || (user && user.role === "USER")) {
+  if (isLoading || (user && user.role === "USER")) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-surface dark:bg-navy-dark">
         <div className="flex flex-col items-center gap-4">

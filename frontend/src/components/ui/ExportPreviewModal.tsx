@@ -31,10 +31,41 @@ const FORMATS = [
   { id: "pdf", label: "PDF" },
 ];
 
+const DATA_TYPES: { key: string; label: string }[] = [
+  { key: "transactions", label: "Expenses & Income" },
+  { key: "budgets", label: "Budgets" },
+  { key: "investments", label: "Investments" },
+  { key: "bills", label: "Bills" },
+  { key: "goals", label: "Goals" },
+  { key: "categories", label: "Categories" },
+  { key: "accounts", label: "Wallets & Money Sources" },
+  { key: "analytics", label: "Analytics" },
+  { key: "settings", label: "Settings" },
+];
+
+const RANGE_PRESETS = [
+  { id: "month", label: "This Month" },
+  { id: "year", label: "This Year" },
+  { id: "custom", label: "Custom" },
+] as const;
+
+function presetToRange(preset: (typeof RANGE_PRESETS)[number]["id"], customFrom: string, customTo: string) {
+  const now = new Date();
+  if (preset === "month") {
+    const from = new Date(now.getFullYear(), now.getMonth(), 1);
+    return { from: from.toISOString().slice(0, 10), to: now.toISOString().slice(0, 10) };
+  }
+  if (preset === "year") {
+    const from = new Date(now.getFullYear(), 0, 1);
+    return { from: from.toISOString().slice(0, 10), to: now.toISOString().slice(0, 10) };
+  }
+  return { from: customFrom || undefined, to: customTo || undefined };
+}
+
 export function ExportPreviewModal({
   isOpen,
   onClose,
-  range,
+  range: externalRange,
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -43,6 +74,12 @@ export function ExportPreviewModal({
   const { toast } = useToast();
   const [format, setFormat] = useState("csv");
   const [downloading, setDownloading] = useState(false);
+  const [rangePreset, setRangePreset] = useState<(typeof RANGE_PRESETS)[number]["id"]>("month");
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
+  const [selectedTypes, setSelectedTypes] = useState<string[]>(DATA_TYPES.map((t) => t.key));
+
+  const range = externalRange ?? presetToRange(rangePreset, customFrom, customTo);
 
   const params = new URLSearchParams();
   if (range?.from) params.set("from", range.from);
@@ -54,10 +91,14 @@ export function ExportPreviewModal({
     enabled: isOpen,
   });
 
+  const toggleType = (key: string) => {
+    setSelectedTypes((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
+  };
+
   const handleDownload = async () => {
     setDownloading(true);
     try {
-      await downloadExport(format, toast, range);
+      await downloadExport(format, toast, range, selectedTypes);
       onClose();
     } finally {
       setDownloading(false);
@@ -75,7 +116,7 @@ export function ExportPreviewModal({
           onClick={onClose}
         >
           <motion.div
-            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-navy-dark"
+            className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl dark:bg-navy-dark"
             initial={{ opacity: 0, scale: 0.95, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
@@ -89,6 +130,52 @@ export function ExportPreviewModal({
               </button>
             </div>
             <p className="mt-1 text-xs text-navy/50 dark:text-white/50">This export will include:</p>
+
+            {!externalRange && (
+              <div className="mt-4">
+                <p className="mb-2 text-xs font-medium text-navy/50 dark:text-white/50">Date Range</p>
+                <div className="flex flex-wrap gap-2">
+                  {RANGE_PRESETS.map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => setRangePreset(p.id)}
+                      className={cn(
+                        "rounded-lg border px-3 py-1.5 text-xs font-medium transition-all",
+                        rangePreset === p.id
+                          ? "border-teal bg-teal/10 text-teal"
+                          : "border-black/10 text-navy hover:border-teal/50 dark:border-white/10 dark:text-white"
+                      )}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+                {rangePreset === "custom" && (
+                  <div className="mt-2 flex gap-2">
+                    <input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} className="w-full rounded-lg border border-black/10 px-2 py-1.5 text-xs dark:border-white/10 dark:bg-white/5 dark:text-white" />
+                    <input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} className="w-full rounded-lg border border-black/10 px-2 py-1.5 text-xs dark:border-white/10 dark:bg-white/5 dark:text-white" />
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="mt-4">
+              <p className="mb-2 text-xs font-medium text-navy/50 dark:text-white/50">Data to Include</p>
+              <div className="grid grid-cols-2 gap-1.5">
+                {DATA_TYPES.map((t) => (
+                  <label key={t.key} className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-xs text-navy/70 hover:bg-black/5 dark:text-white/70 dark:hover:bg-white/5">
+                    <input
+                      type="checkbox"
+                      checked={selectedTypes.includes(t.key)}
+                      onChange={() => toggleType(t.key)}
+                      className="h-3.5 w-3.5 rounded border-black/20 text-teal dark:border-white/20"
+                    />
+                    {t.label}
+                  </label>
+                ))}
+              </div>
+            </div>
 
             {isLoading ? (
               <div className="mt-4 grid grid-cols-2 gap-2">

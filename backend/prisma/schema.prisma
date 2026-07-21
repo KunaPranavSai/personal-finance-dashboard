@@ -58,7 +58,6 @@ model User {
   status                 UserStatus @default(PENDING)
   passwordHash           String?
   mustChangePassword     Boolean    @default(false)
-  mustSetup2FA           Boolean    @default(false)
   twoFactorEnabled       Boolean    @default(false)
   twoFactorSecret        String?
   twoFactorPendingSecret String?
@@ -90,6 +89,7 @@ model User {
   activityLogs   ActivityLog[]
   settings       AppSettings?
   profile        AppProfile?
+  backupConnections BackupConnection[]
 
   @@index([status])
 }
@@ -194,9 +194,14 @@ model Investment {
   userId             String
   instrument         String
   category           String
+  investedAmount     Decimal  @db.Decimal(14, 2) @default(0)
   currentValue       Decimal  @db.Decimal(14, 2)
+  purchaseDate       DateTime @default(now())
   monthlyContribution Decimal @db.Decimal(14, 2) @default(0)
   annualReturnPct    Decimal  @db.Decimal(5, 2)  @default(0)
+  platform           String?
+  notes              String?
+  isAutoSync         Boolean  @default(false)
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
@@ -284,6 +289,26 @@ model AppProfile {
   data   Json   @default("{}")
 
   @@map("app_profile")
+}
+
+// Provider-abstracted cloud backup connection. `provider` distinguishes which
+// cloud (google_drive today; onedrive/dropbox/icloud can reuse this same table
+// later) a user has linked, so adding a new provider needs no schema change.
+model BackupConnection {
+  id                 String    @id @default(cuid())
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId             String
+  provider           String
+  accountEmail       String?
+  accessToken        String
+  refreshToken       String?
+  tokenExpiresAt     DateTime?
+  lastBackupAt       DateTime?
+  lastBackupFileId   String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@unique([userId, provider])
 }
 
 model PlatformSettings {

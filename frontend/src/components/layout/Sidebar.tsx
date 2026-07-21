@@ -4,9 +4,9 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
-  LayoutDashboard, ArrowLeftRight, Wallet, PiggyBank, Target,
-  Receipt, TrendingUp, BarChart3, FileText, Bell, Settings, User, X, Landmark,
-  SlidersHorizontal, ChevronDown,
+  LayoutDashboard, Wallet, PiggyBank, Target,
+  Receipt, TrendingUp, TrendingDown, BarChart3, FileText, Bell, User, X, Landmark,
+  SlidersHorizontal, ChevronDown, Shield, Palette, Eye, Database,
 } from "lucide-react";
 import { cn } from "@/lib/format";
 import { useUiStore } from "@/store/uiStore";
@@ -28,23 +28,30 @@ const NAV_GROUPS: NavGroup[] = [
     id: "money",
     label: "Money",
     items: [
-      { href: "/transactions", label: "Transactions", icon: ArrowLeftRight },
+      { href: "/expenses", label: "Expenses", icon: TrendingDown },
+      { href: "/income", label: "Income", icon: TrendingUp },
+    ],
+  },
+  {
+    id: "budgets",
+    label: "Budgets",
+    items: [
       { href: "/budget", label: "Budget Planner", icon: Wallet },
       { href: "/bills", label: "Bills & EMI", icon: Receipt },
     ],
   },
   {
-    id: "wealth",
-    label: "Wealth",
+    id: "investments",
+    label: "Investments",
     items: [
+      { href: "/investments", label: "Investments", icon: Landmark },
       { href: "/savings", label: "Savings", icon: PiggyBank },
-      { href: "/investments", label: "Investments", icon: TrendingUp },
       { href: "/goals", label: "Financial Goals", icon: Target },
     ],
   },
   {
-    id: "insights",
-    label: "Insights",
+    id: "analytics",
+    label: "Analytics",
     items: [
       { href: "/analytics", label: "Analytics", icon: BarChart3 },
       { href: "/reports", label: "Reports", icon: FileText },
@@ -52,11 +59,14 @@ const NAV_GROUPS: NavGroup[] = [
   },
   {
     id: "manage",
-    label: "Manage",
+    label: null,
     items: [
       { href: "/customizations", label: "Customizations", icon: SlidersHorizontal },
       { href: "/notifications", label: "Notifications", icon: Bell },
-      { href: "/settings", label: "Settings", icon: Settings },
+      { href: "/settings?tab=security", label: "Security", icon: Shield },
+      { href: "/settings?tab=appearance", label: "Appearance", icon: Palette },
+      { href: "/settings?tab=privacy", label: "Privacy", icon: Eye },
+      { href: "/settings?tab=backup", label: "Backup & Export", icon: Database },
       { href: "/profile", label: "Profile", icon: User },
     ],
   },
@@ -72,7 +82,10 @@ export function Sidebar() {
 
   const closeSidebar = useCallback(() => setSidebarOpen(false), [setSidebarOpen]);
 
-  const isItemActive = (href: string) => pathname === href || pathname?.startsWith(href + "/");
+  const isItemActive = (href: string) => {
+    const path = href.split("?")[0];
+    return pathname === path || Boolean(pathname?.startsWith(path + "/"));
+  };
 
   const sidebarContent = (
     <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-2 scrollbar-thin" aria-label="Main navigation">

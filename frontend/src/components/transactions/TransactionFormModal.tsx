@@ -8,8 +8,9 @@ import { api } from "@/lib/api";
 import { Button } from "../ui/Button";
 import { FocusTrap } from "../ui/FocusTrap";
 import { Transaction } from "@/types";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useCategories, useAccounts, usePaymentMethods, ENTRY_TYPES } from "@/lib/reference";
+import { QuickCreateModal } from "../ui/QuickCreateModal";
 
 const schema = z.object({
   date: z.string().min(1, "Date is required"),
@@ -29,22 +30,26 @@ export function TransactionFormModal({
   open,
   onClose,
   editing,
+  fixedType,
 }: {
   open: boolean;
   onClose: () => void;
   editing?: Transaction | null;
+  fixedType?: "INCOME" | "EXPENSE";
 }) {
   const queryClient = useQueryClient();
   const { data: categories, isLoading: catLoading, error: catError } = useCategories();
   const { data: accounts, isLoading: accLoading, error: accError } = useAccounts();
   const { data: paymentMethods, isLoading: pmLoading } = usePaymentMethods();
 
+  const [quickCreate, setQuickCreate] = useState<"category" | "account" | "paymentMethod" | null>(null);
+
   const {
-    register, handleSubmit, reset, watch,
+    register, handleSubmit, reset, watch, setValue,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { type: "EXPENSE", date: new Date().toISOString().slice(0, 10) },
+    defaultValues: { type: fixedType ?? "EXPENSE", date: new Date().toISOString().slice(0, 10) },
   });
 
   useEffect(() => {
@@ -61,9 +66,9 @@ export function TransactionFormModal({
         notes: editing.notes ?? "",
       });
     } else {
-      reset({ type: "EXPENSE", date: new Date().toISOString().slice(0, 10) });
+      reset({ type: fixedType ?? "EXPENSE", date: new Date().toISOString().slice(0, 10) });
     }
-  }, [editing, reset, open]);
+  }, [editing, reset, open, fixedType]);
 
   const selectedType = watch("type");
 
@@ -79,8 +84,36 @@ export function TransactionFormModal({
     },
   });
 
+  const createCategory = useMutation({
+    mutationFn: (name: string) => api.post<{ id: string }>("/api/categories", { name, type: selectedType }),
+    onSuccess: (created) => {
+      queryClient.invalidateQueries({ queryKey: ["categories"] });
+      setValue("categoryId", created.id);
+      setQuickCreate(null);
+    },
+  });
+
+  const createAccount = useMutation({
+    mutationFn: (name: string) => api.post<{ id: string }>("/api/accounts", { name }),
+    onSuccess: (created) => {
+      queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      setValue("accountId", created.id);
+      setQuickCreate(null);
+    },
+  });
+
+  const createPaymentMethod = useMutation({
+    mutationFn: (name: string) => api.post<{ id: string }>("/api/payment-methods", { name }),
+    onSuccess: (created) => {
+      queryClient.invalidateQueries({ queryKey: ["payment-methods"] });
+      setValue("paymentMethodTypeId", created.id);
+      setQuickCreate(null);
+    },
+  });
+
   if (!open) return null;
 
+  const NEW_OPTION = "__new__";
   const filteredCategories = (categories?.items ?? []).filter((c) => c.type === selectedType);
 
   return (
@@ -88,7 +121,7 @@ export function TransactionFormModal({
       <FocusTrap active={open}>
       <div className="w-full max-w-lg rounded-xl2 bg-white p-6 shadow-xl dark:bg-navy-dark" onClick={(e) => e.stopPropagation()}>
         <h2 className="text-lg font-semibold text-navy dark:text-white">
-          {editing ? "Edit Transaction" : "Add Transaction"}
+          {editing ? `Edit ${fixedType === "INCOME" ? "Income" : fixedType === "EXPENSE" ? "Expense" : "Transaction"}` : `Add ${fixedType === "INCOME" ? "Income" : fixedType === "EXPENSE" ? "Expense" : "Transaction"}`}
         </h2>
 
         {catError && (
@@ -99,12 +132,14 @@ export function TransactionFormModal({
           onSubmit={handleSubmit((values) => mutation.mutate(values))}
           className="mt-4 grid grid-cols-2 gap-4"
         >
-          <div className="col-span-1">
-            <label className="text-xs font-medium text-navy/60 dark:text-white/60">Type</label>
-            <select {...register("type")} className="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
-              {ENTRY_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-            </select>
-          </div>
+          {!fixedType && (
+            <div className="col-span-1">
+              <label className="text-xs font-medium text-navy/60 dark:text-white/60">Type</label>
+              <select {...register("type")} className="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
+                {ENTRY_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+              </select>
+            </div>
+          )}
 
           <div className="col-span-1">
             <label className="text-xs font-medium text-navy/60 dark:text-white/60">Date</label>
@@ -126,32 +161,47 @@ export function TransactionFormModal({
 
           <div className="col-span-1">
             <label className="text-xs font-medium text-navy/60 dark:text-white/60">Category</label>
-            <select {...register("categoryId")} className="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
+            <select
+              {...register("categoryId")}
+              onChange={(e) => { if (e.target.value === NEW_OPTION) { setQuickCreate("category"); return; } register("categoryId").onChange(e); }}
+              className="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white"
+            >
               <option value="">{catLoading ? "Loading…" : "Select…"}</option>
               {filteredCategories.map((c) => (
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}
+              <option value={NEW_OPTION}>+ Add New…</option>
             </select>
             {errors.categoryId && <p className="mt-1 text-xs text-red-600">{errors.categoryId.message}</p>}
           </div>
 
           <div className="col-span-1">
-            <label className="text-xs font-medium text-navy/60 dark:text-white/60">Account</label>
-            <select {...register("accountId")} className="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
+            <label className="text-xs font-medium text-navy/60 dark:text-white/60">Wallet</label>
+            <select
+              {...register("accountId")}
+              onChange={(e) => { if (e.target.value === NEW_OPTION) { setQuickCreate("account"); return; } register("accountId").onChange(e); }}
+              className="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white"
+            >
               <option value="">{accLoading ? "Loading…" : "None"}</option>
               {(accounts?.items ?? []).map((a) => (
                 <option key={a.id} value={a.id}>{a.name}</option>
               ))}
+              <option value={NEW_OPTION}>+ Add New…</option>
             </select>
           </div>
 
           <div className="col-span-1">
-            <label className="text-xs font-medium text-navy/60 dark:text-white/60">Payment Method</label>
-            <select {...register("paymentMethodTypeId")} className="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
+            <label className="text-xs font-medium text-navy/60 dark:text-white/60">Money Source</label>
+            <select
+              {...register("paymentMethodTypeId")}
+              onChange={(e) => { if (e.target.value === NEW_OPTION) { setQuickCreate("paymentMethod"); return; } register("paymentMethodTypeId").onChange(e); }}
+              className="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white"
+            >
               <option value="">{pmLoading ? "Loading…" : "None"}</option>
               {(paymentMethods?.items ?? []).map((pm) => (
                 <option key={pm.id} value={pm.id}>{pm.name}</option>
               ))}
+              <option value={NEW_OPTION}>+ Add New…</option>
             </select>
           </div>
 
@@ -180,6 +230,37 @@ export function TransactionFormModal({
         </form>
       </div>
       </FocusTrap>
+
+      {quickCreate === "category" && (
+        <QuickCreateModal
+          title={`Add New ${selectedType === "INCOME" ? "Income" : "Expense"} Category`}
+          placeholder="e.g. Groceries"
+          onSave={(name) => createCategory.mutate(name)}
+          onClose={() => setQuickCreate(null)}
+          isPending={createCategory.isPending}
+          error={createCategory.isError ? (createCategory.error as Error)?.message ?? "Failed to create category" : null}
+        />
+      )}
+      {quickCreate === "account" && (
+        <QuickCreateModal
+          title="Add New Wallet"
+          placeholder="e.g. HDFC Savings"
+          onSave={(name) => createAccount.mutate(name)}
+          onClose={() => setQuickCreate(null)}
+          isPending={createAccount.isPending}
+          error={createAccount.isError ? (createAccount.error as Error)?.message ?? "Failed to create wallet" : null}
+        />
+      )}
+      {quickCreate === "paymentMethod" && (
+        <QuickCreateModal
+          title="Add New Money Source"
+          placeholder="e.g. UPI"
+          onSave={(name) => createPaymentMethod.mutate(name)}
+          onClose={() => setQuickCreate(null)}
+          isPending={createPaymentMethod.isPending}
+          error={createPaymentMethod.isError ? (createPaymentMethod.error as Error)?.message ?? "Failed to create money source" : null}
+        />
+      )}
     </div>
   );
 }

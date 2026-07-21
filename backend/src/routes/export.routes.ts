@@ -67,6 +67,21 @@ router.get(
         from: from && !isNaN(from.getTime()) ? from : undefined,
         to: to && !isNaN(to.getTime()) ? to : undefined,
       });
+
+      const typesParam = (req.query.types as string) || "";
+      const selectedTypes = typesParam ? new Set(typesParam.split(",").map((t) => t.trim())) : null;
+      if (selectedTypes) {
+        if (!selectedTypes.has("transactions")) data.transactions = [];
+        if (!selectedTypes.has("budgets")) data.budgets = [];
+        if (!selectedTypes.has("investments")) data.investments = [];
+        if (!selectedTypes.has("bills")) data.bills = [];
+        if (!selectedTypes.has("goals")) data.goals = [];
+        if (!selectedTypes.has("categories")) data.categories = [];
+        if (!selectedTypes.has("accounts")) data.accounts = [];
+        if (!selectedTypes.has("settings")) data.settings = null;
+        if (!selectedTypes.has("analytics")) data.analytics = null;
+      }
+
       const ds = dateStr();
 
       switch (format) {

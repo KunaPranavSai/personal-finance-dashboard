@@ -13,7 +13,13 @@ import { Button } from "../ui/Button";
 import { EmptyState } from "../ui/EmptyState";
 import { Pencil, Trash2, Search, ArrowLeftRight } from "lucide-react";
 
-export function TransactionsTable({ onEdit }: { onEdit: (tx: Transaction) => void }) {
+export function TransactionsTable({
+  onEdit,
+  fixedType,
+}: {
+  onEdit: (tx: Transaction) => void;
+  fixedType?: "INCOME" | "EXPENSE";
+}) {
   const { settings } = useSettingsContext();
   const cur = settings.currency;
   const formatINR = (v: number) => fmtCurr(v, cur);
@@ -21,7 +27,8 @@ export function TransactionsTable({ onEdit }: { onEdit: (tx: Transaction) => voi
   const initialSearch = searchParams?.get("search") || "";
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState(initialSearch);
-  const [type, setType] = useState<"" | "INCOME" | "EXPENSE">("");
+  const [typeFilter, setTypeFilter] = useState<"" | "INCOME" | "EXPENSE">("");
+  const type = fixedType ?? typeFilter;
   const queryClient = useQueryClient();
 
   const { data, isLoading } = useQuery({
@@ -54,15 +61,17 @@ export function TransactionsTable({ onEdit }: { onEdit: (tx: Transaction) => voi
             className="w-56 bg-transparent outline-none placeholder:text-navy/30"
           />
         </div>
-        <select
-          value={type}
-          onChange={(e) => { setType(e.target.value as any); setPage(1); }}
-          className="rounded-lg border border-black/10 px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white"
-        >
-          <option value="">All Types</option>
-          <option value="INCOME">Income</option>
-          <option value="EXPENSE">Expense</option>
-        </select>
+        {!fixedType && (
+          <select
+            value={typeFilter}
+            onChange={(e) => { setTypeFilter(e.target.value as any); setPage(1); }}
+            className="rounded-lg border border-black/10 px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white"
+          >
+            <option value="">All Types</option>
+            <option value="INCOME">Income</option>
+            <option value="EXPENSE">Expense</option>
+          </select>
+        )}
       </div>
 
       {isLoading ? (
@@ -74,8 +83,14 @@ export function TransactionsTable({ onEdit }: { onEdit: (tx: Transaction) => voi
       ) : items.length === 0 ? (
         <EmptyState
           icon={ArrowLeftRight}
-          title="No Transactions Yet"
-          description="Add your first transaction to start tracking your income and expenses."
+          title={fixedType === "INCOME" ? "No Income Yet" : fixedType === "EXPENSE" ? "No Expenses Yet" : "No Transactions Yet"}
+          description={
+            fixedType === "INCOME"
+              ? "Add your first income entry to start tracking what you earn."
+              : fixedType === "EXPENSE"
+              ? "Add your first expense to start tracking what you spend."
+              : "Add your first transaction to start tracking your income and expenses."
+          }
         />
       ) : (
         <div className="overflow-x-auto rounded-xl2 border border-black/5 dark:border-white/10">
