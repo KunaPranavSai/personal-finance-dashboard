@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
 import { api } from "@/lib/api";
 import { formatDateIN } from "@/lib/format";
-import { Cloud, CloudUpload, CloudDownload, Unlink, CheckCircle2 } from "lucide-react";
+import { Cloud, CloudUpload, CloudDownload, Unlink, CheckCircle2, XCircle, History } from "lucide-react";
 
 interface BackupStatus {
   configured: boolean;
@@ -22,6 +22,15 @@ interface RestorePreview {
   counts: Record<string, number>;
 }
 
+interface BackupHistoryItem {
+  id: string;
+  status: "success" | "failed";
+  errorMessage: string | null;
+  attempt: number;
+  triggeredBy: "manual" | "scheduled";
+  createdAt: string;
+}
+
 export function GoogleDriveBackupCard() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -29,9 +38,17 @@ export function GoogleDriveBackupCard() {
   const router = useRouter();
   const [restorePreview, setRestorePreview] = useState<RestorePreview | null>(null);
 
+  const [showHistory, setShowHistory] = useState(false);
+
   const { data: status, isLoading } = useQuery({
     queryKey: ["backup-status"],
     queryFn: () => api.get<BackupStatus>("/api/backup/status"),
+  });
+
+  const { data: history } = useQuery({
+    queryKey: ["backup-history"],
+    queryFn: () => api.get<{ items: BackupHistoryItem[] }>("/api/backup/history"),
+    enabled: showHistory,
   });
 
   useEffect(() => {
@@ -58,7 +75,11 @@ export function GoogleDriveBackupCard() {
 
   const backupNowMutation = useMutation({
     mutationFn: () => api.post("/api/backup/now", {}),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["backup-status"] }); toast("Backup saved to Google Drive", "success"); },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["backup-status"] });
+      queryClient.invalidateQueries({ queryKey: ["backup-history"] });
+      toast("Backup saved to Google Drive", "success");
+    },
     onError: (err) => toast(err instanceof Error ? err.message : "Backup failed", "error"),
   });
 
@@ -107,7 +128,40 @@ export function GoogleDriveBackupCard() {
               <Button size="sm" variant="ghost" onClick={() => disconnectMutation.mutate()} disabled={disconnectMutation.isPending}>
                 <Unlink className="h-4 w-4" /> Disconnect
               </Button>
+              <Button size="sm" variant="ghost" onClick={() => setShowHistory((v) => !v)}>
+                <History className="h-4 w-4" /> {showHistory ? "Hide History" : "Backup History"}
+              </Button>
             </div>
+
+            {showHistory && (
+              <div className="rounded-lg border border-black/10 dark:border-white/10">
+                {!history ? (
+                  <div className="p-3 text-xs text-navy/40 dark:text-white/40">Loading…</div>
+                ) : history.items.length === 0 ? (
+                  <div className="p-3 text-xs text-navy/40 dark:text-white/40">No backups yet.</div>
+                ) : (
+                  <ul className="divide-y divide-black/5 dark:divide-white/10">
+                    {history.items.map((h) => (
+                      <li key={h.id} className="flex items-center gap-2 px-3 py-2 text-xs">
+                        {h.status === "success" ? (
+                          <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
+                        ) : (
+                          <XCircle className="h-3.5 w-3.5 shrink-0 text-red-600" />
+                        )}
+                        <span className="text-navy/70 dark:text-white/70">{formatDateIN(h.createdAt)}</span>
+                        <span className="text-navy/40 dark:text-white/40">
+                          · {h.triggeredBy === "manual" ? "Manual" : "Scheduled"}
+                          {h.attempt > 1 ? ` (attempt ${h.attempt})` : ""}
+                        </span>
+                        {h.status === "failed" && h.errorMessage && (
+                          <span className="truncate text-red-600" title={h.errorMessage}>· {h.errorMessage}</span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
 
             {restorePreview && (
               <div className="rounded-lg border border-black/10 p-3 text-sm dark:border-white/10">
@@ -120,7 +174,8 @@ export function GoogleDriveBackupCard() {
                   ))}
                 </div>
                 <p className="mb-2 text-xs text-navy/40 dark:text-white/40">
-                  Categories and wallets missing locally will be restored. Existing data won&apos;t be duplicated or overwritten.
+                  Restores expenses, income, budgets, investments, categories, wallets, money sources, and settings.
+                  Existing records are matched and skipped, so restoring never creates duplicates.
                 </p>
                 <div className="flex gap-2">
                   <Button size="sm" onClick={() => restoreMutation.mutate()} disabled={restoreMutation.isPending}>

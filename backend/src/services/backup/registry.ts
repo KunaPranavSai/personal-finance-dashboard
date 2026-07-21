@@ -1,5 +1,6 @@
 import type { CloudBackupProvider } from "./provider";
 import { googleDriveProvider } from "./googleDriveProvider";
+import { isEncryptionConfigured } from "../../lib/crypto";
 
 const PROVIDERS: Record<string, CloudBackupProvider> = {
   google_drive: googleDriveProvider,
@@ -12,7 +13,12 @@ export function getProvider(id: string): CloudBackupProvider | null {
 
 export function isProviderConfigured(id: string): boolean {
   if (id === "google_drive") {
-    return Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET && process.env.GOOGLE_REDIRECT_URI);
+    return Boolean(
+      process.env.GOOGLE_CLIENT_ID &&
+        process.env.GOOGLE_CLIENT_SECRET &&
+        process.env.GOOGLE_REDIRECT_URI &&
+        isEncryptionConfigured()
+    );
   }
   return false;
 }

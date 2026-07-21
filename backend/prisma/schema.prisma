@@ -300,15 +300,36 @@ model BackupConnection {
   userId             String
   provider           String
   accountEmail       String?
+  // Encrypted at rest (see backend/src/lib/crypto.ts) — never stored or logged in plaintext.
   accessToken        String
   refreshToken       String?
   tokenExpiresAt     DateTime?
+  backupFolderId     String?
   lastBackupAt       DateTime?
   lastBackupFileId   String?
+  history            BackupHistory[]
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
   @@unique([userId, provider])
+}
+
+// One row per backup attempt (success or failure), so users can see their
+// backup history and the scheduler can identify + retry failed attempts.
+model BackupHistory {
+  id            String           @id @default(cuid())
+  connection    BackupConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  connectionId  String
+  userId        String
+  status        String // "success" | "failed"
+  fileId        String?
+  errorMessage  String?
+  attempt       Int              @default(1)
+  triggeredBy   String // "manual" | "scheduled"
+  createdAt     DateTime         @default(now())
+
+  @@index([connectionId, createdAt])
+  @@index([userId, status])
 }
 
 model PlatformSettings {
