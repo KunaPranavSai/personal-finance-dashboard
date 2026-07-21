@@ -141,7 +141,7 @@ export function ApproveModal({ user, busy, setBusy, onClose, onDone, toast }: Us
         <div>
           <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Temporary Password</label>
           <div className="flex gap-2">
-            <PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Leave blank to auto-generate" className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" />
+            <PasswordInput autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Leave blank to auto-generate" className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" />
             <Button type="button" size="sm" variant="secondary" onClick={generate} disabled={generating}>{generating ? "…" : "Generate"}</Button>
           </div>
         </div>
@@ -306,7 +306,7 @@ export function ResetPasswordModal({ user, busy, setBusy, onClose, toast }: User
         <div>
           <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">New Password</label>
           <div className="flex gap-2">
-            <PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Leave blank to auto-generate" className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" />
+            <PasswordInput autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Leave blank to auto-generate" className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" />
             <Button type="button" size="sm" variant="secondary" onClick={generate} disabled={generating}>{generating ? "…" : "Generate"}</Button>
           </div>
         </div>

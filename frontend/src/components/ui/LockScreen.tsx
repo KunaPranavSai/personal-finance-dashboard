@@ -49,6 +49,7 @@ export function LockScreen({ isOpen, onUnlock }: LockScreenProps) {
           <div>
             <PasswordInput
               placeholder="Password"
+              autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               disabled={isSubmitting}

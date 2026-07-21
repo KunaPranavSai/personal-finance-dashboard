@@ -1,10 +1,13 @@
 import "dotenv/config";
 import { createApp } from "./app";
 import { initSessionVersion } from "./lib/sessionVersion";
+import { checkEnv } from "./lib/envCheck";
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 4000;
 
 async function main() {
+  checkEnv();
+
   try {
     await initSessionVersion();
   } catch (err) {
