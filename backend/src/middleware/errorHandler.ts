@@ -28,6 +28,9 @@ export function errorHandler(err: unknown, _req: Request, res: Response, _next: 
   if (prismaErr?.code === "P2025") {
     return res.status(404).json({ error: "Record not found" });
   }
+  if (err instanceof Error && err.message === "Not allowed by CORS") {
+    return res.status(403).json({ error: "Request origin not allowed" });
+  }
   console.error(err);
   return res.status(500).json({ error: "Internal server error" });
 }

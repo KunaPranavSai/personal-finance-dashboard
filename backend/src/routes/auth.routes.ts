@@ -45,6 +45,9 @@ const REFRESH_TOKEN_TTL = 7 * 24 * 60 * 60; // 7 days
 const CHALLENGE_TOKEN_TTL = 5 * 60; // 5 minutes
 const PASSWORD_CHANGE_TOKEN_TTL = 30 * 60; // 30 minutes
 const RESET_OTP_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes
+const MAX_OTP_ATTEMPTS = 5;
 
 function signAccess(user: Pick<User, "id" | "uid" | "role">, sv: number) {
   return jwt.sign({ userId: user.id, uid: user.uid, role: user.role, sv }, ACCESS_SECRET, { expiresIn: ACCESS_TOKEN_TTL });
@@ -179,12 +182,35 @@ router.post(
       res.status(403).json({ error: "Your account has been suspended. Contact support." });
       return;
     }
+    if (user.lockedUntil && user.lockedUntil > new Date()) {
+      const minutesLeft = Math.ceil((user.lockedUntil.getTime() - Date.now()) / 60000);
+      res.status(423).json({ error: `Too many failed attempts. Try again in ${minutesLeft} minute${minutesLeft === 1 ? "" : "s"}.` });
+      return;
+    }
     const valid = await bcrypt.compare(password, user.passwordHash);
     if (!valid) {
-      void logActivity(req, "login_failed", "Wrong password", user.id);
-      void createNotification(user.id, "security", "Failed login attempt", "A login attempt with an incorrect password was made on your account.");
-      res.status(401).json({ error: "Invalid credentials" });
+      const attempts = user.failedLoginAttempts + 1;
+      const locked = attempts >= MAX_LOGIN_ATTEMPTS;
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          failedLoginAttempts: attempts,
+          lockedUntil: locked ? new Date(Date.now() + LOCKOUT_DURATION_MS) : null,
+        },
+      });
+      void logActivity(req, "login_failed", locked ? "Wrong password — account locked" : "Wrong password", user.id);
+      void createNotification(user.id, "security", locked ? "Account locked" : "Failed login attempt", locked
+        ? `Your account was locked for ${LOCKOUT_DURATION_MS / 60000} minutes after ${attempts} failed login attempts.`
+        : "A login attempt with an incorrect password was made on your account.");
+      res.status(locked ? 423 : 401).json({
+        error: locked
+          ? `Too many failed attempts. Your account is locked for ${LOCKOUT_DURATION_MS / 60000} minutes.`
+          : "Invalid credentials",
+      });
       return;
+    }
+    if (user.failedLoginAttempts > 0 || user.lockedUntil) {
+      void prisma.user.update({ where: { id: user.id }, data: { failedLoginAttempts: 0, lockedUntil: null } });
     }
 
     if (user.mustChangePassword) {
@@ -335,6 +361,7 @@ router.post(
 // ─── POST /api/auth/2fa/verify ───────────────────────────────────────────────
 router.post(
   "/2fa/verify",
+  loginLimiter,
   authenticate,
   asyncHandler(async (req: Request, res: Response) => {
     const { code } = req.body as { code?: string };
@@ -376,6 +403,7 @@ router.post(
 // ─── POST /api/auth/2fa/disable ──────────────────────────────────────────────
 router.post(
   "/2fa/disable",
+  loginLimiter,
   authenticate,
   asyncHandler(async (req: Request, res: Response) => {
     const { password, code } = req.body as { password?: string; code?: string };
@@ -513,7 +541,7 @@ router.post(
       const hash = await bcrypt.hash(otp, 10);
       await prisma.user.update({
         where: { id: user.id },
-        data: { resetOtpHash: hash, resetOtpExpiry: new Date(Date.now() + RESET_OTP_TTL_MS) },
+        data: { resetOtpHash: hash, resetOtpExpiry: new Date(Date.now() + RESET_OTP_TTL_MS), resetOtpAttempts: 0 },
       });
       void sendEmail(
         user.email,
@@ -552,8 +580,18 @@ router.post(
     let verified = false;
 
     if (chosen === "email") {
-      if (user.resetOtpHash && user.resetOtpExpiry && Date.now() <= user.resetOtpExpiry.getTime() && (await bcrypt.compare(code, user.resetOtpHash))) {
-        verified = true;
+      if (user.resetOtpHash && user.resetOtpExpiry && Date.now() <= user.resetOtpExpiry.getTime()) {
+        if (user.resetOtpAttempts >= MAX_OTP_ATTEMPTS) {
+          await prisma.user.update({ where: { id: user.id }, data: { resetOtpHash: null, resetOtpExpiry: null, resetOtpAttempts: 0 } });
+          void logActivity(req, "password_reset_failed", "Too many OTP attempts — code invalidated", user.id);
+          res.status(400).json({ error: "Too many attempts. Request a new code." });
+          return;
+        }
+        if (await bcrypt.compare(code, user.resetOtpHash)) {
+          verified = true;
+        } else {
+          await prisma.user.update({ where: { id: user.id }, data: { resetOtpAttempts: { increment: 1 } } });
+        }
       }
     } else if (user.twoFactorEnabled) {
       verified = await verifyTwoFactorCode(user.id, user, code);
@@ -568,7 +606,7 @@ router.post(
     const newHash = await bcrypt.hash(newPassword, 12);
     await prisma.user.update({
       where: { id: user.id },
-      data: { passwordHash: newHash, resetOtpHash: null, resetOtpExpiry: null, mustChangePassword: false },
+      data: { passwordHash: newHash, resetOtpHash: null, resetOtpExpiry: null, resetOtpAttempts: 0, mustChangePassword: false },
     });
     bumpSessionVersion(user.id); // sign out any existing sessions after a reset
     void logActivity(req, "password_reset", `Password reset via ${chosen}`, user.id);
@@ -635,6 +673,7 @@ router.get(
 // ─── PATCH /api/auth/change-password ────────────────────────────────────────
 router.patch(
   "/change-password",
+  loginLimiter,
   authenticate,
   asyncHandler(async (req: Request, res: Response) => {
     const { currentPassword, newPassword } = req.body as {

@@ -100,6 +100,9 @@ export default function ForgotPasswordPage() {
     try {
       await confirmPasswordReset(uid.trim(), code.trim(), newPassword, method);
       setStep("done");
+      setCode("");
+      setNewPassword("");
+      setConfirmPassword("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to reset password");
     } finally {
@@ -216,6 +219,7 @@ export default function ForgotPasswordPage() {
                   id="code"
                   type="text"
                   inputMode={method === "backup" ? "text" : "numeric"}
+                  autoComplete={method === "backup" ? "off" : "one-time-code"}
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
                   placeholder={method === "backup" ? "backup code" : "123456"}
@@ -230,6 +234,7 @@ export default function ForgotPasswordPage() {
                 </label>
                 <PasswordInput
                   id="newPassword"
+                  autoComplete="new-password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   placeholder="New password (min 8 chars)"
@@ -244,6 +249,7 @@ export default function ForgotPasswordPage() {
                 </label>
                 <PasswordInput
                   id="confirmPassword"
+                  autoComplete="new-password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="Confirm new password"
