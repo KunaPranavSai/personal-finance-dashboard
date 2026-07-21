@@ -1,4 +1,4 @@
-const APP_URL = process.env.APP_URL ?? "https://personal-finance-dashboard-raghusai.vercel.app";
+const APP_URL = process.env.APP_URL ?? "https://personal-finance-dashboard-three-topaz.vercel.app";
 
 export const WELCOME_EMAIL_HTML = (name: string, uid: string, tempPassword: string) => `
   <h2>Welcome to Penny Pilot</h2>
