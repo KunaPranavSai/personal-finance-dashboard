@@ -21,7 +21,7 @@ import authRoutes from "./routes/auth.routes";
 import activityRoutes from "./routes/activity.routes";
 import adminRoutes from "./routes/admin.routes";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler";
-import { authenticate, requireRole } from "./middleware/auth";
+import { authenticate, requireRole, blockIfMustSetup2FA } from "./middleware/auth";
 
 const isProd = process.env.NODE_ENV === "production";
 const COOKIE_SECRET = process.env.COOKIE_SECRET ?? "pfd-cookie-secret";
@@ -115,23 +115,26 @@ export function createApp() {
   // Auth routes (public — login / logout / refresh)
   app.use("/api/auth", authRoutes);
 
-  // Protected finance routes
-  app.use("/api/transactions", authenticate, transactionsRoutes);
-  app.use("/api/budgets", authenticate, budgetRoutes);
-  app.use("/api/dashboard", authenticate, dashboardRoutes);
-  app.use("/api", authenticate, referenceRoutes);
-  app.use("/api/investments", authenticate, investmentsRoutes);
-  app.use("/api/bills", authenticate, billsRoutes);
-  app.use("/api/goals", authenticate, goalsRoutes);
-  app.use("/api/savings", authenticate, savingsRoutes);
-  app.use("/api/analytics", authenticate, analyticsRoutes);
-  app.use("/api/reports", authenticate, reportsRoutes);
-  app.use("/api/notifications", authenticate, notificationsRoutes);
-  app.use("/api/profile", authenticate, profileRoutes);
-  app.use("/api/settings", authenticate, settingsRoutes);
-  app.use("/api/export", authenticate, exportRoutes);
-  app.use("/api/activity", authenticate, activityRoutes);
-  app.use("/api/admin", authenticate, requireRole("SUPER_ADMIN", "ADMIN"), adminRoutes);
+  // Protected finance routes — blockIfMustSetup2FA keeps a user who was just
+  // forced into mandatory 2FA setup from reaching any of these until they've
+  // actually enabled it (the /api/auth/2fa/* endpoints they need are handled
+  // separately inside auth.routes.ts, which never mounts this middleware).
+  app.use("/api/transactions", authenticate, blockIfMustSetup2FA, transactionsRoutes);
+  app.use("/api/budgets", authenticate, blockIfMustSetup2FA, budgetRoutes);
+  app.use("/api/dashboard", authenticate, blockIfMustSetup2FA, dashboardRoutes);
+  app.use("/api", authenticate, blockIfMustSetup2FA, referenceRoutes);
+  app.use("/api/investments", authenticate, blockIfMustSetup2FA, investmentsRoutes);
+  app.use("/api/bills", authenticate, blockIfMustSetup2FA, billsRoutes);
+  app.use("/api/goals", authenticate, blockIfMustSetup2FA, goalsRoutes);
+  app.use("/api/savings", authenticate, blockIfMustSetup2FA, savingsRoutes);
+  app.use("/api/analytics", authenticate, blockIfMustSetup2FA, analyticsRoutes);
+  app.use("/api/reports", authenticate, blockIfMustSetup2FA, reportsRoutes);
+  app.use("/api/notifications", authenticate, blockIfMustSetup2FA, notificationsRoutes);
+  app.use("/api/profile", authenticate, blockIfMustSetup2FA, profileRoutes);
+  app.use("/api/settings", authenticate, blockIfMustSetup2FA, settingsRoutes);
+  app.use("/api/export", authenticate, blockIfMustSetup2FA, exportRoutes);
+  app.use("/api/activity", authenticate, blockIfMustSetup2FA, activityRoutes);
+  app.use("/api/admin", authenticate, blockIfMustSetup2FA, requireRole("SUPER_ADMIN", "ADMIN"), adminRoutes);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

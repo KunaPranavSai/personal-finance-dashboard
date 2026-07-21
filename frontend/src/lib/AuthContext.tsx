@@ -8,6 +8,7 @@ interface AuthUser {
   name: string;
   email: string;
   role: "SUPER_ADMIN" | "ADMIN" | "USER";
+  mustSetup2FA?: boolean;
 }
 
 interface LoginResult {
@@ -317,6 +318,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     const data = await res.json();
     setTwoFactorEnabled(true);
+    setUser((u) => (u ? { ...u, mustSetup2FA: false } : u));
     return { backupCodes: data.backupCodes as string[] };
   }, []);
 
