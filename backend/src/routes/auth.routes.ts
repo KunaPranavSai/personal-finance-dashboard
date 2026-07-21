@@ -49,12 +49,12 @@ const MAX_LOGIN_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes
 const MAX_OTP_ATTEMPTS = 5;
 
-function signAccess(user: Pick<User, "id" | "uid" | "role">, sv: number) {
-  return jwt.sign({ userId: user.id, uid: user.uid, role: user.role, sv }, ACCESS_SECRET, { expiresIn: ACCESS_TOKEN_TTL });
+function signAccess(user: Pick<User, "id" | "uid" | "role" | "mustSetup2FA">, sv: number) {
+  return jwt.sign({ userId: user.id, uid: user.uid, role: user.role, sv, mustSetup2FA: user.mustSetup2FA }, ACCESS_SECRET, { expiresIn: ACCESS_TOKEN_TTL });
 }
 
-function signRefresh(user: Pick<User, "id" | "uid" | "role">, sv: number) {
-  return jwt.sign({ userId: user.id, uid: user.uid, role: user.role, sv }, REFRESH_SECRET, { expiresIn: REFRESH_TOKEN_TTL });
+function signRefresh(user: Pick<User, "id" | "uid" | "role" | "mustSetup2FA">, sv: number) {
+  return jwt.sign({ userId: user.id, uid: user.uid, role: user.role, sv, mustSetup2FA: user.mustSetup2FA }, REFRESH_SECRET, { expiresIn: REFRESH_TOKEN_TTL });
 }
 
 function setTokenCookies(res: Response, accessToken: string, refreshToken: string) {
@@ -69,7 +69,7 @@ function setTokenCookies(res: Response, accessToken: string, refreshToken: strin
 }
 
 function toUserJson(user: User) {
-  return { uid: user.uid, name: user.name, email: user.email, role: user.role };
+  return { uid: user.uid, name: user.name, email: user.email, role: user.role, mustSetup2FA: user.mustSetup2FA };
 }
 
 function isStrongPassword(pw: string): boolean {
@@ -264,17 +264,26 @@ router.post(
       res.status(401).json({ error: "Account not found" });
       return;
     }
+    const justOnboarded = !user.onboardedAt;
     const newHash = await bcrypt.hash(newPassword, 12);
     const updated = await prisma.user.update({
       where: { id: user.id },
-      data: { passwordHash: newHash, mustChangePassword: false, onboardedAt: user.onboardedAt ?? new Date(), lastLoginAt: new Date() },
+      data: {
+        passwordHash: newHash,
+        mustChangePassword: false,
+        onboardedAt: user.onboardedAt ?? new Date(),
+        lastLoginAt: new Date(),
+        // New users who don't already have 2FA enabled are required to set it
+        // up before reaching the dashboard — enforced server-side in
+        // blockIfMustSetup2FA (backend/src/middleware/auth.ts), not just here.
+        mustSetup2FA: justOnboarded && !user.twoFactorEnabled ? true : undefined,
+      },
     });
     const sv = bumpSessionVersion(updated.id);
     setTokenCookies(res, signAccess(updated, sv), signRefresh(updated, sv));
     void logActivity(req, "password_changed", "Temporary password replaced on first login", user.id);
     void notifySecurityEvent(user.id, "security", "Password changed", "Your temporary password was replaced with a new password.");
 
-    const justOnboarded = !user.onboardedAt;
     if (justOnboarded) {
       const tips: [string, string][] = [
         ["Dashboard", "See your income, expenses, savings, and net worth at a glance."],
@@ -385,15 +394,23 @@ router.post(
     }
     const backupCodes = generateBackupCodes();
     const hashedBackupCodes = await Promise.all(backupCodes.map((c) => bcrypt.hash(c, 10)));
-    await prisma.user.update({
+    const updated = await prisma.user.update({
       where: { id: user.id },
       data: {
         twoFactorEnabled: true,
         twoFactorSecret: user.twoFactorPendingSecret,
         twoFactorPendingSecret: null,
         twoFactorBackupCodes: hashedBackupCodes,
+        mustSetup2FA: false,
       },
     });
+    // If this was a mandatory setup (mustSetup2FA was true), the existing
+    // session cookies still carry that claim until they naturally expire —
+    // re-issue them now so access unblocks immediately instead of waiting.
+    if (user.mustSetup2FA) {
+      const sv = getSessionVersion(updated.id);
+      setTokenCookies(res, signAccess(updated, sv), signRefresh(updated, sv));
+    }
     void logActivity(req, "2fa_enabled", "Two-factor authentication enabled", user.id);
     void notifySecurityEvent(user.id, "security", "2FA enabled", "Two-factor authentication was enabled on your account.");
     res.json({ ok: true, backupCodes });

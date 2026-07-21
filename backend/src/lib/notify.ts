@@ -8,6 +8,24 @@ const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KE
 // domain is verified in the Resend dashboard to send to real users.
 const FROM = process.env.RESEND_FROM_EMAIL ?? "Penny Pilot <onboarding@resend.dev>";
 
+// Dedicated channel for super-admin-facing notifications (new signups, security
+// events on admin accounts), fully separate from the regular user-facing Resend
+// client/key above so the two mail flows can't interfere with each other.
+const superAdminResend = process.env.SUPER_ADMIN_RESEND_API_KEY ? new Resend(process.env.SUPER_ADMIN_RESEND_API_KEY) : null;
+const SUPER_ADMIN_FROM = process.env.SUPER_ADMIN_RESEND_FROM_EMAIL ?? "Penny Pilot <onboarding@resend.dev>";
+const SUPER_ADMIN_EMAIL = "superadminpennypilot@gmail.com";
+
+/** Send a notification to the super admin's dedicated mailbox via its own Resend client; silently skips if unconfigured. */
+export async function notifySuperAdminByEmail(subject: string, html: string): Promise<void> {
+  try {
+    if (!superAdminResend) return;
+    const result = await superAdminResend.emails.send({ from: SUPER_ADMIN_FROM, to: SUPER_ADMIN_EMAIL, subject, html });
+    if (result.error) console.error("Failed to send super admin email:", result.error);
+  } catch (err) {
+    console.error("Failed to send super admin email:", err);
+  }
+}
+
 /** Create an in-app notification for a specific user. Failures never break the calling request. */
 export async function createNotification(userId: string, type: string, title: string, message: string): Promise<void> {
   try {
@@ -49,6 +67,19 @@ async function sendSecurityEmail(userId: string, subject: string, html: string):
 export async function notifySecurityEvent(userId: string, type: string, title: string, message: string): Promise<void> {
   await createNotification(userId, type, title, message);
   void sendSecurityEmail(userId, `Penny Pilot — ${title}`, `<p>${message}</p><p style="color:#888;font-size:12px">If this wasn't you, reset your password immediately.</p>`);
+
+  // Security events on admin/super-admin accounts also go to the dedicated super admin mailbox.
+  try {
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { role: true, uid: true } });
+    if (user && (user.role === "SUPER_ADMIN" || user.role === "ADMIN")) {
+      void notifySuperAdminByEmail(
+        `Penny Pilot — Admin security event: ${title}`,
+        `<p><strong>${user.uid}</strong> (${user.role}): ${message}</p>`
+      );
+    }
+  } catch (err) {
+    console.error("Failed to check user role for super admin notification:", err);
+  }
 }
 
 /** Notify every admin (SUPER_ADMIN + ADMIN) in-app and by email — used for new-signup review requests. */
@@ -59,4 +90,5 @@ export async function notifyAdmins(type: string, title: string, message: string)
   });
   await Promise.all(admins.map((a) => createNotification(a.id, type, title, message)));
   await Promise.all(admins.map((a) => sendEmail(a.email, `Penny Pilot — ${title}`, `<p>${message}</p>`)));
+  void notifySuperAdminByEmail(`Penny Pilot — ${title}`, `<p>${message}</p>`);
 }

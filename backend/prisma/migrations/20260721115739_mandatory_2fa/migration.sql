@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "User" ADD COLUMN "mustSetup2FA" BOOLEAN NOT NULL DEFAULT false;

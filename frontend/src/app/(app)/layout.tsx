@@ -29,12 +29,14 @@ export default function AppShellLayout({ children }: { children: React.ReactNode
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       router.replace("/login");
+    } else if (!isLoading && user?.mustSetup2FA) {
+      router.replace("/setup-2fa");
     } else if (!isLoading && user && user.role !== "USER" && !isSelfServiceRoute) {
       router.replace("/admin");
     }
   }, [isAuthenticated, isLoading, user, isSelfServiceRoute, router]);
 
-  if (isLoading || (user && user.role !== "USER" && !isSelfServiceRoute)) {
+  if (isLoading || user?.mustSetup2FA || (user && user.role !== "USER" && !isSelfServiceRoute)) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-surface dark:bg-navy-dark">
         <div className="flex flex-col items-center gap-4">

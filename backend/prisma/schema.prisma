@@ -58,6 +58,7 @@ model User {
   status                 UserStatus @default(PENDING)
   passwordHash           String?
   mustChangePassword     Boolean    @default(false)
+  mustSetup2FA           Boolean    @default(false)
   twoFactorEnabled       Boolean    @default(false)
   twoFactorSecret        String?
   twoFactorPendingSecret String?
