@@ -3,16 +3,29 @@
 import { useState, useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
-import { MoreVertical, Pencil, RotateCcw, IdCard, HardDrive, Trash2, Search, ShieldCheck, ShieldOff, LogOut } from "lucide-react";
+import { MoreVertical, Pencil, RotateCcw, IdCard, HardDrive, Trash2, Search, ShieldCheck, ShieldOff, LogOut, Users } from "lucide-react";
 import { Topbar } from "@/components/layout/Topbar";
 import { Card, CardContent } from "@/components/ui/Card";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { useToast } from "@/components/ui/Toast";
 import { useAuth } from "@/lib/AuthContext";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/format";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import {
   ManagedUser, STATUS_STYLES, EditUserModal, ResetPasswordModal, ResetUidModal, UsageModal, DeleteUserModal,
 } from "@/components/admin/UserManagementShared";
+
+const AVATAR_COLORS = ["bg-teal/15 text-teal", "bg-blue-500/15 text-blue-600", "bg-purple-500/15 text-purple-600", "bg-amber-500/15 text-amber-600", "bg-emerald-500/15 text-emerald-600"];
+function avatarColor(seed: string) {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+  return AVATAR_COLORS[hash % AVATAR_COLORS.length];
+}
+function initials(name: string) {
+  const parts = name.trim().split(/\s+/);
+  return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase() || "?";
+}
 
 type ModalState =
   | { type: "edit"; user: ManagedUser }
@@ -81,6 +94,7 @@ export default function AdminUsersPage() {
     <>
       <Topbar title="All Users" />
       <main className="flex-1 overflow-y-auto p-4 lg:p-6">
+        <AdminPageHeader icon={Users} title="All Users" description={`${allUsers?.items.length ?? 0} total accounts across the platform.`} />
         <Card className="mb-4">
           <CardContent className="pt-5">
             <div className="flex flex-wrap items-end gap-3">
@@ -127,7 +141,7 @@ export default function AdminUsersPage() {
             {isLoading ? (
               <div className="space-y-2">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="h-12 animate-pulse rounded-lg bg-black/5 dark:bg-white/5" />)}</div>
             ) : pageItems.length === 0 ? (
-              <p className="py-8 text-center text-sm text-navy/50 dark:text-white/50">No users match these filters.</p>
+              <EmptyState icon={Search} title="No users match these filters" description="Try adjusting your search, role, or status filters." />
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -149,8 +163,15 @@ export default function AdminUsersPage() {
                       const isSelf = u.uid === currentUser?.uid;
                       const isLastSuperAdmin = u.role === "SUPER_ADMIN" && superAdminCount <= 1;
                       return (
-                        <tr key={u.id} className="border-b border-black/5 dark:border-white/5">
-                          <td className="py-2 pr-3 font-medium text-navy dark:text-white">{u.name}{isSelf && <span className="ml-1.5 text-xs text-navy/40 dark:text-white/40">(you)</span>}</td>
+                        <tr key={u.id} className="border-b border-black/5 transition-colors hover:bg-black/[0.02] dark:border-white/5 dark:hover:bg-white/[0.03]">
+                          <td className="py-2 pr-3">
+                            <div className="flex items-center gap-2.5">
+                              <div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold", avatarColor(u.id))}>
+                                {initials(u.name)}
+                              </div>
+                              <span className="font-medium text-navy dark:text-white">{u.name}{isSelf && <span className="ml-1.5 text-xs font-normal text-navy/40 dark:text-white/40">(you)</span>}</span>
+                            </div>
+                          </td>
                           <td className="py-2 pr-3 text-navy/70 dark:text-white/70">{u.email}</td>
                           <td className="py-2 pr-3 text-navy/60 dark:text-white/60">{u.phone ?? "—"}</td>
                           <td className="py-2 pr-3 text-navy/60 dark:text-white/60">{u.role.replace("_", " ")}</td>

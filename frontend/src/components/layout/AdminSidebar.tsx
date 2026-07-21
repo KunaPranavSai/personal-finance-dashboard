@@ -5,7 +5,8 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, Users, UserCheck, ShieldCheck, ShieldAlert, History,
-  User, X, ChevronDown, KeyRound,
+  User, X, ChevronDown, KeyRound, FileText, Mail,
+  Settings as SettingsIcon, Database, ClipboardList,
 } from "lucide-react";
 import { cn } from "@/lib/format";
 import { useUiStore } from "@/store/uiStore";
@@ -38,6 +39,29 @@ const ADMIN_NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/admin/security", label: "Security Center", icon: ShieldAlert },
       { href: "/admin/activity", label: "Activity Logs", icon: History },
+      { href: "/admin/audit", label: "Audit Dashboard", icon: ClipboardList },
+    ],
+  },
+  {
+    id: "analytics",
+    label: "Analytics",
+    items: [
+      { href: "/admin/reports", label: "Reports", icon: FileText },
+    ],
+  },
+  {
+    id: "communications",
+    label: "Communications",
+    items: [
+      { href: "/admin/emails", label: "Email Templates", icon: Mail },
+    ],
+  },
+  {
+    id: "system",
+    label: "System",
+    items: [
+      { href: "/admin/settings", label: "System Settings", icon: SettingsIcon },
+      { href: "/admin/backup", label: "Backup & Restore", icon: Database },
     ],
   },
   {
