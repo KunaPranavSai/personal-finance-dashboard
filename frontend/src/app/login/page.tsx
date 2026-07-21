@@ -78,10 +78,6 @@ export default function LoginPage() {
     try {
       const { justOnboarded, user: updatedUser } = await forceChangePassword(passwordChangeToken, newPassword);
       const isUser = updatedUser?.role === "USER";
-      if (updatedUser?.mustSetup2FA) {
-        router.replace(`/setup-2fa${justOnboarded ? "?welcome=1" : ""}`);
-        return;
-      }
       router.replace(isUser ? (justOnboarded ? "/dashboard?welcome=1" : "/dashboard") : "/admin");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to set new password");

@@ -8,7 +8,7 @@ import { Footer } from "@/components/layout/Footer";
 import { Shield, ShieldCheck, Copy, Check, CheckCircle } from "lucide-react";
 
 function SetupTwoFactorContent() {
-  const { user, isAuthenticated, isLoading, setupTwoFactor, confirmTwoFactor } = useAuth();
+  const { user, isAuthenticated, isLoading, twoFactorEnabled, setupTwoFactor, confirmTwoFactor } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const welcome = searchParams.get("welcome") === "1";
@@ -22,13 +22,18 @@ function SetupTwoFactorContent() {
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  const goToDashboard = useCallback(() => {
+    const target = user?.role === "USER" ? "/dashboard" : "/admin";
+    router.replace(welcome ? `${target}?welcome=1` : target);
+  }, [user, welcome, router]);
+
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       router.replace("/login");
-    } else if (!isLoading && isAuthenticated && !user?.mustSetup2FA) {
-      router.replace(user?.role === "USER" ? "/dashboard" : "/admin");
+    } else if (!isLoading && isAuthenticated && twoFactorEnabled && step !== "backup") {
+      goToDashboard();
     }
-  }, [isLoading, isAuthenticated, user, router]);
+  }, [isLoading, isAuthenticated, twoFactorEnabled, step, goToDashboard]);
 
   const startSetup = useCallback(async () => {
     setError("");
@@ -43,10 +48,10 @@ function SetupTwoFactorContent() {
   }, [setupTwoFactor]);
 
   useEffect(() => {
-    if (isAuthenticated && user?.mustSetup2FA && step === "loading") {
+    if (isAuthenticated && !twoFactorEnabled && step === "loading") {
       startSetup();
     }
-  }, [isAuthenticated, user, step, startSetup]);
+  }, [isAuthenticated, twoFactorEnabled, step, startSetup]);
 
   const handleConfirm = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,12 +75,7 @@ function SetupTwoFactorContent() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleDone = () => {
-    const target = user?.role === "USER" ? "/dashboard" : "/admin";
-    router.replace(welcome ? `${target}?welcome=1` : target);
-  };
-
-  if (isLoading || !isAuthenticated || !user?.mustSetup2FA) {
+  if (isLoading || !isAuthenticated || (twoFactorEnabled && step !== "backup")) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-900 via-navy to-slate-800">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-teal/30 border-t-teal" />
@@ -98,7 +98,7 @@ function SetupTwoFactorContent() {
           <div>
             <h1 className="text-2xl font-bold text-white">Secure your account</h1>
             <p className="mt-1 text-sm text-white/50">
-              {step === "qr" && "Two-factor authentication is required for your account."}
+              {step === "qr" && "Add an extra layer of protection to your account (optional, recommended)."}
               {step === "backup" && "Save your backup codes before continuing."}
             </p>
           </div>
@@ -161,6 +161,13 @@ function SetupTwoFactorContent() {
                   </>
                 )}
               </button>
+              <button
+                type="button"
+                onClick={goToDashboard}
+                className="w-full text-center text-sm text-white/50 hover:text-white/80 transition-colors"
+              >
+                Skip for now
+              </button>
             </form>
           )}
 
@@ -188,7 +195,7 @@ function SetupTwoFactorContent() {
               </button>
               <button
                 type="button"
-                onClick={handleDone}
+                onClick={goToDashboard}
                 className="w-full rounded-xl bg-gradient-to-r from-teal to-teal/80 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-teal/25 transition-all hover:from-teal/90 hover:to-teal/70"
               >
                 Continue to {user?.role === "USER" ? "Dashboard" : "Admin Dashboard"}

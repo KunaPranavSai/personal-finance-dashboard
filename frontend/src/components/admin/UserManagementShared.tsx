@@ -37,7 +37,7 @@ export const STATUS_STYLES: Record<string, string> = {
 
 const USAGE_LABELS: Record<keyof UsageCounts, string> = {
   transactions: "Transactions", budgets: "Budgets", investments: "Investments", bills: "Bills", goals: "Goals",
-  categories: "Categories", accounts: "Accounts", paymentMethods: "Payment Methods", notifications: "Notifications", activityLogs: "Activity Log Entries",
+  categories: "Categories", accounts: "Wallets", paymentMethods: "Money Sources", notifications: "Notifications", activityLogs: "Activity Log Entries",
 };
 
 export function ModalShell({ onClose, children, maxWidth = "max-w-sm" }: { onClose: () => void; children: React.ReactNode; maxWidth?: string }) {

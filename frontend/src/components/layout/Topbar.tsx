@@ -11,6 +11,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { QuickActions } from "./QuickActions";
 
 function SessionCountdown() {
   const { sessionTimeoutMinutes, lastActivity } = useAuth();
@@ -46,7 +47,7 @@ function SessionCountdown() {
 export function Topbar({ title }: { title: string }) {
   const { toggleSidebar, unreadNotifications, setUnreadNotifications } = useUiStore();
   const { settings, updateSettings } = useSettingsContext();
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
   const router = useRouter();
   const [avatarOpen, setAvatarOpen] = useState(false);
   const [imgError, setImgError] = useState(false);
@@ -121,6 +122,7 @@ export function Topbar({ title }: { title: string }) {
       </div>
 
       <div className="flex items-center gap-1 sm:gap-2">
+        {user?.role === "USER" && <QuickActions />}
         <div className="hidden sm:flex items-center gap-2 rounded-lg bg-black/5 px-3 py-1.5 text-sm text-navy/50 dark:bg-white/5 dark:text-white/40">
           <Search className="h-3.5 w-3.5 shrink-0" />
           <input
@@ -132,7 +134,7 @@ export function Topbar({ title }: { title: string }) {
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 const val = searchRef.current?.value || "";
-                router.push(`/transactions?search=${encodeURIComponent(val)}`);
+                router.push(`/expenses?search=${encodeURIComponent(val)}`);
               }
             }}
           />

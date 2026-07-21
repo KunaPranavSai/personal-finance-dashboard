@@ -99,9 +99,14 @@ export interface Investment {
   id: string;
   instrument: string;
   category: string;
+  investedAmount: number;
   currentValue: number;
+  purchaseDate: string;
   monthlyContribution: number;
   annualReturnPct: number;
+  platform?: string | null;
+  notes?: string | null;
+  isAutoSync: boolean;
   createdAt: string;
   updatedAt: string;
 }

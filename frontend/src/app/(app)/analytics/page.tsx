@@ -56,7 +56,7 @@ const METRIC_OPTIONS = [
   { id: "trend", label: "Income vs Expense Trend" },
   { id: "expense-breakdown", label: "Expense by Category" },
   { id: "income-breakdown", label: "Income by Category" },
-  { id: "payment-methods", label: "Payment Methods" },
+  { id: "payment-methods", label: "Money Sources" },
   { id: "monthly-table", label: "Monthly Table" },
 ] as const;
 type MetricId = (typeof METRIC_OPTIONS)[number]["id"];
@@ -299,14 +299,14 @@ export default function AnalyticsPage() {
                 </select>
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-navy/50 dark:text-white/50">Account</label>
+                <label className="mb-1 block text-xs font-medium text-navy/50 dark:text-white/50">Wallet</label>
                 <select value={accountId} onChange={(e) => setAccountId(e.target.value)} className={selectCls}>
-                  <option value="">All Accounts</option>
+                  <option value="">All Wallets</option>
                   {(accounts?.items ?? []).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
                 </select>
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-navy/50 dark:text-white/50">Payment Method</label>
+                <label className="mb-1 block text-xs font-medium text-navy/50 dark:text-white/50">Money Source</label>
                 <select value={paymentMethodTypeId} onChange={(e) => setPaymentMethodTypeId(e.target.value)} className={selectCls}>
                   <option value="">All Methods</option>
                   {(paymentMethods?.items ?? []).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -431,7 +431,7 @@ export default function AnalyticsPage() {
 
               {metrics.has("payment-methods") && (
                 <Card>
-                  <CardHeader><CardTitle>Payment Methods</CardTitle></CardHeader>
+                  <CardHeader><CardTitle>Money Sources</CardTitle></CardHeader>
                   <CardContent>
                     <BreakdownChart kind={breakdownChart} data={paymentData} cur={cur} />
                   </CardContent>
