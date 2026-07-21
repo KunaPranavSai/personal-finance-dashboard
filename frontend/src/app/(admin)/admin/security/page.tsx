@@ -5,22 +5,25 @@ import Link from "next/link";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { Topbar } from "@/components/layout/Topbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { api } from "@/lib/api";
-import { AlertTriangle, KeyRound, IdCard, ShieldCheck, ShieldOff, Mail, ArrowRight } from "lucide-react";
+import { AlertTriangle, KeyRound, IdCard, ShieldCheck, ShieldOff, Mail, ArrowRight, ShieldAlert } from "lucide-react";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { StatCard, StatCardSkeleton } from "@/components/admin/StatCard";
 
 interface SecuritySummary {
   counts: Record<string, number>;
   trend: { day: string; event: string; count: number }[];
 }
 
-const EVENT_META: Record<string, { label: string; icon: typeof AlertTriangle; tone: string; color: string }> = {
-  login_failed: { label: "Failed Logins", icon: AlertTriangle, tone: "bg-red-500/10 text-red-500", color: "#C0392B" },
-  password_changed: { label: "Password Changes", icon: KeyRound, tone: "bg-teal/10 text-teal", color: "#0EA5A5" },
-  password_reset: { label: "Password Resets", icon: KeyRound, tone: "bg-amber-500/10 text-amber-600", color: "#F1C40F" },
-  uid_changed: { label: "UID Changes", icon: IdCard, tone: "bg-blue-500/10 text-blue-600", color: "#2471A3" },
-  "2fa_enabled": { label: "2FA Enabled", icon: ShieldCheck, tone: "bg-emerald-500/10 text-emerald-600", color: "#1E8449" },
-  "2fa_disabled": { label: "2FA Disabled", icon: ShieldOff, tone: "bg-red-500/10 text-red-500", color: "#7D3C98" },
-  password_reset_requested: { label: "Reset Requests", icon: Mail, tone: "bg-navy/10 text-navy/70 dark:bg-white/10 dark:text-white/70", color: "#1F2A44" },
+const EVENT_META: Record<string, { label: string; icon: typeof AlertTriangle; tone: "teal" | "amber" | "red" | "emerald" | "navy"; color: string }> = {
+  login_failed: { label: "Failed Logins", icon: AlertTriangle, tone: "red", color: "#C0392B" },
+  password_changed: { label: "Password Changes", icon: KeyRound, tone: "teal", color: "#0EA5A5" },
+  password_reset: { label: "Password Resets", icon: KeyRound, tone: "amber", color: "#F1C40F" },
+  uid_changed: { label: "UID Changes", icon: IdCard, tone: "navy", color: "#2471A3" },
+  "2fa_enabled": { label: "2FA Enabled", icon: ShieldCheck, tone: "emerald", color: "#1E8449" },
+  "2fa_disabled": { label: "2FA Disabled", icon: ShieldOff, tone: "red", color: "#7D3C98" },
+  password_reset_requested: { label: "Reset Requests", icon: Mail, tone: "navy", color: "#1F2A44" },
 };
 
 // Reshape the flat {day,event,count}[] into one row per day with a column per event, for the trend chart.
@@ -47,28 +50,17 @@ export default function AdminSecurityPage() {
     <>
       <Topbar title="Security Center" />
       <main className="flex-1 overflow-y-auto p-4 lg:p-6">
+        <AdminPageHeader icon={ShieldAlert} title="Security Center" description="Account-security signals across every user, last 30 days." />
         {isLoading || !data ? (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
-            {Array.from({ length: 6 }).map((_, i) => <div key={i} className="h-24 animate-pulse rounded-xl2 bg-black/5 dark:bg-white/5" />)}
+            {Array.from({ length: 6 }).map((_, i) => <StatCardSkeleton key={i} />)}
           </div>
         ) : (
           <>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
               {events.map((e) => {
                 const meta = EVENT_META[e];
-                return (
-                  <Card key={e}>
-                    <CardContent className="flex items-center gap-3 pt-5">
-                      <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${meta.tone}`}>
-                        <meta.icon className="h-5 w-5" />
-                      </div>
-                      <div>
-                        <p className="text-xs text-navy/50 dark:text-white/50">{meta.label} (30d)</p>
-                        <p className="text-lg font-bold text-navy dark:text-white">{data.counts[e] ?? 0}</p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
+                return <StatCard key={e} label={`${meta.label} (30d)`} value={data.counts[e] ?? 0} icon={meta.icon} tone={meta.tone} />;
               })}
             </div>
 
@@ -76,7 +68,7 @@ export default function AdminSecurityPage() {
               <CardHeader><CardTitle>Security Events (30 days)</CardTitle></CardHeader>
               <CardContent>
                 {trendData.length === 0 ? (
-                  <p className="py-10 text-center text-sm text-navy/50 dark:text-white/50">No security events in the last 30 days.</p>
+                  <EmptyState icon={ShieldCheck} title="No security events" description="Nothing to show for the last 30 days — that's a good sign." />
                 ) : (
                   <ResponsiveContainer width="100%" height={300}>
                     <LineChart data={trendData}>

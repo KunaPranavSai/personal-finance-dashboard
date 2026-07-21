@@ -281,3 +281,15 @@ model AppProfile {
 
   @@map("app_profile")
 }
+
+model PlatformSettings {
+  id                          String   @id @default("singleton")
+  siteName                    String   @default("Penny Pilot")
+  supportEmail                String?
+  defaultSessionTimeoutMinutes Int     @default(30)
+  minPasswordLength           Int      @default(8)
+  require2FAForAdmins         Boolean  @default(false)
+  updatedAt                   DateTime @updatedAt
+
+  @@map("platform_settings")
+}

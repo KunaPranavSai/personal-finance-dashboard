@@ -12,6 +12,10 @@ import { getSessionVersion, bumpSessionVersion } from "../lib/sessionVersion";
 import { logActivity } from "../lib/activityLog";
 import { notifySecurityEvent, notifyAdmins, sendEmail, createNotification } from "../lib/notify";
 import { seedDefaultDataForUser } from "../lib/startup";
+import {
+  WELCOME_EMAIL_HTML, REJECTION_EMAIL_HTML, PASSWORD_RESET_BY_ADMIN_EMAIL_HTML,
+  UID_RESET_BY_ADMIN_EMAIL_HTML, ACCOUNT_UPDATED_BY_ADMIN_EMAIL_HTML,
+} from "../lib/emailTemplates";
 import type { User } from "@prisma/client";
 
 const router = Router();
@@ -35,7 +39,6 @@ const signupLimiter = rateLimit({
 const ACCESS_SECRET = process.env.JWT_ACCESS_SECRET ?? "pfd-access-secret";
 const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET ?? "pfd-refresh-secret";
 const IS_PROD = process.env.NODE_ENV === "production";
-const APP_URL = process.env.APP_URL ?? "https://personal-finance-dashboard-raghusai.vercel.app";
 
 const ACCESS_TOKEN_TTL = 60 * 60; // 1 hour
 const REFRESH_TOKEN_TTL = 7 * 24 * 60 * 60; // 7 days
@@ -108,59 +111,6 @@ async function verifyTwoFactorCode(userId: string, security: SecurityState, code
   }
   return false;
 }
-
-const WELCOME_EMAIL_HTML = (name: string, uid: string, tempPassword: string) => `
-  <h2>Welcome to Penny Pilot</h2>
-  <p>Hi ${name},</p>
-  <p>Your account has been approved.</p>
-  <p><strong>User ID:</strong> ${uid}<br/>
-  <strong>Temporary Password:</strong> ${tempPassword}<br/>
-  <strong>Login URL:</strong> <a href="${APP_URL}/login">${APP_URL}/login</a></p>
-  <p><strong>Instructions:</strong></p>
-  <ol>
-    <li>Login using the temporary password.</li>
-    <li>You will be required to change your password.</li>
-    <li>Enable Two-Factor Authentication.</li>
-    <li>Complete your profile.</li>
-    <li>Read the Penny Pilot User Guide (in-app, under Notifications).</li>
-  </ol>
-  <p>Thank you.</p>
-`;
-
-const REJECTION_EMAIL_HTML = (name: string, reason?: string) => `
-  <h2>Penny Pilot Registration Update</h2>
-  <p>Hi ${name},</p>
-  <p>We're sorry, but your registration request was not approved${reason ? `: ${reason}` : "."}</p>
-  <p>If you believe this is a mistake, please contact support.</p>
-`;
-
-const PASSWORD_RESET_BY_ADMIN_EMAIL_HTML = (name: string, uid: string, tempPassword: string) => `
-  <h2>Your Penny Pilot password was reset</h2>
-  <p>Hi ${name},</p>
-  <p>An administrator has reset your account password.</p>
-  <p><strong>User ID:</strong> ${uid}<br/>
-  <strong>Temporary Password:</strong> ${tempPassword}<br/>
-  <strong>Login URL:</strong> <a href="${APP_URL}/login">${APP_URL}/login</a></p>
-  <p>You will be required to set a new password the next time you log in.</p>
-  <p>If you didn't expect this change, contact your administrator immediately.</p>
-`;
-
-const UID_RESET_BY_ADMIN_EMAIL_HTML = (name: string, uid: string) => `
-  <h2>Your Penny Pilot User ID was changed</h2>
-  <p>Hi ${name},</p>
-  <p>An administrator has changed your sign-in User ID.</p>
-  <p><strong>New User ID:</strong> ${uid}<br/>
-  <strong>Login URL:</strong> <a href="${APP_URL}/login">${APP_URL}/login</a></p>
-  <p>If you didn't expect this change, contact your administrator immediately.</p>
-`;
-
-const ACCOUNT_UPDATED_BY_ADMIN_EMAIL_HTML = (name: string, changes: string[]) => `
-  <h2>Your Penny Pilot account was updated</h2>
-  <p>Hi ${name},</p>
-  <p>An administrator made the following changes to your account:</p>
-  <ul>${changes.map((c) => `<li>${c}</li>`).join("")}</ul>
-  <p>If you didn't expect this change, contact your administrator immediately.</p>
-`;
 
 // ─── POST /api/auth/signup ───────────────────────────────────────────────────
 router.post(

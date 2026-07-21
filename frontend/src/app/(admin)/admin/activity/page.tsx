@@ -2,10 +2,15 @@
 
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { History } from "lucide-react";
 import { Topbar } from "@/components/layout/Topbar";
 import { Card, CardContent } from "@/components/ui/Card";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/format";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { EVENT_META, TONE_CLASSES } from "@/components/admin/Timeline";
+import { Activity as ActivityIcon } from "lucide-react";
 
 interface AdminActivityItem {
   id: string;
@@ -15,27 +20,6 @@ interface AdminActivityItem {
   ip?: string | null;
   user: { name: string; email: string; uid: string } | null;
 }
-
-const EVENT_LABELS: Record<string, string> = {
-  signup_requested: "Signup requested",
-  user_approved: "User approved",
-  user_rejected: "User rejected",
-  user_updated: "User updated",
-  user_deleted: "User deleted",
-  user_created: "User created",
-  password_changed: "Password changed",
-  password_reset: "Password reset",
-  password_reset_requested: "Reset code requested",
-  password_reset_failed: "Failed password reset",
-  password_reset_by_admin: "Password reset by admin",
-  uid_changed: "UID changed",
-  uid_change_failed: "Failed UID change",
-  uid_reset_by_admin: "UID reset by admin",
-  "2fa_enabled": "2FA enabled",
-  "2fa_disabled": "2FA disabled",
-  login_failed: "Failed login attempt",
-  force_logout_by_admin: "Forced logout",
-};
 
 const selectCls = "rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white";
 
@@ -62,6 +46,7 @@ export default function AdminActivityPage() {
     <>
       <Topbar title="Activity Logs" />
       <main className="flex-1 overflow-y-auto p-4 lg:p-6">
+        <AdminPageHeader icon={History} title="Activity Logs" description="Every account-change event across the platform, filterable." />
         <Card className="mb-4">
           <CardContent className="pt-5">
             <div className="flex flex-wrap items-end gap-3">
@@ -69,7 +54,7 @@ export default function AdminActivityPage() {
                 <label className="mb-1 block text-xs font-medium text-navy/50 dark:text-white/50">Event Type</label>
                 <select value={event} onChange={(e) => { setEvent(e.target.value); setPage(1); }} className={selectCls}>
                   <option value="">All Events</option>
-                  {Object.entries(EVENT_LABELS).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+                  {Object.entries(EVENT_META).map(([id, meta]) => <option key={id} value={id}>{meta.label}</option>)}
                 </select>
               </div>
               <div>
@@ -89,7 +74,7 @@ export default function AdminActivityPage() {
             {isLoading ? (
               <div className="space-y-2">{Array.from({ length: 8 }).map((_, i) => <div key={i} className="h-12 animate-pulse rounded-lg bg-black/5 dark:bg-white/5" />)}</div>
             ) : items.length === 0 ? (
-              <p className="py-10 text-center text-sm text-navy/50 dark:text-white/50">No activity found for these filters.</p>
+              <EmptyState icon={History} title="No activity found" description="Try widening your date range or clearing filters." />
             ) : (
               <>
                 <div className="overflow-x-auto">
@@ -103,17 +88,27 @@ export default function AdminActivityPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {items.map((a) => (
-                        <tr key={a.id} className="border-b border-black/5 dark:border-white/5">
-                          <td className="py-2 pr-3">
-                            <span className={cn("font-medium", a.event === "login_failed" ? "text-red-500" : "text-navy dark:text-white")}>{EVENT_LABELS[a.event] ?? a.event}</span>
-                            {a.detail && <span className="block text-xs text-navy/40 dark:text-white/40">{a.detail}</span>}
-                          </td>
-                          <td className="py-2 pr-3 text-navy/70 dark:text-white/70">{a.user ? `${a.user.name} (${a.user.email})` : "—"}</td>
-                          <td className="py-2 pr-3 text-navy/70 dark:text-white/70 whitespace-nowrap">{new Date(a.createdAt).toLocaleString()}</td>
-                          <td className="py-2 font-mono text-xs text-navy/60 dark:text-white/60">{a.ip ?? "—"}</td>
-                        </tr>
-                      ))}
+                      {items.map((a) => {
+                        const meta = EVENT_META[a.event] ?? { label: a.event, icon: ActivityIcon, tone: "navy" };
+                        return (
+                          <tr key={a.id} className="border-b border-black/5 transition-colors hover:bg-black/[0.02] dark:border-white/5 dark:hover:bg-white/[0.03]">
+                            <td className="py-2 pr-3">
+                              <div className="flex items-center gap-2">
+                                <div className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-full", TONE_CLASSES[meta.tone])}>
+                                  <meta.icon className="h-3.5 w-3.5" />
+                                </div>
+                                <div>
+                                  <span className="font-medium text-navy dark:text-white">{meta.label}</span>
+                                  {a.detail && <span className="block text-xs text-navy/40 dark:text-white/40">{a.detail}</span>}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="py-2 pr-3 text-navy/70 dark:text-white/70">{a.user ? `${a.user.name} (${a.user.email})` : "—"}</td>
+                            <td className="py-2 pr-3 text-navy/70 dark:text-white/70 whitespace-nowrap">{new Date(a.createdAt).toLocaleString()}</td>
+                            <td className="py-2 font-mono text-xs text-navy/60 dark:text-white/60">{a.ip ?? "—"}</td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
