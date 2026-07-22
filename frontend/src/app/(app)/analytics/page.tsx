@@ -6,10 +6,10 @@ import {
   LineChart, Line, BarChart, Bar, AreaChart, Area, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from "recharts";
+import Link from "next/link";
 import { Topbar } from "@/components/layout/Topbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { ExportPreviewModal } from "@/components/ui/ExportPreviewModal";
 import { api } from "@/lib/api";
 import { formatCurrency, cn } from "@/lib/format";
 import { useSettingsContext } from "@/lib/SettingsContext";
@@ -229,7 +229,6 @@ export default function AnalyticsPage() {
   const [trendChart, setTrendChart] = useState<ChartKind>("line");
   const [breakdownChart, setBreakdownChart] = useState<ChartKind>("donut");
   const [metrics, setMetrics] = useState<Set<MetricId>>(new Set(METRIC_OPTIONS.map((m) => m.id)));
-  const [exportOpen, setExportOpen] = useState(false);
 
   const { data: categories } = useCategories();
   const { data: accounts } = useAccounts();
@@ -313,12 +312,12 @@ export default function AnalyticsPage() {
                 </select>
               </div>
               <div className="ml-auto">
-                <button
-                  onClick={() => setExportOpen(true)}
+                <Link
+                  href="/settings?tab=export"
                   className="flex items-center gap-1.5 rounded-lg border border-black/10 px-3 py-2 text-xs font-medium text-navy transition-all hover:border-teal/50 dark:border-white/10 dark:text-white"
                 >
-                  <Download className="h-3.5 w-3.5" /> Export this view
-                </button>
+                  <Download className="h-3.5 w-3.5" /> Export data
+                </Link>
               </div>
             </div>
 
@@ -477,7 +476,6 @@ export default function AnalyticsPage() {
           </>
         )}
       </main>
-      <ExportPreviewModal isOpen={exportOpen} onClose={() => setExportOpen(false)} range={{ from, to }} />
     </>
   );
 }
