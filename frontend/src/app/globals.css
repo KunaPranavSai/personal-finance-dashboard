@@ -20,6 +20,20 @@ body {
   font-family: "Segoe UI", ui-sans-serif, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+/* Smooth, app-wide crossfade when switching between light/dark theme instead
+   of every surface snapping instantly. Utility classes like `transition-colors`
+   with their own duration still take precedence via Tailwind's layer order. */
+@layer base {
+  *,
+  *::before,
+  *::after {
+    transition-property: background-color, border-color, color, fill, stroke;
+    transition-duration: 0.2s;
+    transition-timing-function: ease;
+  }
 }
 
 .scrollbar-thin::-webkit-scrollbar {
