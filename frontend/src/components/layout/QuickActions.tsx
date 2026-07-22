@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Plus, TrendingDown, TrendingUp, Wallet, LineChart, X } from "lucide-react";
@@ -19,6 +20,14 @@ export function QuickActions() {
   const router = useRouter();
   const { quickAddType, openQuickAdd } = useUiStore();
   const [fabOpen, setFabOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  // The topbar this renders inside uses backdrop-blur, which (per spec)
+  // creates a new containing block for fixed-position descendants — without
+  // portaling to <body>, the FAB and modal below would be pinned relative to
+  // that ~60px header instead of the viewport, squishing them into the top
+  // of the screen on mobile instead of floating over the page.
+  useEffect(() => setMounted(true), []);
 
   const handleAction = (key: (typeof ACTIONS)[number]["key"]) => {
     setFabOpen(false);
@@ -28,21 +37,8 @@ export function QuickActions() {
     else router.push("/investments");
   };
 
-  return (
+  const floatingUi = (
     <>
-      {/* Desktop: top action buttons */}
-      <div className="hidden items-center gap-2 lg:flex">
-        {ACTIONS.map((action) => (
-          <button
-            key={action.key}
-            onClick={() => handleAction(action.key)}
-            className="flex items-center gap-1.5 rounded-lg border border-black/10 px-3 py-1.5 text-xs font-semibold text-navy/70 transition-colors hover:bg-black/5 dark:border-white/10 dark:text-white/70 dark:hover:bg-white/5"
-          >
-            <Plus className="h-3.5 w-3.5" /> {action.label}
-          </button>
-        ))}
-      </div>
-
       {/* Mobile: expandable FAB */}
       <div className="fixed bottom-5 right-5 z-40 flex flex-col items-end gap-3 lg:hidden">
         <AnimatePresence>
@@ -80,6 +76,25 @@ export function QuickActions() {
         fixedType={quickAddType ?? undefined}
         onClose={() => openQuickAdd(null)}
       />
+    </>
+  );
+
+  return (
+    <>
+      {/* Desktop: top action buttons */}
+      <div className="hidden items-center gap-2 lg:flex">
+        {ACTIONS.map((action) => (
+          <button
+            key={action.key}
+            onClick={() => handleAction(action.key)}
+            className="flex items-center gap-1.5 rounded-lg border border-black/10 px-3 py-1.5 text-xs font-semibold text-navy/70 transition-colors hover:bg-black/5 dark:border-white/10 dark:text-white/70 dark:hover:bg-white/5"
+          >
+            <Plus className="h-3.5 w-3.5" /> {action.label}
+          </button>
+        ))}
+      </div>
+
+      {mounted ? createPortal(floatingUi, document.body) : null}
     </>
   );
 }

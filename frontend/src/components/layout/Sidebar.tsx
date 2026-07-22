@@ -7,6 +7,7 @@ import {
   LayoutDashboard, Wallet, PiggyBank, Target,
   Receipt, TrendingUp, TrendingDown, BarChart3, FileText, Bell, User, X, Landmark,
   SlidersHorizontal, ChevronDown, Shield, Palette, Eye, Database,
+  Settings as SettingsIcon, Globe, History, Download, Sliders, BellRing,
 } from "lucide-react";
 import { cn } from "@/lib/format";
 import { useUiStore } from "@/store/uiStore";
@@ -68,6 +69,18 @@ const NAV_GROUPS: NavGroup[] = [
       { href: "/settings?tab=privacy", label: "Privacy", icon: Eye },
       { href: "/settings?tab=backup", label: "Backup & Export", icon: Database },
       { href: "/profile", label: "Profile", icon: User },
+    ],
+  },
+  {
+    id: "settings-more",
+    label: "More Settings",
+    items: [
+      { href: "/settings?tab=general", label: "General", icon: SettingsIcon },
+      { href: "/settings?tab=currency", label: "Currency & Format", icon: Globe },
+      { href: "/settings?tab=preferences", label: "Preferences", icon: Sliders },
+      { href: "/settings?tab=notifications", label: "Notification Preferences", icon: BellRing },
+      { href: "/settings?tab=activity", label: "Activity Log", icon: History },
+      { href: "/settings?tab=export", label: "Data Export", icon: Download },
     ],
   },
 ];
