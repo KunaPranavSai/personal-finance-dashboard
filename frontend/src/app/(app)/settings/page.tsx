@@ -860,35 +860,17 @@ function SettingsContent() {
     }
   };
 
+  const currentTabLabel = TABS.find((t) => t.id === activeTab)?.label ?? "Settings";
+
   return (
     <>
-      <Topbar title="Settings" />
+      <Topbar title={currentTabLabel} />
       <main className="flex-1 overflow-y-auto p-4 lg:p-6">
-        <div className="mx-auto max-w-4xl">
+        <div className="mx-auto max-w-3xl">
           {isLoading ? (
             <div className="space-y-4">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-20 animate-pulse rounded-xl2 bg-black/5 dark:bg-white/5" />)}</div>
           ) : (
-            <div className="flex flex-col gap-6 lg:flex-row">
-              <nav className="shrink-0 overflow-x-auto lg:w-48" aria-label="Settings tabs">
-                <div className="flex gap-1 lg:flex-col">
-                  {TABS.map((tab) => (
-                    <button
-                      key={tab.id}
-                      onClick={() => setActiveTab(tab.id)}
-                      className={cn(
-                        "flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap transition-colors",
-                        activeTab === tab.id
-                          ? "bg-teal/10 text-teal"
-                          : "text-navy/60 hover:bg-black/5 dark:text-white/60 dark:hover:bg-white/5"
-                      )}
-                    >
-                      <tab.icon className="h-4 w-4" /> {tab.label}
-                    </button>
-                  ))}
-                </div>
-              </nav>
-              <div className="flex-1">{renderTab()}</div>
-            </div>
+            renderTab()
           )}
         </div>
       </main>

@@ -3,8 +3,11 @@
 import { useEffect } from "react";
 
 /**
- * Cosmetic, casual-user-only deterrents: blocked context menu, blocked common
- * DevTools shortcuts, and a soft DevTools-open heuristic that just logs.
+ * Cosmetic, casual-user-only deterrents: blocked common DevTools shortcuts,
+ * and a soft DevTools-open heuristic that just logs. The right-click context
+ * menu is intentionally left alone — it's a normal, expected browser
+ * affordance (copy/paste, inspect, open-in-new-tab) and blocking it globally
+ * hurts usability far more than it deters anyone.
  *
  * NONE OF THIS IS A SECURITY CONTROL. All of it is trivially bypassed from
  * DevTools itself (which anyone motivated can still open via the browser
@@ -15,20 +18,6 @@ import { useEffect } from "react";
  */
 export function AntiTamperGuard() {
   useEffect(() => {
-    const isEditable = (target: EventTarget | null) => {
-      if (!(target instanceof HTMLElement)) return false;
-      return (
-        target.tagName === "INPUT" ||
-        target.tagName === "TEXTAREA" ||
-        target.isContentEditable
-      );
-    };
-
-    const handleContextMenu = (e: MouseEvent) => {
-      if (isEditable(e.target)) return;
-      e.preventDefault();
-    };
-
     const handleKeyDown = (e: KeyboardEvent) => {
       const combo = (e.ctrlKey || e.metaKey) && e.shiftKey && ["I", "J", "C"].includes(e.key.toUpperCase());
       const isF12 = e.key === "F12";
@@ -51,12 +40,10 @@ export function AntiTamperGuard() {
       }
     };
 
-    document.addEventListener("contextmenu", handleContextMenu);
     document.addEventListener("keydown", handleKeyDown);
     const interval = setInterval(checkDevtoolsSize, 2000);
 
     return () => {
-      document.removeEventListener("contextmenu", handleContextMenu);
       document.removeEventListener("keydown", handleKeyDown);
       clearInterval(interval);
     };
