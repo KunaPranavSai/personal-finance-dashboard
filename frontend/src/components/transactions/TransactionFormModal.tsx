@@ -11,6 +11,8 @@ import { Transaction } from "@/types";
 import { useEffect, useState } from "react";
 import { useCategories, useAccounts, usePaymentMethods, ENTRY_TYPES } from "@/lib/reference";
 import { QuickCreateModal } from "../ui/QuickCreateModal";
+import { postWithOfflineQueue } from "@/lib/offlineAwarePost";
+import { useToast } from "../ui/Toast";
 
 const schema = z.object({
   date: z.string().min(1, "Date is required"),
@@ -71,15 +73,19 @@ export function TransactionFormModal({
   }, [editing, reset, open, fixedType]);
 
   const selectedType = watch("type");
+  const { toast } = useToast();
 
   const mutation = useMutation({
     mutationFn: (values: FormValues) =>
       editing
         ? api.patch(`/api/transactions/${editing.id}`, values)
-        : api.post("/api/transactions", values),
-    onSuccess: () => {
+        : postWithOfflineQueue(values.type === "INCOME" ? "income" : "expense", "/api/transactions", values),
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] });
+      if (result && typeof result === "object" && "queued" in result && result.queued) {
+        toast("You're offline — this will be saved automatically once you're back online.", "success");
+      }
       onClose();
     },
   });

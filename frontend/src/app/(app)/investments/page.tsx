@@ -18,6 +18,7 @@ import { z } from "zod";
 import { INVESTMENT_CATEGORIES } from "@/lib/reference";
 import { FocusTrap } from "@/components/ui/FocusTrap";
 import { useToast } from "@/components/ui/Toast";
+import { postWithOfflineQueue } from "@/lib/offlineAwarePost";
 
 const investmentSchema = z.object({
   instrument: z.string().min(1, "Name is required").max(100),
@@ -46,8 +47,13 @@ function InvestmentModal({ open, editing, onClose }: {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: InvestmentForm) => api.post<Investment>("/api/investments", data),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["investments"] }); onClose(); reset(); toast("Investment added", "success"); },
+    mutationFn: (data: InvestmentForm) => postWithOfflineQueue<Investment>("investment", "/api/investments", data),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["investments"] });
+      onClose();
+      reset();
+      toast(result.queued ? "You're offline — this will be saved automatically once you're back online." : "Investment added", "success");
+    },
     onError: () => { toast("Failed to save investment", "error"); },
   });
   const updateMutation = useMutation({

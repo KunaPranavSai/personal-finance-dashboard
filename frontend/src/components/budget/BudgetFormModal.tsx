@@ -4,10 +4,11 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { api } from "@/lib/api";
 import { Button } from "../ui/Button";
 import { FocusTrap } from "../ui/FocusTrap";
 import { useExpenseCategories } from "@/lib/reference";
+import { postWithOfflineQueue } from "@/lib/offlineAwarePost";
+import { useToast } from "../ui/Toast";
 
 const schema = z.object({
   categoryId: z.string().min(1, "Category is required"),
@@ -20,6 +21,7 @@ export function BudgetFormModal({
 }: { open: boolean; onClose: () => void; periodKey: string }) {
   const queryClient = useQueryClient();
   const { data: categories, isLoading, error } = useExpenseCategories();
+  const { toast } = useToast();
 
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -27,9 +29,12 @@ export function BudgetFormModal({
 
   const mutation = useMutation({
     mutationFn: (values: FormValues) =>
-      api.post("/api/budgets", { ...values, period: "MONTHLY", periodKey }),
-    onSuccess: () => {
+      postWithOfflineQueue("budget", "/api/budgets", { ...values, period: "MONTHLY", periodKey }),
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["budgets"] });
+      if (result.queued) {
+        toast("You're offline — this will be saved automatically once you're back online.", "success");
+      }
       onClose();
     },
   });

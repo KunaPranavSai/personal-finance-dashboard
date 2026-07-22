@@ -109,4 +109,36 @@ pfd-pro/
 | PATCH/DELETE | `/api/budgets/:id` | Update / delete |
 | GET/POST | `/api/categories`, `/api/accounts` | Reference data for dropdowns |
 
+## Progressive Web App
+
+The frontend is an installable PWA (`@ducanh2912/next-pwa`, Workbox under the hood). Configuration lives in
+`frontend/next.config.ts`; only regenerate the pieces below if you deliberately want to change PWA behavior.
+
+- **Manifest**: `frontend/public/manifest.webmanifest` — name, icons, `display: standalone`,
+  `orientation: portrait-primary`, theme/background colors, and app shortcuts (Dashboard, Add Expense, Add
+  Income, Investments).
+- **Icons**: `frontend/public/icons/*.png`, generated from `public/logo.png` via `sharp`. Regenerate with:
+  ```bash
+  node -e "const sharp=require('sharp'); const sizes=[72,96,128,144,152,192,384,512]; (async()=>{ for (const s of sizes) await sharp('public/logo.png').resize(s,s).png().toFile('public/icons/icon-'+s+'.png'); })()"
+  ```
+  if the source logo ever changes.
+- **Service worker**: generated at build time only (`disable: NODE_ENV === "development"`) into
+  `frontend/public/sw.js` + `workbox-*.js` — these are build artifacts, not committed (see `.gitignore`).
+  Runtime caching: dashboard endpoints and lookup data (`categories`/`accounts`/`payment-methods`) use
+  `StaleWhileRevalidate`; every other `/api/*` route is `NetworkOnly` (financial write/read endpoints must
+  never serve stale data); static assets/images use Workbox's default cache-first strategy.
+  `cleanupOutdatedCaches: true` removes stale precaches automatically on each new deploy.
+- **Offline fallback**: `frontend/src/app/~offline/page.tsx`, served when a navigation has no cache match and
+  no network.
+- **Offline write queue**: creating an Expense, Income, Budget, or Investment while offline is queued in
+  IndexedDB (`frontend/src/lib/offlineQueue.ts`) instead of failing. It syncs automatically when the tab
+  regains connectivity (`OfflineSyncManager`), and via the Background Sync API (`frontend/worker/index.ts`,
+  a custom service worker source merged into the generated one) if the tab was closed before that happened —
+  falls back gracefully to the online-event listener on browsers without Background Sync support (Safari).
+- **Update prompts**: `skipWaiting: false` — a new deployed version sits "waiting" until the user clicks
+  Refresh in `ServiceWorkerUpdatePrompt`, rather than silently swapping under an open tab.
+- **Testing locally**: the service worker only runs on a production build (`npm run build && npm run start`),
+  not `npm run dev`. Use Chrome DevTools → Application → Service Workers / Manifest, or Lighthouse's PWA
+  audit, against the `next start` server.
+
 See PROJECT_STATUS.md for what to build next.
