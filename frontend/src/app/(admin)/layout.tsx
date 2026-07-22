@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { AdminSidebar } from "@/components/layout/AdminSidebar";
 import { SwipeSidebarHandler } from "@/components/layout/SwipeSidebarHandler";
 import { Footer } from "@/components/layout/Footer";
 import { SessionWarningModal } from "@/components/ui/SessionWarningModal";
+import { SessionWarningBanner } from "@/components/ui/SessionWarningBanner";
 import { LockScreen } from "@/components/ui/LockScreen";
+import { TwoFactorReverifyDialog } from "@/components/ui/TwoFactorReverifyDialog";
 import { useAuth } from "@/lib/AuthContext";
 
 export default function AdminShellLayout({ children }: { children: React.ReactNode }) {
@@ -14,21 +16,24 @@ export default function AdminShellLayout({ children }: { children: React.ReactNo
     user,
     isAuthenticated,
     isLoading,
-    sessionTimeoutWarning,
+    sessionState,
+    sessionSecondsRemaining,
     isLocked,
     logout,
     unlock,
-    dismissTimeoutWarning,
+    extendSession,
   } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      router.replace("/login");
+      const redirect = pathname ? `?redirect=${encodeURIComponent(pathname)}` : "";
+      router.replace(`/login${redirect}`);
     } else if (!isLoading && user && user.role === "USER") {
       router.replace("/dashboard");
     }
-  }, [isAuthenticated, isLoading, user, router]);
+  }, [isAuthenticated, isLoading, user, router, pathname]);
 
   if (isLoading || (user && user.role === "USER")) {
     return (
@@ -51,12 +56,15 @@ export default function AdminShellLayout({ children }: { children: React.ReactNo
         {children}
         <Footer />
       </div>
+      <SessionWarningBanner visible={sessionState === "warning"} secondsRemaining={sessionSecondsRemaining} />
       <SessionWarningModal
-        isOpen={sessionTimeoutWarning}
-        onDismiss={dismissTimeoutWarning}
-        onLogout={logout}
+        isOpen={sessionState === "critical"}
+        secondsRemaining={sessionSecondsRemaining}
+        onExtend={extendSession}
+        onLogout={() => logout()}
       />
       <LockScreen isOpen={isLocked} onUnlock={unlock} />
+      <TwoFactorReverifyDialog />
     </div>
   );
 }

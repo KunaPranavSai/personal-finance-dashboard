@@ -141,4 +141,30 @@ The frontend is an installable PWA (`@ducanh2912/next-pwa`, Workbox under the ho
   not `npm run dev`. Use Chrome DevTools → Application → Service Workers / Manifest, or Lighthouse's PWA
   audit, against the `next start` server.
 
+## Security
+
+- **PWA install prompt**: gated to after login only (`frontend/src/components/pwa/PwaInstallPrompt.tsx`,
+  `frontend/src/lib/pwaInstall.ts`) — shown once per device 7s after the dashboard loads, never if already
+  installed, and not again for 1h after a dismissal. Manual install is always available from
+  Settings → Appearance → Install App.
+- **Strict, server-anchored session timer**: session expiry (`frontend/src/lib/AuthContext.tsx`) is purely
+  elapsed-time — mouse/keyboard/scroll activity and background API calls never extend it. A warning banner
+  appears at 30s remaining, a blocking modal at 15s (`SessionWarningBanner`/`SessionWarningModal`), and
+  "Extend Session" calls the real `/api/auth/refresh` endpoint (never a client-side reset). The countdown is
+  synced across tabs via `localStorage` + the `storage` event, and expiry logs out every open tab.
+- **Periodic 2FA re-verification**: accounts with 2FA enabled must re-enter a TOTP code every 12h
+  (`tfaVerifiedAt` JWT claim, enforced by `requireRecent2FA` in `backend/src/middleware/auth.ts`) before
+  sensitive actions — export, backup/restore, profile changes, password/UID changes, disabling 2FA. Blocked
+  requests return `403 { code: "2FA_REVERIFICATION_REQUIRED" }`, which the frontend
+  (`frontend/src/components/ui/TwoFactorReverifyDialog.tsx`) intercepts with a full-screen re-verify prompt
+  hitting `POST /api/auth/2fa/reverify`. Users without 2FA are unaffected.
+- **Passkeys / biometric sign-in**: WebAuthn-based sign-in (`@simplewebauthn/server` + `@simplewebauthn/browser`)
+  supporting Windows Hello, Touch ID, Face ID, Android biometrics, and hardware security keys. Enroll or
+  remove devices from Settings → Security → Passkeys & Biometrics (both require password, plus a TOTP code
+  if 2FA is enabled). The login screen offers "Continue with Biometrics" as a usernameless (discoverable
+  credential) flow alongside the standard password form, with automatic fallback when the browser/device
+  doesn't support WebAuthn. Credentials are stored in the `Passkey` Prisma model
+  (`backend/prisma/schema.prisma`); the RP ID/origin are derived from the existing `APP_URL`/`FRONTEND_URL`
+  env vars (`backend/src/lib/webauthn.ts`) — no new config needed.
+
 See PROJECT_STATUS.md for what to build next.

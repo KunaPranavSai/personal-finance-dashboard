@@ -90,6 +90,7 @@ model User {
   settings       AppSettings?
   profile        AppProfile?
   backupConnections BackupConnection[]
+  passkeys       Passkey[]
 
   @@index([status])
 }
@@ -292,6 +293,30 @@ model AppProfile {
 }
 
 // Provider-abstracted cloud backup connection. `provider` distinguishes which
+// One row per WebAuthn credential (passkey) a user has registered — a Windows
+// Hello / Touch ID / Face ID / Android biometric / security key enrollment.
+// Users can register several, one per device/authenticator.
+model Passkey {
+  id           String    @id @default(cuid())
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId       String
+  // Base64url-encoded WebAuthn credential ID — what the authenticator sends back on login.
+  credentialId String    @unique
+  // Base64url-encoded COSE public key, used to verify future assertions. Never a secret an
+  // attacker could sign with, so plaintext storage is standard WebAuthn practice.
+  publicKey    String
+  // Signature counter, used to detect cloned authenticators (must only ever increase).
+  counter      BigInt    @default(0)
+  deviceType   String // "singleDevice" | "multiDevice", from the credential's backup eligibility
+  backedUp     Boolean   @default(false)
+  transports   String[]  @default([])
+  name         String // user-editable label, e.g. "Windows Hello" or "iPhone Face ID"
+  lastUsedAt   DateTime?
+  createdAt    DateTime  @default(now())
+
+  @@index([userId])
+}
+
 // cloud (google_drive today; onedrive/dropbox/icloud can reuse this same table
 // later) a user has linked, so adding a new provider needs no schema change.
 model BackupConnection {

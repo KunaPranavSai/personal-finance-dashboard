@@ -8,6 +8,7 @@ import { ApiError } from "../middleware/errorHandler";
 import { encryptSecret, decryptSecret } from "../lib/crypto";
 import { fetchAllExportData } from "../services/export";
 import { getProvider, isProviderConfigured } from "../services/backup/registry";
+import { requireRecent2FA } from "../middleware/auth";
 import type { BackupConnection, BudgetPeriod } from "@prisma/client";
 
 const router = Router();
@@ -238,6 +239,7 @@ async function performBackup(connection: BackupConnection, triggeredBy: "manual"
 
 router.post(
   "/now",
+  requireRecent2FA,
   asyncHandler(async (req: Request, res: Response) => {
     const connection = await loadConnection(req.auth!.userId);
     try {
@@ -277,6 +279,7 @@ router.get(
 
 router.post(
   "/restore",
+  requireRecent2FA,
   validateBody(z.object({ confirm: z.literal(true) })),
   asyncHandler(async (req: Request, res: Response) => {
     const userId = req.auth!.userId;
