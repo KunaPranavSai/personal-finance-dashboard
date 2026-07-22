@@ -102,14 +102,14 @@ export function KpiDetailDrawer({ data, onClose }: { data: KpiDetailData | null;
                   {data.actions.map((action) => (
                     <div
                       key={action.href}
-                      className="flex items-center justify-between rounded-lg border border-black/10 px-4 py-3 text-sm font-medium text-navy dark:border-white/10 dark:text-white"
+                      className="flex items-center justify-between gap-2 rounded-lg border border-black/10 pl-4 text-sm font-medium text-navy dark:border-white/10 dark:text-white"
                     >
-                      {action.label}
+                      <span className="min-w-0 truncate py-3">{action.label}</span>
                       <Link
                         href={action.href}
                         onClick={onClose}
                         aria-label={`Go to ${action.label}`}
-                        className="flex h-7 w-7 items-center justify-center rounded-full text-navy/40 transition-colors hover:bg-black/5 hover:text-teal dark:text-white/40 dark:hover:bg-white/10"
+                        className="flex h-full min-h-[44px] w-14 shrink-0 items-center justify-center rounded-r-lg text-navy/40 transition-colors hover:bg-teal/10 hover:text-teal active:bg-teal/20 dark:text-white/40 dark:hover:bg-teal/10"
                       >
                         <ArrowRight className="h-4 w-4" />
                       </Link>
