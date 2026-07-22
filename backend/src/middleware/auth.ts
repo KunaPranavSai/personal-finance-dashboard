@@ -7,9 +7,15 @@ export interface AuthPayload {
   uid: string;
   role: "SUPER_ADMIN" | "ADMIN" | "USER";
   sv: number;
+  /** Whether 2FA is enabled for this account — drives requireRecent2FA below. */
+  tfaEnabled?: boolean;
+  /** Epoch ms of the last successful TOTP verification (login or step-up reverify). */
+  tfaVerifiedAt?: number;
   iat?: number;
   exp?: number;
 }
+
+const TFA_REVERIFY_WINDOW_MS = 12 * 60 * 60 * 1000; // 12 hours
 
 declare global {
   namespace Express {
@@ -41,6 +47,30 @@ export function authenticate(req: Request, res: Response, next: NextFunction): v
   } catch {
     res.status(401).json({ error: "Invalid or expired token" });
   }
+}
+
+/**
+ * Guards sensitive actions (export, backup/restore, profile changes, security
+ * settings, password/UID changes, disabling 2FA) behind a TOTP re-verification
+ * no older than 12 hours. Users who never enabled 2FA are unaffected — this
+ * only ever blocks accounts that opted into 2FA in the first place. Must run
+ * after `authenticate`.
+ */
+export function requireRecent2FA(req: Request, res: Response, next: NextFunction): void {
+  const auth = req.auth;
+  if (!auth?.tfaEnabled) {
+    next();
+    return;
+  }
+  const verifiedAt = auth.tfaVerifiedAt ?? 0;
+  if (Date.now() - verifiedAt > TFA_REVERIFY_WINDOW_MS) {
+    res.status(403).json({
+      error: "Please re-verify your two-factor authentication code to continue.",
+      code: "2FA_REVERIFICATION_REQUIRED",
+    });
+    return;
+  }
+  next();
 }
 
 /** Restrict a route to one or more roles. Must run after `authenticate`. */

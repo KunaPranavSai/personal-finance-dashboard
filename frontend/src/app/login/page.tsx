@@ -4,13 +4,15 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { useAuth } from "@/lib/AuthContext";
+import { useAuth, POST_LOGIN_REDIRECT_KEY } from "@/lib/AuthContext";
 import { Footer } from "@/components/layout/Footer";
 import { PasswordInput } from "@/components/ui/PasswordInput";
-import { Shield, Lock } from "lucide-react";
+import { Shield, Lock, Fingerprint } from "lucide-react";
+import { browserSupportsWebAuthn } from "@simplewebauthn/browser";
+import { PREFER_BIOMETRIC_KEY } from "@/lib/passkeyPrefs";
 
 export default function LoginPage() {
-  const { user, login, verifyLogin2FA, forceChangePassword, isAuthenticated, isLoading } = useAuth();
+  const { user, login, loginWithPasskey, verifyLogin2FA, forceChangePassword, isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
   const [uid, setUid] = useState("");
   const [password, setPassword] = useState("");
@@ -21,11 +23,51 @@ export default function LoginPage() {
   const [passwordChangeToken, setPasswordChangeToken] = useState<string | null>(null);
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
+  const [webAuthnSupported, setWebAuthnSupported] = useState(false);
+  const [mode, setMode] = useState<"password" | "biometric">("password");
+  const [biometricPending, setBiometricPending] = useState(false);
+
+  useEffect(() => {
+    const supported = browserSupportsWebAuthn();
+    setWebAuthnSupported(supported);
+    if (supported && localStorage.getItem(PREFER_BIOMETRIC_KEY) === "1") {
+      setMode("biometric");
+    }
+  }, []);
+
+  const handleBiometricLogin = async () => {
+    setError("");
+    setBiometricPending(true);
+    try {
+      await loginWithPasskey();
+      // The auth-state effect below redirects once `user` is populated.
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Biometric sign-in failed");
+    } finally {
+      setBiometricPending(false);
+    }
+  };
+
+  const resolveDestination = (role: string, justOnboarded?: boolean) => {
+    if (typeof window !== "undefined") {
+      const fromQuery = new URLSearchParams(window.location.search).get("redirect");
+      const fromExpiry = sessionStorage.getItem(POST_LOGIN_REDIRECT_KEY);
+      sessionStorage.removeItem(POST_LOGIN_REDIRECT_KEY);
+      const preserved = fromQuery || fromExpiry;
+      // Only ever redirect within our own app, and never back into an auth page.
+      if (preserved && preserved.startsWith("/") && !preserved.startsWith("/login") && !preserved.startsWith("//")) {
+        return preserved;
+      }
+    }
+    const isUser = role === "USER";
+    return isUser ? (justOnboarded ? "/dashboard?welcome=1" : "/dashboard") : "/admin";
+  };
 
   useEffect(() => {
     if (!isLoading && isAuthenticated && user) {
-      router.replace(user.role === "USER" ? "/dashboard" : "/admin");
+      router.replace(resolveDestination(user.role));
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, isLoading, user, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -77,8 +119,7 @@ export default function LoginPage() {
     setIsPending(true);
     try {
       const { justOnboarded, user: updatedUser } = await forceChangePassword(passwordChangeToken, newPassword);
-      const isUser = updatedUser?.role === "USER";
-      router.replace(isUser ? (justOnboarded ? "/dashboard?welcome=1" : "/dashboard") : "/admin");
+      router.replace(resolveDestination(updatedUser?.role ?? "USER", justOnboarded));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to set new password");
     } finally {
@@ -229,8 +270,65 @@ export default function LoginPage() {
                 Back to sign in
               </button>
             </form>
+          ) : mode === "biometric" ? (
+            <div className="space-y-5">
+              <div className="flex flex-col items-center gap-3 py-4 text-center">
+                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-teal/10">
+                  <Fingerprint className="h-7 w-7 text-teal" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-white">Sign in with biometrics</p>
+                  <p className="mt-1 text-xs text-white/40">Use Windows Hello, Touch ID, Face ID, or a security key registered on this account.</p>
+                </div>
+              </div>
+
+              {error && (
+                <div className="flex items-center gap-2 rounded-lg bg-red-500/10 border border-red-500/20 px-3 py-2 text-sm text-red-400">
+                  <Shield className="h-4 w-4 shrink-0" />
+                  {error}
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={handleBiometricLogin}
+                disabled={biometricPending}
+                className="w-full rounded-xl bg-gradient-to-r from-teal to-teal/80 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-teal/25 transition-all hover:from-teal/90 hover:to-teal/70 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {biometricPending ? (
+                  <>
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                    Waiting for biometrics…
+                  </>
+                ) : (
+                  <>
+                    <Fingerprint className="h-4 w-4" />
+                    Continue with Biometrics
+                  </>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { setMode("password"); setError(""); }}
+                className="w-full text-center text-xs text-white/40 hover:text-white/60 transition-colors"
+              >
+                Continue with Password
+              </button>
+            </div>
           ) : (
           <form onSubmit={handleSubmit} className="space-y-5">
+            {webAuthnSupported && (
+              <button
+                type="button"
+                onClick={() => { setMode("biometric"); setError(""); }}
+                className="mb-1 flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-medium text-white/80 transition-all hover:bg-white/10"
+              >
+                <Fingerprint className="h-4 w-4 text-teal" />
+                Continue with Biometrics
+              </button>
+            )}
+
             {/* UID */}
             <div>
               <label htmlFor="uid" className="block text-xs font-semibold uppercase tracking-wider text-white/50 mb-2">

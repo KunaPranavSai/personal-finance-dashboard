@@ -5,10 +5,13 @@ import { useRouter, usePathname } from "next/navigation";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { SwipeSidebarHandler } from "@/components/layout/SwipeSidebarHandler";
 import { OfflineSyncManager } from "@/components/pwa/OfflineSyncManager";
+import { PwaInstallPrompt } from "@/components/pwa/PwaInstallPrompt";
 import { Footer } from "@/components/layout/Footer";
 import { DataInit } from "@/components/DataInit";
 import { SessionWarningModal } from "@/components/ui/SessionWarningModal";
+import { SessionWarningBanner } from "@/components/ui/SessionWarningBanner";
 import { LockScreen } from "@/components/ui/LockScreen";
+import { TwoFactorReverifyDialog } from "@/components/ui/TwoFactorReverifyDialog";
 import { useAuth } from "@/lib/AuthContext";
 
 export default function AppShellLayout({ children }: { children: React.ReactNode }) {
@@ -16,11 +19,12 @@ export default function AppShellLayout({ children }: { children: React.ReactNode
     user,
     isAuthenticated,
     isLoading,
-    sessionTimeoutWarning,
+    sessionState,
+    sessionSecondsRemaining,
     isLocked,
     logout,
     unlock,
-    dismissTimeoutWarning,
+    extendSession,
   } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
@@ -30,11 +34,12 @@ export default function AppShellLayout({ children }: { children: React.ReactNode
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      router.replace("/login");
+      const redirect = pathname ? `?redirect=${encodeURIComponent(pathname)}` : "";
+      router.replace(`/login${redirect}`);
     } else if (!isLoading && user && user.role !== "USER" && !isSelfServiceRoute) {
       router.replace("/admin");
     }
-  }, [isAuthenticated, isLoading, user, isSelfServiceRoute, router]);
+  }, [isAuthenticated, isLoading, user, isSelfServiceRoute, router, pathname]);
 
   if (isLoading || (user && user.role !== "USER" && !isSelfServiceRoute)) {
     return (
@@ -53,18 +58,22 @@ export default function AppShellLayout({ children }: { children: React.ReactNode
     <div className="flex min-h-screen bg-surface dark:bg-navy-dark">
       <DataInit />
       <OfflineSyncManager />
+      <PwaInstallPrompt />
       <SwipeSidebarHandler />
       <Sidebar />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         {children}
         <Footer />
       </div>
+      <SessionWarningBanner visible={sessionState === "warning"} secondsRemaining={sessionSecondsRemaining} />
       <SessionWarningModal
-        isOpen={sessionTimeoutWarning}
-        onDismiss={dismissTimeoutWarning}
-        onLogout={logout}
+        isOpen={sessionState === "critical"}
+        secondsRemaining={sessionSecondsRemaining}
+        onExtend={extendSession}
+        onLogout={() => logout()}
       />
       <LockScreen isOpen={isLocked} onUnlock={unlock} />
+      <TwoFactorReverifyDialog />
     </div>
   );
 }

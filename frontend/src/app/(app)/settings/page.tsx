@@ -4,7 +4,7 @@ import { Suspense, useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/AuthContext";
 import { api } from "@/lib/api";
 
@@ -16,9 +16,13 @@ import { ExportPreviewModal } from "@/components/ui/ExportPreviewModal";
 import { GoogleDriveBackupCard } from "@/components/settings/GoogleDriveBackupCard";
 import { useSettingsContext } from "@/lib/SettingsContext";
 import { useToast } from "@/components/ui/Toast";
-import { Palette, Bell, Shield, Download, Database, Eye, Save, Copy, Check, KeyRound, CheckCircle, Sun, Moon, Monitor } from "lucide-react";
+import { Palette, Bell, Shield, Download, Database, Eye, Save, Copy, Check, KeyRound, CheckCircle, Sun, Moon, Monitor, Smartphone } from "lucide-react";
 import { cn } from "@/lib/format";
 import { CURRENCIES, DATE_FORMATS, LANGUAGES, TIMEZONES } from "@/lib/reference";
+import { isPwaInstalled, canPromptInstall, triggerInstallPrompt, subscribeToInstallAvailability } from "@/lib/pwaInstall";
+import { getPreferBiometric, setPreferBiometric } from "@/lib/passkeyPrefs";
+import { startRegistration, browserSupportsWebAuthn } from "@simplewebauthn/browser";
+import { Fingerprint, Pencil, Trash2, X } from "lucide-react";
 
 const TABS = [
   { id: "appearance", label: "Appearance", icon: Palette },
@@ -67,6 +71,64 @@ const AUTO_LOCK_OPTIONS = [
   { value: "60", label: "1 hour" },
   { value: "never", label: "Never" },
 ];
+
+function InstallAppSection() {
+  const [installed, setInstalled] = useState(false);
+  const [available, setAvailable] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    const check = () => {
+      setInstalled(isPwaInstalled());
+      setAvailable(canPromptInstall());
+    };
+    check();
+    return subscribeToInstallAvailability(check);
+  }, []);
+
+  const handleInstall = async () => {
+    setBusy(true);
+    try {
+      const outcome = await triggerInstallPrompt();
+      if (outcome === "unavailable") {
+        toast("Your browser doesn't support installing this app, or it's already installed.", "error");
+      } else if (outcome === "accepted") {
+        toast("Penny Pilot installed", "success");
+        setInstalled(true);
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="rounded-lg border border-black/10 p-4 dark:border-white/10">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-teal/10">
+            <Smartphone className="h-4 w-4 text-teal" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-navy dark:text-white">Install Penny Pilot</p>
+            <p className="text-xs text-navy/50 dark:text-white/50">
+              {installed
+                ? "Already installed on this device."
+                : available
+                ? "Add it to your home screen for quick, app-like access."
+                : "Not available to install in this browser right now."}
+            </p>
+          </div>
+        </div>
+        {!installed && (
+          <Button size="sm" onClick={handleInstall} disabled={!available || busy}>
+            {busy ? "Installing…" : "Install"}
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function ExportTab() {
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -286,6 +348,244 @@ function TwoFactorSection() {
         <Button type="button" size="sm" variant="secondary" onClick={() => setStep("disable")}>Disable</Button>
       ) : (
         <Button type="button" size="sm" onClick={startSetup} disabled={busy}>{busy ? "Starting…" : "Enable"}</Button>
+      )}
+    </div>
+  );
+}
+
+interface PasskeyItem {
+  id: string;
+  name: string;
+  deviceType: string;
+  backedUp: boolean;
+  transports: string[];
+  lastUsedAt: string | null;
+  createdAt: string;
+}
+
+function PasskeySection() {
+  const { twoFactorEnabled } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [supported, setSupported] = useState(false);
+  const [preferBiometric, setPreferBiometricState] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [addPassword, setAddPassword] = useState("");
+  const [addCode, setAddCode] = useState("");
+  const [addName, setAddName] = useState("");
+  const [addStep, setAddStep] = useState<"confirm" | "name">("confirm");
+  const [pendingOptions, setPendingOptions] = useState<{ options: unknown; challengeToken: string } | null>(null);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleteCode, setDeleteCode] = useState("");
+
+  useEffect(() => {
+    setSupported(browserSupportsWebAuthn());
+    setPreferBiometricState(getPreferBiometric());
+  }, []);
+
+  const { data } = useQuery({
+    queryKey: ["passkeys"],
+    queryFn: () => api.get<{ passkeys: PasskeyItem[] }>("/api/auth/passkey"),
+    enabled: supported,
+  });
+  const passkeys = data?.passkeys ?? [];
+
+  const togglePreferBiometric = useCallback((value: boolean) => {
+    setPreferBiometric(value);
+    setPreferBiometricState(value);
+  }, []);
+
+  const resetAddFlow = useCallback(() => {
+    setAdding(false);
+    setAddStep("confirm");
+    setAddPassword("");
+    setAddCode("");
+    setAddName("");
+    setPendingOptions(null);
+    setError("");
+  }, []);
+
+  const handleStartRegistration = useCallback(async () => {
+    setError("");
+    setBusy(true);
+    try {
+      const res = await api.post<{ options: unknown; challengeToken: string }>("/api/auth/passkey/register/options", {
+        password: addPassword,
+        code: twoFactorEnabled ? addCode.trim() : undefined,
+      });
+      setPendingOptions(res);
+      setAddStep("name");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Verification failed");
+    } finally {
+      setBusy(false);
+    }
+  }, [addPassword, addCode, twoFactorEnabled]);
+
+  const handleCompleteRegistration = useCallback(async () => {
+    if (!pendingOptions || !addName.trim()) return;
+    setError("");
+    setBusy(true);
+    try {
+      const response = await startRegistration({ optionsJSON: pendingOptions.options as never });
+      await api.post("/api/auth/passkey/register/verify", {
+        response,
+        challengeToken: pendingOptions.challengeToken,
+        name: addName.trim(),
+      });
+      toast("Passkey added", "success");
+      queryClient.invalidateQueries({ queryKey: ["passkeys"] });
+      resetAddFlow();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not register passkey");
+    } finally {
+      setBusy(false);
+    }
+  }, [pendingOptions, addName, toast, queryClient, resetAddFlow]);
+
+  const handleRename = useCallback(async (id: string) => {
+    if (!renameValue.trim()) return;
+    try {
+      await api.patch(`/api/auth/passkey/${id}`, { name: renameValue.trim() });
+      queryClient.invalidateQueries({ queryKey: ["passkeys"] });
+      setRenamingId(null);
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Failed to rename passkey", "error");
+    }
+  }, [renameValue, queryClient, toast]);
+
+  const handleDelete = useCallback(async (id: string) => {
+    setError("");
+    setBusy(true);
+    try {
+      await api.delete(`/api/auth/passkey/${id}`, { password: deletePassword, code: twoFactorEnabled ? deleteCode.trim() : undefined });
+      toast("Passkey removed", "success");
+      queryClient.invalidateQueries({ queryKey: ["passkeys"] });
+      setDeletingId(null);
+      setDeletePassword("");
+      setDeleteCode("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to remove passkey");
+    } finally {
+      setBusy(false);
+    }
+  }, [deletePassword, deleteCode, twoFactorEnabled, queryClient, toast]);
+
+  if (!supported) return null;
+
+  return (
+    <div className="rounded-lg border border-black/5 p-4 space-y-3 dark:border-white/10">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="flex items-center gap-1.5 text-sm font-semibold text-navy dark:text-white">
+            <Fingerprint className="h-4 w-4 text-teal" /> Passkeys &amp; Biometrics
+          </p>
+          <p className="text-xs text-navy/50 dark:text-white/50">Sign in with Windows Hello, Touch ID, Face ID, or a security key instead of your password.</p>
+        </div>
+        {!adding && <Button type="button" size="sm" onClick={() => setAdding(true)}>Add Passkey</Button>}
+      </div>
+
+      {passkeys.length > 0 && (
+        <label className="flex items-center gap-2 text-xs text-navy/60 dark:text-white/60">
+          <input type="checkbox" checked={preferBiometric} onChange={(e) => togglePreferBiometric(e.target.checked)} className="rounded border-black/20 dark:border-white/20" />
+          Prefer biometric login on this device
+        </label>
+      )}
+
+      <div className="space-y-2">
+        {passkeys.map((pk) => (
+          <div key={pk.id} className="flex items-center justify-between gap-2 rounded-lg bg-black/2 p-3 dark:bg-white/2">
+            {renamingId === pk.id ? (
+              <div className="flex flex-1 items-center gap-2">
+                <input
+                  autoFocus
+                  value={renameValue}
+                  onChange={(e) => setRenameValue(e.target.value)}
+                  className="min-w-0 flex-1 rounded-lg border border-black/10 bg-transparent px-2 py-1 text-sm dark:border-white/10"
+                />
+                <button type="button" onClick={() => handleRename(pk.id)} className="text-xs font-medium text-teal">Save</button>
+                <button type="button" onClick={() => setRenamingId(null)} className="text-navy/40 dark:text-white/40"><X className="h-3.5 w-3.5" /></button>
+              </div>
+            ) : (
+              <>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-navy dark:text-white">{pk.name}</p>
+                  <p className="text-xs text-navy/40 dark:text-white/40">
+                    {pk.lastUsedAt ? `Last used ${new Date(pk.lastUsedAt).toLocaleDateString()}` : `Added ${new Date(pk.createdAt).toLocaleDateString()}`}
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-1">
+                  <button
+                    type="button"
+                    aria-label="Rename passkey"
+                    onClick={() => { setRenamingId(pk.id); setRenameValue(pk.name); }}
+                    className="flex h-7 w-7 items-center justify-center rounded-md text-navy/50 hover:bg-black/5 dark:text-white/50 dark:hover:bg-white/10"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Remove passkey"
+                    onClick={() => { setDeletingId(pk.id); setError(""); }}
+                    className="flex h-7 w-7 items-center justify-center rounded-md text-red-500/70 hover:bg-red-500/10"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        ))}
+        {passkeys.length === 0 && !adding && <p className="text-xs text-navy/40 dark:text-white/40">No passkeys registered yet.</p>}
+      </div>
+
+      {deletingId && (
+        <div className="rounded-lg border border-red-500/20 p-3 space-y-2">
+          <p className="text-xs font-medium text-navy dark:text-white">Confirm your password to remove this passkey</p>
+          <PasswordInput autoComplete="current-password" value={deletePassword} onChange={(e) => setDeletePassword(e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" placeholder="Current password" />
+          {twoFactorEnabled && (
+            <input type="text" inputMode="numeric" autoComplete="one-time-code" value={deleteCode} onChange={(e) => setDeleteCode(e.target.value)} placeholder="6-digit code" className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" />
+          )}
+          {error && <p className="text-xs text-red-500">{error}</p>}
+          <div className="flex gap-2">
+            <Button type="button" size="sm" variant="danger" disabled={busy || !deletePassword || (twoFactorEnabled && !deleteCode)} onClick={() => handleDelete(deletingId)}>{busy ? "Removing…" : "Remove Passkey"}</Button>
+            <Button type="button" size="sm" variant="secondary" onClick={() => { setDeletingId(null); setError(""); }}>Cancel</Button>
+          </div>
+        </div>
+      )}
+
+      {adding && (
+        <div className="rounded-lg border border-black/5 p-3 space-y-2 dark:border-white/10">
+          {addStep === "confirm" ? (
+            <>
+              <p className="text-xs font-medium text-navy dark:text-white">Confirm your identity to add a passkey</p>
+              <PasswordInput autoComplete="current-password" value={addPassword} onChange={(e) => setAddPassword(e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" placeholder="Current password" />
+              {twoFactorEnabled && (
+                <input type="text" inputMode="numeric" autoComplete="one-time-code" value={addCode} onChange={(e) => setAddCode(e.target.value)} placeholder="6-digit code" className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" />
+              )}
+              {error && <p className="text-xs text-red-500">{error}</p>}
+              <div className="flex gap-2">
+                <Button type="button" size="sm" disabled={busy || !addPassword || (twoFactorEnabled && !addCode)} onClick={handleStartRegistration}>{busy ? "Verifying…" : "Continue"}</Button>
+                <Button type="button" size="sm" variant="secondary" onClick={resetAddFlow}>Cancel</Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="text-xs font-medium text-navy dark:text-white">Name this passkey</p>
+              <input value={addName} onChange={(e) => setAddName(e.target.value)} placeholder="e.g. Windows Hello, iPhone" autoFocus className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" />
+              {error && <p className="text-xs text-red-500">{error}</p>}
+              <div className="flex gap-2">
+                <Button type="button" size="sm" disabled={busy || !addName.trim()} onClick={handleCompleteRegistration}>{busy ? "Registering…" : "Register Device"}</Button>
+                <Button type="button" size="sm" variant="secondary" onClick={resetAddFlow}>Cancel</Button>
+              </div>
+            </>
+          )}
+        </div>
       )}
     </div>
   );
@@ -512,6 +812,8 @@ function SettingsContent() {
           <Card>
             <CardHeader><CardTitle>Appearance</CardTitle></CardHeader>
             <CardContent className="space-y-5">
+              <InstallAppSection />
+
               <div className="rounded-lg border border-black/10 p-4 dark:border-white/10">
                 <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Theme</label>
                 <div className="grid grid-cols-3 gap-3">
@@ -731,6 +1033,7 @@ function SettingsContent() {
               </div>
               <ChangeUidSection />
               <TwoFactorSection />
+              <PasskeySection />
               <div>
                 <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Session Timeout (minutes)</label>
                 <input type="number" value={Number(sec.sessionTimeout ?? 30)} onChange={(e) => handleNestedChange("security", "sessionTimeout", Number(e.target.value))} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" min={1} />

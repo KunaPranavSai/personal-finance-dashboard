@@ -4,6 +4,7 @@ import { Providers } from "./providers";
 import { Preloader } from "@/components/Preloader";
 import { AntiTamperGuard } from "@/components/AntiTamperGuard";
 import { ServiceWorkerUpdatePrompt } from "@/components/pwa/ServiceWorkerUpdatePrompt";
+import { PwaInstallCapture } from "@/components/pwa/PwaInstallCapture";
 
 export const metadata: Metadata = {
   title: "Penny Pilot",
@@ -53,6 +54,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <Preloader />
         <AntiTamperGuard />
+        <PwaInstallCapture />
         <ServiceWorkerUpdatePrompt />
         <Providers>{children}</Providers>
       </body>

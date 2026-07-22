@@ -7,11 +7,23 @@ import { generateSecret, generateURI, verify as verifyTotp } from "otplib";
 import QRCode from "qrcode";
 import { asyncHandler } from "../utils/asyncHandler";
 import { prisma } from "../lib/prisma";
-import { authenticate, requireRole, AuthPayload } from "../middleware/auth";
+import { authenticate, requireRole, requireRecent2FA, AuthPayload } from "../middleware/auth";
 import { getSessionVersion, bumpSessionVersion } from "../lib/sessionVersion";
 import { logActivity } from "../lib/activityLog";
 import { notifySecurityEvent, notifyAdmins, sendEmail, createNotification } from "../lib/notify";
 import { seedDefaultDataForUser } from "../lib/startup";
+import { RP_ID, RP_NAME, RP_ORIGINS } from "../lib/webauthn";
+import {
+  generateRegistrationOptions,
+  verifyRegistrationResponse,
+  generateAuthenticationOptions,
+  verifyAuthenticationResponse,
+} from "@simplewebauthn/server";
+import type {
+  RegistrationResponseJSON,
+  AuthenticationResponseJSON,
+  AuthenticatorTransportFuture,
+} from "@simplewebauthn/server";
 import {
   WELCOME_EMAIL_HTML, REJECTION_EMAIL_HTML, PASSWORD_RESET_BY_ADMIN_EMAIL_HTML,
   UID_RESET_BY_ADMIN_EMAIL_HTML, ACCOUNT_UPDATED_BY_ADMIN_EMAIL_HTML,
@@ -49,12 +61,17 @@ const MAX_LOGIN_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes
 const MAX_OTP_ATTEMPTS = 5;
 
-function signAccess(user: Pick<User, "id" | "uid" | "role">, sv: number) {
-  return jwt.sign({ userId: user.id, uid: user.uid, role: user.role, sv }, ACCESS_SECRET, { expiresIn: ACCESS_TOKEN_TTL });
+interface TfaClaims {
+  tfaEnabled?: boolean;
+  tfaVerifiedAt?: number;
 }
 
-function signRefresh(user: Pick<User, "id" | "uid" | "role">, sv: number) {
-  return jwt.sign({ userId: user.id, uid: user.uid, role: user.role, sv }, REFRESH_SECRET, { expiresIn: REFRESH_TOKEN_TTL });
+function signAccess(user: Pick<User, "id" | "uid" | "role">, sv: number, tfa?: TfaClaims) {
+  return jwt.sign({ userId: user.id, uid: user.uid, role: user.role, sv, ...tfa }, ACCESS_SECRET, { expiresIn: ACCESS_TOKEN_TTL });
+}
+
+function signRefresh(user: Pick<User, "id" | "uid" | "role">, sv: number, tfa?: TfaClaims) {
+  return jwt.sign({ userId: user.id, uid: user.uid, role: user.role, sv, ...tfa }, REFRESH_SECRET, { expiresIn: REFRESH_TOKEN_TTL });
 }
 
 function setTokenCookies(res: Response, accessToken: string, refreshToken: string) {
@@ -333,7 +350,8 @@ router.post(
       return;
     }
     const sv = bumpSessionVersion(user.id);
-    setTokenCookies(res, signAccess(user, sv), signRefresh(user, sv));
+    const tfa = { tfaEnabled: true, tfaVerifiedAt: Date.now() };
+    setTokenCookies(res, signAccess(user, sv, tfa), signRefresh(user, sv, tfa));
     void prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
     void createNotification(user.id, "security", "New sign-in", "Your account was signed in with two-factor authentication.");
     res.json({ user: toUserJson(user) });
@@ -399,6 +417,12 @@ router.post(
         twoFactorBackupCodes: hashedBackupCodes,
       },
     });
+    // Reissue tokens immediately with tfaEnabled/tfaVerifiedAt set — otherwise the
+    // stale claim in their current token would say tfaEnabled:false until it next
+    // refreshes, and requireRecent2FA wouldn't know to start the 12h window yet.
+    const sv = getSessionVersion(user.id);
+    const tfa = { tfaEnabled: true, tfaVerifiedAt: Date.now() };
+    setTokenCookies(res, signAccess(user, sv, tfa), signRefresh(user, sv, tfa));
     void logActivity(req, "2fa_enabled", "Two-factor authentication enabled", user.id);
     void notifySecurityEvent(user.id, "security", "2FA enabled", "Two-factor authentication was enabled on your account.");
     res.json({ ok: true, backupCodes });
@@ -410,6 +434,7 @@ router.post(
   "/2fa/disable",
   loginLimiter,
   authenticate,
+  requireRecent2FA,
   asyncHandler(async (req: Request, res: Response) => {
     const { password, code } = req.body as { password?: string; code?: string };
     if (!password || !code) {
@@ -439,8 +464,43 @@ router.post(
       where: { id: user.id },
       data: { twoFactorEnabled: false, twoFactorSecret: null, twoFactorPendingSecret: null, twoFactorBackupCodes: [] },
     });
+    const sv = getSessionVersion(user.id);
+    setTokenCookies(res, signAccess(user, sv, { tfaEnabled: false }), signRefresh(user, sv, { tfaEnabled: false }));
     void logActivity(req, "2fa_disabled", "Two-factor authentication disabled", user.id);
     void notifySecurityEvent(user.id, "security", "2FA disabled", "Two-factor authentication was disabled on your account.");
+    res.json({ ok: true });
+  })
+);
+
+// ─── POST /api/auth/2fa/reverify ─────────────────────────────────────────────
+// Step-up re-authentication: proves the user still has their authenticator
+// without asking for their password again. Used by requireRecent2FA's 12h
+// window on sensitive routes (export, backup/restore, profile, security,
+// password/UID changes). No-op for accounts without 2FA enabled.
+router.post(
+  "/2fa/reverify",
+  loginLimiter,
+  authenticate,
+  asyncHandler(async (req: Request, res: Response) => {
+    const { code } = req.body as { code?: string };
+    if (!code) {
+      res.status(400).json({ error: "Verification code is required" });
+      return;
+    }
+    const user = await prisma.user.findUnique({ where: { id: req.auth!.userId } });
+    if (!user?.twoFactorEnabled) {
+      res.status(400).json({ error: "Two-factor authentication is not enabled on this account" });
+      return;
+    }
+    const valid = await verifyTwoFactorCode(user.id, user, code);
+    if (!valid) {
+      void logActivity(req, "login_failed", "Invalid 2FA re-verification code", user.id);
+      res.status(401).json({ error: "Invalid verification code" });
+      return;
+    }
+    const sv = getSessionVersion(user.id);
+    const tfa = { tfaEnabled: true, tfaVerifiedAt: Date.now() };
+    setTokenCookies(res, signAccess(user, sv, tfa), signRefresh(user, sv, tfa));
     res.json({ ok: true });
   })
 );
@@ -449,6 +509,7 @@ router.post(
 router.post(
   "/change-uid",
   authenticate,
+  requireRecent2FA,
   asyncHandler(async (req: Request, res: Response) => {
     const { password, newUid } = req.body as { password?: string; newUid?: string };
     if (!password || !newUid) {
@@ -482,7 +543,8 @@ router.post(
     }
     const updated = await prisma.user.update({ where: { id: user.id }, data: { uid: trimmed } });
     const sv = bumpSessionVersion(updated.id);
-    setTokenCookies(res, signAccess(updated, sv), signRefresh(updated, sv));
+    const tfa: TfaClaims = { tfaEnabled: req.auth!.tfaEnabled, tfaVerifiedAt: req.auth!.tfaVerifiedAt };
+    setTokenCookies(res, signAccess(updated, sv, tfa), signRefresh(updated, sv, tfa));
     void logActivity(req, "uid_changed", `UID changed from ${user.uid} to ${trimmed}`, user.id);
     void notifySecurityEvent(user.id, "security", "User ID changed", `Your sign-in User ID was changed to "${trimmed}".`);
     res.json({ ok: true, uid: trimmed });
@@ -651,7 +713,10 @@ router.post(
         res.status(401).json({ error: "Account no longer active" });
         return;
       }
-      setTokenCookies(res, signAccess(user, payload.sv), signRefresh(user, payload.sv));
+      // Re-derive tfaEnabled from the DB for freshness, but carry forward
+      // tfaVerifiedAt from the old token so refreshing never resets the 12h clock.
+      const tfa: TfaClaims = { tfaEnabled: user.twoFactorEnabled, tfaVerifiedAt: payload.tfaVerifiedAt };
+      setTokenCookies(res, signAccess(user, payload.sv, tfa), signRefresh(user, payload.sv, tfa));
       res.json({ user: toUserJson(user) });
     } catch {
       res.clearCookie("access_token", { path: "/" });
@@ -680,6 +745,7 @@ router.patch(
   "/change-password",
   loginLimiter,
   authenticate,
+  requireRecent2FA,
   asyncHandler(async (req: Request, res: Response) => {
     const { currentPassword, newPassword } = req.body as {
       currentPassword?: string;
@@ -1056,6 +1122,283 @@ router.delete(
     await prisma.user.delete({ where: { id } });
     void logActivity(req, "user_deleted", `Deleted ${target.email}`, req.auth!.userId);
     res.json({ ok: true, message: `${target.name}'s account has been permanently deleted.` });
+  })
+);
+
+// ─── PASSKEYS (WebAuthn) ─────────────────────────────────────────────────────
+// Registration/authentication challenges are handed to the client as a
+// short-lived signed JWT (same pattern as CHALLENGE_TOKEN_TTL above) rather
+// than server-side session state, so this works statelessly across restarts
+// and multiple instances.
+const PASSKEY_CHALLENGE_TTL = 5 * 60; // 5 minutes
+
+interface PasskeyChallengePayload {
+  purpose: "passkey-register" | "passkey-login";
+  challenge: string;
+  userId?: string; // present for registration; absent for usernameless login
+}
+
+function signPasskeyChallenge(payload: PasskeyChallengePayload): string {
+  return jwt.sign(payload, ACCESS_SECRET, { expiresIn: PASSKEY_CHALLENGE_TTL });
+}
+
+function readPasskeyChallenge(token: string): PasskeyChallengePayload {
+  return jwt.verify(token, ACCESS_SECRET) as PasskeyChallengePayload;
+}
+
+// POST /api/auth/passkey/register/options — start enrolling a new passkey.
+// Requires the account password (and current 2FA code, if enabled) so an
+// attacker with a hijacked session can't silently add a persistent backdoor credential.
+router.post(
+  "/passkey/register/options",
+  loginLimiter,
+  authenticate,
+  asyncHandler(async (req: Request, res: Response) => {
+    const { password, code } = req.body as { password?: string; code?: string };
+    if (!password) {
+      res.status(400).json({ error: "Password is required" });
+      return;
+    }
+    const user = await prisma.user.findUnique({ where: { id: req.auth!.userId }, include: { passkeys: true } });
+    if (!user?.passwordHash || !(await bcrypt.compare(password, user.passwordHash))) {
+      res.status(401).json({ error: "Incorrect password" });
+      return;
+    }
+    if (user.twoFactorEnabled) {
+      if (!code || !(await verifyTwoFactorCode(user.id, user, code))) {
+        res.status(401).json({ error: "Invalid or missing verification code" });
+        return;
+      }
+    }
+    const options = await generateRegistrationOptions({
+      rpName: RP_NAME,
+      rpID: RP_ID,
+      userName: user.uid,
+      userDisplayName: user.name,
+      userID: new TextEncoder().encode(user.id),
+      attestationType: "none",
+      excludeCredentials: user.passkeys.map((p) => ({
+        id: p.credentialId,
+        transports: p.transports as AuthenticatorTransportFuture[],
+      })),
+      authenticatorSelection: { residentKey: "preferred", userVerification: "preferred" },
+    });
+    const challengeToken = signPasskeyChallenge({ purpose: "passkey-register", challenge: options.challenge, userId: user.id });
+    res.json({ options, challengeToken });
+  })
+);
+
+// POST /api/auth/passkey/register/verify — complete enrollment and store the credential.
+router.post(
+  "/passkey/register/verify",
+  loginLimiter,
+  authenticate,
+  asyncHandler(async (req: Request, res: Response) => {
+    const { response, challengeToken, name } = req.body as {
+      response?: RegistrationResponseJSON;
+      challengeToken?: string;
+      name?: string;
+    };
+    if (!response || !challengeToken || !name?.trim()) {
+      res.status(400).json({ error: "Missing registration response" });
+      return;
+    }
+    let payload: PasskeyChallengePayload;
+    try {
+      payload = readPasskeyChallenge(challengeToken);
+    } catch {
+      res.status(400).json({ error: "Registration challenge expired. Please try again." });
+      return;
+    }
+    if (payload.purpose !== "passkey-register" || payload.userId !== req.auth!.userId) {
+      res.status(400).json({ error: "Invalid registration challenge." });
+      return;
+    }
+    let verification;
+    try {
+      verification = await verifyRegistrationResponse({
+        response,
+        expectedChallenge: payload.challenge,
+        expectedOrigin: RP_ORIGINS,
+        expectedRPID: RP_ID,
+      });
+    } catch {
+      res.status(400).json({ error: "Could not verify passkey registration." });
+      return;
+    }
+    if (!verification.verified || !verification.registrationInfo) {
+      res.status(400).json({ error: "Could not verify passkey registration." });
+      return;
+    }
+    const { credential, credentialDeviceType, credentialBackedUp } = verification.registrationInfo;
+    await prisma.passkey.create({
+      data: {
+        userId: req.auth!.userId,
+        credentialId: credential.id,
+        publicKey: Buffer.from(credential.publicKey).toString("base64url"),
+        counter: BigInt(credential.counter),
+        deviceType: credentialDeviceType,
+        backedUp: credentialBackedUp,
+        transports: credential.transports ?? [],
+        name: name.trim().slice(0, 60),
+      },
+    });
+    void logActivity(req, "passkey_registered", `Passkey "${name.trim().slice(0, 60)}" registered`, req.auth!.userId);
+    void notifySecurityEvent(req.auth!.userId, "security", "Passkey added", `A new passkey ("${name.trim().slice(0, 60)}") was registered on your account.`);
+    res.json({ ok: true });
+  })
+);
+
+// GET /api/auth/passkey — list the current user's registered passkeys.
+router.get(
+  "/passkey",
+  authenticate,
+  asyncHandler(async (req: Request, res: Response) => {
+    const passkeys = await prisma.passkey.findMany({
+      where: { userId: req.auth!.userId },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, name: true, deviceType: true, backedUp: true, transports: true, lastUsedAt: true, createdAt: true },
+    });
+    res.json({ passkeys });
+  })
+);
+
+// PATCH /api/auth/passkey/:id — rename a passkey.
+router.patch(
+  "/passkey/:id",
+  authenticate,
+  asyncHandler(async (req: Request, res: Response) => {
+    const { name } = req.body as { name?: string };
+    if (!name?.trim()) {
+      res.status(400).json({ error: "Name is required" });
+      return;
+    }
+    const passkey = await prisma.passkey.findUnique({ where: { id: String(req.params.id) } });
+    if (!passkey || passkey.userId !== req.auth!.userId) {
+      res.status(404).json({ error: "Passkey not found" });
+      return;
+    }
+    await prisma.passkey.update({ where: { id: passkey.id }, data: { name: name.trim().slice(0, 60) } });
+    res.json({ ok: true });
+  })
+);
+
+// DELETE /api/auth/passkey/:id — remove a passkey. Same password (+2FA) bar as enrollment.
+router.delete(
+  "/passkey/:id",
+  loginLimiter,
+  authenticate,
+  asyncHandler(async (req: Request, res: Response) => {
+    const { password, code } = req.body as { password?: string; code?: string };
+    if (!password) {
+      res.status(400).json({ error: "Password is required" });
+      return;
+    }
+    const user = await prisma.user.findUnique({ where: { id: req.auth!.userId } });
+    if (!user?.passwordHash || !(await bcrypt.compare(password, user.passwordHash))) {
+      res.status(401).json({ error: "Incorrect password" });
+      return;
+    }
+    if (user.twoFactorEnabled) {
+      if (!code || !(await verifyTwoFactorCode(user.id, user, code))) {
+        res.status(401).json({ error: "Invalid or missing verification code" });
+        return;
+      }
+    }
+    const passkey = await prisma.passkey.findUnique({ where: { id: String(req.params.id) } });
+    if (!passkey || passkey.userId !== req.auth!.userId) {
+      res.status(404).json({ error: "Passkey not found" });
+      return;
+    }
+    await prisma.passkey.delete({ where: { id: passkey.id } });
+    void logActivity(req, "passkey_removed", `Passkey "${passkey.name}" removed`, req.auth!.userId);
+    void notifySecurityEvent(req.auth!.userId, "security", "Passkey removed", `The passkey "${passkey.name}" was removed from your account.`);
+    res.json({ ok: true });
+  })
+);
+
+// POST /api/auth/passkey/login/options — start a usernameless ("discoverable
+// credential") passkey sign-in. No uid needed: the authenticator itself
+// surfaces which of the user's stored passkeys apply to this site.
+router.post(
+  "/passkey/login/options",
+  loginLimiter,
+  asyncHandler(async (_req: Request, res: Response) => {
+    const options = await generateAuthenticationOptions({
+      rpID: RP_ID,
+      userVerification: "preferred",
+    });
+    const challengeToken = signPasskeyChallenge({ purpose: "passkey-login", challenge: options.challenge });
+    res.json({ options, challengeToken });
+  })
+);
+
+// POST /api/auth/passkey/login/verify — complete passkey sign-in and issue session tokens.
+router.post(
+  "/passkey/login/verify",
+  loginLimiter,
+  asyncHandler(async (req: Request, res: Response) => {
+    const { response, challengeToken } = req.body as { response?: AuthenticationResponseJSON; challengeToken?: string };
+    if (!response || !challengeToken) {
+      res.status(400).json({ error: "Missing authentication response" });
+      return;
+    }
+    let payload: PasskeyChallengePayload;
+    try {
+      payload = readPasskeyChallenge(challengeToken);
+    } catch {
+      res.status(400).json({ error: "Sign-in challenge expired. Please try again." });
+      return;
+    }
+    if (payload.purpose !== "passkey-login") {
+      res.status(400).json({ error: "Invalid sign-in challenge." });
+      return;
+    }
+    const passkey = await prisma.passkey.findUnique({ where: { credentialId: response.id } });
+    if (!passkey) {
+      res.status(401).json({ error: "This passkey is not registered with any account." });
+      return;
+    }
+    const user = await prisma.user.findUnique({ where: { id: passkey.userId } });
+    if (!user || user.status !== "ACTIVE") {
+      res.status(403).json({ error: "This account is not available for sign-in." });
+      return;
+    }
+    let verification;
+    try {
+      verification = await verifyAuthenticationResponse({
+        response,
+        expectedChallenge: payload.challenge,
+        expectedOrigin: RP_ORIGINS,
+        expectedRPID: RP_ID,
+        credential: {
+          id: passkey.credentialId,
+          publicKey: new Uint8Array(Buffer.from(passkey.publicKey, "base64url")),
+          counter: Number(passkey.counter),
+          transports: passkey.transports as AuthenticatorTransportFuture[],
+        },
+      });
+    } catch {
+      res.status(401).json({ error: "Could not verify passkey sign-in." });
+      return;
+    }
+    if (!verification.verified) {
+      res.status(401).json({ error: "Could not verify passkey sign-in." });
+      return;
+    }
+    await prisma.passkey.update({
+      where: { id: passkey.id },
+      data: { counter: BigInt(verification.authenticationInfo.newCounter), lastUsedAt: new Date() },
+    });
+    const sv = bumpSessionVersion(user.id);
+    // A successful WebAuthn assertion is itself strong, device-bound, user-verified proof
+    // of identity — for accounts with 2FA enabled we treat it as satisfying the recent-2FA
+    // window too (same trust level as a fresh TOTP check), so it starts its own 12h clock.
+    const tfa: TfaClaims = user.twoFactorEnabled ? { tfaEnabled: true, tfaVerifiedAt: Date.now() } : { tfaEnabled: false };
+    setTokenCookies(res, signAccess(user, sv, tfa), signRefresh(user, sv, tfa));
+    void prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
+    void createNotification(user.id, "security", "New sign-in", "Your account was signed in with a passkey.");
+    res.json({ user: toUserJson(user) });
   })
 );
 

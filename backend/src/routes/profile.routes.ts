@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { asyncHandler } from "../utils/asyncHandler";
 import { prisma } from "../lib/prisma";
+import { requireRecent2FA } from "../middleware/auth";
 import { z } from "zod";
 
 const defaultProfile = {
@@ -126,6 +127,7 @@ router.get(
 
 router.patch(
   "/",
+  requireRecent2FA,
   asyncHandler(async (req, res) => {
     const data = updateProfileSchema.parse(req.body);
     const updated = await updateProfile(req.auth!.userId, data);

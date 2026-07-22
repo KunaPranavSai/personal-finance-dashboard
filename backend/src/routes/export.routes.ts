@@ -6,6 +6,7 @@ import { generateExcel } from "../services/export/excelExporter";
 import { generateJSON } from "../services/export/jsonExporter";
 import { generatePDF } from "../services/export/pdfExporter";
 import { prisma } from "../lib/prisma";
+import { requireRecent2FA } from "../middleware/auth";
 
 const router = Router();
 
@@ -52,6 +53,7 @@ router.get(
 
 router.get(
   "/",
+  requireRecent2FA,
   asyncHandler(async (req: Request, res: Response) => {
     const format = (req.query.format as string)?.toLowerCase() ?? "csv";
     const allowed = ["csv", "xlsx", "json", "pdf"];

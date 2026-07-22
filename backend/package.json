@@ -16,6 +16,7 @@
   "license": "MIT",
   "dependencies": {
     "@prisma/client": "^6.16.2",
+    "@simplewebauthn/server": "^13.3.2",
     "archiver": "^8.0.0",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",

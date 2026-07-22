@@ -14,29 +14,25 @@ import Image from "next/image";
 import { QuickActions } from "./QuickActions";
 
 function SessionCountdown() {
-  const { sessionTimeoutMinutes, lastActivity } = useAuth();
-  const [now, setNow] = useState(Date.now());
+  const { sessionTimeoutMinutes, sessionSecondsRemaining, sessionState } = useAuth();
 
-  useEffect(() => {
-    const iv = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(iv);
-  }, []);
+  if (!sessionTimeoutMinutes || sessionTimeoutMinutes <= 0 || !Number.isFinite(sessionSecondsRemaining)) return null;
 
-  if (!sessionTimeoutMinutes || sessionTimeoutMinutes <= 0) return null;
-
-  const remainingMs = Math.max(0, sessionTimeoutMinutes * 60 * 1000 - (now - lastActivity));
-  const totalSeconds = Math.floor(remainingMs / 1000);
+  const totalSeconds = Math.max(0, sessionSecondsRemaining);
   const mm = Math.floor(totalSeconds / 60);
   const ss = totalSeconds % 60;
-  const isLow = totalSeconds <= 60;
 
   return (
     <div
       className={cn(
         "flex h-9 shrink-0 items-center gap-1 rounded-lg px-1.5 text-[11px] font-medium tabular-nums sm:gap-1.5 sm:px-2.5 sm:text-xs",
-        isLow ? "bg-amber-500/10 text-amber-600 dark:text-amber-400" : "bg-black/5 text-navy/50 dark:bg-white/5 dark:text-white/40"
+        sessionState === "critical"
+          ? "bg-red-500/10 text-red-600 dark:text-red-400"
+          : sessionState === "warning"
+          ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+          : "bg-black/5 text-navy/50 dark:bg-white/5 dark:text-white/40"
       )}
-      title="Time until session auto-logout"
+      title={sessionState === "warning" ? "Your session will expire soon." : "Time until session auto-logout"}
     >
       <Clock className="h-3.5 w-3.5 shrink-0" />
       {String(mm).padStart(2, "0")}:{String(ss).padStart(2, "0")}
