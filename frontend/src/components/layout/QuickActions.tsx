@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -20,7 +20,9 @@ export function QuickActions() {
   const router = useRouter();
   const { quickAddType, openQuickAdd } = useUiStore();
   const [fabOpen, setFabOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   // The topbar this renders inside uses backdrop-blur, which (per spec)
   // creates a new containing block for fixed-position descendants — without
@@ -29,8 +31,18 @@ export function QuickActions() {
   // of the screen on mobile instead of floating over the page.
   useEffect(() => setMounted(true), []);
 
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [menuOpen]);
+
   const handleAction = (key: (typeof ACTIONS)[number]["key"]) => {
     setFabOpen(false);
+    setMenuOpen(false);
     if (key === "expense") openQuickAdd("EXPENSE");
     else if (key === "income") openQuickAdd("INCOME");
     else if (key === "budget") router.push("/budget");
@@ -81,17 +93,42 @@ export function QuickActions() {
 
   return (
     <>
-      {/* Desktop: top action buttons */}
-      <div className="hidden items-center gap-2 lg:flex">
-        {ACTIONS.map((action) => (
-          <button
-            key={action.key}
-            onClick={() => handleAction(action.key)}
-            className="flex items-center gap-1.5 rounded-lg border border-black/10 px-3 py-1.5 text-xs font-semibold text-navy/70 transition-colors hover:bg-black/5 dark:border-white/10 dark:text-white/70 dark:hover:bg-white/5"
-          >
-            <Plus className="h-3.5 w-3.5" /> {action.label}
-          </button>
-        ))}
+      {/* Desktop: single expandable "+" button, same idea as the mobile FAB */}
+      <div ref={menuRef} className="relative hidden lg:block">
+        <button
+          onClick={() => setMenuOpen((v) => !v)}
+          aria-label={menuOpen ? "Close quick actions" : "Open quick actions"}
+          aria-expanded={menuOpen}
+          className="flex h-9 w-9 items-center justify-center rounded-full bg-teal text-white shadow-sm transition-transform hover:brightness-110 active:scale-95"
+        >
+          <motion.span animate={{ rotate: menuOpen ? 135 : 0 }} transition={{ duration: 0.2 }}>
+            <Plus className="h-4.5 w-4.5" />
+          </motion.span>
+        </button>
+        <AnimatePresence>
+          {menuOpen && (
+            <motion.div
+              initial={{ opacity: 0, y: -6, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -6, scale: 0.96 }}
+              transition={{ duration: 0.15 }}
+              className="absolute right-0 top-full z-40 mt-2 w-44 overflow-hidden rounded-xl border border-black/10 bg-white py-1 shadow-xl dark:border-white/10 dark:bg-navy-dark"
+            >
+              {ACTIONS.map((action) => (
+                <button
+                  key={action.key}
+                  onClick={() => handleAction(action.key)}
+                  className="flex w-full items-center gap-2.5 px-3 py-2 text-sm font-medium text-navy transition-colors hover:bg-black/5 dark:text-white dark:hover:bg-white/5"
+                >
+                  <span className={cn("flex h-7 w-7 items-center justify-center rounded-full text-white", action.color)}>
+                    <action.icon className="h-3.5 w-3.5" />
+                  </span>
+                  {action.label}
+                </button>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {mounted ? createPortal(floatingUi, document.body) : null}

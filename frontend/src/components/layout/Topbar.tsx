@@ -33,12 +33,12 @@ function SessionCountdown() {
   return (
     <div
       className={cn(
-        "hidden h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium tabular-nums sm:flex",
+        "flex h-9 shrink-0 items-center gap-1 rounded-lg px-1.5 text-[11px] font-medium tabular-nums sm:gap-1.5 sm:px-2.5 sm:text-xs",
         isLow ? "bg-amber-500/10 text-amber-600 dark:text-amber-400" : "bg-black/5 text-navy/50 dark:bg-white/5 dark:text-white/40"
       )}
       title="Time until session auto-logout"
     >
-      <Clock className="h-3.5 w-3.5" />
+      <Clock className="h-3.5 w-3.5 shrink-0" />
       {String(mm).padStart(2, "0")}:{String(ss).padStart(2, "0")}
     </div>
   );
@@ -109,7 +109,7 @@ export function Topbar({ title }: { title: string }) {
   const avatarSrc = profile?.avatar || null;
 
   return (
-    <header className="flex h-14 shrink-0 items-center justify-between border-b border-black/5 bg-white/80 px-3 backdrop-blur dark:border-white/10 dark:bg-navy-dark/80 sm:h-16 lg:px-6">
+    <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between border-b border-black/5 bg-white/80 px-3 backdrop-blur dark:border-white/10 dark:bg-navy-dark/80 sm:h-16 lg:px-6">
       <div className="flex items-center gap-2 min-w-0 sm:gap-3">
         <button
           onClick={toggleSidebar}

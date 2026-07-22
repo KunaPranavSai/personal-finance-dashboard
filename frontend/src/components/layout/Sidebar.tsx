@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
   LayoutDashboard, Wallet, PiggyBank, Target,
   Receipt, TrendingUp, TrendingDown, BarChart3, FileText, Bell, User, X, Landmark,
@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/format";
 import { useUiStore } from "@/store/uiStore";
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, Suspense } from "react";
 
 interface NavGroup {
   id: string;
@@ -85,8 +85,9 @@ const NAV_GROUPS: NavGroup[] = [
   },
 ];
 
-export function Sidebar() {
+function SidebarInner() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { sidebarOpen, setSidebarOpen, sidebarCollapsed, setSidebarCollapsed, collapsedNavGroups, toggleNavGroup } = useUiStore();
 
   useEffect(() => {
@@ -96,8 +97,13 @@ export function Sidebar() {
   const closeSidebar = useCallback(() => setSidebarOpen(false), [setSidebarOpen]);
 
   const isItemActive = (href: string) => {
-    const path = href.split("?")[0];
-    return pathname === path || Boolean(pathname?.startsWith(path + "/"));
+    const [path, query] = href.split("?");
+    if (pathname !== path && !pathname?.startsWith(path + "/")) return false;
+    if (!query) return true;
+    const wantedTab = new URLSearchParams(query).get("tab");
+    if (!wantedTab) return true;
+    // /settings with no ?tab defaults to "general" server-side, so treat that as its match too.
+    return (searchParams.get("tab") ?? "general") === wantedTab;
   };
 
   const sidebarContent = (
@@ -190,5 +196,13 @@ export function Sidebar() {
         {sidebarContent}
       </aside>
     </>
+  );
+}
+
+export function Sidebar() {
+  return (
+    <Suspense fallback={<aside className="hidden w-64 shrink-0 border-r border-black/5 bg-white dark:border-white/10 dark:bg-navy-dark lg:block" />}>
+      <SidebarInner />
+    </Suspense>
   );
 }

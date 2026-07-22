@@ -100,15 +100,20 @@ export function KpiDetailDrawer({ data, onClose }: { data: KpiDetailData | null;
                 <div className="mt-6 space-y-2">
                   <p className="text-xs font-semibold uppercase tracking-wider text-navy/40 dark:text-white/40">Quick Actions</p>
                   {data.actions.map((action) => (
-                    <Link
+                    <div
                       key={action.href}
-                      href={action.href}
-                      onClick={onClose}
-                      className="flex items-center justify-between rounded-lg border border-black/10 px-4 py-3 text-sm font-medium text-navy transition-colors hover:bg-black/5 dark:border-white/10 dark:text-white dark:hover:bg-white/5"
+                      className="flex items-center justify-between rounded-lg border border-black/10 px-4 py-3 text-sm font-medium text-navy dark:border-white/10 dark:text-white"
                     >
                       {action.label}
-                      <ArrowRight className="h-4 w-4 text-navy/40 dark:text-white/40" />
-                    </Link>
+                      <Link
+                        href={action.href}
+                        onClick={onClose}
+                        aria-label={`Go to ${action.label}`}
+                        className="flex h-7 w-7 items-center justify-center rounded-full text-navy/40 transition-colors hover:bg-black/5 hover:text-teal dark:text-white/40 dark:hover:bg-white/10"
+                      >
+                        <ArrowRight className="h-4 w-4" />
+                      </Link>
+                    </div>
                   ))}
                 </div>
               )}

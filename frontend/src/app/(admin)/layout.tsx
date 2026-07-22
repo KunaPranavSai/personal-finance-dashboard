@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { AdminSidebar } from "@/components/layout/AdminSidebar";
+import { SwipeSidebarHandler } from "@/components/layout/SwipeSidebarHandler";
 import { Footer } from "@/components/layout/Footer";
 import { SessionWarningModal } from "@/components/ui/SessionWarningModal";
 import { LockScreen } from "@/components/ui/LockScreen";
@@ -44,6 +45,7 @@ export default function AdminShellLayout({ children }: { children: React.ReactNo
 
   return (
     <div className="flex min-h-screen bg-surface dark:bg-navy-dark">
+      <SwipeSidebarHandler />
       <AdminSidebar />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         {children}
