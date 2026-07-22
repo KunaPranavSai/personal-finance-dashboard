@@ -201,13 +201,13 @@ export default function BillsPage() {
             <div className="min-w-0"><p className="text-xs text-navy/50">Total Bills</p><p className="text-xl font-bold text-navy dark:text-white truncate">{formatCurrency(totalBills, cur)}</p></div>
           </CardContent></Card>
           <Card><CardContent className="flex items-center gap-4 pt-5">
-            <div className="min-w-0"><p className="text-xs text-navy/50">Total Paid</p><p className="text-xl font-bold text-emerald-600 truncate">{formatCurrency(totalPaid, cur)}</p></div>
+            <div className="min-w-0"><p className="text-xs text-navy/50 dark:text-white/50">Total Paid</p><p className="text-xl font-bold text-emerald-600 truncate">{formatCurrency(totalPaid, cur)}</p></div>
           </CardContent></Card>
           <Card><CardContent className="flex items-center gap-4 pt-5">
-            <div className="min-w-0"><p className="text-xs text-navy/50">Upcoming</p><p className="text-xl font-bold text-amber-600 truncate">{upcomingCount}</p></div>
+            <div className="min-w-0"><p className="text-xs text-navy/50 dark:text-white/50">Upcoming</p><p className="text-xl font-bold text-amber-600 truncate">{upcomingCount}</p></div>
           </CardContent></Card>
           <Card><CardContent className="flex items-center gap-4 pt-5">
-            <div className="min-w-0"><p className="text-xs text-navy/50">Overdue</p><p className="text-xl font-bold text-red-600 truncate">{overdueCount}</p></div>
+            <div className="min-w-0"><p className="text-xs text-navy/50 dark:text-white/50">Overdue</p><p className="text-xl font-bold text-red-600 truncate">{overdueCount}</p></div>
           </CardContent></Card>
         </div>
 
@@ -217,7 +217,7 @@ export default function BillsPage() {
               <CardTitle>All Bills & EMI</CardTitle>
               <div className="flex flex-wrap items-center gap-2">
                 <div className="flex items-center gap-1 rounded-lg border border-black/10 px-2 py-1 dark:border-white/10">
-                  <Search className="h-3.5 w-3.5 text-navy/40" />
+                  <Search className="h-3.5 w-3.5 text-navy/40 dark:text-white/40" />
                   <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search..." className="w-24 bg-transparent text-xs outline-none placeholder:text-navy/30 dark:text-white" />
                 </div>
                 <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="rounded-lg border border-black/10 px-2 py-1 text-xs dark:border-white/10 dark:bg-navy-dark dark:text-white">

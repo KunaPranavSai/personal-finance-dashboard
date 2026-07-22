@@ -90,7 +90,7 @@ export default function ReportsPage() {
                           <td className="py-2 font-medium text-navy dark:text-white">{r.month}</td>
                           <td className="py-2 text-emerald-600">{formatCurrency(r.income, cur)}</td>
                           <td className="py-2 text-red-500">{formatCurrency(r.expense, cur)}</td>
-                          <td className="py-2 text-navy/70">{r.count}</td>
+                          <td className="py-2 text-navy/70 dark:text-white/70">{r.count}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -124,7 +124,7 @@ export default function ReportsPage() {
                         <tr key={c.category} className="border-b border-black/5 dark:border-white/5">
                           <td className="py-2 font-medium text-navy dark:text-white">{c.category}</td>
                           <td className="py-2 text-red-500">{formatCurrency(c.total, cur)}</td>
-                          <td className="py-2 text-navy/70">{c.count}</td>
+                          <td className="py-2 text-navy/70 dark:text-white/70">{c.count}</td>
                         </tr>
                       ))}
                     </tbody>

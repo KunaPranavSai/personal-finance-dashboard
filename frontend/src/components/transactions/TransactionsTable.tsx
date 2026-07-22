@@ -53,12 +53,12 @@ export function TransactionsTable({
     <div>
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-2 rounded-lg border border-black/10 px-3 py-2 text-sm dark:border-white/10">
-          <Search className="h-4 w-4 text-navy/40" />
+          <Search className="h-4 w-4 text-navy/40 dark:text-white/40" />
           <input
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(1); }}
             placeholder="Search description, merchant, notes…"
-            className="w-56 bg-transparent outline-none placeholder:text-navy/30"
+            className="w-56 bg-transparent outline-none placeholder:text-navy/30 dark:placeholder:text-white/30"
           />
         </div>
         {!fixedType && (
@@ -113,7 +113,7 @@ export function TransactionsTable({
                     <td className="px-4 py-3 text-navy/70 dark:text-white/70">{formatDateIN(tx.date)}</td>
                     <td className="px-4 py-3 font-medium text-navy dark:text-white">
                       {tx.description}
-                      {tx.merchant && <span className="ml-2 text-xs text-navy/40">· {tx.merchant}</span>}
+                      {tx.merchant && <span className="ml-2 text-xs text-navy/40 dark:text-white/40">· {tx.merchant}</span>}
                     </td>
                     <td className="px-4 py-3">
                       <Badge tone="teal">{tx.category?.name}</Badge>
