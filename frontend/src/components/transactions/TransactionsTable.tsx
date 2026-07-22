@@ -124,12 +124,12 @@ export function TransactionsTable({
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex justify-end gap-1">
-                        <button onClick={() => onEdit(tx)} className="rounded p-1.5 text-navy/40 hover:bg-black/5 hover:text-navy dark:hover:bg-white/10">
+                        <button onClick={() => onEdit(tx)} className="rounded p-1.5 text-navy/40 hover:bg-black/5 hover:text-navy dark:text-white/40 dark:hover:bg-white/10 dark:hover:text-white">
                           <Pencil className="h-3.5 w-3.5" />
                         </button>
                         <button
                           onClick={() => { if (confirm("Delete this transaction?")) deleteMutation.mutate(tx.id); }}
-                          className="rounded p-1.5 text-navy/40 hover:bg-red-50 hover:text-red-600"
+                          className="rounded p-1.5 text-navy/40 hover:bg-red-50 hover:text-red-600 dark:text-white/40 dark:hover:bg-red-500/10"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
@@ -144,7 +144,7 @@ export function TransactionsTable({
           {/* Mobile: compact card list, same data as the table with no horizontal scroll */}
           <div className="flex flex-col gap-2 md:hidden">
             {items.map((tx) => (
-              <div key={tx.id} className="rounded-xl2 border border-black/5 bg-white p-3 dark:border-white/10 dark:bg-navy-dark">
+              <div key={tx.id} className="rounded-xl2 border border-black/5 bg-white p-3 dark:border-white/10 dark:bg-white/5">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium text-navy dark:text-white">{tx.description}</p>
@@ -163,12 +163,12 @@ export function TransactionsTable({
                     )}
                   </div>
                   <div className="flex shrink-0 gap-1">
-                    <button onClick={() => onEdit(tx)} className="rounded p-1.5 text-navy/40 hover:bg-black/5 hover:text-navy dark:hover:bg-white/10" aria-label="Edit">
+                    <button onClick={() => onEdit(tx)} className="rounded p-1.5 text-navy/40 hover:bg-black/5 hover:text-navy dark:text-white/40 dark:hover:bg-white/10 dark:hover:text-white" aria-label="Edit">
                       <Pencil className="h-3.5 w-3.5" />
                     </button>
                     <button
                       onClick={() => { if (confirm("Delete this transaction?")) deleteMutation.mutate(tx.id); }}
-                      className="rounded p-1.5 text-navy/40 hover:bg-red-50 hover:text-red-600"
+                      className="rounded p-1.5 text-navy/40 hover:bg-red-50 hover:text-red-600 dark:text-white/40 dark:hover:bg-red-500/10"
                       aria-label="Delete"
                     >
                       <Trash2 className="h-3.5 w-3.5" />

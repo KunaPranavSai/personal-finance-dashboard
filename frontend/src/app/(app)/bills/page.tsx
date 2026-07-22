@@ -77,7 +77,7 @@ function BillModal({ open, editing, onClose }: {
       <div className="w-full max-w-md rounded-xl2 bg-white p-6 dark:bg-navy-dark max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-navy dark:text-white">{editing ? "Edit" : "Add"} Bill</h2>
-          <button onClick={onClose}><X className="h-5 w-5 text-navy/50" /></button>
+          <button onClick={onClose}><X className="h-5 w-5 text-navy/50 dark:text-white/50" /></button>
         </div>
         <form onSubmit={onSubmit} className="space-y-3">
           <div><label className="text-xs text-navy/50 dark:text-white/50">Name *</label>
@@ -279,8 +279,8 @@ export default function BillsPage() {
                             </td>
                             <td className="py-2">
                               <div className="flex gap-1">
-                                <button onClick={() => { setEditing(b); setModalOpen(true); }} className="rounded-lg p-1.5 hover:bg-black/5"><Pencil className="h-3.5 w-3.5" /></button>
-                                <button onClick={() => { if (confirm("Delete this bill?")) deleteMutation.mutate(b.id); }} className="rounded-lg p-1.5 hover:bg-red-50"><Trash2 className="h-3.5 w-3.5 text-red-500" /></button>
+                                <button onClick={() => { setEditing(b); setModalOpen(true); }} className="rounded-lg p-1.5 text-navy/40 hover:bg-black/5 hover:text-navy dark:text-white/40 dark:hover:bg-white/10 dark:hover:text-white"><Pencil className="h-3.5 w-3.5" /></button>
+                                <button onClick={() => { if (confirm("Delete this bill?")) deleteMutation.mutate(b.id); }} className="rounded-lg p-1.5 hover:bg-red-50 dark:hover:bg-red-500/10"><Trash2 className="h-3.5 w-3.5 text-red-500" /></button>
                               </div>
                             </td>
                           </tr>
@@ -296,7 +296,7 @@ export default function BillsPage() {
                     const isOverdue = dueDate < now && b.paidAmount < b.amount;
                     const isPaid = b.paidAmount >= b.amount;
                     return (
-                      <div key={b.id} className="rounded-xl2 border border-black/5 p-3 dark:border-white/10">
+                      <div key={b.id} className="rounded-xl2 border border-black/5 bg-white p-3 dark:border-white/10 dark:bg-white/5">
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
                             <p className="truncate text-sm font-medium text-navy dark:text-white">{b.name}</p>
@@ -312,8 +312,8 @@ export default function BillsPage() {
                             Due {formatDateIN(b.dueDate)} · Paid {formatCurrency(b.paidAmount, cur)}
                           </span>
                           <div className="flex shrink-0 gap-1">
-                            <button onClick={() => { setEditing(b); setModalOpen(true); }} className="rounded-lg p-1.5 hover:bg-black/5" aria-label="Edit"><Pencil className="h-3.5 w-3.5" /></button>
-                            <button onClick={() => { if (confirm("Delete this bill?")) deleteMutation.mutate(b.id); }} className="rounded-lg p-1.5 hover:bg-red-50" aria-label="Delete"><Trash2 className="h-3.5 w-3.5 text-red-500" /></button>
+                            <button onClick={() => { setEditing(b); setModalOpen(true); }} className="rounded-lg p-1.5 text-navy/40 hover:bg-black/5 hover:text-navy dark:text-white/40 dark:hover:bg-white/10 dark:hover:text-white" aria-label="Edit"><Pencil className="h-3.5 w-3.5" /></button>
+                            <button onClick={() => { if (confirm("Delete this bill?")) deleteMutation.mutate(b.id); }} className="rounded-lg p-1.5 hover:bg-red-50 dark:hover:bg-red-500/10" aria-label="Delete"><Trash2 className="h-3.5 w-3.5 text-red-500" /></button>
                           </div>
                         </div>
                       </div>
