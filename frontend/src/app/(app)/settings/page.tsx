@@ -416,7 +416,7 @@ function ActivityTab() {
 
             <div className="flex flex-col gap-2 md:hidden">
               {items.map((a) => (
-                <div key={a.id} className="rounded-xl2 border border-black/5 p-3 dark:border-white/10">
+                <div key={a.id} className="rounded-xl2 border border-black/5 bg-white p-3 dark:border-white/10 dark:bg-white/5">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium text-navy dark:text-white">{EVENT_LABELS[a.event] ?? a.event}</p>
