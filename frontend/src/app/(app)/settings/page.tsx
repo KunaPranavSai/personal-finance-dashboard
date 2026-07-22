@@ -280,7 +280,7 @@ function TwoFactorSection() {
     <div className="flex items-center justify-between">
       <div>
         <p className="text-sm font-medium text-navy dark:text-white">Two-Factor Authentication</p>
-        <p className="text-xs text-navy/50">{twoFactorEnabled ? "Enabled — your account requires a code at sign-in" : "Add an extra layer of security"}</p>
+        <p className="text-xs text-navy/50 dark:text-white/50">{twoFactorEnabled ? "Enabled — your account requires a code at sign-in" : "Add an extra layer of security"}</p>
       </div>
       {twoFactorEnabled ? (
         <Button type="button" size="sm" variant="secondary" onClick={() => setStep("disable")}>Disable</Button>

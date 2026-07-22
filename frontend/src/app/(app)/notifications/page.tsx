@@ -99,7 +99,7 @@ export default function NotificationsPage() {
                     <div className="flex gap-1">
                       {!n.read && (
                         <button onClick={() => markReadMutation.mutate(n.id)} className="rounded-lg p-1.5 hover:bg-black/5 dark:hover:bg-white/10" aria-label="Mark as read">
-                          <CheckCheck className="h-4 w-4 text-navy/40" />
+                          <CheckCheck className="h-4 w-4 text-navy/40 dark:text-white/40" />
                         </button>
                       )}
                       <button onClick={() => deleteMutation.mutate(n.id)} className="rounded-lg p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20" aria-label="Delete notification">

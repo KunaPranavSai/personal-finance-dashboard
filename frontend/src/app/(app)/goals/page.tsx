@@ -61,7 +61,7 @@ function GoalModal({ open, editing, onClose }: {
       <div className="w-full max-w-md rounded-xl2 bg-white p-6 dark:bg-navy-dark max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-navy dark:text-white">{editing ? "Edit" : "Add"} Goal</h2>
-          <button onClick={onClose}><X className="h-5 w-5 text-navy/50" /></button>
+          <button onClick={onClose}><X className="h-5 w-5 text-navy/50 dark:text-white/50" /></button>
         </div>
         <form onSubmit={onSubmit} className="space-y-3">
           <div><label className="text-xs text-navy/50 dark:text-white/50">Name *</label>
@@ -136,7 +136,7 @@ export default function GoalsPage() {
 
         <div className="mb-4 flex items-center gap-2">
           <div className="flex items-center gap-1 rounded-lg border border-black/10 px-2 py-1 dark:border-white/10">
-            <Search className="h-3.5 w-3.5 text-navy/40" />
+            <Search className="h-3.5 w-3.5 text-navy/40 dark:text-white/40" />
             <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search goals..." className="w-40 bg-transparent text-xs outline-none placeholder:text-navy/30 dark:text-white" />
           </div>
         </div>

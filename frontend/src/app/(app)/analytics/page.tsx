@@ -359,11 +359,11 @@ export default function AnalyticsPage() {
                 </CardContent></Card>
                 <Card><CardContent className="flex items-center gap-3 pt-5">
                   <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10"><TrendingUp className="h-5 w-5 text-emerald-600" /></div>
-                  <div><p className="text-xs text-navy/50">Income</p><p className="text-lg font-bold text-emerald-600">{formatCurrency(data.totalIncome, cur)}</p></div>
+                  <div><p className="text-xs text-navy/50 dark:text-white/50">Income</p><p className="text-lg font-bold text-emerald-600">{formatCurrency(data.totalIncome, cur)}</p></div>
                 </CardContent></Card>
                 <Card><CardContent className="flex items-center gap-3 pt-5">
                   <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-500/10"><TrendingDown className="h-5 w-5 text-red-500" /></div>
-                  <div><p className="text-xs text-navy/50">Expenses</p><p className="text-lg font-bold text-red-500">{formatCurrency(data.totalExpense, cur)}</p></div>
+                  <div><p className="text-xs text-navy/50 dark:text-white/50">Expenses</p><p className="text-lg font-bold text-red-500">{formatCurrency(data.totalExpense, cur)}</p></div>
                 </CardContent></Card>
                 <Card><CardContent className="flex items-center gap-3 pt-5">
                   <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal/10"><Wallet className="h-5 w-5 text-teal" /></div>
@@ -463,7 +463,7 @@ export default function AnalyticsPage() {
                               <td className="py-2 text-emerald-600">{formatCurrency(m.income, cur)}</td>
                               <td className="py-2 text-red-500">{formatCurrency(m.expense, cur)}</td>
                               <td className={cn("py-2 font-medium", m.income - m.expense >= 0 ? "text-emerald-600" : "text-red-500")}>{formatCurrency(m.income - m.expense, cur)}</td>
-                              <td className="py-2 text-navy/70">{m.count}</td>
+                              <td className="py-2 text-navy/70 dark:text-white/70">{m.count}</td>
                             </tr>
                           ))}
                         </tbody>

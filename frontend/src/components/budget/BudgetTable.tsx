@@ -92,7 +92,7 @@ export function BudgetTable({ periodKey }: { periodKey: string }) {
                     }}
                   />
                 </div>
-                <span className="mt-0.5 block text-xs text-navy/40">{formatPercent(b.utilizationPct)}</span>
+                <span className="mt-0.5 block text-xs text-navy/40 dark:text-white/40">{formatPercent(b.utilizationPct)}</span>
               </td>
               <td className="px-4 py-3">
                 <Badge tone={statusTone[b.status]}>{statusLabel[b.status]}</Badge>

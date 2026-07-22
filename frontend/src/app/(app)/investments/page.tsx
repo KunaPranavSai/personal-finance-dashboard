@@ -244,7 +244,7 @@ export default function InvestmentsPage() {
               <CardTitle>All Investments</CardTitle>
               <div className="flex items-center gap-2">
                 <div className="flex items-center gap-1 rounded-lg border border-black/10 px-2 py-1 dark:border-white/10">
-                  <Search className="h-3.5 w-3.5 text-navy/40" />
+                  <Search className="h-3.5 w-3.5 text-navy/40 dark:text-white/40" />
                   <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search..." className="w-28 bg-transparent text-xs outline-none placeholder:text-navy/30 dark:text-white" />
                 </div>
                 <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} className="rounded-lg border border-black/10 px-2 py-1 text-xs dark:border-white/10 dark:bg-navy-dark dark:text-white">

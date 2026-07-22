@@ -192,7 +192,7 @@ export default function ProfilePage() {
                     )}
                     {imageError && avatarUrl && (
                       <div className="flex items-center gap-2">
-                        <UserCircle className="h-16 w-16 text-navy/30" />
+                        <UserCircle className="h-16 w-16 text-navy/30 dark:text-white/30" />
                         <span className="text-xs text-red-500">Invalid or broken URL — showing fallback</span>
                       </div>
                     )}
