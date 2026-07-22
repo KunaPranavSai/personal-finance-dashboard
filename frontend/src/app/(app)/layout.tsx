@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Sidebar } from "@/components/layout/Sidebar";
+import { SwipeSidebarHandler } from "@/components/layout/SwipeSidebarHandler";
 import { Footer } from "@/components/layout/Footer";
 import { DataInit } from "@/components/DataInit";
 import { SessionWarningModal } from "@/components/ui/SessionWarningModal";
@@ -50,6 +51,7 @@ export default function AppShellLayout({ children }: { children: React.ReactNode
   return (
     <div className="flex min-h-screen bg-surface dark:bg-navy-dark">
       <DataInit />
+      <SwipeSidebarHandler />
       <Sidebar />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         {children}
