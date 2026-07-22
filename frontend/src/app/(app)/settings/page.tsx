@@ -384,7 +384,7 @@ function ActivityTab() {
           <p className="py-8 text-center text-sm text-navy/50 dark:text-white/50">No activity recorded yet.</p>
         ) : (
           <>
-            <div className="overflow-x-auto">
+            <div className="hidden overflow-x-auto md:block">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-black/5 dark:border-white/10 text-left text-navy/50 dark:text-white/50">
@@ -412,6 +412,24 @@ function ActivityTab() {
                   ))}
                 </tbody>
               </table>
+            </div>
+
+            <div className="flex flex-col gap-2 md:hidden">
+              {items.map((a) => (
+                <div key={a.id} className="rounded-xl2 border border-black/5 p-3 dark:border-white/10">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-navy dark:text-white">{EVENT_LABELS[a.event] ?? a.event}</p>
+                      {a.detail && <p className="truncate text-xs text-navy/40 dark:text-white/40">{a.detail}</p>}
+                    </div>
+                    <p className="shrink-0 whitespace-nowrap text-xs text-navy/50 dark:text-white/50">{new Date(a.createdAt).toLocaleString()}</p>
+                  </div>
+                  <p className="mt-1.5 text-xs text-navy/40 dark:text-white/40">
+                    {[a.browser, a.os, a.device].filter(Boolean).join(" · ") || "—"}
+                    {a.ip && <span className="ml-1 font-mono">({a.ip})</span>}
+                  </p>
+                </div>
+              ))}
             </div>
             {totalPages > 1 && (
               <div className="mt-4 flex items-center justify-between text-sm">

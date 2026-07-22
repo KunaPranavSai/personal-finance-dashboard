@@ -263,51 +263,85 @@ export default function InvestmentsPage() {
                 actionLabel={items.length === 0 ? "Add Investment" : undefined}
                 onAction={items.length === 0 ? () => { setEditing(null); setModalOpen(true); } : undefined} />
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-black/5 dark:border-white/10 text-left text-navy/50 dark:text-white/50">
-                      <th className="pb-2 font-medium cursor-pointer select-none" onClick={() => toggleSort("name")}>
-                        Instrument <ArrowUpDown className="inline h-3 w-3" />
-                      </th>
-                      <th className="pb-2 font-medium">Category</th>
-                      <th className="pb-2 font-medium">Invested</th>
-                      <th className="pb-2 font-medium cursor-pointer select-none" onClick={() => toggleSort("value")}>
-                        Value <ArrowUpDown className="inline h-3 w-3" />
-                      </th>
-                      <th className="pb-2 font-medium">P&amp;L</th>
-                      <th className="pb-2 font-medium cursor-pointer select-none" onClick={() => toggleSort("monthly")}>
-                        Monthly <ArrowUpDown className="inline h-3 w-3" />
-                      </th>
-                      <th className="pb-2 font-medium cursor-pointer select-none" onClick={() => toggleSort("return")}>
-                        Return <ArrowUpDown className="inline h-3 w-3" />
-                      </th>
-                      <th className="pb-2 font-medium" />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filtered.map((inv) => (
-                      <tr key={inv.id} className="border-b border-black/5 dark:border-white/5">
-                        <td className="py-2 font-medium text-navy dark:text-white truncate max-w-[150px]">{inv.instrument}</td>
-                        <td className="py-2"><Badge tone="gray">{inv.category}</Badge></td>
-                        <td className="py-2 text-navy/70 dark:text-white/70 truncate max-w-[120px]">{formatCurrency(inv.investedAmount, cur)}</td>
-                        <td className="py-2 text-navy dark:text-white truncate max-w-[120px]">{formatCurrency(inv.currentValue, cur)}</td>
-                        <td className={`py-2 truncate max-w-[120px] font-medium ${inv.currentValue - inv.investedAmount >= 0 ? "text-emerald-600" : "text-red-600"}`}>
-                          {inv.currentValue - inv.investedAmount >= 0 ? "+" : ""}{formatCurrency(inv.currentValue - inv.investedAmount, cur)}
-                        </td>
-                        <td className="py-2 text-navy/70 dark:text-white/70">{formatCurrency(inv.monthlyContribution, cur)}</td>
-                        <td className="py-2">{formatPercent(inv.annualReturnPct / 100)}</td>
-                        <td className="py-2">
-                          <div className="flex gap-1">
-                            <button onClick={() => { setEditing(inv); setModalOpen(true); }} className="rounded-lg p-1.5 hover:bg-black/5 dark:hover:bg-white/10"><Pencil className="h-3.5 w-3.5" /></button>
-                            <button onClick={() => { if (confirm("Delete this investment?")) deleteMutation.mutate(inv.id); }} className="rounded-lg p-1.5 hover:bg-red-50"><Trash2 className="h-3.5 w-3.5 text-red-500" /></button>
-                          </div>
-                        </td>
+              <>
+                <div className="hidden overflow-x-auto md:block">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-black/5 dark:border-white/10 text-left text-navy/50 dark:text-white/50">
+                        <th className="pb-2 font-medium cursor-pointer select-none" onClick={() => toggleSort("name")}>
+                          Instrument <ArrowUpDown className="inline h-3 w-3" />
+                        </th>
+                        <th className="pb-2 font-medium">Category</th>
+                        <th className="pb-2 font-medium">Invested</th>
+                        <th className="pb-2 font-medium cursor-pointer select-none" onClick={() => toggleSort("value")}>
+                          Value <ArrowUpDown className="inline h-3 w-3" />
+                        </th>
+                        <th className="pb-2 font-medium">P&amp;L</th>
+                        <th className="pb-2 font-medium cursor-pointer select-none" onClick={() => toggleSort("monthly")}>
+                          Monthly <ArrowUpDown className="inline h-3 w-3" />
+                        </th>
+                        <th className="pb-2 font-medium cursor-pointer select-none" onClick={() => toggleSort("return")}>
+                          Return <ArrowUpDown className="inline h-3 w-3" />
+                        </th>
+                        <th className="pb-2 font-medium" />
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {filtered.map((inv) => (
+                        <tr key={inv.id} className="border-b border-black/5 dark:border-white/5">
+                          <td className="py-2 font-medium text-navy dark:text-white truncate max-w-[150px]">{inv.instrument}</td>
+                          <td className="py-2"><Badge tone="gray">{inv.category}</Badge></td>
+                          <td className="py-2 text-navy/70 dark:text-white/70 truncate max-w-[120px]">{formatCurrency(inv.investedAmount, cur)}</td>
+                          <td className="py-2 text-navy dark:text-white truncate max-w-[120px]">{formatCurrency(inv.currentValue, cur)}</td>
+                          <td className={`py-2 truncate max-w-[120px] font-medium ${inv.currentValue - inv.investedAmount >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                            {inv.currentValue - inv.investedAmount >= 0 ? "+" : ""}{formatCurrency(inv.currentValue - inv.investedAmount, cur)}
+                          </td>
+                          <td className="py-2 text-navy/70 dark:text-white/70">{formatCurrency(inv.monthlyContribution, cur)}</td>
+                          <td className="py-2">{formatPercent(inv.annualReturnPct / 100)}</td>
+                          <td className="py-2">
+                            <div className="flex gap-1">
+                              <button onClick={() => { setEditing(inv); setModalOpen(true); }} className="rounded-lg p-1.5 hover:bg-black/5 dark:hover:bg-white/10"><Pencil className="h-3.5 w-3.5" /></button>
+                              <button onClick={() => { if (confirm("Delete this investment?")) deleteMutation.mutate(inv.id); }} className="rounded-lg p-1.5 hover:bg-red-50"><Trash2 className="h-3.5 w-3.5 text-red-500" /></button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="flex flex-col gap-2 md:hidden">
+                  {filtered.map((inv) => {
+                    const pnl = inv.currentValue - inv.investedAmount;
+                    return (
+                      <div key={inv.id} className="rounded-xl2 border border-black/5 p-3 dark:border-white/10">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium text-navy dark:text-white">{inv.instrument}</p>
+                            <Badge tone="gray">{inv.category}</Badge>
+                          </div>
+                          <div className="shrink-0 text-right">
+                            <p className="text-sm font-semibold text-navy dark:text-white">{formatCurrency(inv.currentValue, cur)}</p>
+                            <p className={`text-xs font-medium ${pnl >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                              {pnl >= 0 ? "+" : ""}{formatCurrency(pnl, cur)}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="mt-2 flex items-center justify-between gap-2">
+                          <div className="flex flex-wrap items-center gap-x-2 text-xs text-navy/50 dark:text-white/50">
+                            <span>Invested {formatCurrency(inv.investedAmount, cur)}</span>
+                            <span>· {formatPercent(inv.annualReturnPct / 100)} return</span>
+                          </div>
+                          <div className="flex shrink-0 gap-1">
+                            <button onClick={() => { setEditing(inv); setModalOpen(true); }} className="rounded-lg p-1.5 hover:bg-black/5 dark:hover:bg-white/10" aria-label="Edit"><Pencil className="h-3.5 w-3.5" /></button>
+                            <button onClick={() => { if (confirm("Delete this investment?")) deleteMutation.mutate(inv.id); }} className="rounded-lg p-1.5 hover:bg-red-50" aria-label="Delete"><Trash2 className="h-3.5 w-3.5 text-red-500" /></button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
             )}
           </CardContent>
         </Card>

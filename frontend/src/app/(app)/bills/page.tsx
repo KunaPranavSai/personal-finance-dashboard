@@ -242,52 +242,85 @@ export default function BillsPage() {
                 actionLabel={items.length === 0 ? "Add Bill" : undefined}
                 onAction={items.length === 0 ? () => { setEditing(null); setModalOpen(true); } : undefined} />
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-black/5 dark:border-white/10 text-left text-navy/50 dark:text-white/50">
-                      <th className="pb-2 font-medium cursor-pointer select-none" onClick={() => toggleSort("name")}>
-                        Name <ArrowUpDown className="inline h-3 w-3" />
-                      </th>
-                      <th className="pb-2 font-medium">Type</th>
-                      <th className="pb-2 font-medium cursor-pointer select-none" onClick={() => toggleSort("dueDate")}>
-                        Due Date <ArrowUpDown className="inline h-3 w-3" />
-                      </th>
-                      <th className="pb-2 font-medium cursor-pointer select-none" onClick={() => toggleSort("amount")}>
-                        Amount <ArrowUpDown className="inline h-3 w-3" />
-                      </th>
-                      <th className="pb-2 font-medium">Paid</th>
-                      <th className="pb-2 font-medium">Status</th>
-                      <th className="pb-2 font-medium" />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filtered.map((b) => {
-                      const dueDate = new Date(b.dueDate);
-                      const isOverdue = dueDate < now && b.paidAmount < b.amount;
-                      const isPaid = b.paidAmount >= b.amount;
-                      return (
-                        <tr key={b.id} className="border-b border-black/5 dark:border-white/5">
-                          <td className="py-2 font-medium text-navy dark:text-white truncate max-w-[150px]">{b.name}</td>
-                          <td className="py-2"><Badge tone="gray">{b.type}</Badge></td>
-                          <td className={`py-2 whitespace-nowrap ${isOverdue ? "text-red-600 font-medium" : "text-navy/70 dark:text-white/70"}`}>{formatDateIN(b.dueDate)}</td>
-                          <td className="py-2 text-navy dark:text-white whitespace-nowrap">{formatCurrency(b.amount, cur)}</td>
-                          <td className="py-2 text-navy/70 dark:text-white/70 whitespace-nowrap">{formatCurrency(b.paidAmount, cur)}</td>
-                          <td className="py-2">
+              <>
+                <div className="hidden overflow-x-auto md:block">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-black/5 dark:border-white/10 text-left text-navy/50 dark:text-white/50">
+                        <th className="pb-2 font-medium cursor-pointer select-none" onClick={() => toggleSort("name")}>
+                          Name <ArrowUpDown className="inline h-3 w-3" />
+                        </th>
+                        <th className="pb-2 font-medium">Type</th>
+                        <th className="pb-2 font-medium cursor-pointer select-none" onClick={() => toggleSort("dueDate")}>
+                          Due Date <ArrowUpDown className="inline h-3 w-3" />
+                        </th>
+                        <th className="pb-2 font-medium cursor-pointer select-none" onClick={() => toggleSort("amount")}>
+                          Amount <ArrowUpDown className="inline h-3 w-3" />
+                        </th>
+                        <th className="pb-2 font-medium">Paid</th>
+                        <th className="pb-2 font-medium">Status</th>
+                        <th className="pb-2 font-medium" />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filtered.map((b) => {
+                        const dueDate = new Date(b.dueDate);
+                        const isOverdue = dueDate < now && b.paidAmount < b.amount;
+                        const isPaid = b.paidAmount >= b.amount;
+                        return (
+                          <tr key={b.id} className="border-b border-black/5 dark:border-white/5">
+                            <td className="py-2 font-medium text-navy dark:text-white truncate max-w-[150px]">{b.name}</td>
+                            <td className="py-2"><Badge tone="gray">{b.type}</Badge></td>
+                            <td className={`py-2 whitespace-nowrap ${isOverdue ? "text-red-600 font-medium" : "text-navy/70 dark:text-white/70"}`}>{formatDateIN(b.dueDate)}</td>
+                            <td className="py-2 text-navy dark:text-white whitespace-nowrap">{formatCurrency(b.amount, cur)}</td>
+                            <td className="py-2 text-navy/70 dark:text-white/70 whitespace-nowrap">{formatCurrency(b.paidAmount, cur)}</td>
+                            <td className="py-2">
+                              {isPaid ? <Badge tone="green">Paid</Badge> : isOverdue ? <Badge tone="red">Overdue</Badge> : <Badge tone="yellow">Upcoming</Badge>}
+                            </td>
+                            <td className="py-2">
+                              <div className="flex gap-1">
+                                <button onClick={() => { setEditing(b); setModalOpen(true); }} className="rounded-lg p-1.5 hover:bg-black/5"><Pencil className="h-3.5 w-3.5" /></button>
+                                <button onClick={() => { if (confirm("Delete this bill?")) deleteMutation.mutate(b.id); }} className="rounded-lg p-1.5 hover:bg-red-50"><Trash2 className="h-3.5 w-3.5 text-red-500" /></button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="flex flex-col gap-2 md:hidden">
+                  {filtered.map((b) => {
+                    const dueDate = new Date(b.dueDate);
+                    const isOverdue = dueDate < now && b.paidAmount < b.amount;
+                    const isPaid = b.paidAmount >= b.amount;
+                    return (
+                      <div key={b.id} className="rounded-xl2 border border-black/5 p-3 dark:border-white/10">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium text-navy dark:text-white">{b.name}</p>
+                            <Badge tone="gray">{b.type}</Badge>
+                          </div>
+                          <div className="shrink-0 text-right">
+                            <p className="text-sm font-semibold text-navy dark:text-white">{formatCurrency(b.amount, cur)}</p>
                             {isPaid ? <Badge tone="green">Paid</Badge> : isOverdue ? <Badge tone="red">Overdue</Badge> : <Badge tone="yellow">Upcoming</Badge>}
-                          </td>
-                          <td className="py-2">
-                            <div className="flex gap-1">
-                              <button onClick={() => { setEditing(b); setModalOpen(true); }} className="rounded-lg p-1.5 hover:bg-black/5"><Pencil className="h-3.5 w-3.5" /></button>
-                              <button onClick={() => { if (confirm("Delete this bill?")) deleteMutation.mutate(b.id); }} className="rounded-lg p-1.5 hover:bg-red-50"><Trash2 className="h-3.5 w-3.5 text-red-500" /></button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                          </div>
+                        </div>
+                        <div className="mt-2 flex items-center justify-between gap-2">
+                          <span className={`text-xs ${isOverdue ? "text-red-600 font-medium" : "text-navy/50 dark:text-white/50"}`}>
+                            Due {formatDateIN(b.dueDate)} · Paid {formatCurrency(b.paidAmount, cur)}
+                          </span>
+                          <div className="flex shrink-0 gap-1">
+                            <button onClick={() => { setEditing(b); setModalOpen(true); }} className="rounded-lg p-1.5 hover:bg-black/5" aria-label="Edit"><Pencil className="h-3.5 w-3.5" /></button>
+                            <button onClick={() => { if (confirm("Delete this bill?")) deleteMutation.mutate(b.id); }} className="rounded-lg p-1.5 hover:bg-red-50" aria-label="Delete"><Trash2 className="h-3.5 w-3.5 text-red-500" /></button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
             )}
           </CardContent>
         </Card>
