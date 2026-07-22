@@ -21,6 +21,7 @@ function SetupTwoFactorContent() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [secretCopied, setSecretCopied] = useState(false);
 
   const goToDashboard = useCallback(() => {
     const target = user?.role === "USER" ? "/dashboard" : "/admin";
@@ -75,6 +76,12 @@ function SetupTwoFactorContent() {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const copySecret = () => {
+    navigator.clipboard.writeText(secret);
+    setSecretCopied(true);
+    setTimeout(() => setSecretCopied(false), 2000);
+  };
+
   if (isLoading || !isAuthenticated || (twoFactorEnabled && step !== "backup")) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-900 via-navy to-slate-800">
@@ -114,7 +121,17 @@ function SetupTwoFactorContent() {
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={qrCode} alt="2FA QR code" className="mx-auto h-40 w-40 rounded-lg bg-white p-2" />
               )}
-              <p className="break-all rounded-lg bg-white/5 p-2 text-center font-mono text-xs text-white/60">{secret}</p>
+              <div className="flex items-center gap-2 rounded-lg bg-white/5 p-2">
+                <p className="min-w-0 flex-1 break-all font-mono text-xs text-white/60">{secret}</p>
+                <button
+                  type="button"
+                  onClick={copySecret}
+                  aria-label="Copy secret key"
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-white/50 hover:bg-white/10 hover:text-white"
+                >
+                  {secretCopied ? <Check className="h-3.5 w-3.5 text-teal" /> : <Copy className="h-3.5 w-3.5" />}
+                </button>
+              </div>
               <div>
                 <label htmlFor="code" className="block text-xs font-semibold uppercase tracking-wider text-white/50 mb-2">
                   Verification Code

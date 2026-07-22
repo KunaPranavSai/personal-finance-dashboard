@@ -16,21 +16,16 @@ import { ExportPreviewModal } from "@/components/ui/ExportPreviewModal";
 import { GoogleDriveBackupCard } from "@/components/settings/GoogleDriveBackupCard";
 import { useSettingsContext } from "@/lib/SettingsContext";
 import { useToast } from "@/components/ui/Toast";
-import { Settings as SettingsIcon, Palette, Globe, Bell, Shield, Download, Database, Eye, Sliders, Save, Copy, Check, History, KeyRound, CheckCircle, Sun, Moon, Monitor } from "lucide-react";
+import { Palette, Bell, Shield, Download, Database, Eye, Save, Copy, Check, KeyRound, CheckCircle, Sun, Moon, Monitor } from "lucide-react";
 import { cn } from "@/lib/format";
-import { CURRENCIES, DATE_FORMATS, WEEK_START_OPTIONS, LANGUAGES, TIMEZONES } from "@/lib/reference";
+import { CURRENCIES, DATE_FORMATS, LANGUAGES, TIMEZONES } from "@/lib/reference";
 
 const TABS = [
-  { id: "general", label: "General", icon: SettingsIcon },
   { id: "appearance", label: "Appearance", icon: Palette },
-  { id: "currency", label: "Currency & Format", icon: Globe },
-  { id: "notifications", label: "Notifications", icon: Bell },
+  { id: "notifications", label: "Notification Preferences", icon: Bell },
   { id: "security", label: "Security", icon: Shield },
-  { id: "activity", label: "Activity", icon: History },
-  { id: "export", label: "Data Export", icon: Download },
-  { id: "backup", label: "Backup", icon: Database },
+  { id: "backup", label: "Backup & Export", icon: Database },
   { id: "privacy", label: "Privacy", icon: Eye },
-  { id: "preferences", label: "Preferences", icon: Sliders },
 ];
 
 const DEFAULT_DASHBOARDS = [
@@ -110,6 +105,7 @@ function TwoFactorSection() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [secretCopied, setSecretCopied] = useState(false);
   const [justVerified, setJustVerified] = useState(false);
   const [justDisabled, setJustDisabled] = useState(false);
 
@@ -197,7 +193,21 @@ function TwoFactorSection() {
         <p className="text-xs text-navy/50 dark:text-white/50">Use Google Authenticator, Microsoft Authenticator, Authy, or 2FAS to scan the code below, or enter the key manually.</p>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={qrCode} alt="2FA QR code" className="h-40 w-40 rounded-lg bg-white p-2" />
-        <p className="break-all rounded-lg bg-black/5 p-2 font-mono text-xs dark:bg-white/5">{secret}</p>
+        <div className="flex items-center gap-2 rounded-lg bg-black/5 p-2 dark:bg-white/5">
+          <p className="min-w-0 flex-1 break-all font-mono text-xs">{secret}</p>
+          <button
+            type="button"
+            onClick={() => {
+              navigator.clipboard.writeText(secret);
+              setSecretCopied(true);
+              setTimeout(() => setSecretCopied(false), 2000);
+            }}
+            aria-label="Copy secret key"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-navy/50 hover:bg-black/5 dark:text-white/50 dark:hover:bg-white/10"
+          >
+            {secretCopied ? <Check className="h-3.5 w-3.5 text-teal" /> : <Copy className="h-3.5 w-3.5" />}
+          </button>
+        </div>
         <div>
           <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Enter the 6-digit code from your app</label>
           <input type="text" inputMode="numeric" autoComplete="one-time-code" value={code} onChange={(e) => setCode(e.target.value)} placeholder="123456" className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" />
@@ -422,7 +432,7 @@ function SettingsContent() {
   const { settings, updateSettings, isLoading, isSaving } = useSettingsContext();
   const { toast } = useToast();
   const { changePassword } = useAuth();
-  const [activeTab, setActiveTab] = useState(searchParams.get("tab") ?? "general");
+  const [activeTab, setActiveTab] = useState(searchParams.get("tab") ?? "appearance");
   const [localSettings, setLocalSettings] = useState<Record<string, unknown>>({});
   const [pwForm, setPwForm] = useState({ current: "", next: "", confirm: "" });
   const [pwError, setPwError] = useState("");
@@ -479,74 +489,12 @@ function SettingsContent() {
 
   const renderTab = () => {
     switch (activeTab) {
-      case "general":
-        return (
-          <Card>
-            <CardHeader><CardTitle>General Settings</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Default Dashboard</label>
-                  <select value={String(s.defaultDashboard ?? "dashboard")} onChange={(e) => handleChange("defaultDashboard", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
-                    {DEFAULT_DASHBOARDS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Startup Preference</label>
-                  <select value={String(s.startupPreferences ?? "last-viewed")} onChange={(e) => handleChange("startupPreferences", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
-                    {STARTUP_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                  </select>
-                </div>
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Date Format</label>
-                  <select value={String(s.dateFormat ?? "DD-MM-YYYY")} onChange={(e) => handleChange("dateFormat", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
-                    {DATE_FORMATS.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Time Format</label>
-                  <select value={String(s.timeFormat ?? "24h")} onChange={(e) => handleChange("timeFormat", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
-                    <option value="24h">24-Hour</option>
-                    <option value="12h">12-Hour (AM/PM)</option>
-                  </select>
-                </div>
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Timezone</label>
-                  <select value={String(s.timezone ?? "Asia/Kolkata")} onChange={(e) => handleChange("timezone", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
-                    {TIMEZONES.map((t) => <option key={t} value={t}>{t}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">First Day of Week</label>
-                  <select value={String(s.firstDayOfWeek ?? "monday")} onChange={(e) => handleChange("firstDayOfWeek", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
-                    {FIRST_DAY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                  </select>
-                </div>
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Language</label>
-                  <select value={String(s.language ?? "en")} onChange={(e) => handleChange("language", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
-                    {LANGUAGES.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}
-                  </select>
-                </div>
-              </div>
-              <div className="pt-2">
-                <Button onClick={handleSave} disabled={isSaving}><Save className="h-4 w-4" /> {isSaving ? "Saving..." : "Save Settings"}</Button>
-              </div>
-            </CardContent>
-          </Card>
-        );
       case "appearance":
         return (
           <Card>
             <CardHeader><CardTitle>Appearance</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              <div>
+            <CardContent className="space-y-5">
+              <div className="rounded-lg border border-black/10 p-4 dark:border-white/10">
                 <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Theme</label>
                 <div className="grid grid-cols-3 gap-3">
                   {([
@@ -556,80 +504,137 @@ function SettingsContent() {
                   ] as const).map(({ value, label, icon: Icon }) => (
                     <motion.button
                       key={value}
-                      onClick={() => handleChange("theme", value)}
+                      onClick={() => updateSettings({ theme: value })}
                       whileHover={{ scale: 1.03 }}
                       whileTap={{ scale: 0.97 }}
                       transition={{ duration: 0.15 }}
                       className={cn("flex items-center justify-center gap-2 rounded-lg border px-4 py-3 text-sm font-medium transition-colors",
-                        s.theme === value ? "border-teal bg-teal/10 text-teal" : "border-black/10 text-navy/60 hover:bg-black/5 dark:border-white/10 dark:text-white/60"
+                        settings.theme === value ? "border-teal bg-teal/10 text-teal" : "border-black/10 text-navy/60 hover:bg-black/5 dark:border-white/10 dark:text-white/60"
                       )}>
                       <Icon className="h-4 w-4" /> {label}
                     </motion.button>
                   ))}
                 </div>
-                <p className="mt-2 text-xs text-navy/40 dark:text-white/40">Changes apply instantly. No refresh needed.</p>
+                <p className="mt-2 text-xs text-navy/40 dark:text-white/40">Applies instantly with a smooth transition — no save needed.</p>
               </div>
-              <div className="pt-2">
-                <Button onClick={handleSave} disabled={isSaving}><Save className="h-4 w-4" /> {isSaving ? "Saving..." : "Save Settings"}</Button>
-              </div>
-            </CardContent>
-          </Card>
-        );
-      case "currency":
-        return (
-          <Card>
-            <CardHeader><CardTitle>Currency & Region</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Currency</label>
-                  <select value={String(s.currency ?? "INR")} onChange={(e) => { handleChange("currency", e.target.value); handleChange("currencySymbol", e.target.value); }} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
-                    {CURRENCIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
-                  </select>
-                  <p className="mt-1 text-xs text-navy/40 dark:text-white/40">All monetary values update instantly across the app.</p>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Currency Symbol</label>
-                  <input type="text" value={String(s.currencySymbol ?? s.currency ?? "INR")} onChange={(e) => handleChange("currencySymbol", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" />
+
+              <div className="rounded-lg border border-black/10 p-4 space-y-4 dark:border-white/10">
+                <p className="text-sm font-semibold text-navy dark:text-white">Currency & Format</p>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Currency</label>
+                    <select value={String(s.currency ?? "INR")} onChange={(e) => { handleChange("currency", e.target.value); handleChange("currencySymbol", e.target.value); }} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
+                      {CURRENCIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Number Format</label>
+                    <select value={String(s.numberFormat ?? "1,234.56")} onChange={(e) => handleChange("numberFormat", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
+                      {NUMBER_FORMATS.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
+                    </select>
+                  </div>
                 </div>
               </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Number Format</label>
-                  <select value={String(s.numberFormat ?? "1,234.56")} onChange={(e) => handleChange("numberFormat", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
-                    {NUMBER_FORMATS.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
-                  </select>
+
+              <div className="rounded-lg border border-black/10 p-4 space-y-4 dark:border-white/10">
+                <p className="text-sm font-semibold text-navy dark:text-white">Regional & Date/Time</p>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Timezone</label>
+                    <select value={String(s.timezone ?? "Asia/Kolkata")} onChange={(e) => handleChange("timezone", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
+                      {TIMEZONES.map((t) => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Language</label>
+                    <select value={String(s.language ?? "en")} onChange={(e) => handleChange("language", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
+                      {LANGUAGES.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}
+                    </select>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">First Day of Week</label>
-                  <select value={String(s.firstDayOfWeek ?? "monday")} onChange={(e) => handleChange("firstDayOfWeek", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
-                    {FIRST_DAY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                  </select>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Date Format</label>
+                    <select value={String(s.dateFormat ?? "DD-MM-YYYY")} onChange={(e) => handleChange("dateFormat", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
+                      {DATE_FORMATS.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Time Format</label>
+                    <select value={String(s.timeFormat ?? "24h")} onChange={(e) => handleChange("timeFormat", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
+                      <option value="24h">24-Hour</option>
+                      <option value="12h">12-Hour (AM/PM)</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">First Day of Week</label>
+                    <select value={String(s.firstDayOfWeek ?? "monday")} onChange={(e) => handleChange("firstDayOfWeek", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
+                      {FIRST_DAY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Default Dashboard</label>
+                    <select value={String(s.defaultDashboard ?? "dashboard")} onChange={(e) => handleChange("defaultDashboard", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
+                      {DEFAULT_DASHBOARDS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
+                    </select>
+                  </div>
                 </div>
               </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Timezone</label>
-                  <select value={String(s.timezone ?? "Asia/Kolkata")} onChange={(e) => handleChange("timezone", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
-                    {TIMEZONES.map((t) => <option key={t} value={t}>{t}</option>)}
-                  </select>
+
+              <div className="rounded-lg border border-black/10 p-4 space-y-4 dark:border-white/10">
+                <p className="text-sm font-semibold text-navy dark:text-white">Preferences</p>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Startup Preference</label>
+                    <select value={String(s.startupPreferences ?? "last-viewed")} onChange={(e) => handleChange("startupPreferences", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
+                      {STARTUP_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Default Chart</label>
+                    <select value={String(pref.defaultCharts ?? "income-expense")} onChange={(e) => handleNestedChange("preferences", "defaultCharts", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
+                      <option value="income-expense">Income vs Expense</option>
+                      <option value="category-breakdown">Category Breakdown</option>
+                      <option value="net-worth">Net Worth</option>
+                    </select>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Date Format</label>
-                  <select value={String(s.dateFormat ?? "DD-MM-YYYY")} onChange={(e) => handleChange("dateFormat", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
-                    {DATE_FORMATS.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
-                  </select>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Default Filter</label>
+                    <select value={String(pref.defaultFilters ?? "all")} onChange={(e) => handleNestedChange("preferences", "defaultFilters", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
+                      <option value="all">All Expenses & Income</option>
+                      <option value="income">Income Only</option>
+                      <option value="expense">Expenses Only</option>
+                      <option value="recurring">Recurring Only</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Default Transaction Type</label>
+                    <select value={String(pref.defaultTransactionType ?? "EXPENSE")} onChange={(e) => handleNestedChange("preferences", "defaultTransactionType", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
+                      <option value="EXPENSE">Expense</option>
+                      <option value="INCOME">Income</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="space-y-3 pt-1">
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input type="checkbox" checked={Boolean(pref.compactMode ?? false)} onChange={(e) => handleNestedChange("preferences", "compactMode", e.target.checked)} className="h-4 w-4 rounded border-black/20 text-teal dark:border-white/20" />
+                    <span className="text-sm text-navy dark:text-white">Compact mode (smaller spacing)</span>
+                  </label>
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input type="checkbox" checked={Boolean(pref.showTips ?? true)} onChange={(e) => handleNestedChange("preferences", "showTips", e.target.checked)} className="h-4 w-4 rounded border-black/20 text-teal dark:border-white/20" />
+                    <span className="text-sm text-navy dark:text-white">Show tips and suggestions</span>
+                  </label>
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input type="checkbox" checked={Boolean(pref.confirmBeforeDelete ?? true)} onChange={(e) => handleNestedChange("preferences", "confirmBeforeDelete", e.target.checked)} className="h-4 w-4 rounded border-black/20 text-teal dark:border-white/20" />
+                    <span className="text-sm text-navy dark:text-white">Confirm before deleting items</span>
+                  </label>
                 </div>
               </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Time Format</label>
-                  <select value={String(s.timeFormat ?? "24h")} onChange={(e) => handleChange("timeFormat", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
-                    <option value="24h">24-Hour</option>
-                    <option value="12h">12-Hour (AM/PM)</option>
-                  </select>
-                </div>
-              </div>
+
               <div className="pt-2">
                 <Button onClick={handleSave} disabled={isSaving}><Save className="h-4 w-4" /> {isSaving ? "Saving..." : "Save Settings"}</Button>
               </div>
@@ -744,17 +749,14 @@ function SettingsContent() {
               <div className="pt-2">
                 <Button onClick={handleSave} disabled={isSaving}><Save className="h-4 w-4" /> {isSaving ? "Saving..." : "Save Settings"}</Button>
               </div>
+              <div className="border-t border-black/5 pt-6 dark:border-white/10">
+                <p className="mb-3 text-sm font-semibold text-navy dark:text-white">Activity Log</p>
+                <ActivityTab />
+              </div>
             </CardContent>
           </Card>
         );
 
-      case "activity":
-        return <ActivityTab />;
-
-      case "export":
-        return (
-          <ExportTab />
-        );
       case "backup":
         return (
           <div className="space-y-4">
@@ -774,14 +776,14 @@ function SettingsContent() {
                     <option value="monthly">Monthly</option>
                   </select>
                 </div>
-                <p className="text-xs text-navy/40 dark:text-white/40">
-                  To download a local copy instead, use <button type="button" onClick={() => setActiveTab("export")} className="font-medium text-teal hover:underline">Data Export &amp; Backup</button>.
-                </p>
                 <div className="pt-2">
                   <Button onClick={handleSave} disabled={isSaving}><Save className="h-4 w-4" /> {isSaving ? "Saving..." : "Save Settings"}</Button>
                 </div>
               </CardContent>
             </Card>
+            <div className="border-t border-black/5 pt-4 dark:border-white/10">
+              <ExportTab />
+            </div>
           </div>
         );
       case "privacy":
@@ -809,55 +811,6 @@ function SettingsContent() {
                 <input type="checkbox" checked={Boolean(priv.showInSuggestions ?? false)} onChange={(e) => handleNestedChange("privacy", "showInSuggestions", e.target.checked)} className="h-4 w-4 rounded border-black/20 text-teal dark:border-white/20" />
                 <span className="text-sm text-navy dark:text-white">Show my profile in community suggestions</span>
               </label>
-              <div className="pt-2">
-                <Button onClick={handleSave} disabled={isSaving}><Save className="h-4 w-4" /> {isSaving ? "Saving..." : "Save Settings"}</Button>
-              </div>
-            </CardContent>
-          </Card>
-        );
-      case "preferences":
-        return (
-          <Card>
-            <CardHeader><CardTitle>Application Preferences</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Default Chart</label>
-                <select value={String(pref.defaultCharts ?? "income-expense")} onChange={(e) => handleNestedChange("preferences", "defaultCharts", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
-                  <option value="income-expense">Income vs Expense</option>
-                  <option value="category-breakdown">Category Breakdown</option>
-                  <option value="net-worth">Net Worth</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Default Filter</label>
-                <select value={String(pref.defaultFilters ?? "all")} onChange={(e) => handleNestedChange("preferences", "defaultFilters", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
-                  <option value="all">All Expenses & Income</option>
-                  <option value="income">Income Only</option>
-                  <option value="expense">Expenses Only</option>
-                  <option value="recurring">Recurring Only</option>
-                </select>
-              </div>
-              <div className="space-y-3 pt-2">
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input type="checkbox" checked={Boolean(pref.compactMode ?? false)} onChange={(e) => handleNestedChange("preferences", "compactMode", e.target.checked)} className="h-4 w-4 rounded border-black/20 text-teal dark:border-white/20" />
-                  <span className="text-sm text-navy dark:text-white">Compact mode (smaller spacing)</span>
-                </label>
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input type="checkbox" checked={Boolean(pref.showTips ?? true)} onChange={(e) => handleNestedChange("preferences", "showTips", e.target.checked)} className="h-4 w-4 rounded border-black/20 text-teal dark:border-white/20" />
-                  <span className="text-sm text-navy dark:text-white">Show tips and suggestions</span>
-                </label>
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input type="checkbox" checked={Boolean(pref.confirmBeforeDelete ?? true)} onChange={(e) => handleNestedChange("preferences", "confirmBeforeDelete", e.target.checked)} className="h-4 w-4 rounded border-black/20 text-teal dark:border-white/20" />
-                  <span className="text-sm text-navy dark:text-white">Confirm before deleting items</span>
-                </label>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Default Transaction Type</label>
-                <select value={String(pref.defaultTransactionType ?? "EXPENSE")} onChange={(e) => handleNestedChange("preferences", "defaultTransactionType", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
-                  <option value="EXPENSE">Expense</option>
-                  <option value="INCOME">Income</option>
-                </select>
-              </div>
               <div className="pt-2">
                 <Button onClick={handleSave} disabled={isSaving}><Save className="h-4 w-4" /> {isSaving ? "Saving..." : "Save Settings"}</Button>
               </div>
