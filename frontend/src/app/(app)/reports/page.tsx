@@ -1,35 +1,21 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import Link from "next/link";
 import { Topbar } from "@/components/layout/Topbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { api } from "@/lib/api";
-import { formatCurrency, cn } from "@/lib/format";
+import { formatCurrency } from "@/lib/format";
 import { useSettingsContext } from "@/lib/SettingsContext";
-import { useToast } from "@/components/ui/Toast";
-import { downloadExport } from "@/lib/export";
 import { ReportItem } from "@/types";
 import { FileText, Download } from "lucide-react";
 
 export default function ReportsPage() {
   const { settings } = useSettingsContext();
-  const { toast } = useToast();
   const cur = settings.currency;
   const [tab, setTab] = useState<"monthly" | "categories" | "budgets">("monthly");
-  const [exporting, setExporting] = useState<string | null>(null);
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
-
-  const handleExport = useCallback(async (format: string) => {
-    setExporting(format);
-    try {
-      await downloadExport(format, toast, { from: dateFrom || undefined, to: dateTo || undefined });
-    } finally {
-      setExporting(null);
-    }
-  }, [toast, dateFrom, dateTo]);
 
   const { data: monthly, isLoading: loadingMonthly } = useQuery({
     queryKey: ["reports-monthly"],
@@ -55,59 +41,17 @@ export default function ReportsPage() {
     { key: "budgets", label: "Budget vs Actual" },
   ] as const;
 
-  const formats = [
-    { id: "csv", label: "CSV" },
-    { id: "excel", label: "Excel" },
-    { id: "json", label: "JSON" },
-    { id: "pdf", label: "PDF" },
-  ];
-
   return (
     <>
       <Topbar title="Reports" />
       <main className="flex-1 overflow-y-auto p-4 lg:p-6">
-        <div className="mb-4 flex flex-wrap items-end gap-3">
-          <div>
-            <label className="mb-1 block text-xs font-medium text-navy/50 dark:text-white/50">From</label>
-            <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="rounded-lg border border-black/10 bg-transparent px-3 py-1.5 text-sm dark:border-white/10" />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-navy/50 dark:text-white/50">To</label>
-            <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="rounded-lg border border-black/10 bg-transparent px-3 py-1.5 text-sm dark:border-white/10" />
-          </div>
-          {(dateFrom || dateTo) && (
-            <button onClick={() => { setDateFrom(""); setDateTo(""); }} className="pb-1.5 text-xs text-navy/50 hover:text-navy dark:text-white/50 dark:hover:text-white">
-              Clear range
-            </button>
-          )}
-        </div>
-
-        <div className="mb-6 flex flex-wrap gap-2">
-          {formats.map((fmt) => (
-            <button
-              key={fmt.id}
-              onClick={() => handleExport(fmt.id)}
-              disabled={exporting !== null}
-              className={cn(
-                "flex items-center gap-2 rounded-lg border-2 px-4 py-2 text-sm font-medium transition-all",
-                exporting === fmt.id
-                  ? "border-teal bg-teal/10 text-teal animate-pulse"
-                  : exporting !== null
-                  ? "border-black/5 bg-black/2 text-navy/30 dark:border-white/5 dark:bg-white/2 dark:text-white/30 cursor-not-allowed"
-                  : "border-black/10 text-navy hover:border-teal/50 hover:bg-teal/5 dark:border-white/10 dark:text-white dark:hover:border-teal/50"
-              )}
-            >
-              {exporting === fmt.id ? (
-                <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                </svg>
-              ) : (
-                <Download className="h-4 w-4" />
-              )}
-              {fmt.label}
-            </button>
-          ))}
+        <div className="mb-6 flex justify-end">
+          <Link
+            href="/settings?tab=export"
+            className="flex items-center gap-1.5 rounded-lg border border-black/10 px-3 py-2 text-xs font-medium text-navy transition-all hover:border-teal/50 dark:border-white/10 dark:text-white"
+          >
+            <Download className="h-3.5 w-3.5" /> Export data
+          </Link>
         </div>
 
         <div className="mb-4">

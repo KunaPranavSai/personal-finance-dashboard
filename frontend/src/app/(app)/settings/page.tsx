@@ -16,7 +16,7 @@ import { ExportPreviewModal } from "@/components/ui/ExportPreviewModal";
 import { GoogleDriveBackupCard } from "@/components/settings/GoogleDriveBackupCard";
 import { useSettingsContext } from "@/lib/SettingsContext";
 import { useToast } from "@/components/ui/Toast";
-import { Settings as SettingsIcon, Palette, Globe, Bell, Shield, Download, Database, Eye, Sliders, Save, Copy, Check, History, KeyRound, CheckCircle } from "lucide-react";
+import { Settings as SettingsIcon, Palette, Globe, Bell, Shield, Download, Database, Eye, Sliders, Save, Copy, Check, History, KeyRound, CheckCircle, Sun, Moon, Monitor } from "lucide-react";
 import { cn } from "@/lib/format";
 import { CURRENCIES, DATE_FORMATS, WEEK_START_OPTIONS, LANGUAGES, TIMEZONES } from "@/lib/reference";
 
@@ -178,7 +178,7 @@ function TwoFactorSection() {
     return (
       <div className="rounded-lg border border-black/5 p-4 space-y-3 dark:border-white/10">
         <p className="text-sm font-semibold text-navy dark:text-white">Save your backup codes</p>
-        <p className="text-xs text-navy/50 dark:text-white/50">Each code can be used once if you lose access to your authenticator app. Store them somewhere safe â€” they won&apos;t be shown again.</p>
+        <p className="text-xs text-navy/50 dark:text-white/50">Each code can be used once if you lose access to your authenticator app. Store them somewhere safe — they won&apos;t be shown again.</p>
         <div className="grid grid-cols-2 gap-2 rounded-lg bg-black/5 p-3 font-mono text-sm dark:bg-white/5">
           {backupCodes.map((c) => <span key={c}>{c}</span>)}
         </div>
@@ -208,7 +208,7 @@ function TwoFactorSection() {
             animate={{ opacity: 1, scale: 1 }}
             className="flex items-center gap-1.5 text-sm font-medium text-teal"
           >
-            <CheckCircle className="h-4 w-4" /> Verified â€” enabling 2FAâ€¦
+            <CheckCircle className="h-4 w-4" /> Verified — enabling 2FA…
           </motion.p>
         ) : error ? (
           <motion.p
@@ -221,7 +221,7 @@ function TwoFactorSection() {
           </motion.p>
         ) : null}
         <div className="flex gap-2">
-          <Button type="button" size="sm" onClick={handleConfirm} disabled={busy || !code}>{busy ? "Verifyingâ€¦" : "Verify & Enable"}</Button>
+          <Button type="button" size="sm" onClick={handleConfirm} disabled={busy || !code}>{busy ? "Verifying…" : "Verify & Enable"}</Button>
           <Button type="button" size="sm" variant="secondary" onClick={() => setStep("idle")}>Cancel</Button>
         </div>
       </div>
@@ -259,7 +259,7 @@ function TwoFactorSection() {
           </motion.p>
         ) : null}
         <div className="flex gap-2">
-          <Button type="button" size="sm" onClick={handleDisable} disabled={busy || !disablePassword || !disableCode}>{busy ? "Disablingâ€¦" : "Disable 2FA"}</Button>
+          <Button type="button" size="sm" onClick={handleDisable} disabled={busy || !disablePassword || !disableCode}>{busy ? "Disabling…" : "Disable 2FA"}</Button>
           <Button type="button" size="sm" variant="secondary" onClick={() => setStep("idle")}>Cancel</Button>
         </div>
       </div>
@@ -270,12 +270,12 @@ function TwoFactorSection() {
     <div className="flex items-center justify-between">
       <div>
         <p className="text-sm font-medium text-navy dark:text-white">Two-Factor Authentication</p>
-        <p className="text-xs text-navy/50">{twoFactorEnabled ? "Enabled â€” your account requires a code at sign-in" : "Add an extra layer of security"}</p>
+        <p className="text-xs text-navy/50">{twoFactorEnabled ? "Enabled — your account requires a code at sign-in" : "Add an extra layer of security"}</p>
       </div>
       {twoFactorEnabled ? (
         <Button type="button" size="sm" variant="secondary" onClick={() => setStep("disable")}>Disable</Button>
       ) : (
-        <Button type="button" size="sm" onClick={startSetup} disabled={busy}>{busy ? "Startingâ€¦" : "Enable"}</Button>
+        <Button type="button" size="sm" onClick={startSetup} disabled={busy}>{busy ? "Starting…" : "Enable"}</Button>
       )}
     </div>
   );
@@ -321,7 +321,7 @@ function ChangeUidSection() {
         <PasswordInput autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" placeholder="Current password" />
       </div>
       {error && <p className="text-xs text-red-500">{error}</p>}
-      <Button type="button" size="sm" onClick={handleChange} disabled={busy || !newUid || !password}>{busy ? "Changingâ€¦" : "Change User ID"}</Button>
+      <Button type="button" size="sm" onClick={handleChange} disabled={busy || !newUid || !password}>{busy ? "Changing…" : "Change User ID"}</Button>
     </div>
   );
 }
@@ -394,10 +394,10 @@ function ActivityTab() {
                         {a.detail && <span className="block text-xs text-navy/40 dark:text-white/40">{a.detail}</span>}
                       </td>
                       <td className="py-2 pr-3 text-navy/70 dark:text-white/70 whitespace-nowrap">{new Date(a.createdAt).toLocaleString()}</td>
-                      <td className="py-2 pr-3 font-mono text-xs text-navy/60 dark:text-white/60">{a.ip ?? "â€”"}</td>
-                      <td className="py-2 pr-3 text-navy/60 dark:text-white/60">{a.browser ?? "â€”"}</td>
-                      <td className="py-2 pr-3 text-navy/60 dark:text-white/60">{a.os ?? "â€”"}</td>
-                      <td className="py-2 text-navy/60 dark:text-white/60">{a.device ?? "â€”"}</td>
+                      <td className="py-2 pr-3 font-mono text-xs text-navy/60 dark:text-white/60">{a.ip ?? "—"}</td>
+                      <td className="py-2 pr-3 text-navy/60 dark:text-white/60">{a.browser ?? "—"}</td>
+                      <td className="py-2 pr-3 text-navy/60 dark:text-white/60">{a.os ?? "—"}</td>
+                      <td className="py-2 text-navy/60 dark:text-white/60">{a.device ?? "—"}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -549,13 +549,22 @@ function SettingsContent() {
               <div>
                 <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Theme</label>
                 <div className="grid grid-cols-3 gap-3">
-                  {["light", "dark", "system"].map((t) => (
-                    <button key={t} onClick={() => handleChange("theme", t)}
-                      className={cn("flex items-center justify-center rounded-lg border px-4 py-3 text-sm font-medium transition-colors",
-                        s.theme === t ? "border-teal bg-teal/10 text-teal" : "border-black/10 text-navy/60 hover:bg-black/5 dark:border-white/10 dark:text-white/60"
+                  {([
+                    { value: "light", label: "Light", icon: Sun },
+                    { value: "dark", label: "Dark", icon: Moon },
+                    { value: "system", label: "System", icon: Monitor },
+                  ] as const).map(({ value, label, icon: Icon }) => (
+                    <motion.button
+                      key={value}
+                      onClick={() => handleChange("theme", value)}
+                      whileHover={{ scale: 1.03 }}
+                      whileTap={{ scale: 0.97 }}
+                      transition={{ duration: 0.15 }}
+                      className={cn("flex items-center justify-center gap-2 rounded-lg border px-4 py-3 text-sm font-medium transition-colors",
+                        s.theme === value ? "border-teal bg-teal/10 text-teal" : "border-black/10 text-navy/60 hover:bg-black/5 dark:border-white/10 dark:text-white/60"
                       )}>
-                      {t === "light" ? "â˜€ï¸ Light" : t === "dark" ? "ðŸŒ™ Dark" : "ðŸ’» System"}
-                    </button>
+                      <Icon className="h-4 w-4" /> {label}
+                    </motion.button>
                   ))}
                 </div>
                 <p className="mt-2 text-xs text-navy/40 dark:text-white/40">Changes apply instantly. No refresh needed.</p>
@@ -691,7 +700,7 @@ function SettingsContent() {
                 </div>
                 {pwError && <p className="text-xs text-red-500">{pwError}</p>}
                 <div className="flex flex-wrap items-center gap-3">
-                  <Button type="button" size="sm" onClick={handlePasswordChange} disabled={pwChanging || !pwForm.current || !pwForm.next || !pwForm.confirm}>{pwChanging ? "Changingâ€¦" : "Change Password"}</Button>
+                  <Button type="button" size="sm" onClick={handlePasswordChange} disabled={pwChanging || !pwForm.current || !pwForm.next || !pwForm.confirm}>{pwChanging ? "Changing…" : "Change Password"}</Button>
                   <Link href="/forgot-password" className="flex items-center gap-1.5 text-xs font-medium text-teal hover:underline">
                     <KeyRound className="h-3.5 w-3.5" /> Forgot password?
                   </Link>
@@ -716,7 +725,7 @@ function SettingsContent() {
                         className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white"
                       >
                         {AUTO_LOCK_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                        <option value="custom">Customâ€¦</option>
+                        <option value="custom">Custom…</option>
                       </select>
                       {!isPreset && (
                         <input
