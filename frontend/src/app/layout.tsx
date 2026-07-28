@@ -1,3 +1,4 @@
+import { ClerkProvider } from "@clerk/nextjs";
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Providers } from "./providers";
@@ -5,6 +6,7 @@ import { Preloader } from "@/components/Preloader";
 import { AntiTamperGuard } from "@/components/AntiTamperGuard";
 import { ServiceWorkerUpdatePrompt } from "@/components/pwa/ServiceWorkerUpdatePrompt";
 import { PwaInstallCapture } from "@/components/pwa/PwaInstallCapture";
+import { ClerkTokenBridge } from "@/components/ClerkTokenBridge";
 
 export const metadata: Metadata = {
   title: "Penny Pilot",
@@ -52,11 +54,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body>
-        <Preloader />
-        <AntiTamperGuard />
-        <PwaInstallCapture />
-        <ServiceWorkerUpdatePrompt />
-        <Providers>{children}</Providers>
+        <ClerkProvider>
+          <ClerkTokenBridge />
+          <Preloader />
+          <AntiTamperGuard />
+          <PwaInstallCapture />
+          <ServiceWorkerUpdatePrompt />
+          <Providers>{children}</Providers>
+        </ClerkProvider>
       </body>
     </html>
   );
