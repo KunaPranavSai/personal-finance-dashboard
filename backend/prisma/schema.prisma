@@ -54,6 +54,15 @@ model User {
   email                  String     @unique
   name                   String
   phone                  String?
+  // --- Clerk migration (additive only, see backend/src/lib/clerkAuth.ts) ---
+  // Nullable and independent of the legacy auth columns below: this User row
+  // *is* the "UserProfile" every financial table already references via
+  // userId, so Clerk identity is linked onto the existing row instead of
+  // introducing a parallel table + a repointed-FK migration across every
+  // financial model. Legacy password/2FA/session columns are untouched and
+  // still fully functional when AUTH_PROVIDER=legacy (the default).
+  clerkUserId            String?    @unique
+  avatarUrl              String?
   role                   UserRole   @default(USER)
   status                 UserStatus @default(PENDING)
   passwordHash           String?
