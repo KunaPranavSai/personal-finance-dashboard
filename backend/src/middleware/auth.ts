@@ -11,6 +11,13 @@ export interface AuthPayload {
   tfaEnabled?: boolean;
   /** Epoch ms of the last successful TOTP verification (login or step-up reverify). */
   tfaVerifiedAt?: number;
+  /**
+   * Absolute epoch-ms deadline for this session (per-session timeout, clamped to the
+   * next daily IST midnight — see lib/sessionExpiry.ts). Set once at login/step-up
+   * re-auth and carried forward unchanged by ordinary /api/auth/refresh calls, so a
+   * page reload or PWA relaunch can never silently mint a fresh session window.
+   */
+  sessionExpiresAt?: number;
   iat?: number;
   exp?: number;
 }
@@ -40,6 +47,10 @@ export function authenticate(req: Request, res: Response, next: NextFunction): v
     const payload = jwt.verify(token, secret) as AuthPayload;
     if (payload.sv !== getSessionVersion(payload.userId)) {
       res.status(401).json({ error: "Session ended: you were signed in elsewhere" });
+      return;
+    }
+    if (payload.sessionExpiresAt && Date.now() > payload.sessionExpiresAt) {
+      res.status(401).json({ error: "Session expired", code: "SESSION_EXPIRED" });
       return;
     }
     req.auth = payload;

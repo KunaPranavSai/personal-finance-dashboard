@@ -13,6 +13,7 @@ import { logActivity } from "../lib/activityLog";
 import { notifySecurityEvent, notifyAdmins, sendEmail, createNotification } from "../lib/notify";
 import { seedDefaultDataForUser } from "../lib/startup";
 import { RP_ID, RP_NAME, RP_ORIGINS } from "../lib/webauthn";
+import { computeSessionExpiry, getSessionTimeoutMinutes } from "../lib/sessionExpiry";
 import {
   generateRegistrationOptions,
   verifyRegistrationResponse,
@@ -64,6 +65,7 @@ const MAX_OTP_ATTEMPTS = 5;
 interface TfaClaims {
   tfaEnabled?: boolean;
   tfaVerifiedAt?: number;
+  sessionExpiresAt?: number;
 }
 
 function signAccess(user: Pick<User, "id" | "uid" | "role">, sv: number, tfa?: TfaClaims) {
@@ -243,10 +245,11 @@ router.post(
     }
 
     const sv = bumpSessionVersion(user.id);
-    setTokenCookies(res, signAccess(user, sv), signRefresh(user, sv));
+    const sessionExpiresAt = computeSessionExpiry(Date.now(), await getSessionTimeoutMinutes(user.id));
+    setTokenCookies(res, signAccess(user, sv, { sessionExpiresAt }), signRefresh(user, sv, { sessionExpiresAt }));
     void prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
     void createNotification(user.id, "security", "New sign-in", "Your account was signed in from a new session.");
-    res.json({ user: toUserJson(user) });
+    res.json({ user: toUserJson(user), sessionExpiresAt });
   })
 );
 
@@ -293,7 +296,8 @@ router.post(
       },
     });
     const sv = bumpSessionVersion(updated.id);
-    setTokenCookies(res, signAccess(updated, sv), signRefresh(updated, sv));
+    const sessionExpiresAt = computeSessionExpiry(Date.now(), await getSessionTimeoutMinutes(updated.id));
+    setTokenCookies(res, signAccess(updated, sv, { sessionExpiresAt }), signRefresh(updated, sv, { sessionExpiresAt }));
     void logActivity(req, "password_changed", "Temporary password replaced on first login", user.id);
     void notifySecurityEvent(user.id, "security", "Password changed", "Your temporary password was replaced with a new password.");
 
@@ -313,7 +317,7 @@ router.post(
       );
       await createNotification(user.id, "welcome_tour", "Welcome to Penny Pilot", "Your account is ready. Explore the feature tour to get the most out of Penny Pilot.");
     }
-    res.json({ user: toUserJson(updated), justOnboarded });
+    res.json({ user: toUserJson(updated), justOnboarded, sessionExpiresAt });
   })
 );
 
@@ -350,11 +354,12 @@ router.post(
       return;
     }
     const sv = bumpSessionVersion(user.id);
-    const tfa = { tfaEnabled: true, tfaVerifiedAt: Date.now() };
+    const sessionExpiresAt = computeSessionExpiry(Date.now(), await getSessionTimeoutMinutes(user.id));
+    const tfa = { tfaEnabled: true, tfaVerifiedAt: Date.now(), sessionExpiresAt };
     setTokenCookies(res, signAccess(user, sv, tfa), signRefresh(user, sv, tfa));
     void prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
     void createNotification(user.id, "security", "New sign-in", "Your account was signed in with two-factor authentication.");
-    res.json({ user: toUserJson(user) });
+    res.json({ user: toUserJson(user), sessionExpiresAt });
   })
 );
 
@@ -421,7 +426,7 @@ router.post(
     // stale claim in their current token would say tfaEnabled:false until it next
     // refreshes, and requireRecent2FA wouldn't know to start the 12h window yet.
     const sv = getSessionVersion(user.id);
-    const tfa = { tfaEnabled: true, tfaVerifiedAt: Date.now() };
+    const tfa = { tfaEnabled: true, tfaVerifiedAt: Date.now(), sessionExpiresAt: req.auth!.sessionExpiresAt };
     setTokenCookies(res, signAccess(user, sv, tfa), signRefresh(user, sv, tfa));
     void logActivity(req, "2fa_enabled", "Two-factor authentication enabled", user.id);
     void notifySecurityEvent(user.id, "security", "2FA enabled", "Two-factor authentication was enabled on your account.");
@@ -465,7 +470,8 @@ router.post(
       data: { twoFactorEnabled: false, twoFactorSecret: null, twoFactorPendingSecret: null, twoFactorBackupCodes: [] },
     });
     const sv = getSessionVersion(user.id);
-    setTokenCookies(res, signAccess(user, sv, { tfaEnabled: false }), signRefresh(user, sv, { tfaEnabled: false }));
+    const tfa = { tfaEnabled: false, sessionExpiresAt: req.auth!.sessionExpiresAt };
+    setTokenCookies(res, signAccess(user, sv, tfa), signRefresh(user, sv, tfa));
     void logActivity(req, "2fa_disabled", "Two-factor authentication disabled", user.id);
     void notifySecurityEvent(user.id, "security", "2FA disabled", "Two-factor authentication was disabled on your account.");
     res.json({ ok: true });
@@ -499,7 +505,7 @@ router.post(
       return;
     }
     const sv = getSessionVersion(user.id);
-    const tfa = { tfaEnabled: true, tfaVerifiedAt: Date.now() };
+    const tfa = { tfaEnabled: true, tfaVerifiedAt: Date.now(), sessionExpiresAt: req.auth!.sessionExpiresAt };
     setTokenCookies(res, signAccess(user, sv, tfa), signRefresh(user, sv, tfa));
     res.json({ ok: true });
   })
@@ -543,7 +549,7 @@ router.post(
     }
     const updated = await prisma.user.update({ where: { id: user.id }, data: { uid: trimmed } });
     const sv = bumpSessionVersion(updated.id);
-    const tfa: TfaClaims = { tfaEnabled: req.auth!.tfaEnabled, tfaVerifiedAt: req.auth!.tfaVerifiedAt };
+    const tfa: TfaClaims = { tfaEnabled: req.auth!.tfaEnabled, tfaVerifiedAt: req.auth!.tfaVerifiedAt, sessionExpiresAt: req.auth!.sessionExpiresAt };
     setTokenCookies(res, signAccess(updated, sv, tfa), signRefresh(updated, sv, tfa));
     void logActivity(req, "uid_changed", `UID changed from ${user.uid} to ${trimmed}`, user.id);
     void notifySecurityEvent(user.id, "security", "User ID changed", `Your sign-in User ID was changed to "${trimmed}".`);
@@ -698,12 +704,25 @@ router.post(
       res.status(401).json({ error: "No refresh token" });
       return;
     }
+    const { extend } = (req.body ?? {}) as { extend?: boolean };
     try {
       const payload = jwt.verify(token, REFRESH_SECRET) as AuthPayload;
       if (payload.sv !== getSessionVersion(payload.userId)) {
         res.clearCookie("access_token", { path: "/" });
         res.clearCookie("refresh_token", { path: "/api/auth" });
         res.status(401).json({ error: "Session ended: you were signed in elsewhere" });
+        return;
+      }
+      // The absolute session deadline (set at login, clamped to the next IST
+      // midnight — see lib/sessionExpiry.ts) is enforced here independently of
+      // token cryptographic validity. Without this check, silently refreshing
+      // the access token on every page load/PWA relaunch would let a session
+      // run forever as long as the 7-day refresh token cookie survives — which
+      // is exactly the "never logs out" bug this guards against.
+      if (payload.sessionExpiresAt && Date.now() > payload.sessionExpiresAt) {
+        res.clearCookie("access_token", { path: "/" });
+        res.clearCookie("refresh_token", { path: "/api/auth" });
+        res.status(401).json({ error: "Session expired", code: "SESSION_EXPIRED" });
         return;
       }
       const user = await prisma.user.findUnique({ where: { id: payload.userId } });
@@ -713,11 +732,17 @@ router.post(
         res.status(401).json({ error: "Account no longer active" });
         return;
       }
+      // Ordinary silent refreshes (page load, background access-token renewal)
+      // carry the existing deadline forward unchanged. Only an explicit user
+      // action — the "Extend Session" button — recomputes a fresh one.
+      const sessionExpiresAt = extend === true
+        ? computeSessionExpiry(Date.now(), await getSessionTimeoutMinutes(user.id))
+        : payload.sessionExpiresAt;
       // Re-derive tfaEnabled from the DB for freshness, but carry forward
       // tfaVerifiedAt from the old token so refreshing never resets the 12h clock.
-      const tfa: TfaClaims = { tfaEnabled: user.twoFactorEnabled, tfaVerifiedAt: payload.tfaVerifiedAt };
+      const tfa: TfaClaims = { tfaEnabled: user.twoFactorEnabled, tfaVerifiedAt: payload.tfaVerifiedAt, sessionExpiresAt };
       setTokenCookies(res, signAccess(user, payload.sv, tfa), signRefresh(user, payload.sv, tfa));
-      res.json({ user: toUserJson(user) });
+      res.json({ user: toUserJson(user), sessionExpiresAt });
     } catch {
       res.clearCookie("access_token", { path: "/" });
       res.clearCookie("refresh_token", { path: "/api/auth" });
@@ -736,7 +761,7 @@ router.get(
       res.status(401).json({ error: "Account not found" });
       return;
     }
-    res.json({ user: toUserJson(user) });
+    res.json({ user: toUserJson(user), sessionExpiresAt: req.auth!.sessionExpiresAt });
   })
 );
 
@@ -1391,14 +1416,17 @@ router.post(
       data: { counter: BigInt(verification.authenticationInfo.newCounter), lastUsedAt: new Date() },
     });
     const sv = bumpSessionVersion(user.id);
+    const sessionExpiresAt = computeSessionExpiry(Date.now(), await getSessionTimeoutMinutes(user.id));
     // A successful WebAuthn assertion is itself strong, device-bound, user-verified proof
     // of identity — for accounts with 2FA enabled we treat it as satisfying the recent-2FA
     // window too (same trust level as a fresh TOTP check), so it starts its own 12h clock.
-    const tfa: TfaClaims = user.twoFactorEnabled ? { tfaEnabled: true, tfaVerifiedAt: Date.now() } : { tfaEnabled: false };
+    const tfa: TfaClaims = user.twoFactorEnabled
+      ? { tfaEnabled: true, tfaVerifiedAt: Date.now(), sessionExpiresAt }
+      : { tfaEnabled: false, sessionExpiresAt };
     setTokenCookies(res, signAccess(user, sv, tfa), signRefresh(user, sv, tfa));
     void prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
     void createNotification(user.id, "security", "New sign-in", "Your account was signed in with a passkey.");
-    res.json({ user: toUserJson(user) });
+    res.json({ user: toUserJson(user), sessionExpiresAt });
   })
 );
 

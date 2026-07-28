@@ -79,17 +79,6 @@ async function apiFetch(path: string, options?: RequestInit) {
   return res;
 }
 
-function readStoredExpiry(): number | null {
-  try {
-    const raw = localStorage.getItem(SESSION_EXPIRES_KEY);
-    if (!raw) return null;
-    const n = Number(raw);
-    return Number.isFinite(n) ? n : null;
-  } catch {
-    return null;
-  }
-}
-
 function writeStoredExpiry(expiresAt: number) {
   try {
     localStorage.setItem(SESSION_EXPIRES_KEY, String(expiresAt));
@@ -115,12 +104,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
   const [sessionExpiresAt, setSessionExpiresAt] = useState<number | null>(null);
   const [sessionSecondsRemaining, setSessionSecondsRemaining] = useState(Infinity);
-  const sessionTimeoutRef = useRef(sessionTimeout);
-  sessionTimeoutRef.current = sessionTimeout;
 
-  /** Starts (or restarts) the strictly time-based session countdown. Never called by activity. */
-  const beginSessionCountdown = useCallback((minutes?: number) => {
-    const expiresAt = Date.now() + (minutes ?? sessionTimeoutRef.current) * 60 * 1000;
+  /**
+   * Mirrors the server's absolute session deadline (embedded in the signed
+   * session cookie — see backend/src/lib/sessionExpiry.ts). The client never
+   * computes this value itself: doing so on every page load/PWA relaunch is
+   * exactly what let sessions run forever as long as the refresh cookie
+   * survived. `expiresAt` always comes from a `sessionExpiresAt` field in an
+   * auth API response.
+   */
+  const applySessionExpiry = useCallback((expiresAt: number | undefined | null) => {
+    if (!expiresAt) return;
     setSessionExpiresAt(expiresAt);
     writeStoredExpiry(expiresAt);
   }, []);
@@ -144,24 +138,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const data = await res.json();
         setUser(data.user);
         refreshTwoFactorStatus();
-        // Adopt another tab's already-running countdown if one exists; otherwise
-        // this is a fresh page context for the session, so start a full one.
-        const existing = readStoredExpiry();
-        if (existing && existing > Date.now()) {
-          setSessionExpiresAt(existing);
-        } else {
-          beginSessionCountdown();
-        }
+        // Always the server's real deadline for this session — never a freshly
+        // computed one, so reopening the app never grants extra time.
+        applySessionExpiry(data.sessionExpiresAt);
       } else if (res.status === 401) {
-        // Try refresh
+        // Access token expired (or missing) — try a silent refresh. The server
+        // rejects this itself once the session's absolute deadline has passed,
+        // even though the 7-day refresh cookie is still cryptographically valid.
         const ref = await apiFetch("/api/auth/refresh", { method: "POST" });
         if (ref.ok) {
           const data = await ref.json();
           setUser(data.user);
           refreshTwoFactorStatus();
-          beginSessionCountdown();
+          applySessionExpiry(data.sessionExpiresAt);
         } else {
           setUser(null);
+          setSessionExpiresAt(null);
+          clearStoredExpiry();
         }
       }
     } catch {
@@ -169,7 +162,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  }, [refreshTwoFactorStatus, beginSessionCountdown]);
+  }, [refreshTwoFactorStatus, applySessionExpiry]);
 
   useEffect(() => {
     restore();
@@ -278,9 +271,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     setUser(data.user);
     refreshTwoFactorStatus();
-    beginSessionCountdown(); // session timer starts immediately on login
+    applySessionExpiry(data.sessionExpiresAt); // session timer starts immediately on login
     return { requires2FA: false, requiresPasswordChange: false };
-  }, [refreshTwoFactorStatus, beginSessionCountdown]);
+  }, [refreshTwoFactorStatus, applySessionExpiry]);
 
   /**
    * Usernameless passkey sign-in: fetches a challenge, prompts the platform
@@ -308,8 +301,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const data = await verifyRes.json();
     setUser(data.user);
     refreshTwoFactorStatus();
-    beginSessionCountdown();
-  }, [refreshTwoFactorStatus, beginSessionCountdown]);
+    applySessionExpiry(data.sessionExpiresAt);
+  }, [refreshTwoFactorStatus, applySessionExpiry]);
 
   const signup = useCallback(async (name: string, email: string, phone: string) => {
     const res = await apiFetch("/api/auth/signup", {
@@ -334,9 +327,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const data = await res.json();
     setUser(data.user);
     refreshTwoFactorStatus();
-    beginSessionCountdown();
+    applySessionExpiry(data.sessionExpiresAt);
     return { justOnboarded: Boolean(data.justOnboarded), user: data.user as AuthUser };
-  }, [refreshTwoFactorStatus, beginSessionCountdown]);
+  }, [refreshTwoFactorStatus, applySessionExpiry]);
 
   const verifyLogin2FA = useCallback(async (challengeToken: string, code: string) => {
     const res = await apiFetch("/api/auth/2fa/login-verify", {
@@ -350,8 +343,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const data = await res.json();
     setUser(data.user);
     setTwoFactorEnabled(true);
-    beginSessionCountdown();
-  }, [beginSessionCountdown]);
+    applySessionExpiry(data.sessionExpiresAt);
+  }, [applySessionExpiry]);
 
   const logout = useCallback(async (opts?: { preserveRedirect?: boolean }) => {
     if (opts?.preserveRedirect && typeof window !== "undefined") {
@@ -372,18 +365,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await logout({ preserveRedirect: true });
   }, [logout]);
 
-  /** The only way (besides login) the countdown is ever reset. Requires a real, server-validated refresh. */
+  /**
+   * The only way (besides login) the countdown is ever reset. Requires a
+   * real, server-validated refresh — the `extend: true` flag tells the
+   * server to recompute a fresh deadline (still clamped to the next IST
+   * midnight) instead of its default behavior of carrying the old one
+   * forward unchanged.
+   */
   const extendSession = useCallback(async (): Promise<boolean> => {
-    const res = await apiFetch("/api/auth/refresh", { method: "POST" });
+    const res = await apiFetch("/api/auth/refresh", { method: "POST", body: JSON.stringify({ extend: true }) });
     if (!res.ok) {
       await handleSessionExpired();
       return false;
     }
     const data = await res.json().catch(() => null);
     if (data?.user) setUser(data.user);
-    beginSessionCountdown();
+    applySessionExpiry(data?.sessionExpiresAt);
     return true;
-  }, [handleSessionExpired, beginSessionCountdown]);
+  }, [handleSessionExpired, applySessionExpiry]);
 
   const changePassword = useCallback(async (currentPassword: string, newPassword: string) => {
     const res = await apiFetch("/api/auth/change-password", {
