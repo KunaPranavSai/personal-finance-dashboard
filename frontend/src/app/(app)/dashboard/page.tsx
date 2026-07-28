@@ -101,7 +101,7 @@ function DashboardContent() {
           <p className="text-sm text-navy/50 dark:text-white/50">Here&apos;s how your finances are looking today.</p>
         </motion.div>
         {isLoading ? (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+          <div className="grid grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
             {Array.from({ length: 12 }).map((_, i) => (
               <div key={i} className="h-28 animate-pulse rounded-xl2 bg-black/5 dark:bg-white/5" />
             ))}
@@ -113,7 +113,7 @@ function DashboardContent() {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+            <div className="grid grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
               <KpiCard label="Total Income" value={f(summary?.kpis?.totalIncome ?? 0)} icon={Wallet}
                 changePct={summary?.kpis?.changeVsPrevMonth?.income}
                 onClick={() => setSelectedKpi({
@@ -226,7 +226,7 @@ export default function DashboardPage() {
   return (
     <Suspense fallback={
       <><Topbar title="Dashboard" /><main className="flex-1 overflow-y-auto p-4 lg:p-6">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+        <div className="grid grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
           {Array.from({ length: 12 }).map((_, i) => <div key={i} className="h-28 animate-pulse rounded-xl2 bg-black/5 dark:bg-white/5" />)}
         </div>
       </main></>
