@@ -42,9 +42,9 @@ export function BudgetFormModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-label="Set budget" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 animate-popup-backdrop" role="dialog" aria-modal="true" aria-label="Set budget" onClick={onClose}>
       <FocusTrap active={open}>
-      <div className="w-full max-w-sm rounded-xl2 bg-white p-6 shadow-xl dark:bg-navy-dark" onClick={(e) => e.stopPropagation()}>
+      <div className="w-full max-w-sm rounded-xl2 bg-white p-6 shadow-xl dark:bg-navy-dark animate-popup-panel" onClick={(e) => e.stopPropagation()}>
         <h2 className="text-lg font-semibold text-navy dark:text-white">Set Monthly Budget</h2>
         {error && <p className="mt-2 text-xs text-red-600">Failed to load categories.</p>}
         <form onSubmit={handleSubmit((v) => mutation.mutate(v))} className="mt-4 space-y-4">

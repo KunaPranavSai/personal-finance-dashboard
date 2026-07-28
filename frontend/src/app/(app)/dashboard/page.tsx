@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
+import { motion } from "framer-motion";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { Topbar } from "@/components/layout/Topbar";
@@ -24,7 +25,7 @@ import {
 function DashboardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { twoFactorEnabled } = useAuth();
+  const { user, twoFactorEnabled } = useAuth();
   const [showTour, setShowTour] = useState(false);
   const [show2FAPrompt, setShow2FAPrompt] = useState(false);
   const [isWelcome, setIsWelcome] = useState(false);
@@ -76,10 +77,29 @@ function DashboardContent() {
 
   const hasError = !summary && !isLoading;
 
+  const greeting = (() => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good morning";
+    if (hour < 17) return "Good afternoon";
+    return "Good evening";
+  })();
+  const firstName = user?.name?.split(" ")[0];
+
   return (
     <>
       <Topbar title="Dashboard" />
       <main className="flex-1 overflow-y-auto p-4 lg:p-6">
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, ease: "easeOut" }}
+          className="mb-4"
+        >
+          <h1 className="text-xl font-semibold text-navy dark:text-white">
+            {greeting}{firstName ? `, ${firstName}` : ""} 👋
+          </h1>
+          <p className="text-sm text-navy/50 dark:text-white/50">Here&apos;s how your finances are looking today.</p>
+        </motion.div>
         {isLoading ? (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
             {Array.from({ length: 12 }).map((_, i) => (

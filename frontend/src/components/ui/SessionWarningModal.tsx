@@ -33,12 +33,12 @@ export function SessionWarningModal({ isOpen, secondsRemaining, onExtend, onLogo
 
   return (
     <div
-      className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-popup-backdrop"
       role="alertdialog"
       aria-modal="true"
       aria-label="Session expiring"
     >
-      <div className="w-full max-w-sm rounded-xl border border-red-500/20 bg-white shadow-2xl dark:border-red-500/30 dark:bg-navy-dark">
+      <div className="w-full max-w-sm rounded-xl border border-red-500/20 bg-white shadow-2xl dark:border-red-500/30 dark:bg-navy-dark animate-popup-panel">
         <div className="flex items-start gap-3 border-b border-black/5 p-6 dark:border-white/10">
           <AlertTriangle className="h-6 w-6 shrink-0 text-red-500" />
           <div>

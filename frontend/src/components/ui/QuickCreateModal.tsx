@@ -22,9 +22,9 @@ export function QuickCreateModal({
   const [name, setName] = useState("");
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-label={title} onClick={onClose}>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4 animate-popup-backdrop" role="dialog" aria-modal="true" aria-label={title} onClick={onClose}>
       <FocusTrap active>
-        <div className="w-full max-w-sm rounded-xl2 bg-white p-5 shadow-xl dark:bg-navy-dark" onClick={(e) => e.stopPropagation()}>
+        <div className="w-full max-w-sm rounded-xl2 bg-white p-5 shadow-xl dark:bg-navy-dark animate-popup-panel" onClick={(e) => e.stopPropagation()}>
           <h3 className="text-sm font-semibold text-navy dark:text-white">{title}</h3>
           <form
             onSubmit={(e) => {

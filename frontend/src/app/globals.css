@@ -2,6 +2,16 @@
 @tailwind components;
 @tailwind utilities;
 
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
 :root {
   --background: #f7f8fa;
   --foreground: #1f2a44;
@@ -63,6 +73,32 @@ body {
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+}
+
+@keyframes popup-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes popup-panel-in {
+  from { opacity: 0; transform: scale(0.96) translateY(6px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@layer utilities {
+  .animate-popup-backdrop {
+    animation: popup-backdrop-in 0.18s ease-out;
+  }
+  .animate-popup-panel {
+    animation: popup-panel-in 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-popup-backdrop,
+  .animate-popup-panel {
+    animation: none;
   }
 }
 

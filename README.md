@@ -147,11 +147,20 @@ The frontend is an installable PWA (`@ducanh2912/next-pwa`, Workbox under the ho
   `frontend/src/lib/pwaInstall.ts`) — shown once per device 7s after the dashboard loads, never if already
   installed, and not again for 1h after a dismissal. Manual install is always available from
   Settings → Appearance → Install App.
-- **Strict, server-anchored session timer**: session expiry (`frontend/src/lib/AuthContext.tsx`) is purely
-  elapsed-time — mouse/keyboard/scroll activity and background API calls never extend it. A warning banner
-  appears at 30s remaining, a blocking modal at 15s (`SessionWarningBanner`/`SessionWarningModal`), and
-  "Extend Session" calls the real `/api/auth/refresh` endpoint (never a client-side reset). The countdown is
-  synced across tabs via `localStorage` + the `storage` event, and expiry logs out every open tab.
+- **Strict, server-anchored session timer**: the absolute session deadline is computed and enforced entirely
+  server-side (`backend/src/lib/sessionExpiry.ts`, `sessionExpiresAt` JWT claim, checked in
+  `backend/src/middleware/auth.ts`'s `authenticate` and in `POST /api/auth/refresh`) — it's set once at login
+  and clamped to whichever comes first: the configured session-timeout minutes, or the next daily 00:00 IST
+  cutoff. Ordinary silent token refreshes (page load, PWA relaunch) carry this deadline forward unchanged;
+  only the explicit "Extend Session" action (`extend: true` on `/api/auth/refresh`) recomputes a fresh one.
+  This is what makes the timer actually strict: previously the client computed its own deadline on every
+  page load, so a still-valid 7-day refresh-token cookie could silently mint a brand-new session window every
+  time the app (or PWA) was reopened, regardless of the configured timeout — the fix moves the source of
+  truth server-side and the frontend (`frontend/src/lib/AuthContext.tsx`) now only mirrors the
+  `sessionExpiresAt` value returned by the server. A warning banner appears at 30s remaining, a blocking modal
+  at 15s (`SessionWarningBanner`/`SessionWarningModal`). The countdown is synced across tabs via
+  `localStorage` + the `storage` event, and expiry logs out every open tab. Every account is also force-logged
+  out at midnight IST daily, independent of when it logged in.
 - **Periodic 2FA re-verification**: accounts with 2FA enabled must re-enter a TOTP code every 12h
   (`tfaVerifiedAt` JWT claim, enforced by `requireRecent2FA` in `backend/src/middleware/auth.ts`) before
   sensitive actions — export, backup/restore, profile changes, password/UID changes, disabling 2FA. Blocked
