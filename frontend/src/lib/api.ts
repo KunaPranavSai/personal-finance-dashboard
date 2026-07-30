@@ -1,6 +1,3 @@
-import { isClerkAuth } from "./authProvider";
-import { getClerkToken } from "./clerkTokenBridge";
-
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 
 /** Dispatched whenever a sensitive action is blocked pending fresh TOTP re-verification. */
@@ -22,14 +19,6 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     headers["Content-Type"] = "application/json";
   }
   Object.assign(headers, options.headers);
-
-  // The Express API is a separate origin from the Next.js app, so it can't
-  // read Clerk's own session cookie — a fresh Clerk session JWT is attached
-  // as a Bearer token instead (see backend/src/middleware/clerkAuth.ts).
-  if (isClerkAuth) {
-    const token = await getClerkToken();
-    if (token) headers["Authorization"] = `Bearer ${token}`;
-  }
 
   const res = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
