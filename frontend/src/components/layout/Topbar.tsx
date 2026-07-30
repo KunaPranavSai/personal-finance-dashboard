@@ -1,6 +1,7 @@
 "use client";
 
 import { Moon, Sun, Search, Menu, Bell, User, Settings, Palette, LogOut, Clock } from "lucide-react";
+import { motion } from "framer-motion";
 import { useUiStore } from "@/store/uiStore";
 import { useNotifications, useProfile } from "@/lib/reference";
 import { useSettingsContext } from "@/lib/SettingsContext";
@@ -42,7 +43,7 @@ function SessionCountdown() {
 
 export function Topbar({ title }: { title: string }) {
   const { toggleSidebar, unreadNotifications, setUnreadNotifications } = useUiStore();
-  const { settings, updateSettings } = useSettingsContext();
+  const { updateSettings, resolvedTheme } = useSettingsContext();
   const { logout, user } = useAuth();
   const router = useRouter();
   const [avatarOpen, setAvatarOpen] = useState(false);
@@ -54,7 +55,6 @@ export function Topbar({ title }: { title: string }) {
   const { data: profile } = useProfile();
   const { data: notifData } = useNotifications();
 
-  const theme = settings.theme;
 
   useEffect(() => {
     if (notifData?.items) {
@@ -84,10 +84,13 @@ export function Topbar({ title }: { title: string }) {
     return () => document.removeEventListener("keydown", handleEscape);
   }, []);
 
+  // Strict two-state toggle based on the theme actually applied right now
+  // (resolvedTheme), not the raw saved preference — this is what keeps the
+  // icon and the <html> class in sync even when the saved preference is
+  // "system" and the OS is in dark mode.
   const toggleTheme = useCallback(() => {
-    const next = theme === "dark" ? "light" : theme === "light" ? "system" : "dark";
-    updateSettings({ theme: next });
-  }, [theme, updateSettings]);
+    updateSettings({ theme: resolvedTheme === "dark" ? "light" : "dark" });
+  }, [resolvedTheme, updateSettings]);
 
   const handleLogout = useCallback(async () => {
     setIsLoggingOut(true);
@@ -140,10 +143,18 @@ export function Topbar({ title }: { title: string }) {
 
         <button
           onClick={toggleTheme}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-black/5 text-navy hover:bg-black/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10"
-          aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-200/50 text-navy transition-colors hover:bg-slate-300 dark:bg-slate-800/50 dark:text-white dark:hover:bg-slate-700"
+          aria-label={`Switch to ${resolvedTheme === "dark" ? "light" : "dark"} theme`}
         >
-          {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          <motion.span
+            key={resolvedTheme}
+            className="flex"
+            initial={{ rotate: -180, opacity: 0 }}
+            animate={{ rotate: 0, opacity: 1 }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
+          >
+            {resolvedTheme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </motion.span>
         </button>
 
         <Link

@@ -14,22 +14,16 @@ function getPeriod(hour: number): Period {
   return "night";
 }
 
-const PERIOD_META: Record<Period, { greeting: string; icon: typeof Sunrise; sky: string }> = {
-  morning: {
-    greeting: "Good Morning",
-    icon: Sunrise,
-    sky: "from-sky-200 via-sky-300 to-amber-100 dark:from-[#1e2a4a] dark:via-[#233355] dark:to-[#3a2f52]",
-  },
-  afternoon: {
-    greeting: "Good Afternoon",
-    icon: CloudSun,
-    sky: "from-sky-300 via-sky-200 to-blue-200 dark:from-[#18233f] dark:via-[#1f2c4d] dark:to-[#2a3459]",
-  },
-  night: {
-    greeting: "Clear Skies Tonight",
-    icon: MoonStar,
-    sky: "from-indigo-200 via-blue-200 to-slate-200 dark:from-[#0b1024] dark:via-[#131a3a] dark:to-[#1c2450]",
-  },
+// One consistent, high-contrast brand gradient rather than three distinct
+// per-period skies — the earlier per-period colors were low-contrast in
+// light mode against dark title text. Still fully time-aware via the
+// greeting copy/icon/emoji below; only the background is now unified.
+const HERO_SKY = "from-sky-100 via-indigo-50 to-purple-100 dark:from-slate-900 dark:via-indigo-950 dark:to-slate-900";
+
+const PERIOD_META: Record<Period, { greeting: string; icon: typeof Sunrise }> = {
+  morning: { greeting: "Good Morning", icon: Sunrise },
+  afternoon: { greeting: "Good Afternoon", icon: CloudSun },
+  night: { greeting: "Clear Skies Tonight", icon: MoonStar },
 };
 
 const EMOJI: Record<Period, string> = { morning: "🌅", afternoon: "🌤️", night: "🌌" };
@@ -72,17 +66,17 @@ export function DashboardHero({ firstName, netWorthLabel, incomeLabel, expenseLa
   return (
     <div ref={heroRef} className="relative mb-6 overflow-hidden rounded-3xl border border-white/10" style={{ willChange: "transform" }}>
       {/* Background sky gradient */}
-      <motion.div className={cn("absolute inset-0 bg-gradient-to-br", meta.sky)} style={{ opacity: skyOpacity }} />
+      <motion.div className={cn("absolute inset-0 bg-gradient-to-br", HERO_SKY)} style={{ opacity: skyOpacity }} />
 
       {/* Midground: parallax clouds + mountains, slower than scroll */}
       <motion.div className="pointer-events-none absolute inset-0 opacity-40" style={{ y: cloudsY, willChange: "transform" }} aria-hidden>
-        <Mountain className="absolute -bottom-2 left-4 h-16 w-16 text-white/40 sm:h-20 sm:w-20" />
-        <Mountain className="absolute -bottom-4 left-20 h-20 w-20 text-white/30 sm:h-28 sm:w-28" />
+        <Mountain className="absolute -bottom-2 left-4 h-16 w-16 text-navy/20 dark:text-white/30 sm:h-20 sm:w-20" />
+        <Mountain className="absolute -bottom-4 left-20 h-20 w-20 text-navy/15 dark:text-white/20 sm:h-28 sm:w-28" />
         <motion.div animate={{ x: [0, 16, 0] }} transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }} className="absolute right-16 top-6">
-          <Cloud className="h-8 w-8 text-white/50" />
+          <Cloud className="h-8 w-8 text-navy/25 dark:text-white/40" />
         </motion.div>
         <motion.div animate={{ x: [0, -20, 0] }} transition={{ duration: 16, repeat: Infinity, ease: "easeInOut" }} className="absolute right-40 top-14">
-          <Cloud className="h-6 w-6 text-white/40" />
+          <Cloud className="h-6 w-6 text-navy/20 dark:text-white/30" />
         </motion.div>
       </motion.div>
 
@@ -93,7 +87,7 @@ export function DashboardHero({ firstName, netWorthLabel, incomeLabel, expenseLa
           animate={{ x: [0, -14, 0], y: [0, 8, 0], rotate: [0, -6, 0] }}
           transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
         >
-          <Send className="h-5 w-5 -rotate-45 text-white/70 drop-shadow" />
+          <Send className="h-5 w-5 -rotate-45 text-navy/40 drop-shadow dark:text-white/70" />
         </motion.div>
         <motion.div className="absolute bottom-6 right-24" animate={{ y: [0, -10, 0] }} transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}>
           <GoldCoin size="1.1rem" spinDuration={3} />
@@ -103,21 +97,24 @@ export function DashboardHero({ firstName, netWorthLabel, incomeLabel, expenseLa
         </motion.div>
       </motion.div>
 
-      {/* Content */}
-      <div className="relative z-10 p-5 sm:p-7">
-        <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: "easeOut" }} className="flex items-center gap-3">
+      {/* Content — extra bottom padding reserves clearance so the
+          absolutely-positioned scroll indicator never overlaps the balance
+          breakdown when it expands (the indicator also fades out itself
+          whenever the breakdown is open, belt-and-suspenders). */}
+      <div className="relative z-10 p-4 pb-14 sm:p-6 sm:pb-16">
+        <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: "easeOut" }} className="flex items-start gap-3">
           <motion.div
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/30 backdrop-blur-sm dark:bg-white/10"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white/50 backdrop-blur-sm dark:bg-white/10 sm:h-11 sm:w-11"
             animate={period === "morning" ? { y: [0, -4, 0] } : period === "night" ? { rotate: [0, 8, 0] } : undefined}
             transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
           >
-            <Icon className="h-[22px] w-[22px] text-navy dark:text-white" />
+            <Icon className="h-5 w-5 text-slate-900 dark:text-white sm:h-[22px] sm:w-[22px]" />
           </motion.div>
-          <div>
-            <h1 className="text-lg font-bold text-navy dark:text-white sm:text-xl">
+          <div className="min-w-0">
+            <h1 className="text-lg font-bold leading-snug text-slate-900 dark:text-white sm:text-xl md:text-2xl">
               {meta.greeting}, {firstName ? firstName : "Pilot"} {EMOJI[period]}
             </h1>
-            <p className="text-xs text-navy/60 dark:text-white/60 sm:text-sm">Here&apos;s how your finances are looking today.</p>
+            <p className="text-xs text-slate-600 dark:text-white/60 sm:text-sm">Here&apos;s how your finances are looking today.</p>
           </div>
         </motion.div>
 
@@ -125,20 +122,23 @@ export function DashboardHero({ firstName, netWorthLabel, incomeLabel, expenseLa
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.3, delay: 0.15 }}
-          className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-white/40 px-3 py-1.5 text-xs font-medium text-navy backdrop-blur-sm dark:bg-white/10 dark:text-white"
+          className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-white/50 px-3 py-1.5 text-xs font-medium text-slate-900 backdrop-blur-sm dark:bg-white/10 dark:text-white sm:mt-4"
         >
           <Sparkles className="h-3.5 w-3.5 text-amber-500 dark:text-amber-300" />
           {insight}
         </motion.div>
 
-        <div className="relative mt-5">
+        {/* Flex column so the breakdown row expanding never disturbs the
+            indicator below — this block's own height simply grows within
+            the pb-10/12 clearance reserved above. */}
+        <div className="relative mt-4 flex flex-col gap-2 sm:mt-5">
           <button
             type="button"
             onClick={handleBalanceClick}
-            className="relative flex flex-col items-start rounded-2xl bg-white/30 px-4 py-3 text-left backdrop-blur-sm transition-colors hover:bg-white/40 dark:bg-white/5 dark:hover:bg-white/10"
+            className="relative flex flex-col items-start rounded-2xl bg-white/40 p-4 text-left backdrop-blur-sm transition-colors hover:bg-white/50 dark:bg-white/5 dark:hover:bg-white/10 sm:p-6"
           >
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-navy/50 dark:text-white/50">Net Worth · Flight Deck Status</span>
-            <span className="mt-0.5 text-2xl font-extrabold text-navy dark:text-white sm:text-3xl">{netWorthLabel}</span>
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-600 dark:text-white/50">Net Worth · Flight Deck Status</span>
+            <span className="mt-0.5 text-2xl font-extrabold text-slate-900 dark:text-white sm:text-3xl">{netWorthLabel}</span>
 
             <AnimatePresence>
               {coinDrops.map((id) => (
@@ -164,12 +164,12 @@ export function DashboardHero({ firstName, netWorthLabel, incomeLabel, expenseLa
                 transition={{ duration: 0.25 }}
                 className="overflow-hidden"
               >
-                <div className="mt-2 flex gap-4 rounded-xl bg-white/20 px-4 py-2.5 text-xs backdrop-blur-sm dark:bg-white/5">
-                  <span className="text-navy/70 dark:text-white/70">
-                    Income: <span className="font-semibold text-emerald-700 dark:text-emerald-400">{incomeLabel}</span>
+                <div className="flex flex-wrap gap-2 text-xs">
+                  <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 font-semibold text-emerald-600 dark:text-emerald-400">
+                    Income: {incomeLabel}
                   </span>
-                  <span className="text-navy/70 dark:text-white/70">
-                    Expenses: <span className="font-semibold text-red-700 dark:text-red-400">{expenseLabel}</span>
+                  <span className="inline-flex items-center gap-1 rounded-full border border-rose-500/20 bg-rose-500/10 px-2.5 py-1 font-semibold text-rose-600 dark:text-rose-400">
+                    Expenses: {expenseLabel}
                   </span>
                 </div>
               </motion.div>
@@ -178,10 +178,13 @@ export function DashboardHero({ firstName, netWorthLabel, incomeLabel, expenseLa
         </div>
       </div>
 
-      {/* Scroll indicator */}
+      {/* Scroll indicator — kept strictly at the container's true bottom edge;
+          the reserved bottom padding above guarantees clearance from the
+          balance card, and it also fades itself out whenever the breakdown
+          is open so the two can never visually collide. */}
       <motion.div
-        style={{ opacity: indicatorOpacity }}
-        className="pointer-events-none absolute bottom-2 left-1/2 z-10 flex -translate-x-1/2 flex-col items-center gap-0.5 text-navy/40 dark:text-white/40"
+        style={{ opacity: showBreakdown ? 0 : indicatorOpacity }}
+        className="pointer-events-none absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 flex-col items-center gap-0.5 text-slate-500 dark:text-white/40 transition-opacity duration-200"
       >
         <span className="text-[10px] font-medium tracking-wide">Scroll to explore</span>
         <motion.div animate={{ y: [0, 4, 0] }} transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}>

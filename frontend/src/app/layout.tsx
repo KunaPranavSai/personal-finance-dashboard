@@ -37,14 +37,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        {/* Anti-flash: applies the last-resolved theme (written by SettingsContext
+            under THEME_STORAGE_KEY = "pfd-theme") before first paint, so there's
+            no flash of the wrong theme while /api/settings is still loading. */}
         <script
           dangerouslySetInnerHTML={{
             __html: `
               try {
-                var t = localStorage.getItem("pfd-ui-store");
-                if (t) {
-                  var p = JSON.parse(t);
-                  if (p.state && p.state.theme === "dark") document.documentElement.classList.add("dark");
+                var t = localStorage.getItem("pfd-theme");
+                if (t === "dark") document.documentElement.classList.add("dark");
+                else if (t !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches) {
+                  document.documentElement.classList.add("dark");
                 }
               } catch(e) {}
             `,
