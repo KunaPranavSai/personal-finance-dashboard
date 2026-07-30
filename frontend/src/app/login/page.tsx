@@ -10,6 +10,7 @@ import { PasswordInput } from "@/components/ui/PasswordInput";
 import { Shield, Lock, Fingerprint } from "lucide-react";
 import { browserSupportsWebAuthn } from "@simplewebauthn/browser";
 import { PREFER_BIOMETRIC_KEY } from "@/lib/passkeyPrefs";
+import { AnimatedCodeVerification } from "@/components/ui/AnimatedCodeVerification";
 
 export default function LoginPage() {
   const { user, login, loginWithPasskey, verifyLogin2FA, forceChangePassword, isAuthenticated, isLoading } = useAuth();
@@ -19,7 +20,6 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [isPending, setIsPending] = useState(false);
   const [challengeToken, setChallengeToken] = useState<string | null>(null);
-  const [code, setCode] = useState("");
   const [passwordChangeToken, setPasswordChangeToken] = useState<string | null>(null);
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
@@ -89,21 +89,6 @@ export default function LoginPage() {
     }
   };
 
-  const handleVerifyCode = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!challengeToken) return;
-    setError("");
-    setIsPending(true);
-    try {
-      await verifyLogin2FA(challengeToken, code.trim());
-      // The auth-state effect above redirects once `user` is populated.
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Verification failed");
-    } finally {
-      setIsPending(false);
-    }
-  };
-
   const handleForceChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!passwordChangeToken) return;
@@ -143,6 +128,19 @@ export default function LoginPage() {
         <div className="absolute -bottom-40 -left-40 h-96 w-96 rounded-full bg-blue-500/5 blur-3xl" />
       </div>
 
+      {challengeToken ? (
+        <AnimatedCodeVerification
+          length={6}
+          title="Verify Your Identity"
+          subtitle="Enter the 6-digit code from your authenticator app"
+          successTitle="Signed In Successfully!"
+          successSubtitle="Redirecting to your dashboard…"
+          allowBackupCode
+          onVerify={async (code) => { await verifyLogin2FA(challengeToken, code); }}
+          onCancel={() => setChallengeToken(null)}
+          cancelLabel="Back to sign in"
+        />
+      ) : (
       <div className="relative w-full max-w-md">
         {/* Logo / Brand */}
         <div className="mb-8 flex flex-col items-center gap-3 text-center">
@@ -214,60 +212,6 @@ export default function LoginPage() {
                     Set New Password
                   </>
                 )}
-              </button>
-            </form>
-          ) : challengeToken ? (
-            <form onSubmit={handleVerifyCode} className="space-y-5">
-              <div>
-                <label htmlFor="code" className="block text-xs font-semibold uppercase tracking-wider text-white/50 mb-2">
-                  Verification Code
-                </label>
-                <p className="mb-3 text-xs text-white/40">Enter the 6-digit code from your authenticator app, or a backup code.</p>
-                <input
-                  id="code"
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  value={code}
-                  onChange={(e) => setCode(e.target.value)}
-                  placeholder="123456"
-                  required
-                  autoFocus
-                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-center text-lg tracking-widest text-white placeholder:text-white/30 focus:border-teal/50 focus:outline-none focus:ring-2 focus:ring-teal/20 transition-all"
-                />
-              </div>
-
-              {error && (
-                <div className="flex items-center gap-2 rounded-lg bg-red-500/10 border border-red-500/20 px-3 py-2 text-sm text-red-400">
-                  <Shield className="h-4 w-4 shrink-0" />
-                  {error}
-                </div>
-              )}
-
-              <button
-                type="submit"
-                disabled={isPending || !code}
-                className="w-full rounded-xl bg-gradient-to-r from-teal to-teal/80 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-teal/25 transition-all hover:from-teal/90 hover:to-teal/70 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                {isPending ? (
-                  <>
-                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                    Verifying…
-                  </>
-                ) : (
-                  <>
-                    <Shield className="h-4 w-4" />
-                    Verify
-                  </>
-                )}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => { setChallengeToken(null); setCode(""); setError(""); }}
-                className="w-full text-center text-xs text-white/40 hover:text-white/60 transition-colors"
-              >
-                Back to sign in
               </button>
             </form>
           ) : mode === "biometric" ? (
@@ -415,6 +359,7 @@ export default function LoginPage() {
 
         <Footer variant="dark" />
       </div>
+      )}
     </div>
   );
 }
