@@ -85,7 +85,7 @@ export function Topbar({ title }: { title: string }) {
       <div className="flex items-center gap-2 min-w-0 sm:gap-3">
         <button
           onClick={toggleSidebar}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-navy hover:bg-black/5 dark:text-white dark:hover:bg-white/10 lg:hidden"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-navy hover:bg-black/5 active:scale-90 transition-transform dark:text-white dark:hover:bg-white/10 sm:h-9 sm:w-9 lg:hidden"
           aria-label="Toggle sidebar"
         >
           <Menu className="h-5 w-5" />
@@ -114,7 +114,7 @@ export function Topbar({ title }: { title: string }) {
 
         <button
           onClick={toggleTheme}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-200/50 text-navy transition-colors hover:bg-slate-300 dark:bg-slate-800/50 dark:text-white dark:hover:bg-slate-700"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-slate-200/50 text-navy transition-all duration-300 active:scale-90 hover:bg-slate-300 dark:bg-slate-800/50 dark:text-white dark:hover:bg-slate-700 sm:h-9 sm:w-9"
           aria-label={`Switch to ${resolvedTheme === "dark" ? "light" : "dark"} theme`}
         >
           <motion.span
@@ -130,7 +130,7 @@ export function Topbar({ title }: { title: string }) {
 
         <Link
           href="/notifications"
-          className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-black/5 text-navy hover:bg-black/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10"
+          className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-black/5 text-navy active:scale-90 transition-transform hover:bg-black/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10 sm:h-9 sm:w-9"
           aria-label="Notifications"
         >
           <Bell className="h-4 w-4" />
@@ -144,7 +144,7 @@ export function Topbar({ title }: { title: string }) {
         <div ref={menuRef}>
           <button
             onClick={() => setAvatarOpen(!avatarOpen)}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-teal/10 text-teal hover:bg-teal/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal/50 overflow-hidden"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-teal/10 text-teal active:scale-90 transition-transform hover:bg-teal/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal/50 overflow-hidden sm:h-9 sm:w-9"
             aria-label="User menu"
             aria-expanded={avatarOpen}
             aria-haspopup="true"

@@ -26,7 +26,7 @@ export function GoldCoin({ size = "3rem", spinDuration = 2.2, label = "P", class
     <div className={className} style={{ width: size, height: size, perspective: "10em" }}>
       <motion.div
         className="relative h-full w-full"
-        style={{ transformStyle: "preserve-3d" }}
+        style={{ transformStyle: "preserve-3d", willChange: "transform" }}
         animate={spinDuration ? { rotateY: [0, 360] } : undefined}
         transition={spinDuration ? { duration: spinDuration, repeat: Infinity, ease: "linear" } : undefined}
       >
