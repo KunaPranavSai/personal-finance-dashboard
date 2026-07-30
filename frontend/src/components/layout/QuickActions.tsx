@@ -52,7 +52,7 @@ export function QuickActions() {
   const floatingUi = (
     <>
       {/* Mobile: expandable FAB */}
-      <div className="fixed bottom-5 right-5 z-40 flex flex-col items-end gap-3 lg:hidden">
+      <div className="fixed bottom-6 right-6 z-40 flex flex-col items-end gap-3 lg:hidden">
         <AnimatePresence>
           {fabOpen &&
             ACTIONS.map((action, i) => (
@@ -75,7 +75,7 @@ export function QuickActions() {
         <button
           onClick={() => setFabOpen((v) => !v)}
           aria-label={fabOpen ? "Close quick actions" : "Open quick actions"}
-          className="flex h-14 w-14 items-center justify-center rounded-full bg-teal text-white shadow-xl transition-transform active:scale-95"
+          className="flex h-14 w-14 items-center justify-center rounded-full bg-teal text-white shadow-lg shadow-teal-500/20 backdrop-blur-md transition-transform active:scale-95"
         >
           <motion.span animate={{ rotate: fabOpen ? 135 : 0 }} transition={{ duration: 0.2 }}>
             {fabOpen ? <X className="h-6 w-6" /> : <Plus className="h-6 w-6" />}
