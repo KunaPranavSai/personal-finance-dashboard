@@ -1,10 +1,10 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
-import { motion } from "framer-motion";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { Topbar } from "@/components/layout/Topbar";
+import { DashboardHero } from "@/components/dashboard/DashboardHero";
 import { KpiCard } from "@/components/kpi/KpiCard";
 import { KpiDetailDrawer, KpiDetailData } from "@/components/kpi/KpiDetailDrawer";
 import { IncomeExpenseChart } from "@/components/charts/IncomeExpenseChart";
@@ -30,6 +30,8 @@ function DashboardContent() {
   const [show2FAPrompt, setShow2FAPrompt] = useState(false);
   const [isWelcome, setIsWelcome] = useState(false);
   const [selectedKpi, setSelectedKpi] = useState<KpiDetailData | null>(null);
+  const mainRef = useRef<HTMLElement>(null);
+  const heroRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (searchParams.get("welcome") === "1") {
@@ -76,30 +78,29 @@ function DashboardContent() {
   const trendData = Array.from(trendByMonth.values()).sort((a, b) => a.month.localeCompare(b.month));
 
   const hasError = !summary && !isLoading;
-
-  const greeting = (() => {
-    const hour = new Date().getHours();
-    if (hour < 12) return "Good morning";
-    if (hour < 17) return "Good afternoon";
-    return "Good evening";
-  })();
   const firstName = user?.name?.split(" ")[0];
+
+  const insight = (() => {
+    const savingsChange = summary?.kpis?.changeVsPrevMonth?.income;
+    const budgetPct = summary?.kpis?.budgetUtilizationPct;
+    if (typeof budgetPct === "number" && budgetPct <= 80) return "Monthly budget on a smooth flight plan";
+    if (typeof savingsChange === "number" && savingsChange > 0) return `You saved ${(savingsChange * 100).toFixed(0)}% more than last month`;
+    return "Your finances are cruising steady today";
+  })();
 
   return (
     <>
       <Topbar title="Dashboard" />
-      <main className="flex-1 overflow-y-auto p-4 lg:p-6">
-        <motion.div
-          initial={{ opacity: 0, y: -8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35, ease: "easeOut" }}
-          className="mb-4"
-        >
-          <h1 className="text-xl font-semibold text-navy dark:text-white">
-            {greeting}{firstName ? `, ${firstName}` : ""} 👋
-          </h1>
-          <p className="text-sm text-navy/50 dark:text-white/50">Here&apos;s how your finances are looking today.</p>
-        </motion.div>
+      <main ref={mainRef} className="flex-1 overflow-y-auto p-4 lg:p-6">
+        <DashboardHero
+          firstName={firstName}
+          netWorthLabel={f(summary?.kpis?.netWorth ?? 0)}
+          incomeLabel={f(summary?.kpis?.totalIncome ?? 0)}
+          expenseLabel={f(summary?.kpis?.totalExpenses ?? 0)}
+          insight={insight}
+          scrollContainerRef={mainRef}
+          heroRef={heroRef}
+        />
         {isLoading ? (
           <div className="grid grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
             {Array.from({ length: 12 }).map((_, i) => (
