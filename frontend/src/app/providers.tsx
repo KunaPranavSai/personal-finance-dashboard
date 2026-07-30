@@ -5,6 +5,7 @@ import { useState } from "react";
 import { SettingsProvider } from "@/lib/SettingsContext";
 import { ToastProvider } from "@/components/ui/Toast";
 import { AuthProvider } from "@/lib/AuthContext";
+import { SessionManagerProvider } from "@/lib/SessionManager";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [client] = useState(
@@ -21,7 +22,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <AuthProvider>
         <SettingsProvider>
           <ToastProvider>
-            {children}
+            <SessionManagerProvider>
+              {children}
+            </SessionManagerProvider>
           </ToastProvider>
         </SettingsProvider>
       </AuthProvider>

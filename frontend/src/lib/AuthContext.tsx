@@ -12,15 +12,10 @@ interface AuthUser {
   role: "SUPER_ADMIN" | "ADMIN" | "USER";
 }
 
-// Purely time-based session countdown — never extended by mouse/keyboard/scroll
-// activity or background API calls. Shared across tabs via localStorage so the
-// timer (and a logout in one tab) stays in sync everywhere.
-const SESSION_EXPIRES_KEY = "pfd-session-expires-at";
 export const POST_LOGIN_REDIRECT_KEY = "pfd-post-login-redirect";
-const WARNING_THRESHOLD_SECONDS = 30;
-const CRITICAL_THRESHOLD_SECONDS = 15;
-
-export type SessionState = "active" | "warning" | "critical";
+/** Set by SessionManager right before a forced logout so the login page can
+ * show "Your session expired due to inactivity." after the redirect. */
+export const SESSION_EXPIRED_REASON_KEY = "pfd-session-expired-reason";
 
 interface LoginResult {
   requires2FA: boolean;
@@ -33,8 +28,6 @@ interface AuthContextType {
   user: AuthUser | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  sessionState: SessionState;
-  sessionSecondsRemaining: number;
   isLocked: boolean;
   twoFactorEnabled: boolean;
   sessionTimeoutMinutes: number;
@@ -79,45 +72,13 @@ async function apiFetch(path: string, options?: RequestInit) {
   return res;
 }
 
-function writeStoredExpiry(expiresAt: number) {
-  try {
-    localStorage.setItem(SESSION_EXPIRES_KEY, String(expiresAt));
-  } catch {
-    // ignore
-  }
-}
-
-function clearStoredExpiry() {
-  try {
-    localStorage.removeItem(SESSION_EXPIRES_KEY);
-  } catch {
-    // ignore
-  }
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isLocked, setIsLocked] = useState(false);
-  const [sessionTimeout, setSessionTimeout] = useState(30); // minutes
+  const [sessionTimeout, setSessionTimeout] = useState(30); // minutes; inactivity timeout, 0 = Never
   const [autoLockTimeout, setAutoLockTimeout] = useState(15); // minutes
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
-  const [sessionExpiresAt, setSessionExpiresAt] = useState<number | null>(null);
-  const [sessionSecondsRemaining, setSessionSecondsRemaining] = useState(Infinity);
-
-  /**
-   * Mirrors the server's absolute session deadline (embedded in the signed
-   * session cookie — see backend/src/lib/sessionExpiry.ts). The client never
-   * computes this value itself: doing so on every page load/PWA relaunch is
-   * exactly what let sessions run forever as long as the refresh cookie
-   * survived. `expiresAt` always comes from a `sessionExpiresAt` field in an
-   * auth API response.
-   */
-  const applySessionExpiry = useCallback((expiresAt: number | undefined | null) => {
-    if (!expiresAt) return;
-    setSessionExpiresAt(expiresAt);
-    writeStoredExpiry(expiresAt);
-  }, []);
 
   const refreshTwoFactorStatus = useCallback(async () => {
     try {
@@ -138,23 +99,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const data = await res.json();
         setUser(data.user);
         refreshTwoFactorStatus();
-        // Always the server's real deadline for this session — never a freshly
-        // computed one, so reopening the app never grants extra time.
-        applySessionExpiry(data.sessionExpiresAt);
       } else if (res.status === 401) {
         // Access token expired (or missing) — try a silent refresh. The server
-        // rejects this itself once the session's absolute deadline has passed,
-        // even though the 7-day refresh cookie is still cryptographically valid.
+        // rejects this itself once the session's inactivity deadline has
+        // lapsed, even though the 7-day refresh cookie is still valid.
         const ref = await apiFetch("/api/auth/refresh", { method: "POST" });
         if (ref.ok) {
           const data = await ref.json();
           setUser(data.user);
           refreshTwoFactorStatus();
-          applySessionExpiry(data.sessionExpiresAt);
         } else {
           setUser(null);
-          setSessionExpiresAt(null);
-          clearStoredExpiry();
         }
       }
     } catch {
@@ -162,7 +117,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  }, [refreshTwoFactorStatus, applySessionExpiry]);
+  }, [refreshTwoFactorStatus]);
 
   useEffect(() => {
     restore();
@@ -175,7 +130,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const res = await apiFetch("/api/settings");
         if (res.ok) {
           const data = await res.json();
-          if (data?.security?.sessionTimeout) {
+          if (typeof data?.security?.sessionTimeout === "number") {
             setSessionTimeout(data.security.sessionTimeout);
           }
           if (data?.security?.autoLock) {
@@ -214,45 +169,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => clearInterval(checkLock);
   }, [user, autoLockTimeout, isLocked]);
 
-  // Strict, elapsed-time-only session countdown. Nothing in this effect ever
-  // resets sessionExpiresAt in response to activity or API calls — the only
-  // ways it changes are login, an explicit "Extend Session", or expiring.
-  useEffect(() => {
-    if (!user || sessionExpiresAt === null) {
-      setSessionSecondsRemaining(Infinity);
-      return;
-    }
-    const tick = () => {
-      const remaining = Math.max(0, Math.round((sessionExpiresAt - Date.now()) / 1000));
-      setSessionSecondsRemaining(remaining);
-      if (remaining <= 0) {
-        void handleSessionExpired();
-      }
-    };
-    tick();
-    const interval = setInterval(tick, 1000);
-    return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, sessionExpiresAt]);
-
-  // Cross-tab sync: another tab extending the session (or logging out)
-  // updates localStorage, which fires 'storage' here in every OTHER tab.
-  useEffect(() => {
-    const handleStorage = (e: StorageEvent) => {
-      if (e.key !== SESSION_EXPIRES_KEY) return;
-      if (e.newValue === null) {
-        // Another tab logged out (or expired) — follow immediately, no re-request.
-        setUser(null);
-        setSessionExpiresAt(null);
-      } else {
-        const next = Number(e.newValue);
-        if (Number.isFinite(next)) setSessionExpiresAt(next);
-      }
-    };
-    window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
-  }, []);
-
   const login = useCallback(async (uid: string, password: string): Promise<LoginResult> => {
     const res = await apiFetch("/api/auth/login", {
       method: "POST",
@@ -271,9 +187,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     setUser(data.user);
     refreshTwoFactorStatus();
-    applySessionExpiry(data.sessionExpiresAt); // session timer starts immediately on login
     return { requires2FA: false, requiresPasswordChange: false };
-  }, [refreshTwoFactorStatus, applySessionExpiry]);
+  }, [refreshTwoFactorStatus]);
 
   /**
    * Usernameless passkey sign-in: fetches a challenge, prompts the platform
@@ -301,8 +216,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const data = await verifyRes.json();
     setUser(data.user);
     refreshTwoFactorStatus();
-    applySessionExpiry(data.sessionExpiresAt);
-  }, [refreshTwoFactorStatus, applySessionExpiry]);
+  }, [refreshTwoFactorStatus]);
 
   const signup = useCallback(async (name: string, email: string, phone: string) => {
     const res = await apiFetch("/api/auth/signup", {
@@ -327,9 +241,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const data = await res.json();
     setUser(data.user);
     refreshTwoFactorStatus();
-    applySessionExpiry(data.sessionExpiresAt);
     return { justOnboarded: Boolean(data.justOnboarded), user: data.user as AuthUser };
-  }, [refreshTwoFactorStatus, applySessionExpiry]);
+  }, [refreshTwoFactorStatus]);
 
   const verifyLogin2FA = useCallback(async (challengeToken: string, code: string) => {
     const res = await apiFetch("/api/auth/2fa/login-verify", {
@@ -343,8 +256,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const data = await res.json();
     setUser(data.user);
     setTwoFactorEnabled(true);
-    applySessionExpiry(data.sessionExpiresAt);
-  }, [applySessionExpiry]);
+  }, []);
 
   const logout = useCallback(async (opts?: { preserveRedirect?: boolean }) => {
     if (opts?.preserveRedirect && typeof window !== "undefined") {
@@ -356,33 +268,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     await apiFetch("/api/auth/logout", { method: "POST" }).catch(() => {});
     setUser(null);
-    setSessionExpiresAt(null);
-    clearStoredExpiry(); // fires 'storage' in every other tab, logging them out too
   }, []);
 
-  /** Called only when the countdown itself hits zero — never by activity or a background call. */
-  const handleSessionExpired = useCallback(async () => {
-    await logout({ preserveRedirect: true });
-  }, [logout]);
-
   /**
-   * The only way (besides login) the countdown is ever reset. Requires a
-   * real, server-validated refresh — the `extend: true` flag tells the
-   * server to recompute a fresh deadline (still clamped to the next IST
-   * midnight) instead of its default behavior of carrying the old one
-   * forward unchanged.
+   * Called by SessionManager's "Stay Logged In" action. This is itself an
+   * authenticated request, so the server-side inactivity middleware already
+   * slides the deadline forward on success — this just also refreshes the
+   * user object and surfaces failure (e.g. the inactivity window had already
+   * lapsed server-side) back to the caller.
    */
   const extendSession = useCallback(async (): Promise<boolean> => {
-    const res = await apiFetch("/api/auth/refresh", { method: "POST", body: JSON.stringify({ extend: true }) });
+    const res = await apiFetch("/api/auth/refresh", { method: "POST" });
     if (!res.ok) {
-      await handleSessionExpired();
+      setUser(null);
       return false;
     }
     const data = await res.json().catch(() => null);
     if (data?.user) setUser(data.user);
-    applySessionExpiry(data?.sessionExpiresAt);
     return true;
-  }, [handleSessionExpired, applySessionExpiry]);
+  }, []);
 
   const changePassword = useCallback(async (currentPassword: string, newPassword: string) => {
     const res = await apiFetch("/api/auth/change-password", {
@@ -490,20 +394,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser((u) => (u ? { ...u, uid: data.uid } : u));
   }, []);
 
-  const sessionState: SessionState =
-    sessionSecondsRemaining <= CRITICAL_THRESHOLD_SECONDS
-      ? "critical"
-      : sessionSecondsRemaining <= WARNING_THRESHOLD_SECONDS
-      ? "warning"
-      : "active";
-
   return (
     <AuthContext.Provider value={{
       user,
       isLoading,
       isAuthenticated: !!user,
-      sessionState,
-      sessionSecondsRemaining,
       isLocked,
       twoFactorEnabled,
       sessionTimeoutMinutes: sessionTimeout,

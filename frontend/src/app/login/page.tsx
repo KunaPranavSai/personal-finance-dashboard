@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { useAuth, POST_LOGIN_REDIRECT_KEY } from "@/lib/AuthContext";
+import { useAuth, POST_LOGIN_REDIRECT_KEY, SESSION_EXPIRED_REASON_KEY } from "@/lib/AuthContext";
 import { Footer } from "@/components/layout/Footer";
 import { PasswordInput } from "@/components/ui/PasswordInput";
 import { AuthPageShell } from "@/components/ui/AuthPageShell";
@@ -68,6 +68,10 @@ export default function LoginPage() {
       setRememberMe(true);
     } else {
       setRememberMe(false);
+    }
+    if (sessionStorage.getItem(SESSION_EXPIRED_REASON_KEY) === "inactivity") {
+      sessionStorage.removeItem(SESSION_EXPIRED_REASON_KEY);
+      setError("Your session expired due to inactivity.");
     }
   }, []);
 

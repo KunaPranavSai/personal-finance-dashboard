@@ -21,9 +21,25 @@ export function computeSessionExpiry(fromMs: number, timeoutMinutes: number): nu
   return Math.min(fromMs + timeoutMinutes * 60 * 1000, nextMidnightIST(fromMs));
 }
 
+/** Returns the user's configured inactivity-timeout minutes, or 0 for "Never". */
 export async function getSessionTimeoutMinutes(userId: string): Promise<number> {
   const row = await prisma.appSettings.findUnique({ where: { userId } });
   const data = row?.data as { security?: { sessionTimeout?: number } } | undefined;
-  const minutes = Number(data?.security?.sessionTimeout);
+  const raw = data?.security?.sessionTimeout;
+  if (raw === 0) return 0; // explicit "Never"
+  const minutes = Number(raw);
   return Number.isFinite(minutes) && minutes > 0 ? minutes : 30;
+}
+
+/**
+ * The session deadline to embed in a freshly (re)signed token, honoring the
+ * user's configured inactivity timeout. Returns `undefined` when the user has
+ * selected "Never" — such sessions carry no inactivity deadline at all (they
+ * still end when the 7-day refresh cookie itself expires, or on explicit
+ * logout / session-version bump).
+ */
+export async function computeSessionExpiryForUser(userId: string, fromMs = Date.now()): Promise<number | undefined> {
+  const minutes = await getSessionTimeoutMinutes(userId);
+  if (minutes <= 0) return undefined;
+  return computeSessionExpiry(fromMs, minutes);
 }

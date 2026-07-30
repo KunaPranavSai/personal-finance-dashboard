@@ -13,7 +13,8 @@ import { logActivity } from "../lib/activityLog";
 import { notifySecurityEvent, notifyAdmins, sendEmail, createNotification } from "../lib/notify";
 import { seedDefaultDataForUser } from "../lib/startup";
 import { RP_ID, RP_NAME, RP_ORIGINS } from "../lib/webauthn";
-import { computeSessionExpiry, getSessionTimeoutMinutes } from "../lib/sessionExpiry";
+import { computeSessionExpiryForUser } from "../lib/sessionExpiry";
+import { ACCESS_SECRET, REFRESH_SECRET, signAccess, signRefresh, setTokenCookies, TfaClaims } from "../lib/tokens";
 import {
   generateRegistrationOptions,
   verifyRegistrationResponse,
@@ -49,43 +50,12 @@ const signupLimiter = rateLimit({
   message: { error: "Too many signup attempts. Please try again later." },
 });
 
-const ACCESS_SECRET = process.env.JWT_ACCESS_SECRET ?? "pfd-access-secret";
-const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET ?? "pfd-refresh-secret";
-const IS_PROD = process.env.NODE_ENV === "production";
-
-const ACCESS_TOKEN_TTL = 60 * 60; // 1 hour
-const REFRESH_TOKEN_TTL = 7 * 24 * 60 * 60; // 7 days
 const CHALLENGE_TOKEN_TTL = 5 * 60; // 5 minutes
 const PASSWORD_CHANGE_TOKEN_TTL = 30 * 60; // 30 minutes
 const RESET_OTP_TTL_MS = 5 * 60 * 1000; // 5 minutes
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes
 const MAX_OTP_ATTEMPTS = 5;
-
-interface TfaClaims {
-  tfaEnabled?: boolean;
-  tfaVerifiedAt?: number;
-  sessionExpiresAt?: number;
-}
-
-function signAccess(user: Pick<User, "id" | "uid" | "role">, sv: number, tfa?: TfaClaims) {
-  return jwt.sign({ userId: user.id, uid: user.uid, role: user.role, sv, ...tfa }, ACCESS_SECRET, { expiresIn: ACCESS_TOKEN_TTL });
-}
-
-function signRefresh(user: Pick<User, "id" | "uid" | "role">, sv: number, tfa?: TfaClaims) {
-  return jwt.sign({ userId: user.id, uid: user.uid, role: user.role, sv, ...tfa }, REFRESH_SECRET, { expiresIn: REFRESH_TOKEN_TTL });
-}
-
-function setTokenCookies(res: Response, accessToken: string, refreshToken: string) {
-  const cookieOptions = {
-    httpOnly: true,
-    signed: true,
-    secure: IS_PROD,
-    sameSite: (IS_PROD ? "none" : "lax") as "none" | "lax",
-  };
-  res.cookie("access_token", accessToken, { ...cookieOptions, maxAge: ACCESS_TOKEN_TTL * 1000, path: "/" });
-  res.cookie("refresh_token", refreshToken, { ...cookieOptions, maxAge: REFRESH_TOKEN_TTL * 1000, path: "/api/auth" });
-}
 
 function toUserJson(user: User) {
   return { uid: user.uid, name: user.name, email: user.email, role: user.role };
@@ -245,7 +215,7 @@ router.post(
     }
 
     const sv = bumpSessionVersion(user.id);
-    const sessionExpiresAt = computeSessionExpiry(Date.now(), await getSessionTimeoutMinutes(user.id));
+    const sessionExpiresAt = await computeSessionExpiryForUser(user.id);
     setTokenCookies(res, signAccess(user, sv, { sessionExpiresAt }), signRefresh(user, sv, { sessionExpiresAt }));
     void prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
     void createNotification(user.id, "security", "New sign-in", "Your account was signed in from a new session.");
@@ -296,7 +266,7 @@ router.post(
       },
     });
     const sv = bumpSessionVersion(updated.id);
-    const sessionExpiresAt = computeSessionExpiry(Date.now(), await getSessionTimeoutMinutes(updated.id));
+    const sessionExpiresAt = await computeSessionExpiryForUser(updated.id);
     setTokenCookies(res, signAccess(updated, sv, { sessionExpiresAt }), signRefresh(updated, sv, { sessionExpiresAt }));
     void logActivity(req, "password_changed", "Temporary password replaced on first login", user.id);
     void notifySecurityEvent(user.id, "security", "Password changed", "Your temporary password was replaced with a new password.");
@@ -354,7 +324,7 @@ router.post(
       return;
     }
     const sv = bumpSessionVersion(user.id);
-    const sessionExpiresAt = computeSessionExpiry(Date.now(), await getSessionTimeoutMinutes(user.id));
+    const sessionExpiresAt = await computeSessionExpiryForUser(user.id);
     const tfa = { tfaEnabled: true, tfaVerifiedAt: Date.now(), sessionExpiresAt };
     setTokenCookies(res, signAccess(user, sv, tfa), signRefresh(user, sv, tfa));
     void prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
@@ -704,7 +674,6 @@ router.post(
       res.status(401).json({ error: "No refresh token" });
       return;
     }
-    const { extend } = (req.body ?? {}) as { extend?: boolean };
     try {
       const payload = jwt.verify(token, REFRESH_SECRET) as AuthPayload;
       if (payload.sv !== getSessionVersion(payload.userId)) {
@@ -713,16 +682,13 @@ router.post(
         res.status(401).json({ error: "Session ended: you were signed in elsewhere" });
         return;
       }
-      // The absolute session deadline (set at login, clamped to the next IST
-      // midnight — see lib/sessionExpiry.ts) is enforced here independently of
-      // token cryptographic validity. Without this check, silently refreshing
-      // the access token on every page load/PWA relaunch would let a session
-      // run forever as long as the 7-day refresh token cookie survives — which
-      // is exactly the "never logs out" bug this guards against.
-      if (payload.sessionExpiresAt && Date.now() > payload.sessionExpiresAt) {
+      // Inactivity deadline, enforced independently of token cryptographic
+      // validity — see lib/sessionExpiry.ts. undefined means the user's
+      // configured timeout is "Never".
+      if (payload.sessionExpiresAt !== undefined && Date.now() > payload.sessionExpiresAt) {
         res.clearCookie("access_token", { path: "/" });
         res.clearCookie("refresh_token", { path: "/api/auth" });
-        res.status(401).json({ error: "Session expired", code: "SESSION_EXPIRED" });
+        res.status(401).json({ error: "Session expired due to inactivity", code: "SESSION_EXPIRED" });
         return;
       }
       const user = await prisma.user.findUnique({ where: { id: payload.userId } });
@@ -732,12 +698,11 @@ router.post(
         res.status(401).json({ error: "Account no longer active" });
         return;
       }
-      // Ordinary silent refreshes (page load, background access-token renewal)
-      // carry the existing deadline forward unchanged. Only an explicit user
-      // action — the "Extend Session" button — recomputes a fresh one.
-      const sessionExpiresAt = extend === true
-        ? computeSessionExpiry(Date.now(), await getSessionTimeoutMinutes(user.id))
-        : payload.sessionExpiresAt;
+      // Every refresh call — silent (background token renewal) or explicit
+      // ("Stay Logged In") — is itself a signal of user activity, so it always
+      // slides the inactivity deadline forward. Continuous inactivity is what
+      // lets the deadline lapse; there is no longer a fixed absolute cutoff.
+      const sessionExpiresAt = await computeSessionExpiryForUser(user.id);
       // Re-derive tfaEnabled from the DB for freshness, but carry forward
       // tfaVerifiedAt from the old token so refreshing never resets the 12h clock.
       const tfa: TfaClaims = { tfaEnabled: user.twoFactorEnabled, tfaVerifiedAt: payload.tfaVerifiedAt, sessionExpiresAt };
@@ -1416,7 +1381,7 @@ router.post(
       data: { counter: BigInt(verification.authenticationInfo.newCounter), lastUsedAt: new Date() },
     });
     const sv = bumpSessionVersion(user.id);
-    const sessionExpiresAt = computeSessionExpiry(Date.now(), await getSessionTimeoutMinutes(user.id));
+    const sessionExpiresAt = await computeSessionExpiryForUser(user.id);
     // A successful WebAuthn assertion is itself strong, device-bound, user-verified proof
     // of identity — for accounts with 2FA enabled we treat it as satisfying the recent-2FA
     // window too (same trust level as a fresh TOTP check), so it starts its own 12h clock.

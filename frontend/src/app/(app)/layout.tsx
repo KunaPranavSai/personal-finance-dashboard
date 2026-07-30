@@ -8,24 +8,12 @@ import { OfflineSyncManager } from "@/components/pwa/OfflineSyncManager";
 import { PwaInstallPrompt } from "@/components/pwa/PwaInstallPrompt";
 import { Footer } from "@/components/layout/Footer";
 import { DataInit } from "@/components/DataInit";
-import { SessionWarningModal } from "@/components/ui/SessionWarningModal";
-import { SessionWarningBanner } from "@/components/ui/SessionWarningBanner";
 import { LockScreen } from "@/components/ui/LockScreen";
 import { TwoFactorReverifyDialog } from "@/components/ui/TwoFactorReverifyDialog";
 import { useAuth } from "@/lib/AuthContext";
 
 export default function AppShellLayout({ children }: { children: React.ReactNode }) {
-  const {
-    user,
-    isAuthenticated,
-    isLoading,
-    sessionState,
-    sessionSecondsRemaining,
-    isLocked,
-    logout,
-    unlock,
-    extendSession,
-  } = useAuth();
+  const { user, isAuthenticated, isLoading, isLocked, unlock } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   // Admins keep self-service access to their own Settings (password/UID/2FA), but
@@ -65,13 +53,6 @@ export default function AppShellLayout({ children }: { children: React.ReactNode
         {children}
         <Footer />
       </div>
-      <SessionWarningBanner visible={sessionState === "warning"} secondsRemaining={sessionSecondsRemaining} />
-      <SessionWarningModal
-        isOpen={sessionState === "critical"}
-        secondsRemaining={sessionSecondsRemaining}
-        onExtend={extendSession}
-        onLogout={() => logout()}
-      />
       <LockScreen isOpen={isLocked} onUnlock={unlock} />
       <TwoFactorReverifyDialog />
     </div>
