@@ -52,20 +52,31 @@ export function KpiCard({
   // shimmer, per the design spec.
   const borderGlow = useMotionTemplate`radial-gradient(180px circle at ${spotlightX}% ${spotlightY}%, var(--kpi-border-glow), transparent 70%)`;
 
-  const updateFromPoint = (clientX: number, clientY: number) => {
+  // Fine-pointer devices only get the 3D tilt — on touch, continuously
+  // recalculating rotateX/rotateY from touchmove caused visible sub-pixel
+  // jitter (the finger never holds perfectly still the way a mouse does).
+  // Mobile keeps just the spotlight/border-glow tracking plus a plain
+  // active:scale-95 press effect instead.
+  const supportsFineHover = () =>
+    typeof window !== "undefined" && window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+
+  const updateFromPoint = (clientX: number, clientY: number, withTilt: boolean) => {
     const rect = ref.current?.getBoundingClientRect();
     if (!rect) return;
     const relX = (clientX - rect.left) / rect.width; // 0..1
     const relY = (clientY - rect.top) / rect.height;
     px.set(relX);
     py.set(relY);
-    rotateY.set((relX - 0.5) * TILT_RANGE * 2);
-    rotateX.set(-(relY - 0.5) * TILT_RANGE * 2);
+    if (withTilt) {
+      rotateY.set((relX - 0.5) * TILT_RANGE * 2);
+      rotateX.set(-(relY - 0.5) * TILT_RANGE * 2);
+    }
     spotlightX.set(relX * 100);
     spotlightY.set(relY * 100);
   };
 
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => updateFromPoint(e.clientX, e.clientY);
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) =>
+    updateFromPoint(e.clientX, e.clientY, supportsFineHover());
 
   const resetTilt = () => {
     rotateX.set(0);
@@ -95,7 +106,7 @@ export function KpiCard({
       onMouseMove={handleMouseMove}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={handleMouseLeave}
-      onTouchMove={(e) => { const t = e.touches[0]; if (t) updateFromPoint(t.clientX, t.clientY); }}
+      onTouchMove={(e) => { const t = e.touches[0]; if (t) updateFromPoint(t.clientX, t.clientY, false); }}
       onTouchStart={() => setHovered(true)}
       onTouchEnd={handleTouchEnd}
       onTouchCancel={handleTouchEnd}
@@ -110,12 +121,12 @@ export function KpiCard({
 
       <motion.div
         ref={ref}
-        style={{ rotateX, rotateY, transformStyle: "preserve-3d", willChange: "transform" }}
+        style={{ rotateX, rotateY, z: 0, transformStyle: "preserve-3d", willChange: "transform" }}
       >
         <div
           className={cn(
-            "group relative overflow-hidden rounded-xl2 border border-black/5 bg-white/70 p-3 shadow-card backdrop-blur-md dark:border-white/10 dark:bg-white/5 sm:p-4",
-            onClick && "cursor-pointer transition-shadow hover:shadow-md"
+            "group relative overflow-hidden rounded-xl2 border border-black/5 bg-white/70 p-3 shadow-card backdrop-blur-md will-change-transform dark:border-white/10 dark:bg-white/5 sm:p-4",
+            onClick && "cursor-pointer transition-transform duration-200 ease-out hover:shadow-md active:scale-95 sm:active:scale-100"
           )}
           title={tooltip}
           role={onClick ? "button" : undefined}

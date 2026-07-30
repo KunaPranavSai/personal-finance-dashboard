@@ -96,26 +96,30 @@ export function KpiExpandedCard({ data, onClose }: { data: KpiDetailData | null;
       {isOpen && data && (
         <>
           <motion.div
-            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-md"
+            className="fixed inset-0 z-40 bg-black/60 backdrop-blur-md"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
           />
 
-          {/* Mobile: bottom-sheet slide-up. Desktop (sm+): centered glass modal.
-              The layoutId shared with the originating KpiCard drives the
-              expand/collapse FLIP animation regardless of which position
-              this resolves to at the current breakpoint. */}
-          <motion.div
-            layoutId={`kpi-card-${data.id}`}
-            className="fixed inset-x-0 bottom-0 z-50 flex max-h-[85vh] w-full flex-col overflow-hidden rounded-t-3xl border border-black/5 bg-white shadow-2xl dark:border-white/10 dark:bg-navy-dark sm:inset-x-auto sm:left-1/2 sm:top-1/2 sm:bottom-auto sm:max-h-[80vh] sm:w-full sm:max-w-lg sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-3xl"
-            transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            role="dialog"
-            aria-modal="true"
-            aria-label={`${data.label} details`}
-          >
-            <div className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-black/10 dark:bg-white/20 sm:hidden" aria-hidden />
+          {/* Mobile: bottom-sheet slide-up, flush to the viewport edges.
+              Desktop (md+): centered glass modal — the flex wrapper handles
+              centering/padding so the card itself only needs a max width,
+              avoiding the translate-based centering that was drifting
+              off-center on wide screens. The layoutId shared with the
+              originating KpiCard drives the expand/collapse FLIP animation
+              regardless of which position this resolves to. */}
+          <div className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:p-6 md:items-center md:p-10">
+            <motion.div
+              layoutId={`kpi-card-${data.id}`}
+              className="flex max-h-[85vh] w-full flex-col overflow-hidden rounded-t-3xl border border-black/5 bg-white shadow-2xl dark:border-white/10 dark:bg-navy-dark md:max-w-xl md:rounded-3xl lg:max-w-2xl"
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              role="dialog"
+              aria-modal="true"
+              aria-label={`${data.label} details`}
+            >
+              <div className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-black/10 dark:bg-white/20 md:hidden" aria-hidden />
 
             <div className="flex items-center justify-between border-b border-black/5 p-5 dark:border-white/10">
               <div className="flex items-center gap-3">
@@ -192,7 +196,8 @@ export function KpiExpandedCard({ data, onClose }: { data: KpiDetailData | null;
                 </div>
               )}
             </div>
-          </motion.div>
+            </motion.div>
+          </div>
         </>
       )}
     </AnimatePresence>,
