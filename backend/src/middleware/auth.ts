@@ -1,6 +1,8 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { getSessionVersion } from "../lib/sessionVersion";
+import { ACCESS_SECRET, signAccess, signRefresh, setTokenCookies } from "../lib/tokens";
+import { computeSessionExpiryForUser } from "../lib/sessionExpiry";
 
 export interface AuthPayload {
   userId: string;
@@ -32,7 +34,14 @@ declare global {
   }
 }
 
-export function authenticate(req: Request, res: Response, next: NextFunction): void {
+// How often (at most) a valid request re-signs and re-sets the session
+// cookies to slide the inactivity deadline forward. Sliding on literally
+// every request would mean an extra settings lookup + JWT sign per call;
+// throttling to once a minute per session is enough to make the deadline
+// track activity closely while keeping the steady-state cost negligible.
+const SLIDE_THROTTLE_MS = 60 * 1000;
+
+export async function authenticate(req: Request, res: Response, next: NextFunction): Promise<void> {
   const token =
     (req.signedCookies as Record<string, string | undefined>)["access_token"] ||
     (req.headers["authorization"]?.replace("Bearer ", "") ?? "");
@@ -42,22 +51,47 @@ export function authenticate(req: Request, res: Response, next: NextFunction): v
     return;
   }
 
+  let payload: AuthPayload;
   try {
-    const secret = process.env.JWT_ACCESS_SECRET ?? "pfd-access-secret";
-    const payload = jwt.verify(token, secret) as AuthPayload;
-    if (payload.sv !== getSessionVersion(payload.userId)) {
-      res.status(401).json({ error: "Session ended: you were signed in elsewhere" });
-      return;
-    }
-    if (payload.sessionExpiresAt && Date.now() > payload.sessionExpiresAt) {
-      res.status(401).json({ error: "Session expired", code: "SESSION_EXPIRED" });
-      return;
-    }
-    req.auth = payload;
-    next();
+    payload = jwt.verify(token, ACCESS_SECRET) as AuthPayload;
   } catch {
     res.status(401).json({ error: "Invalid or expired token" });
+    return;
   }
+
+  if (payload.sv !== getSessionVersion(payload.userId)) {
+    res.status(401).json({ error: "Session ended: you were signed in elsewhere" });
+    return;
+  }
+  // undefined sessionExpiresAt means the account's inactivity timeout is "Never".
+  if (payload.sessionExpiresAt !== undefined && Date.now() > payload.sessionExpiresAt) {
+    res.status(401).json({ error: "Session expired due to inactivity", code: "SESSION_EXPIRED" });
+    return;
+  }
+  req.auth = payload;
+
+  // This is the core of the inactivity-based session: every authenticated
+  // request is user activity, so (throttled) it slides the deadline forward
+  // by re-signing fresh cookies before the response is sent. A session that
+  // stops receiving requests — no mouse/keyboard/API activity — simply stops
+  // getting its deadline pushed out and lapses on its own.
+  const tokenAgeMs = Date.now() - (payload.iat ?? 0) * 1000;
+  if (payload.sessionExpiresAt !== undefined && tokenAgeMs > SLIDE_THROTTLE_MS) {
+    try {
+      const sessionExpiresAt = await computeSessionExpiryForUser(payload.userId);
+      if (sessionExpiresAt !== undefined) {
+        const tfa = { tfaEnabled: payload.tfaEnabled, tfaVerifiedAt: payload.tfaVerifiedAt, sessionExpiresAt };
+        const user = { id: payload.userId, uid: payload.uid, role: payload.role };
+        setTokenCookies(res, signAccess(user, payload.sv, tfa), signRefresh(user, payload.sv, tfa));
+        req.auth = { ...payload, sessionExpiresAt };
+      }
+    } catch {
+      // Non-fatal: the request proceeds on its already-validated token; the
+      // deadline simply won't have slid forward this time.
+    }
+  }
+
+  next();
 }
 
 /**

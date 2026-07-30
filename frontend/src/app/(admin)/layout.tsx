@@ -5,24 +5,12 @@ import { useRouter, usePathname } from "next/navigation";
 import { AdminSidebar } from "@/components/layout/AdminSidebar";
 import { SwipeSidebarHandler } from "@/components/layout/SwipeSidebarHandler";
 import { Footer } from "@/components/layout/Footer";
-import { SessionWarningModal } from "@/components/ui/SessionWarningModal";
-import { SessionWarningBanner } from "@/components/ui/SessionWarningBanner";
 import { LockScreen } from "@/components/ui/LockScreen";
 import { TwoFactorReverifyDialog } from "@/components/ui/TwoFactorReverifyDialog";
 import { useAuth } from "@/lib/AuthContext";
 
 export default function AdminShellLayout({ children }: { children: React.ReactNode }) {
-  const {
-    user,
-    isAuthenticated,
-    isLoading,
-    sessionState,
-    sessionSecondsRemaining,
-    isLocked,
-    logout,
-    unlock,
-    extendSession,
-  } = useAuth();
+  const { user, isAuthenticated, isLoading, isLocked, unlock } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -56,13 +44,6 @@ export default function AdminShellLayout({ children }: { children: React.ReactNo
         {children}
         <Footer />
       </div>
-      <SessionWarningBanner visible={sessionState === "warning"} secondsRemaining={sessionSecondsRemaining} />
-      <SessionWarningModal
-        isOpen={sessionState === "critical"}
-        secondsRemaining={sessionSecondsRemaining}
-        onExtend={extendSession}
-        onLogout={() => logout()}
-      />
       <LockScreen isOpen={isLocked} onUnlock={unlock} />
       <TwoFactorReverifyDialog />
     </div>
