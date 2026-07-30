@@ -39,7 +39,6 @@ interface DashboardHeroProps {
 }
 
 export function DashboardHero({ firstName, netWorthLabel, incomeLabel, expenseLabel, insight, scrollContainerRef, heroRef }: DashboardHeroProps) {
-  const [showBreakdown, setShowBreakdown] = useState(false);
   const [coinDrops, setCoinDrops] = useState<number[]>([]);
 
   const period = useMemo(() => getPeriod(new Date().getHours()), []);
@@ -57,7 +56,6 @@ export function DashboardHero({ firstName, netWorthLabel, incomeLabel, expenseLa
   const indicatorOpacity = useTransform(scrollYProgress, [0, 0.4], [1, 0]);
 
   const handleBalanceClick = () => {
-    setShowBreakdown((v) => !v);
     const id = Date.now();
     setCoinDrops((d) => [...d, id]);
     setTimeout(() => setCoinDrops((d) => d.filter((c) => c !== id)), 1000);
@@ -128,10 +126,11 @@ export function DashboardHero({ firstName, netWorthLabel, incomeLabel, expenseLa
           {insight}
         </motion.div>
 
-        {/* Flex column so the breakdown row expanding never disturbs the
-            indicator below — this block's own height simply grows within
-            the pb-10/12 clearance reserved above. */}
-        <div className="relative mt-4 flex flex-col gap-2 sm:mt-5">
+        {/* Flex column — the pills sit permanently under the net worth
+            figure now (no click needed), and pb-14/16 on the outer content
+            wrapper above reserves clearance so the scroll indicator below
+            never collides with them. */}
+        <div className="relative mt-4 flex flex-col gap-3 sm:mt-5">
           <button
             type="button"
             onClick={handleBalanceClick}
@@ -155,41 +154,27 @@ export function DashboardHero({ firstName, netWorthLabel, incomeLabel, expenseLa
             </AnimatePresence>
           </button>
 
-          <AnimatePresence>
-            {showBreakdown && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                exit={{ opacity: 0, height: 0 }}
-                transition={{ duration: 0.25 }}
-                className="overflow-hidden"
-              >
-                <div className="flex flex-wrap gap-2 text-xs">
-                  <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 font-semibold text-emerald-600 dark:text-emerald-400">
-                    Income: {incomeLabel}
-                  </span>
-                  <span className="inline-flex items-center gap-1 rounded-full border border-rose-500/20 bg-rose-500/10 px-2.5 py-1 font-semibold text-rose-600 dark:text-rose-400">
-                    Expenses: {expenseLabel}
-                  </span>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+          <div className="mb-2 flex flex-wrap gap-2 text-xs">
+            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 font-semibold text-emerald-400">
+              Income: {incomeLabel}
+            </span>
+            <span className="inline-flex items-center gap-1 rounded-full border border-rose-500/20 bg-rose-500/10 px-2.5 py-1 font-semibold text-rose-400">
+              Expenses: {expenseLabel}
+            </span>
+          </div>
         </div>
       </div>
 
-      {/* Scroll indicator — kept strictly at the container's true bottom edge;
-          the reserved bottom padding above guarantees clearance from the
-          balance card, and it also fades itself out whenever the breakdown
-          is open so the two can never visually collide. */}
+      {/* Scroll indicator — kept strictly at the container's true bottom
+          edge; the reserved bottom padding on the content wrapper (pb-14
+          sm:pb-16) plus the pills' own mb-2 guarantees clearance so the two
+          never overlap. Fades out as the user scrolls via indicatorOpacity. */}
       <motion.div
-        style={{ opacity: showBreakdown ? 0 : indicatorOpacity }}
-        className="pointer-events-none absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 flex-col items-center gap-0.5 text-slate-500 dark:text-white/40 transition-opacity duration-200"
+        style={{ opacity: indicatorOpacity }}
+        className="pointer-events-none absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 flex-col items-center gap-0.5 text-slate-500 dark:text-white/40"
       >
         <span className="text-[10px] font-medium tracking-wide">Scroll to explore</span>
-        <motion.div animate={{ y: [0, 4, 0] }} transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}>
-          <ChevronDown className="h-3.5 w-3.5" />
-        </motion.div>
+        <ChevronDown className="h-3.5 w-3.5 animate-bounce" />
       </motion.div>
     </div>
   );
