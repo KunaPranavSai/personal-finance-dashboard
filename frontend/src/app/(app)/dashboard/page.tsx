@@ -6,7 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Topbar } from "@/components/layout/Topbar";
 import { DashboardHero } from "@/components/dashboard/DashboardHero";
 import { KpiCard } from "@/components/kpi/KpiCard";
-import { KpiDetailDrawer, KpiDetailData } from "@/components/kpi/KpiDetailDrawer";
+import { KpiExpandedCard, KpiDetailData } from "@/components/kpi/KpiExpandedCard";
 import { IncomeExpenseChart } from "@/components/charts/IncomeExpenseChart";
 import { CategoryDonutChart } from "@/components/charts/CategoryDonutChart";
 import { FinancialHealthGauge } from "@/components/charts/FinancialHealthGauge";
@@ -115,78 +115,93 @@ function DashboardContent() {
         ) : (
           <>
             <div className="grid grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
-              <KpiCard label="Total Income" value={f(summary?.kpis?.totalIncome ?? 0)} icon={Wallet}
+              <KpiCard id="total-income" label="Total Income" value={f(summary?.kpis?.totalIncome ?? 0)} icon={Wallet}
                 changePct={summary?.kpis?.changeVsPrevMonth?.income}
                 onClick={() => setSelectedKpi({
+                  id: "total-income",
                   label: "Total Income", value: f(summary?.kpis?.totalIncome ?? 0), icon: Wallet,
                   changePct: summary?.kpis?.changeVsPrevMonth?.income,
                   description: "All money coming in this month, compared to last month.",
                   actions: [{ label: "View Income", href: "/income" }],
+                  transactionType: "INCOME",
                 })} />
-              <KpiCard label="Total Expenses" value={f(summary?.kpis?.totalExpenses ?? 0)} icon={TrendingDown}
+              <KpiCard id="total-expenses" label="Total Expenses" value={f(summary?.kpis?.totalExpenses ?? 0)} icon={TrendingDown}
                 changePct={summary?.kpis ? -summary.kpis.changeVsPrevMonth.expense : null} tone="negative"
                 onClick={() => setSelectedKpi({
+                  id: "total-expenses",
                   label: "Total Expenses", value: f(summary?.kpis?.totalExpenses ?? 0), icon: TrendingDown, tone: "negative",
                   changePct: summary?.kpis ? -summary.kpis.changeVsPrevMonth.expense : null,
                   description: "Everything you've spent this month, compared to last month.",
                   actions: [{ label: "View Expenses", href: "/expenses" }],
+                  transactionType: "EXPENSE",
                 })} />
-              <KpiCard label="Total Savings" value={f(summary?.kpis?.totalSavings ?? 0)} icon={PiggyBank}
+              <KpiCard id="total-savings" label="Total Savings" value={f(summary?.kpis?.totalSavings ?? 0)} icon={PiggyBank}
                 onClick={() => setSelectedKpi({
+                  id: "total-savings",
                   label: "Total Savings", value: f(summary?.kpis?.totalSavings ?? 0), icon: PiggyBank,
                   description: "Income minus expenses this month.",
                   actions: [{ label: "View Savings", href: "/savings" }],
                 })} />
-              <KpiCard label="Cash Flow" value={f(summary?.kpis?.cashFlow ?? 0)} icon={Activity}
+              <KpiCard id="cash-flow" label="Cash Flow" value={f(summary?.kpis?.cashFlow ?? 0)} icon={Activity}
                 onClick={() => setSelectedKpi({
+                  id: "cash-flow",
                   label: "Cash Flow", value: f(summary?.kpis?.cashFlow ?? 0), icon: Activity,
                   description: "Net movement of money in and out of your accounts this month.",
                   actions: [{ label: "View Analytics", href: "/analytics" }],
                 })} />
-              <KpiCard label="Net Worth" value={f(summary?.kpis?.netWorth ?? 0)} icon={Landmark}
+              <KpiCard id="net-worth" label="Net Worth" value={f(summary?.kpis?.netWorth ?? 0)} icon={Landmark}
                 onClick={() => setSelectedKpi({
+                  id: "net-worth",
                   label: "Net Worth", value: f(summary?.kpis?.netWorth ?? 0), icon: Landmark,
                   description: "Your total savings plus investments, minus nothing owed.",
                   actions: [{ label: "View Investments", href: "/investments" }],
                 })} />
-              <KpiCard label="Savings Rate" value={formatPercent(summary?.kpis?.savingsRatePct ?? 0)} icon={PiggyBank}
+              <KpiCard id="savings-rate" label="Savings Rate" value={formatPercent(summary?.kpis?.savingsRatePct ?? 0)} icon={PiggyBank}
                 onClick={() => setSelectedKpi({
+                  id: "savings-rate",
                   label: "Savings Rate", value: formatPercent(summary?.kpis?.savingsRatePct ?? 0), icon: PiggyBank,
                   description: "The share of your income you kept as savings this month.",
                   actions: [{ label: "View Savings", href: "/savings" }],
                 })} />
-              <KpiCard label="Budget Usage" value={formatPercent(summary?.kpis?.budgetUtilizationPct ?? 0)} icon={Gauge}
+              <KpiCard id="budget-usage" label="Budget Usage" value={formatPercent(summary?.kpis?.budgetUtilizationPct ?? 0)} icon={Gauge}
                 onClick={() => setSelectedKpi({
+                  id: "budget-usage",
                   label: "Budget Usage", value: formatPercent(summary?.kpis?.budgetUtilizationPct ?? 0), icon: Gauge,
                   description: "How much of your monthly budget you've used so far.",
                   actions: [{ label: "View Budgets", href: "/budget" }],
+                  transactionType: "EXPENSE",
                 })} />
-              <KpiCard label="Financial Health" value={String(summary?.kpis?.financialHealthScore ?? 0)} icon={HeartPulse}
+              <KpiCard id="financial-health" label="Financial Health" value={String(summary?.kpis?.financialHealthScore ?? 0)} icon={HeartPulse}
                 onClick={() => setSelectedKpi({
+                  id: "financial-health",
                   label: "Financial Health", value: String(summary?.kpis?.financialHealthScore ?? 0), icon: HeartPulse,
                   description: "An overall score combining your savings rate, budget discipline, and emergency fund progress.",
                   actions: [{ label: "View Analytics", href: "/analytics" }],
                 })} />
-              <KpiCard label="Emergency Fund" value={formatPercent(summary?.kpis?.emergencyFundProgressPct ?? 0)} icon={ShieldCheck}
+              <KpiCard id="emergency-fund" label="Emergency Fund" value={formatPercent(summary?.kpis?.emergencyFundProgressPct ?? 0)} icon={ShieldCheck}
                 onClick={() => setSelectedKpi({
+                  id: "emergency-fund",
                   label: "Emergency Fund", value: formatPercent(summary?.kpis?.emergencyFundProgressPct ?? 0), icon: ShieldCheck,
                   description: "Progress toward your emergency fund goal.",
                   actions: [{ label: "View Goals", href: "/goals" }],
                 })} />
-              <KpiCard label="Investments" value={f(summary?.kpis?.investmentGrowth ?? 0)} icon={TrendingUp}
+              <KpiCard id="investments" label="Investments" value={f(summary?.kpis?.investmentGrowth ?? 0)} icon={TrendingUp}
                 onClick={() => setSelectedKpi({
+                  id: "investments",
                   label: "Investments", value: f(summary?.kpis?.investmentGrowth ?? 0), icon: TrendingUp,
                   description: "Growth across your tracked investments this month.",
                   actions: [{ label: "View Investments", href: "/investments" }],
                 })} />
-              <KpiCard label="Transactions" value={String(summary?.kpis?.transactionCount ?? 0)} icon={ArrowLeftRight}
+              <KpiCard id="transactions" label="Transactions" value={String(summary?.kpis?.transactionCount ?? 0)} icon={ArrowLeftRight}
                 onClick={() => setSelectedKpi({
+                  id: "transactions",
                   label: "Transactions", value: String(summary?.kpis?.transactionCount ?? 0), icon: ArrowLeftRight,
                   description: "Total expense and income entries logged this month.",
                   actions: [{ label: "View Expenses", href: "/expenses" }, { label: "View Income", href: "/income" }],
                 })} />
-              <KpiCard label="Avg Transaction" value={f(summary?.kpis?.avgTransactionAmount ?? 0)} icon={Receipt}
+              <KpiCard id="avg-transaction" label="Avg Transaction" value={f(summary?.kpis?.avgTransactionAmount ?? 0)} icon={Receipt}
                 onClick={() => setSelectedKpi({
+                  id: "avg-transaction",
                   label: "Avg Transaction", value: f(summary?.kpis?.avgTransactionAmount ?? 0), icon: Receipt,
                   description: "The average amount per expense or income entry this month.",
                   actions: [{ label: "View Expenses", href: "/expenses" }],
@@ -218,7 +233,7 @@ function DashboardContent() {
       </main>
       <WelcomeTour isOpen={showTour} onClose={handleTourClose} />
       <TwoFactorPromptModal isOpen={show2FAPrompt} onClose={() => setShow2FAPrompt(false)} />
-      <KpiDetailDrawer data={selectedKpi} onClose={() => setSelectedKpi(null)} />
+      <KpiExpandedCard data={selectedKpi} onClose={() => setSelectedKpi(null)} />
     </>
   );
 }
