@@ -1,37 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { useAuth } from "@/lib/AuthContext";
 import { Footer } from "@/components/layout/Footer";
 import { Shield, UserPlus, ArrowLeft } from "lucide-react";
-import { isClerkAuth } from "@/lib/authProvider";
-
-/**
- * When NEXT_PUBLIC_AUTH_PROVIDER=clerk, forwards to Clerk's own /sign-up
- * route instead of rendering the legacy request-access form below — which
- * stays completely intact for instant rollback by flipping the flag back.
- */
-function ClerkSignupRedirect() {
-  const router = useRouter();
-  useEffect(() => {
-    router.replace("/sign-up");
-  }, [router]);
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-900 via-[#0a1628] to-slate-900">
-      <div className="h-8 w-8 animate-spin rounded-full border-4 border-teal/30 border-t-teal" />
-    </div>
-  );
-}
 
 export default function SignupPage() {
-  if (isClerkAuth) return <ClerkSignupRedirect />;
-  return <LegacySignupPage />;
-}
-
-function LegacySignupPage() {
   const { signup } = useAuth();
   const router = useRouter();
   const [name, setName] = useState("");
