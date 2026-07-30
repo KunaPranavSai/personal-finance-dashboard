@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import Image from "next/image";
+import { PennyPilotCoinLoader } from "./ui/PennyPilotCoinLoader";
 
 const NAVY = "#1F2A44";
 const GREEN = "#1FAE6B";
@@ -50,22 +50,12 @@ export function Preloader({ onFinish }: { onFinish?: () => void }) {
         >
           <div className="flex flex-col items-center px-6">
             <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.5, ease: "easeOut" }}
-            >
-              <Image src="/logo.png" alt="Penny Pilot" width={88} height={88} className="h-20 w-20 rounded-2xl object-cover sm:h-22 sm:w-22" priority />
-            </motion.div>
-
-            <motion.h1
-              className="mt-5 text-2xl font-extrabold tracking-wide sm:text-3xl"
-              style={{ color: NAVY }}
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: 0.3, ease: "easeOut" }}
+              transition={{ duration: 0.4, delay: 0.1, ease: "easeOut" }}
             >
-              PENNYPILOT
-            </motion.h1>
+              <PennyPilotCoinLoader className="text-2xl sm:text-3xl" style={{ color: NAVY }} />
+            </motion.div>
 
             <motion.p
               className="mt-1.5 text-xs font-semibold tracking-[0.2em]"
