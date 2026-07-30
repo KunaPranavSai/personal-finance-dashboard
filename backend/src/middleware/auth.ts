@@ -1,7 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { getSessionVersion } from "../lib/sessionVersion";
-import { authenticateClerk } from "./clerkAuth";
 
 export interface AuthPayload {
   userId: string;
@@ -33,14 +32,7 @@ declare global {
   }
 }
 
-/**
- * Legacy password/JWT authentication. Fully intact and unmodified — this is
- * what runs when AUTH_PROVIDER is unset or "legacy" (the default), and
- * remains available for instant rollback. See `authenticate` below for the
- * provider dispatch, and backend/src/middleware/clerkAuth.ts for the
- * additive Clerk path.
- */
-export function authenticateLegacy(req: Request, res: Response, next: NextFunction): void {
+export function authenticate(req: Request, res: Response, next: NextFunction): void {
   const token =
     (req.signedCookies as Record<string, string | undefined>)["access_token"] ||
     (req.headers["authorization"]?.replace("Bearer ", "") ?? "");
@@ -66,23 +58,6 @@ export function authenticateLegacy(req: Request, res: Response, next: NextFuncti
   } catch {
     res.status(401).json({ error: "Invalid or expired token" });
   }
-}
-
-/**
- * Provider dispatch — the single switch that decides whether requests are
- * authenticated via the legacy JWT system or Clerk. Defaults to "legacy" so
- * production behavior is completely unchanged until AUTH_PROVIDER=clerk is
- * explicitly set. Every route in the app imports `authenticate` (this
- * function) and never calls either provider-specific implementation
- * directly, so flipping the flag requires no route changes and rolling back
- * is a one-line env var revert.
- */
-export function authenticate(req: Request, res: Response, next: NextFunction): void {
-  if (process.env.AUTH_PROVIDER === "clerk") {
-    void authenticateClerk(req, res, next);
-    return;
-  }
-  authenticateLegacy(req, res, next);
 }
 
 /**

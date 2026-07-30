@@ -10,33 +10,8 @@ import { PasswordInput } from "@/components/ui/PasswordInput";
 import { Shield, Lock, Fingerprint } from "lucide-react";
 import { browserSupportsWebAuthn } from "@simplewebauthn/browser";
 import { PREFER_BIOMETRIC_KEY } from "@/lib/passkeyPrefs";
-import { isClerkAuth } from "@/lib/authProvider";
-
-/**
- * When NEXT_PUBLIC_AUTH_PROVIDER=clerk, this page just forwards to Clerk's
- * own /sign-in route (preserving any ?redirect= param) instead of rendering
- * the legacy form below — which stays completely intact for instant
- * rollback by flipping the flag back to "legacy".
- */
-function ClerkLoginRedirect() {
-  const router = useRouter();
-  useEffect(() => {
-    const search = typeof window !== "undefined" ? window.location.search : "";
-    router.replace(`/sign-in${search}`);
-  }, [router]);
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-900 via-navy to-slate-800">
-      <div className="h-8 w-8 animate-spin rounded-full border-4 border-teal/30 border-t-teal" />
-    </div>
-  );
-}
 
 export default function LoginPage() {
-  if (isClerkAuth) return <ClerkLoginRedirect />;
-  return <LegacyLoginPage />;
-}
-
-function LegacyLoginPage() {
   const { user, login, loginWithPasskey, verifyLogin2FA, forceChangePassword, isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
   const [uid, setUid] = useState("");

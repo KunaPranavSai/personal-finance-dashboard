@@ -23,7 +23,6 @@ import { isPwaInstalled, canPromptInstall, triggerInstallPrompt, subscribeToInst
 import { getPreferBiometric, setPreferBiometric } from "@/lib/passkeyPrefs";
 import { startRegistration, browserSupportsWebAuthn } from "@simplewebauthn/browser";
 import { Fingerprint, Pencil, Trash2, X } from "lucide-react";
-import { isClerkAuth } from "@/lib/authProvider";
 
 const TABS = [
   { id: "appearance", label: "Appearance", icon: Palette },
@@ -362,33 +361,6 @@ interface PasskeyItem {
   transports: string[];
   lastUsedAt: string | null;
   createdAt: string;
-}
-
-/**
- * Replaces the entire legacy security tab (password/2FA/passkeys/session-timeout
- * fields, all specific to the legacy auth system) when NEXT_PUBLIC_AUTH_PROVIDER=clerk.
- * Clerk's own hosted <UserProfile/> page already covers password, MFA, passkeys,
- * and connected accounts, so there's nothing to duplicate here.
- */
-function ClerkSecuritySection() {
-  return (
-    <Card>
-      <CardHeader><CardTitle>Security Settings</CardTitle></CardHeader>
-      <CardContent>
-        <div className="flex items-center justify-between rounded-lg border border-black/5 p-4 dark:border-white/10">
-          <div>
-            <p className="text-sm font-semibold text-navy dark:text-white">Manage account & security</p>
-            <p className="text-xs text-navy/50 dark:text-white/50">
-              Password, multi-factor authentication, passkeys, and connected accounts are managed through Clerk.
-            </p>
-          </div>
-          <Link href="/user-profile">
-            <Button type="button" size="sm">Open</Button>
-          </Link>
-        </div>
-      </CardContent>
-    </Card>
-  );
 }
 
 function PasskeySection() {
@@ -1032,7 +1004,6 @@ function SettingsContent() {
           </Card>
         );
       case "security":
-        if (isClerkAuth) return <ClerkSecuritySection />;
         return (
           <Card>
             <CardHeader><CardTitle>Security Settings</CardTitle></CardHeader>
