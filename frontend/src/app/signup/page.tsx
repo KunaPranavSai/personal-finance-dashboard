@@ -3,10 +3,36 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
+import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/lib/AuthContext";
 import { Footer } from "@/components/layout/Footer";
-import { Shield, UserPlus, ArrowLeft } from "lucide-react";
+import { AuthPageShell } from "@/components/ui/AuthPageShell";
+import { AnimatedCheckbox } from "@/components/ui/AnimatedCheckbox";
+import { UserPlus, ArrowLeft, User, Mail, Phone, AlertCircle, MailCheck } from "lucide-react";
+
+const inputBase =
+  "w-full rounded-xl border border-white/10 bg-white/5 py-3 pl-10 pr-4 text-sm text-white placeholder:text-white/30 outline-none transition-all focus:border-purple-400/60 focus:ring-2 focus:ring-purple-400/20 focus:shadow-[0_0_16px_rgba(168,85,247,0.25)]";
+
+const primaryButton =
+  "flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-purple-500/25 transition-all hover:shadow-purple-500/40 disabled:opacity-50 disabled:cursor-not-allowed";
+
+function ErrorMessage({ children }: { children: React.ReactNode }) {
+  return (
+    <AnimatePresence mode="wait">
+      <motion.div
+        key={typeof children === "string" ? children : "error"}
+        initial={{ opacity: 0, height: 0 }}
+        animate={{ opacity: 1, height: "auto", x: [0, -6, 6, -4, 4, 0] }}
+        exit={{ opacity: 0, height: 0 }}
+        transition={{ duration: 0.35 }}
+        className="flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-300"
+      >
+        <AlertCircle className="h-4 w-4 shrink-0" />
+        {children}
+      </motion.div>
+    </AnimatePresence>
+  );
+}
 
 export default function SignupPage() {
   const { signup } = useAuth();
@@ -14,6 +40,7 @@ export default function SignupPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [error, setError] = useState("");
   const [isPending, setIsPending] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -21,6 +48,10 @@ export default function SignupPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    if (!agreedToTerms) {
+      setError("Please agree to the Terms & Conditions to continue");
+      return;
+    }
     setIsPending(true);
     try {
       await signup(name.trim(), email.trim(), phone.trim());
@@ -33,47 +64,58 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-900 via-[#0a1628] to-slate-900 p-4">
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 -right-40 h-96 w-96 rounded-full bg-teal/5 blur-3xl" />
-        <div className="absolute -bottom-40 -left-40 h-96 w-96 rounded-full bg-blue-500/5 blur-3xl" />
-      </div>
-
-      <div className="relative w-full max-w-md">
-        <div className="mb-8 flex flex-col items-center gap-3 text-center">
-          <Image src="/logo.png" alt="Penny Pilot" width={64} height={64} className="h-16 w-16 rounded-2xl object-cover shadow-lg shadow-teal/25" />
-          <div>
-            <h1 className="text-2xl font-bold text-white">Create your account</h1>
-            <p className="mt-1 text-sm text-white/50">Sign up to start tracking your finances</p>
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl p-8 shadow-2xl">
-          {submitted ? (
-            <div className="space-y-5 text-center">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-teal/10">
-                <UserPlus className="h-6 w-6 text-teal" />
+    <AuthPageShell
+      icon={UserPlus}
+      title={submitted ? "Check your inbox" : "Create an Account"}
+      subtitle={submitted ? "We'll email you once your account is approved" : "Start your journey with us today"}
+      footer={<Footer variant="dark" />}
+    >
+      <AnimatePresence mode="wait">
+        {submitted ? (
+          <motion.div
+            key="submitted"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ duration: 0.35 }}
+            className="space-y-5 text-center"
+          >
+            <motion.div
+              animate={{ y: [0, -6, 0] }}
+              transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+              className="relative mx-auto flex h-14 w-14 items-center justify-center"
+            >
+              <div className="absolute inset-0 rounded-full bg-purple-500/20 blur-lg" />
+              <div className="relative flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-white/5">
+                <MailCheck className="h-6 w-6 text-purple-300" />
               </div>
-              <div>
-                <p className="text-sm font-semibold text-white">Registration received</p>
-                <p className="mt-2 text-sm text-white/50">
-                  Your account is pending administrator approval. You&apos;ll receive an email with your login details once approved.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => router.push("/login")}
-                className="w-full rounded-xl bg-gradient-to-r from-teal to-teal/80 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-teal/25 transition-all hover:from-teal/90 hover:to-teal/70"
-              >
-                Back to sign in
-              </button>
+            </motion.div>
+            <div>
+              <p className="text-sm font-semibold text-white">Registration received</p>
+              <p className="mt-2 text-sm text-[#94A3B8]">
+                Your account is pending administrator approval. You&apos;ll receive an email with your login details once approved.
+              </p>
             </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-5">
-              <div>
-                <label htmlFor="name" className="block text-xs font-semibold uppercase tracking-wider text-white/50 mb-2">
-                  Full Name
-                </label>
+            <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} type="button" onClick={() => router.push("/login")} className={primaryButton}>
+              Back to sign in
+            </motion.button>
+          </motion.div>
+        ) : (
+          <motion.form
+            key="form"
+            initial={{ opacity: 0, x: -12 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 12 }}
+            transition={{ duration: 0.25 }}
+            onSubmit={handleSubmit}
+            className="space-y-5"
+          >
+            <div>
+              <label htmlFor="name" className="mb-2 block text-xs font-semibold uppercase tracking-wider text-white/50">
+                Full Name
+              </label>
+              <div className="relative">
+                <User className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
                 <input
                   id="name"
                   type="text"
@@ -83,13 +125,16 @@ export default function SignupPage() {
                   placeholder="Your full name"
                   required
                   autoFocus
-                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/30 focus:border-teal/50 focus:outline-none focus:ring-2 focus:ring-teal/20 transition-all"
+                  className={inputBase}
                 />
               </div>
-              <div>
-                <label htmlFor="email" className="block text-xs font-semibold uppercase tracking-wider text-white/50 mb-2">
-                  Email Address
-                </label>
+            </div>
+            <div>
+              <label htmlFor="email" className="mb-2 block text-xs font-semibold uppercase tracking-wider text-white/50">
+                Email Address
+              </label>
+              <div className="relative">
+                <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
                 <input
                   id="email"
                   type="email"
@@ -98,13 +143,16 @@ export default function SignupPage() {
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@example.com"
                   required
-                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/30 focus:border-teal/50 focus:outline-none focus:ring-2 focus:ring-teal/20 transition-all"
+                  className={inputBase}
                 />
               </div>
-              <div>
-                <label htmlFor="phone" className="block text-xs font-semibold uppercase tracking-wider text-white/50 mb-2">
-                  Mobile Number
-                </label>
+            </div>
+            <div>
+              <label htmlFor="phone" className="mb-2 block text-xs font-semibold uppercase tracking-wider text-white/50">
+                Mobile Number
+              </label>
+              <div className="relative">
+                <Phone className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
                 <input
                   id="phone"
                   type="tel"
@@ -113,48 +161,35 @@ export default function SignupPage() {
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="+91 98765 43210"
                   required
-                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/30 focus:border-teal/50 focus:outline-none focus:ring-2 focus:ring-teal/20 transition-all"
+                  className={inputBase}
                 />
               </div>
+            </div>
 
-              {error && (
-                <div className="flex items-center gap-2 rounded-lg bg-red-500/10 border border-red-500/20 px-3 py-2 text-sm text-red-400">
-                  <Shield className="h-4 w-4 shrink-0" />
-                  {error}
-                </div>
-              )}
+            <AnimatedCheckbox
+              id="agree-terms"
+              checked={agreedToTerms}
+              onChange={setAgreedToTerms}
+              label={<>I agree to the Terms &amp; Conditions and Privacy Policy</>}
+            />
 
-              <button
-                type="submit"
-                disabled={isPending || !name || !email || !phone}
-                className="w-full rounded-xl bg-gradient-to-r from-teal to-teal/80 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-teal/25 transition-all hover:from-teal/90 hover:to-teal/70 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                {isPending ? (
-                  <>
-                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                    Submitting…
-                  </>
-                ) : (
-                  <>
-                    <UserPlus className="h-4 w-4" />
-                    Request Access
-                  </>
-                )}
-              </button>
+            {error && <ErrorMessage>{error}</ErrorMessage>}
 
-              <p className="text-center text-xs text-white/30">
-                Your registration will be reviewed by an administrator before you can sign in.
-              </p>
+            <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} type="submit" disabled={isPending || !name || !email || !phone} className={primaryButton}>
+              {isPending ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" /> : <UserPlus className="h-4 w-4" />}
+              {isPending ? "Submitting…" : "Request Access"}
+            </motion.button>
 
-              <Link href="/login" className="flex items-center justify-center gap-1.5 text-xs text-white/40 hover:text-white/60 transition-colors">
-                <ArrowLeft className="h-3 w-3" /> Back to sign in
-              </Link>
-            </form>
-          )}
-        </div>
+            <p className="text-center text-xs text-white/30">
+              Your registration will be reviewed by an administrator before you can sign in.
+            </p>
 
-        <Footer variant="dark" />
-      </div>
-    </div>
+            <Link href="/login" className="flex items-center justify-center gap-1.5 text-xs text-white/40 transition-colors hover:text-white/60">
+              <ArrowLeft className="h-3 w-3" /> Back to sign in
+            </Link>
+          </motion.form>
+        )}
+      </AnimatePresence>
+    </AuthPageShell>
   );
 }
