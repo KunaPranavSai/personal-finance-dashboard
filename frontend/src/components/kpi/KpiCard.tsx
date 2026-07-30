@@ -4,10 +4,10 @@ import { useRef, useState } from "react";
 import { motion, useMotionTemplate, useMotionValue, useSpring } from "framer-motion";
 import { LucideIcon, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { LineChart, Line, ResponsiveContainer } from "recharts";
-import { Card } from "../ui/Card";
 import { cn } from "@/lib/format";
 
 interface KpiCardProps {
+  id: string;
   label: string;
   value: string;
   icon: LucideIcon;
@@ -21,6 +21,7 @@ interface KpiCardProps {
 const TILT_RANGE = 8; // degrees
 
 export function KpiCard({
+  id,
   label,
   value,
   icon: Icon,
@@ -46,12 +47,16 @@ export function KpiCard({
   const spotlightX = useMotionValue(50);
   const spotlightY = useMotionValue(50);
   const spotlight = useMotionTemplate`radial-gradient(circle at ${spotlightX}% ${spotlightY}%, rgba(14,165,165,0.16), transparent 60%)`;
+  // Cursor-tracking gradient BORDER (distinct from the internal spotlight
+  // above) — dark mode glows violet/gold, light mode a soft cyan/indigo
+  // shimmer, per the design spec.
+  const borderGlow = useMotionTemplate`radial-gradient(180px circle at ${spotlightX}% ${spotlightY}%, var(--kpi-border-glow), transparent 70%)`;
 
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+  const updateFromPoint = (clientX: number, clientY: number) => {
     const rect = ref.current?.getBoundingClientRect();
     if (!rect) return;
-    const relX = (e.clientX - rect.left) / rect.width; // 0..1
-    const relY = (e.clientY - rect.top) / rect.height;
+    const relX = (clientX - rect.left) / rect.width; // 0..1
+    const relY = (clientY - rect.top) / rect.height;
     px.set(relX);
     py.set(relY);
     rotateY.set((relX - 0.5) * TILT_RANGE * 2);
@@ -60,35 +65,75 @@ export function KpiCard({
     spotlightY.set(relY * 100);
   };
 
-  const handleMouseLeave = () => {
-    setHovered(false);
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => updateFromPoint(e.clientX, e.clientY);
+
+  const resetTilt = () => {
     rotateX.set(0);
     rotateY.set(0);
   };
 
+  const handleMouseLeave = () => {
+    setHovered(false);
+    resetTilt();
+  };
+
+  // Touch devices: don't let the spotlight/tilt "stick" at the last-touched
+  // point once the finger lifts — reset immediately on touch end/cancel.
+  const handleTouchEnd = () => {
+    setHovered(false);
+    resetTilt();
+  };
+
   return (
     <motion.div
+      layoutId={`kpi-card-${id}`}
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25 }}
       className="relative"
-      style={{ perspective: "800px" }}
+      style={{ perspective: "800px", ["--kpi-border-glow" as string]: "rgba(99,102,241,0.4)" }}
       onMouseMove={handleMouseMove}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={handleMouseLeave}
+      onTouchMove={(e) => { const t = e.touches[0]; if (t) updateFromPoint(t.clientX, t.clientY); }}
+      onTouchStart={() => setHovered(true)}
+      onTouchEnd={handleTouchEnd}
+      onTouchCancel={handleTouchEnd}
     >
+      {/* Cursor-tracking gradient border: 1px padding shows only the glow
+          ring through, independent of the card's own background. */}
+      <motion.div
+        aria-hidden
+        className="pointer-events-none absolute -inset-px rounded-[1.25rem] opacity-0 transition-opacity duration-300 dark:[--kpi-border-glow:rgba(139,92,246,0.6)]"
+        style={{ background: borderGlow, opacity: hovered ? 1 : 0 }}
+      />
+
       <motion.div
         ref={ref}
         style={{ rotateX, rotateY, transformStyle: "preserve-3d", willChange: "transform" }}
       >
-        <Card
-          className={cn("group relative overflow-hidden p-3 sm:p-4", onClick && "cursor-pointer transition-shadow hover:shadow-md")}
+        <div
+          className={cn(
+            "group relative overflow-hidden rounded-xl2 border border-black/5 bg-white/70 p-3 shadow-card backdrop-blur-md dark:border-white/10 dark:bg-white/5 sm:p-4",
+            onClick && "cursor-pointer transition-shadow hover:shadow-md"
+          )}
           title={tooltip}
           role={onClick ? "button" : undefined}
           tabIndex={onClick ? 0 : undefined}
           onClick={onClick}
           onKeyDown={onClick ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } } : undefined}
         >
+          {/* Faint background watermark, fades in on hover */}
+          <span
+            aria-hidden
+            className={cn(
+              "pointer-events-none absolute -bottom-3 -right-2 select-none text-4xl font-black italic tracking-tighter text-navy/[0.04] transition-opacity duration-300 dark:text-white/[0.05] sm:text-5xl",
+              hovered ? "opacity-100" : "opacity-0"
+            )}
+          >
+            PILOT
+          </span>
+
           <motion.div
             aria-hidden
             className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
@@ -133,12 +178,12 @@ export function KpiCard({
               </ResponsiveContainer>
             </div>
           )}
-        </Card>
+        </div>
       </motion.div>
 
       <motion.div
         className="pointer-events-none absolute left-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-lg bg-teal/10 shadow-sm sm:left-4 sm:top-4 sm:h-9 sm:w-9"
-        animate={{ y: hovered ? -14 : 0, scale: hovered ? 1.15 : 1 }}
+        animate={{ y: hovered ? -14 : 0, z: hovered ? 40 : 0, scale: hovered ? 1.15 : 1 }}
         transition={{ type: "spring", stiffness: 320, damping: 16 }}
         style={{ willChange: "transform" }}
       >
