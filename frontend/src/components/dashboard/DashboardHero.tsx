@@ -1,11 +1,14 @@
 "use client";
 
 import { RefObject, useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { motion, useScroll, useTransform, AnimatePresence } from "framer-motion";
 import { Sunrise, CloudSun, MoonStar, Send, Cloud, Mountain, ChevronDown, Sparkles } from "lucide-react";
 import { GoldCoin } from "@/components/ui/GoldCoin";
 import { cn } from "@/lib/format";
-import { computeFinancialInsight } from "@/lib/financialInsight";
+import { api } from "@/lib/api";
+import type { DashboardSummary, Transaction, Investment } from "@/types";
+import { buildFinancialSignals, computeFinancialInsight, computeHealthScore, HEALTH_TIER_META } from "@/lib/financialHealthEngine";
 
 type Period = "morning" | "afternoon" | "night";
 
@@ -45,9 +48,7 @@ interface DashboardHeroProps {
   netWorthLabel: string;
   incomeLabel: string;
   expenseLabel: string;
-  savingsRatePct: number;
-  budgetUsagePct: number;
-  cashFlow: number;
+  summary: DashboardSummary | undefined;
   scrollContainerRef: RefObject<HTMLElement | null>;
   heroRef: RefObject<HTMLDivElement | null>;
 }
@@ -95,9 +96,7 @@ export function DashboardHero({
   netWorthLabel,
   incomeLabel,
   expenseLabel,
-  savingsRatePct,
-  budgetUsagePct,
-  cashFlow,
+  summary,
   scrollContainerRef,
   heroRef,
 }: DashboardHeroProps) {
@@ -118,10 +117,33 @@ export function DashboardHero({
   const textClass = TEXT_CLASS[period];
   const pillClass = PILL_CLASS[period];
 
-  const { tagline, tips } = useMemo(
-    () => computeFinancialInsight({ firstName, savingsRatePct, budgetUsagePct, cashFlow }),
-    [firstName, savingsRatePct, budgetUsagePct, cashFlow]
+  // Small, self-contained pulls feeding the 42-rule financial health engine
+  // (see lib/financialHealthEngine.ts) — recent transactions for
+  // spending-pattern signals (category spikes, weekend drift, impulse buys,
+  // large/overdue items) and investments for contribution-rate/portfolio
+  // signals. Cheap, cached alongside the rest of the dashboard's queries.
+  const { data: recentTx } = useQuery({
+    queryKey: ["hero-recent-transactions"],
+    queryFn: () => api.get<{ items: Transaction[] }>("/api/transactions?pageSize=50&sortBy=date&sortDir=desc"),
+  });
+  const { data: investments } = useQuery({
+    queryKey: ["hero-investments"],
+    queryFn: () => api.get<{ items: Investment[] }>("/api/investments"),
+  });
+
+  const signals = useMemo(
+    () =>
+      buildFinancialSignals({
+        summary,
+        transactions: recentTx?.items ?? [],
+        investments: investments?.items ?? [],
+        firstName: firstName || "Pilot",
+      }),
+    [summary, recentTx, investments, firstName]
   );
+  const { tagline, tips } = useMemo(() => computeFinancialInsight(signals), [signals]);
+  const { score, tier } = useMemo(() => computeHealthScore(signals), [signals]);
+  const tierMeta = HEALTH_TIER_META[tier];
 
   const { scrollYProgress } = useScroll({
     target: heroRef as RefObject<HTMLElement>,
@@ -250,9 +272,17 @@ export function DashboardHero({
               </p>
             </div>
           </div>
-          <span className={cn("inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold backdrop-blur-sm", textClass, pillClass)}>
-            {meta.badge}
-          </span>
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+            <span className={cn("inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold backdrop-blur-sm", textClass, pillClass)}>
+              {meta.badge}
+            </span>
+            <span
+              className={cn("inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold backdrop-blur-sm", textClass, pillClass)}
+              title={`Financial Health Score: ${score}/100`}
+            >
+              {tierMeta.emoji} {score} · {tierMeta.label}
+            </span>
+          </div>
         </motion.div>
 
         {/* Middle row: net worth + permanent income/expense pills */}
