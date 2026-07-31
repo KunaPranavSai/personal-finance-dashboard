@@ -15,6 +15,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useToast } from "@/components/ui/Toast";
 import { CURRENCIES, TIMEZONES, LANGUAGES, useProfile } from "@/lib/reference";
+import { useAuth } from "@/lib/AuthContext";
 
 const profileSchema = z.object({
   name: z.string().min(1, "Name is required").max(100, "Name too long"),
@@ -70,6 +71,7 @@ const INVESTMENT_EXPERIENCE_OPTIONS = [
 export default function ProfilePage() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { updateUserName } = useAuth();
   const [editing, setEditing] = useState(false);
   const [imageError, setImageError] = useState(false);
 
@@ -102,6 +104,11 @@ export default function ProfilePage() {
       reset(data as unknown as ProfileForm);
       setEditing(false);
       queryClient.invalidateQueries({ queryKey: ["profile"] });
+      // The backend keeps User.name in sync with the profile's name on save
+      // (see backend/src/routes/profile.routes.ts) — patch it into
+      // AuthContext too so every greeting reading user.name (dashboard hero,
+      // topbar, etc.) updates immediately instead of on next login.
+      if (data.name) updateUserName(data.name);
       toast("Profile updated successfully", "success");
     },
     onError: () => {

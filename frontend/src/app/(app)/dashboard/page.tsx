@@ -17,6 +17,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { api } from "@/lib/api";
 import { formatCurrency, formatPercent } from "@/lib/format";
 import { useSettingsContext } from "@/lib/SettingsContext";
+import { useProfile } from "@/lib/reference";
 import { DashboardSummary } from "@/types";
 import {
   Wallet, TrendingDown, PiggyBank, Activity, Landmark, Gauge,
@@ -78,8 +79,26 @@ function DashboardContent() {
   });
   const trendData = Array.from(trendByMonth.values()).sort((a, b) => a.month.localeCompare(b.month));
 
+  // Flight-path graph trajectory: a running cumulative balance (income minus
+  // expense per month) walked back from the current net worth, so the line
+  // ends exactly at today's figure while still shaping its climbs/dips from
+  // real monthly performance.
+  const netWorthTrend = (() => {
+    if (trendData.length < 2 || !summary?.kpis) return undefined;
+    const monthlyNet = trendData.map((m) => m.income - m.expense);
+    const totalNet = monthlyNet.reduce((a, b) => a + b, 0);
+    let running = summary.kpis.netWorth - totalNet;
+    return monthlyNet.map((n) => (running += n));
+  })();
+
   const hasError = !summary && !isLoading;
-  const firstName = user?.name?.split(" ")[0];
+  // AuthContext's user.name is the primary source (kept live via
+  // updateUserName after a profile save — see profile/page.tsx); the
+  // ["profile"] query is a defensive fallback in case that context hasn't
+  // hydrated yet on a fresh load.
+  const { data: profile } = useProfile();
+  const displayName = user?.name || profile?.name;
+  const firstName = displayName?.split(" ")[0];
 
   return (
     <>
@@ -91,6 +110,7 @@ function DashboardContent() {
           netWorthLabel={f(summary?.kpis?.netWorth ?? 0)}
           incomeLabel={f(summary?.kpis?.totalIncome ?? 0)}
           expenseLabel={f(summary?.kpis?.totalExpenses ?? 0)}
+          netWorthTrend={netWorthTrend}
           summary={summary}
           scrollContainerRef={mainRef}
           heroRef={heroRef}
