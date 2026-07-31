@@ -7,7 +7,7 @@ import { motion } from "framer-motion";
 import {
   LayoutDashboard, Wallet, PiggyBank, Target,
   Receipt, TrendingUp, TrendingDown, BarChart3, FileText, Bell, User, X, Landmark,
-  SlidersHorizontal, ChevronDown, ChevronsLeft, ChevronsRight, Shield, Palette, Eye, Database, BellRing,
+  SlidersHorizontal, ChevronDown, PanelLeftClose, PanelLeftOpen, Shield, Palette, Eye, Database, BellRing,
 } from "lucide-react";
 import { cn } from "@/lib/format";
 import { useUiStore } from "@/store/uiStore";
@@ -182,18 +182,18 @@ function SidebarInner() {
       )}
 
       <motion.aside
-        animate={{ width: sidebarCollapsed ? 76 : 256 }}
-        transition={{ duration: 0.25, ease: "easeInOut" }}
+        animate={{ width: sidebarCollapsed ? 80 : 256 }}
+        transition={{ duration: 0.3, ease: "easeInOut" }}
         onMouseEnter={() => sidebarCollapsed && setHoverExpanded(true)}
         onMouseLeave={() => setHoverExpanded(false)}
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex w-64 flex-col overflow-hidden border-r border-black/5 bg-white px-3 py-5 shadow-xl transition-transform duration-300 ease-in-out dark:border-white/10 dark:bg-navy-dark lg:static lg:z-auto lg:translate-x-0 lg:shadow-none",
+          "fixed inset-y-0 left-0 z-50 flex w-64 flex-col overflow-hidden border-r border-black/5 bg-white px-3 py-5 shadow-xl transition-all duration-300 ease-in-out dark:border-white/10 dark:bg-navy-dark lg:static lg:z-auto lg:translate-x-0 lg:shadow-none",
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         )}
         role="navigation"
         aria-label="Main navigation"
       >
-        <div className="mb-6 flex items-center justify-between px-1">
+        <div className={cn("mb-6 flex items-center px-1", showLabels ? "justify-between" : "flex-col gap-2")}>
           <Link href="/dashboard" className="flex min-w-0 items-center gap-2" onClick={closeSidebar}>
             <Image src="/logo.png" alt="Penny Pilot" width={32} height={32} className="h-8 w-8 shrink-0 rounded-lg object-cover" />
             {showLabels && (
@@ -202,19 +202,21 @@ function SidebarInner() {
               </div>
             )}
           </Link>
+          {/* Desktop collapse/expand toggle — moved here from the sidebar
+              footer so it's immediately visible next to the logo in both
+              states, instead of requiring a scroll to the bottom. */}
+          <button
+            type="button"
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            className="hidden h-7 w-7 shrink-0 items-center justify-center rounded-lg text-navy/50 transition-colors hover:bg-black/5 dark:text-white/50 dark:hover:bg-white/5 lg:flex"
+            aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            {sidebarCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+          </button>
           {sidebarToggle}
         </div>
 
         {sidebarContent}
-
-        <button
-          type="button"
-          onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-          className="mt-2 hidden h-9 w-full items-center justify-center gap-2 rounded-lg text-xs font-medium text-navy/50 hover:bg-black/5 dark:text-white/50 dark:hover:bg-white/5 lg:flex"
-          aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-        >
-          {sidebarCollapsed ? <ChevronsRight className="h-4 w-4" /> : <><ChevronsLeft className="h-4 w-4" /> Collapse</>}
-        </button>
       </motion.aside>
     </>
   );

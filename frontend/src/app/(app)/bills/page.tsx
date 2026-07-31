@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { api } from "@/lib/api";
+import { api, ApiClientError } from "@/lib/api";
 import { formatCurrency, formatDateIN } from "@/lib/format";
 import { useSettingsContext } from "@/lib/SettingsContext";
 import { Bill } from "@/types";
@@ -33,6 +33,15 @@ const billSchema = z.object({
 
 type BillForm = z.infer<typeof billSchema>;
 
+/** Surfaces the real backend/validation message instead of a generic string
+ * — ApiClientError.message is already the server's `error` field (Zod
+ * validation details, an expired-session 401, etc.), see lib/api.ts. */
+function getErrorMessage(err: unknown, fallback: string): string {
+  if (err instanceof ApiClientError) return err.message || fallback;
+  if (err instanceof Error) return err.message || fallback;
+  return fallback;
+}
+
 function BillModal({ open, editing, onClose }: {
   open: boolean; editing: Bill | null; onClose: () => void;
 }) {
@@ -53,8 +62,8 @@ function BillModal({ open, editing, onClose }: {
       const payload = { ...data, interestRate: data.interestRate === "" ? null : Number(data.interestRate), tenureMonths: data.tenureMonths === "" ? null : Number(data.tenureMonths) };
       return api.post<Bill>("/api/bills", payload);
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["bills"] }); onClose(); reset(); toast("Bill added", "success"); },
-    onError: () => { toast("Failed to save bill", "error"); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["bills"] }); onClose(); reset(); toast("Bill added to flight schedule! ✈️", "success"); },
+    onError: (err) => { toast(getErrorMessage(err, "Failed to save bill"), "error"); },
   });
   const updateMutation = useMutation({
     mutationFn: (data: BillForm) => {
@@ -62,7 +71,7 @@ function BillModal({ open, editing, onClose }: {
       return api.patch<Bill>(`/api/bills/${editing!.id}`, payload);
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["bills"] }); onClose(); reset(); toast("Bill updated", "success"); },
-    onError: () => { toast("Failed to update bill", "error"); },
+    onError: (err) => { toast(getErrorMessage(err, "Failed to update bill"), "error"); },
   });
 
   const onSubmit = handleSubmit((data) => {
@@ -141,7 +150,7 @@ export default function BillsPage() {
   const deleteMutation = useMutation({
     mutationFn: (id: string) => api.delete(`/api/bills/${id}`),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["bills"] }); toast("Bill deleted", "success"); },
-    onError: () => { toast("Failed to delete bill", "error"); },
+    onError: (err) => { toast(getErrorMessage(err, "Failed to delete bill"), "error"); },
   });
 
   const items = useMemo(() => data?.items ?? [], [data]);
