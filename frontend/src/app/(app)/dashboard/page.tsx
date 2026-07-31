@@ -89,9 +89,7 @@ function DashboardContent() {
           netWorthLabel={f(summary?.kpis?.netWorth ?? 0)}
           incomeLabel={f(summary?.kpis?.totalIncome ?? 0)}
           expenseLabel={f(summary?.kpis?.totalExpenses ?? 0)}
-          savingsRatePct={summary?.kpis?.savingsRatePct ?? 0}
-          budgetUsagePct={summary?.kpis?.budgetUtilizationPct ?? 0}
-          cashFlow={summary?.kpis?.cashFlow ?? 0}
+          summary={summary}
           scrollContainerRef={mainRef}
           heroRef={heroRef}
         />
