@@ -165,8 +165,8 @@ function AuditChip({
       className={cn(
         "relative flex items-center gap-2 rounded-xl border px-3 py-2.5 text-left text-xs font-semibold transition-colors sm:text-sm",
         state.updated
-          ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/20"
-          : "border-amber-500/20 bg-amber-500/10 text-amber-300 hover:bg-amber-500/15"
+          ? "border-emerald-300/80 bg-emerald-100/90 text-emerald-900 hover:bg-emerald-100 dark:border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-400 dark:hover:bg-emerald-500/20"
+          : "border-amber-300/60 bg-amber-100/80 text-amber-900 hover:bg-amber-100 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-300 dark:hover:bg-amber-500/15"
       )}
     >
       <AnimatePresence>{burst && <SuccessBurst />}</AnimatePresence>
@@ -263,27 +263,27 @@ export function MonthlyAuditBanner() {
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, ease: "easeOut" }}
-        className="relative mb-6 overflow-hidden rounded-2xl border border-violet-500/30 bg-slate-900/80 p-4 shadow-lg shadow-violet-500/10 backdrop-blur-xl dark:bg-slate-900/80 sm:p-5"
+        className="relative mb-6 overflow-hidden rounded-2xl border border-indigo-200/80 bg-indigo-50/90 p-4 shadow-lg shadow-indigo-500/10 backdrop-blur-xl dark:border-violet-500/30 dark:bg-slate-900/80 sm:p-5"
       >
         <button
           onClick={allDone ? () => setExpanded(false) : dismiss}
           aria-label={allDone ? "Collapse" : "Dismiss for this session"}
-          className="absolute right-3 top-3 rounded-lg p-1.5 text-white/40 hover:bg-white/10 hover:text-white/80"
+          className="absolute right-3 top-3 rounded-lg p-1.5 text-navy/40 hover:bg-black/5 hover:text-navy/80 dark:text-white/40 dark:hover:bg-white/10 dark:hover:text-white/80"
         >
           <X className="h-4 w-4" />
         </button>
 
         <div className="flex items-start gap-3 pr-8">
           <motion.span
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-500/15 text-violet-300"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-500/15 text-violet-600 dark:text-violet-300"
             animate={{ rotate: [0, 8, -8, 0] }}
             transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut" }}
           >
             <Sparkles className="h-5 w-5" />
           </motion.span>
           <div className="min-w-0">
-            <h2 className="text-sm font-bold text-white sm:text-base">Monthly Flight Check-In for {monthLabel} ✈️</h2>
-            <p className="mt-0.5 text-xs text-white/60 sm:text-sm">Update your financial deck for the new month to keep your insights accurate.</p>
+            <h2 className="text-sm font-bold text-navy dark:text-white sm:text-base">Monthly Flight Check-In for {monthLabel} ✈️</h2>
+            <p className="mt-0.5 text-xs text-navy/60 dark:text-white/60 sm:text-sm">Update your financial deck for the new month to keep your insights accurate.</p>
           </div>
         </div>
 
@@ -293,7 +293,7 @@ export function MonthlyAuditBanner() {
           ))}
         </div>
 
-        <p className="mt-3 text-[11px] font-medium text-white/40">{completedCount}/4 updated this month</p>
+        <p className="mt-3 text-[11px] font-medium text-navy/40 dark:text-white/40">{completedCount}/4 updated this month</p>
       </motion.div>
 
       <AnimatePresence>

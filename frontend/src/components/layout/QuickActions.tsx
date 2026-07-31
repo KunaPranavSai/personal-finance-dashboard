@@ -75,7 +75,7 @@ export function QuickActions() {
         <button
           onClick={() => setFabOpen((v) => !v)}
           aria-label={fabOpen ? "Close quick actions" : "Open quick actions"}
-          className="flex h-14 w-14 items-center justify-center rounded-full bg-teal text-white shadow-lg shadow-teal-500/20 backdrop-blur-md transition-transform active:scale-95"
+          className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-teal to-indigo-500 text-white shadow-xl shadow-indigo-500/25 backdrop-blur-md transition-transform active:scale-95"
         >
           <motion.span animate={{ rotate: fabOpen ? 135 : 0 }} transition={{ duration: 0.2 }}>
             {fabOpen ? <X className="h-6 w-6" /> : <Plus className="h-6 w-6" />}
@@ -99,7 +99,7 @@ export function QuickActions() {
           onClick={() => setMenuOpen((v) => !v)}
           aria-label={menuOpen ? "Close quick actions" : "Open quick actions"}
           aria-expanded={menuOpen}
-          className="flex h-9 w-9 items-center justify-center rounded-full bg-teal text-white shadow-sm transition-transform hover:brightness-110 active:scale-95"
+          className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-teal to-indigo-500 text-white shadow-md shadow-indigo-500/20 transition-transform hover:brightness-110 active:scale-95"
         >
           <motion.span animate={{ rotate: menuOpen ? 135 : 0 }} transition={{ duration: 0.2 }}>
             <Plus className="h-4.5 w-4.5" />

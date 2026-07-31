@@ -25,8 +25,8 @@ const PERIOD_META: Record<Period, { greeting: string; badge: string; icon: typeo
 };
 
 const SKY_GRADIENT: Record<Period, string> = {
-  morning: "from-amber-200 via-orange-200 to-sky-300 dark:from-amber-950 dark:via-orange-950 dark:to-indigo-950",
-  afternoon: "from-orange-300 via-rose-400 to-violet-600 dark:from-orange-900 dark:via-rose-950 dark:to-violet-950",
+  morning: "from-sky-100 via-indigo-50/60 to-amber-50 dark:from-amber-950 dark:via-orange-950 dark:to-indigo-950",
+  afternoon: "from-violet-100 via-rose-50 to-amber-100 dark:from-orange-900 dark:via-rose-950 dark:to-violet-950",
   night: "from-indigo-950 via-slate-900 to-slate-950",
 };
 
@@ -41,6 +41,14 @@ const PILL_CLASS: Record<Period, string> = {
   morning: "bg-white/50 dark:bg-white/10",
   afternoon: "bg-white/40 dark:bg-white/10",
   night: "bg-white/15",
+};
+/** The Net Worth balance box specifically — a slightly richer frosted-glass
+ * treatment than the small badge pills above, per the Signature Light Glass
+ * spec (indigo-tinted border + shadow instead of a plain translucent fill). */
+const NET_WORTH_BOX_CLASS: Record<Period, string> = {
+  morning: "bg-white/80 dark:bg-white/10 border border-indigo-100 dark:border-white/10 shadow-md shadow-indigo-500/5 dark:shadow-none",
+  afternoon: "bg-white/80 dark:bg-white/10 border border-indigo-100 dark:border-white/10 shadow-md shadow-indigo-500/5 dark:shadow-none",
+  night: "bg-white/15 border border-white/10",
 };
 
 interface DashboardHeroProps {
@@ -291,8 +299,8 @@ export function DashboardHero({
             type="button"
             onClick={handleBalanceClick}
             className={cn(
-              "relative flex flex-col items-start rounded-2xl p-4 text-left backdrop-blur-sm transition-colors hover:brightness-110 sm:p-6",
-              pillClass
+              "relative flex flex-col items-start rounded-2xl p-4 text-left backdrop-blur-md transition-colors hover:brightness-110 sm:p-6",
+              NET_WORTH_BOX_CLASS[period]
             )}
           >
             <span className={cn("text-[11px] font-semibold uppercase tracking-wider", period === "night" ? "text-white/60" : "text-slate-600 dark:text-white/50")}>
@@ -316,10 +324,10 @@ export function DashboardHero({
           </button>
 
           <div className="flex flex-wrap gap-2 text-xs">
-            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 font-semibold text-emerald-400">
+            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200/60 bg-emerald-50 text-emerald-700 shadow-sm shadow-emerald-500/10 px-2.5 py-1 font-semibold dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-400 dark:shadow-none">
               Income: {incomeLabel}
             </span>
-            <span className="inline-flex items-center gap-1 rounded-full border border-rose-500/20 bg-rose-500/10 px-2.5 py-1 font-semibold text-rose-400">
+            <span className="inline-flex items-center gap-1 rounded-full border border-rose-200/60 bg-rose-50 text-rose-700 shadow-sm shadow-rose-500/10 px-2.5 py-1 font-semibold dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-400 dark:shadow-none">
               Expenses: {expenseLabel}
             </span>
           </div>

@@ -102,7 +102,7 @@ export function KpiCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25 }}
       className="relative"
-      style={{ perspective: "800px", ["--kpi-border-glow" as string]: "rgba(99,102,241,0.4)" }}
+      style={{ perspective: "800px", ["--kpi-border-glow" as string]: "rgba(99,102,241,0.35)" }}
       onMouseMove={handleMouseMove}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={handleMouseLeave}
@@ -125,7 +125,7 @@ export function KpiCard({
       >
         <div
           className={cn(
-            "group relative overflow-hidden rounded-xl2 border border-black/5 bg-white/70 p-3 shadow-card backdrop-blur-md will-change-transform dark:border-white/10 dark:bg-white/5 sm:p-4",
+            "group relative overflow-hidden rounded-xl2 border border-[rgba(199,210,254,0.5)] bg-white/[0.72] p-3 shadow-[0_10px_30px_-10px_rgba(79,70,229,0.08),0_4px_12px_-2px_rgba(0,0,0,0.03)] backdrop-blur-xl will-change-transform dark:border-white/10 dark:bg-white/5 dark:shadow-card sm:p-4",
             onClick && "cursor-pointer transition-transform duration-200 ease-out hover:shadow-md active:scale-95 sm:active:scale-100"
           )}
           title={tooltip}

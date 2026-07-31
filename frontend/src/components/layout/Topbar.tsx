@@ -81,7 +81,7 @@ export function Topbar({ title }: { title: string }) {
   const avatarSrc = profile?.avatar || null;
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between border-b border-black/5 bg-white/80 px-3 backdrop-blur dark:border-white/10 dark:bg-navy-dark/80 sm:h-16 lg:px-6">
+    <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between border-b border-indigo-100/60 bg-slate-50/80 px-3 backdrop-blur-xl dark:border-white/10 dark:bg-navy-dark/80 sm:h-16 lg:px-6">
       <div className="flex items-center gap-2 min-w-0 sm:gap-3">
         <button
           onClick={toggleSidebar}
@@ -114,7 +114,7 @@ export function Topbar({ title }: { title: string }) {
 
         <button
           onClick={toggleTheme}
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-slate-200/50 text-navy transition-all duration-300 active:scale-90 hover:bg-slate-300 dark:bg-slate-800/50 dark:text-white dark:hover:bg-slate-700 sm:h-9 sm:w-9"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-amber-200 bg-amber-100 text-amber-600 shadow-inner transition-all duration-300 active:scale-90 hover:bg-amber-200/80 dark:border-transparent dark:bg-slate-800/50 dark:text-white dark:shadow-none dark:hover:bg-slate-700 sm:h-9 sm:w-9"
           aria-label={`Switch to ${resolvedTheme === "dark" ? "light" : "dark"} theme`}
         >
           <motion.span
