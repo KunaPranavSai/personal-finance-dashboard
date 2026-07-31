@@ -23,7 +23,7 @@ const faceStyle = {
 /** A small, reusable 3D gold coin — true two-sided rotateY flip (not a fake scaleX squash). */
 export function GoldCoin({ size = "3rem", spinDuration = 2.2, label = "P", className }: GoldCoinProps) {
   return (
-    <div className={className} style={{ width: size, height: size, perspective: "10em" }}>
+    <div className={className} style={{ width: size, height: size, perspective: "10em", filter: "drop-shadow(0 8px 16px rgba(217,119,6,0.25))" }}>
       <motion.div
         className="relative h-full w-full"
         style={{ transformStyle: "preserve-3d", willChange: "transform" }}
