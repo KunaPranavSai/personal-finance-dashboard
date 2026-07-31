@@ -115,7 +115,7 @@ export function KpiCard({
           ring through, independent of the card's own background. */}
       <motion.div
         aria-hidden
-        className="pointer-events-none absolute -inset-px rounded-[1.25rem] opacity-0 transition-opacity duration-300 dark:[--kpi-border-glow:rgba(139,92,246,0.6)]"
+        className="pointer-events-none absolute -inset-px rounded-[1.25rem] opacity-0 transition-opacity duration-300 dark:[--kpi-border-glow:rgba(99,102,241,0.3)]"
         style={{ background: borderGlow, opacity: hovered ? 1 : 0 }}
       />
 
@@ -125,7 +125,7 @@ export function KpiCard({
       >
         <div
           className={cn(
-            "group relative overflow-hidden rounded-xl2 border border-[rgba(199,210,254,0.5)] bg-white/[0.72] p-3 shadow-[0_10px_30px_-10px_rgba(79,70,229,0.08),0_4px_12px_-2px_rgba(0,0,0,0.03)] backdrop-blur-xl will-change-transform dark:border-white/10 dark:bg-white/5 dark:shadow-card sm:p-4",
+            "group relative overflow-hidden rounded-xl2 border border-[rgba(199,210,254,0.7)] bg-white/[0.82] p-3 shadow-[0_10px_30px_-10px_rgba(79,70,229,0.08),0_4px_12px_-2px_rgba(0,0,0,0.03)] backdrop-blur-2xl will-change-transform dark:border-white/[0.08] dark:bg-[rgba(15,23,42,0.75)] dark:shadow-card dark:backdrop-blur-xl sm:p-4",
             onClick && "cursor-pointer transition-transform duration-200 ease-out hover:shadow-md active:scale-95 sm:active:scale-100"
           )}
           title={tooltip}

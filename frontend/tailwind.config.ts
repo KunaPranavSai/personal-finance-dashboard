@@ -6,9 +6,9 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        navy: { DEFAULT: "#1F2A44", dark: "#141B2E" },
+        navy: { DEFAULT: "#1F2A44", dark: "#0F172A" },
         teal: { DEFAULT: "#0EA5A5", light: "#CFF3F0" },
-        surface: { DEFAULT: "#F7F8FA", dark: "#0F1420" },
+        surface: { DEFAULT: "#F7F8FA", dark: "#070A12" },
       },
       borderRadius: {
         xl2: "1.25rem",

@@ -13,21 +13,23 @@ html {
 }
 
 :root {
+  /* "Midnight Cockpit" — light mode: Lavender-Slate Mesh Canvas. Base
+     #F1F5F9 with two fixed ambient glows: indigo-tinted #EEF2FF top-left,
+     warm gold #FEF3C7 bottom-right. */
   --background: #f1f5f9;
   --foreground: #0f172a;
-  /* Signature Light Glass canvas: a lavender-slate → indigo mesh with two
-     fixed ambient glows (indigo top-left, warm gold bottom-right) sitting
-     behind every glass surface instead of a flat white page. */
-  --canvas-gradient: radial-gradient(circle at 10% 8%, rgba(99, 102, 241, 0.12), transparent 42%),
-    radial-gradient(circle at 90% 90%, rgba(245, 158, 11, 0.1), transparent 45%),
+  --canvas-gradient: radial-gradient(circle at 10% 8%, rgba(238, 242, 255, 0.9), transparent 42%),
+    radial-gradient(circle at 90% 90%, rgba(254, 243, 199, 0.75), transparent 45%),
     linear-gradient(160deg, #f1f5f9 0%, #eef2ff 100%);
   color-scheme: light;
 }
 
 .dark {
-  --background: #0f1420;
-  --foreground: #f2f4f7;
-  --canvas-gradient: none;
+  /* "Midnight Cockpit" — dark mode: Deep Obsidian Midnight, #070A12 base
+     blending into #0F172A. */
+  --background: #070a12;
+  --foreground: #f8fafc;
+  --canvas-gradient: linear-gradient(160deg, #070a12 0%, #0f172a 100%);
   color-scheme: dark;
 }
 
