@@ -21,7 +21,7 @@ type MetricKey = "income" | "expense" | "netCashFlow" | "budgetLimit";
 const METRIC_META: Record<MetricKey, { label: string; swatchClass: string }> = {
   income: { label: "Income", swatchClass: "bg-gradient-to-r from-cyan-500 to-blue-500" },
   expense: { label: "Expenses", swatchClass: "bg-gradient-to-r from-rose-500 to-red-600" },
-  netCashFlow: { label: "Net Cash Flow", swatchClass: "bg-gradient-to-r from-emerald-500 to-rose-500" },
+  netCashFlow: { label: "Net Surplus", swatchClass: "bg-gradient-to-r from-emerald-500 to-rose-500" },
   budgetLimit: { label: "Budget Limit", swatchClass: "bg-slate-400" },
 };
 
@@ -47,7 +47,7 @@ function GlassTooltip({ active, payload, label }: TooltipProps<number, string>) 
       )}
       {net !== undefined && (
         <p className={cn("flex items-center justify-between gap-4", net >= 0 ? "text-emerald-300" : "text-rose-300")}>
-          <span>Net Cash Flow</span> <span className="font-semibold">{net >= 0 ? "+" : ""}{formatCompactCurrency(net)}</span>
+          <span>Net Surplus</span> <span className="font-semibold">{net >= 0 ? "+" : ""}{formatCompactCurrency(net)}</span>
         </p>
       )}
     </div>
@@ -95,7 +95,7 @@ export function IncomeExpenseChart({ data, budgetLimit }: { data: Point[]; budge
                 ))}
             </div>
 
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={300} style={{ willChange: "transform", transform: "translateZ(0)" }}>
               <ComposedChart data={chartData}>
                 <defs>
                   <linearGradient id="incomeGradient" x1="0" y1="0" x2="0" y2="1">
@@ -114,13 +114,13 @@ export function IncomeExpenseChart({ data, budgetLimit }: { data: Point[]; budge
                 <Tooltip content={<GlassTooltip />} cursor={{ stroke: "rgba(99,102,241,0.3)", strokeWidth: 1 }} />
 
                 {visible.income && (
-                  <Area yAxisId="left" type="monotone" dataKey="income" stroke="#06B6D4" strokeWidth={2} fill="url(#incomeGradient)" fillOpacity={0.25} name="Income" />
+                  <Area yAxisId="left" type="monotone" dataKey="income" stroke="#06B6D4" strokeWidth={2} fill="url(#incomeGradient)" fillOpacity={0.2} name="Income" />
                 )}
                 {visible.expense && (
-                  <Area yAxisId="left" type="monotone" dataKey="expense" stroke="#F43F5E" strokeWidth={2} fill="url(#expenseGradient)" fillOpacity={0.25} name="Expenses" />
+                  <Area yAxisId="left" type="monotone" dataKey="expense" stroke="#F43F5E" strokeWidth={2} fill="url(#expenseGradient)" fillOpacity={0.15} name="Expenses" />
                 )}
                 {visible.netCashFlow && (
-                  <Bar yAxisId="right" dataKey="netCashFlow" radius={[4, 4, 4, 4]} name="Net Cash Flow" barSize={14} opacity={0.85}>
+                  <Bar yAxisId="right" dataKey="netCashFlow" radius={[4, 4, 4, 4]} name="Net Surplus" barSize={14} opacity={0.85}>
                     {chartData.map((d, i) => (
                       <Cell key={i} fill={d.netCashFlow >= 0 ? "#10B981" : "#F43F5E"} />
                     ))}

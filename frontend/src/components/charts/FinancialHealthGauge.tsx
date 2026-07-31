@@ -1,7 +1,7 @@
 "use client";
 
 import { useId } from "react";
-import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
+import { PieChart, Pie, Cell } from "recharts";
 import { Card, CardHeader, CardTitle, CardContent } from "../ui/Card";
 import { cn } from "@/lib/format";
 
@@ -23,22 +23,33 @@ function tierFor(score: number): Tier {
   return TIERS.find((t) => score >= t.min) ?? TIERS[TIERS.length - 1];
 }
 
-/** Small radial tick marks at 25/50/75/100 around the semicircular arc,
- * overlaid on top of the recharts Pie via an absolutely-positioned SVG. */
+// Fixed pixel geometry (rather than a "100%"-wide ResponsiveContainer) so the
+// tick-mark overlay below can be computed in the exact same coordinate space
+// as the recharts Pie itself — outerRadius is always literal pixels, so a
+// percentage-based overlay drifted out of alignment (and the previous
+// height=160 container was shorter than cy(80) + outerRadius(85), clipping
+// the arc's top). A fixed 264x220 box comfortably fits down to ~320px
+// viewports and removes that whole class of bug.
+const WIDTH = 264;
+const HEIGHT = 220;
+const CX = WIDTH / 2;
+const CY = 150;
+const OUTER_R = 80;
+const INNER_R = 58;
+
+/** Small radial tick marks at 0/25/50/75/100 around the arc, in the same
+ * pixel space as the Pie above (see WIDTH/HEIGHT/CX/CY/OUTER_R comment). */
 function TickMarks() {
-  const cx = 100;
-  const cy = 100;
-  const r = 82;
   const ticks = [0, 25, 50, 75, 100];
   return (
-    <svg viewBox="0 0 200 110" className="pointer-events-none absolute inset-0 h-full w-full" aria-hidden>
+    <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className="pointer-events-none absolute inset-0 h-full w-full" aria-hidden>
       {ticks.map((v) => {
         const angleDeg = 180 - (v / 100) * 180;
         const rad = (angleDeg * Math.PI) / 180;
-        const x1 = cx + (r - 6) * Math.cos(rad);
-        const y1 = cy - (r - 6) * Math.sin(rad);
-        const x2 = cx + (r + 4) * Math.cos(rad);
-        const y2 = cy - (r + 4) * Math.sin(rad);
+        const x1 = CX + (OUTER_R - 6) * Math.cos(rad);
+        const y1 = CY - (OUTER_R - 6) * Math.sin(rad);
+        const x2 = CX + (OUTER_R + 5) * Math.cos(rad);
+        const y2 = CY - (OUTER_R + 5) * Math.sin(rad);
         return <line key={v} x1={x1} y1={y1} x2={x2} y2={y2} stroke="rgba(148,163,184,0.5)" strokeWidth={2} strokeLinecap="round" />;
       })}
     </svg>
@@ -60,30 +71,41 @@ export function FinancialHealthGauge({ score }: { score: number }) {
         <CardTitle>Financial Health Score</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col items-center">
-        <div className="relative h-40 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <defs>
-                <linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="0%" stopColor={tier.stops[0]} />
-                  <stop offset="100%" stopColor={tier.stops[1]} />
-                </linearGradient>
-              </defs>
-              <Pie data={data} dataKey="value" startAngle={180} endAngle={0} innerRadius={60} outerRadius={85} cornerRadius={6} isAnimationActive>
-                <Cell fill={`url(#${gradientId})`} />
-                <Cell fill="rgba(148,163,184,0.15)" />
-              </Pie>
-            </PieChart>
-          </ResponsiveContainer>
+        <div className="relative mx-auto" style={{ width: WIDTH, height: HEIGHT, willChange: "transform", transform: "translateZ(0)" }}>
+          <PieChart width={WIDTH} height={HEIGHT}>
+            <defs>
+              <linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stopColor={tier.stops[0]} />
+                <stop offset="50%" stopColor="#F59E0B" />
+                <stop offset="100%" stopColor={tier.stops[1]} />
+              </linearGradient>
+            </defs>
+            <Pie
+              data={data}
+              dataKey="value"
+              cx={CX}
+              cy={CY}
+              startAngle={180}
+              endAngle={0}
+              innerRadius={INNER_R}
+              outerRadius={OUTER_R}
+              cornerRadius={6}
+              stroke="none"
+              isAnimationActive
+            >
+              <Cell fill={`url(#${gradientId})`} />
+              <Cell fill="rgba(255,255,255,0.08)" />
+            </Pie>
+          </PieChart>
           <TickMarks />
-          <div className="absolute inset-x-0 bottom-0 flex flex-col items-center">
+          <div className="absolute inset-x-0 flex flex-col items-center" style={{ top: CY + 14 }}>
             <span
               className="text-3xl font-extrabold text-slate-900 dark:text-slate-100"
               style={{ filter: `drop-shadow(0 0 12px ${tier.stops[0]}66)` }}
             >
               {Math.round(clamped)}
             </span>
-            <span className={cn("mt-0.5 text-xs font-semibold", tier.textClass)}>
+            <span className={cn("mt-1 text-xs font-semibold", tier.textClass)}>
               {tier.label} · {tier.status}
             </span>
           </div>
