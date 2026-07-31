@@ -80,14 +80,6 @@ function DashboardContent() {
   const hasError = !summary && !isLoading;
   const firstName = user?.name?.split(" ")[0];
 
-  const insight = (() => {
-    const savingsChange = summary?.kpis?.changeVsPrevMonth?.income;
-    const budgetPct = summary?.kpis?.budgetUtilizationPct;
-    if (typeof budgetPct === "number" && budgetPct <= 80) return "Monthly budget on a smooth flight plan";
-    if (typeof savingsChange === "number" && savingsChange > 0) return `You saved ${(savingsChange * 100).toFixed(0)}% more than last month`;
-    return "Your finances are cruising steady today";
-  })();
-
   return (
     <>
       <Topbar title="Dashboard" />
@@ -97,7 +89,9 @@ function DashboardContent() {
           netWorthLabel={f(summary?.kpis?.netWorth ?? 0)}
           incomeLabel={f(summary?.kpis?.totalIncome ?? 0)}
           expenseLabel={f(summary?.kpis?.totalExpenses ?? 0)}
-          insight={insight}
+          savingsRatePct={summary?.kpis?.savingsRatePct ?? 0}
+          budgetUsagePct={summary?.kpis?.budgetUtilizationPct ?? 0}
+          cashFlow={summary?.kpis?.cashFlow ?? 0}
           scrollContainerRef={mainRef}
           heroRef={heroRef}
         />
