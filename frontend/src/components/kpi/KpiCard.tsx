@@ -125,8 +125,12 @@ export function KpiCard({
       >
         <div
           className={cn(
-            "group relative overflow-hidden rounded-xl2 border border-[rgba(199,210,254,0.7)] bg-white/[0.82] p-3 shadow-[0_10px_30px_-10px_rgba(79,70,229,0.08),0_4px_12px_-2px_rgba(0,0,0,0.03)] backdrop-blur-2xl will-change-transform dark:border-white/[0.08] dark:bg-[rgba(15,23,42,0.75)] dark:shadow-card dark:backdrop-blur-xl sm:p-4",
-            onClick && "cursor-pointer transition-transform duration-200 ease-out hover:shadow-md active:scale-95 sm:active:scale-100"
+            // Surface separation from the canvas: crisp near-opaque frosted
+            // glass with a visible border (was too translucent and blended
+            // into the background at rest, only standing out via the
+            // cursor-tracking glow layer above).
+            "group relative overflow-hidden rounded-xl2 border border-indigo-100/80 bg-white/[0.92] p-3 shadow-[0_4px_20px_-2px_rgba(99,102,241,0.08),0_2px_6px_-1px_rgba(0,0,0,0.04)] backdrop-blur-md transition-[color,background-color,border-color,box-shadow,transform] duration-200 will-change-transform hover:border-indigo-300/70 dark:border-white/10 dark:bg-slate-900/85 dark:shadow-card dark:backdrop-blur-xl dark:hover:border-indigo-500/40 dark:hover:shadow-lg dark:hover:shadow-indigo-500/10 sm:p-4",
+            onClick && "cursor-pointer ease-out hover:shadow-md active:scale-95 sm:active:scale-100"
           )}
           title={tooltip}
           role={onClick ? "button" : undefined}
@@ -169,8 +173,8 @@ export function KpiCard({
             )}
           </div>
 
-          <p className="relative mt-2 truncate text-xs font-medium text-navy/50 dark:text-white/50">{label}</p>
-          <p className="relative mt-0.5 truncate text-lg font-bold text-navy dark:text-white sm:text-xl" style={{ fontSize: "clamp(14px, 2vw, 22px)", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "100%" }}>
+          <p className="relative mt-2 truncate text-xs font-medium text-slate-600 dark:text-slate-400">{label}</p>
+          <p className="relative mt-0.5 truncate text-lg font-extrabold text-slate-900 dark:text-slate-100 sm:text-xl" style={{ fontSize: "clamp(14px, 2vw, 22px)", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "100%" }}>
             {value}
           </p>
 
@@ -193,12 +197,12 @@ export function KpiCard({
       </motion.div>
 
       <motion.div
-        className="pointer-events-none absolute left-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-lg bg-teal/10 shadow-sm sm:left-4 sm:top-4 sm:h-9 sm:w-9"
+        className="pointer-events-none absolute left-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-lg border border-indigo-200/60 bg-indigo-50 text-indigo-600 shadow-sm dark:border-indigo-500/20 dark:bg-indigo-500/15 dark:text-indigo-400 sm:left-4 sm:top-4 sm:h-9 sm:w-9"
         animate={{ y: hovered ? -14 : 0, z: hovered ? 40 : 0, scale: hovered ? 1.15 : 1 }}
         transition={{ type: "spring", stiffness: 320, damping: 16 }}
         style={{ willChange: "transform" }}
       >
-        <Icon className="h-4 w-4 text-teal sm:h-4.5 sm:w-4.5" />
+        <Icon className="h-4 w-4 sm:h-4.5 sm:w-4.5" />
       </motion.div>
     </motion.div>
   );
