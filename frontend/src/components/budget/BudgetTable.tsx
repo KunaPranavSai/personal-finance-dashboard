@@ -7,7 +7,19 @@ import { formatCurrency as fmtCurr, formatPercent } from "@/lib/format";
 import { useSettingsContext } from "@/lib/SettingsContext";
 import { Badge } from "../ui/Badge";
 import { EmptyState } from "../ui/EmptyState";
-import { Trash2, Wallet } from "lucide-react";
+import { Trash2, Wallet, AlertTriangle } from "lucide-react";
+import { cn } from "@/lib/format";
+
+/** Tiered glow styling for the progress bar fill, per the Midnight Cockpit
+ * spec: 0-70% safe (cyan-emerald), 71-90% warning (amber), 91%+ critical
+ * (pulsing rose + alert badge) — independent of the backend's own
+ * UNDER/NEAR/OVER status enum, since that flips at different thresholds. */
+function progressTier(pct: number): "safe" | "warning" | "critical" {
+  const p = pct * 100;
+  if (p > 90) return "critical";
+  if (p > 70) return "warning";
+  return "safe";
+}
 
 const statusTone: Record<Budget["status"], "green" | "yellow" | "red"> = {
   UNDER_BUDGET: "green",
@@ -74,7 +86,9 @@ export function BudgetTable({ periodKey }: { periodKey: string }) {
           </tr>
         </thead>
         <tbody>
-          {items.map((b) => (
+          {items.map((b) => {
+            const tier = progressTier(b.utilizationPct);
+            return (
             <tr key={b.id} className="border-t border-black/5 dark:border-white/5">
               <td className="px-4 py-3 font-medium text-navy dark:text-white">{b.category.name}</td>
               <td className="px-4 py-3 text-right">{formatINR(b.amount)}</td>
@@ -83,16 +97,21 @@ export function BudgetTable({ periodKey }: { periodKey: string }) {
                 {formatINR(b.remaining)}
               </td>
               <td className="px-4 py-3">
-                <div className="h-2 w-32 overflow-hidden rounded-full bg-black/5 dark:bg-white/10">
+                <div className="h-2.5 w-32 overflow-hidden rounded-full bg-black/5 dark:bg-white/10">
                   <div
-                    className="h-full rounded-full"
-                    style={{
-                      width: `${Math.min(b.utilizationPct * 100, 100)}%`,
-                      backgroundColor: b.status === "OVER_BUDGET" ? "#C0392B" : b.status === "NEAR_LIMIT" ? "#F1C40F" : "#0EA5A5",
-                    }}
+                    className={cn(
+                      "h-full rounded-full transition-[width] duration-500",
+                      tier === "safe" && "bg-gradient-to-r from-cyan-400 to-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]",
+                      tier === "warning" && "bg-gradient-to-r from-amber-400 to-amber-600 shadow-[0_0_8px_rgba(245,158,11,0.5)]",
+                      tier === "critical" && "animate-pulse bg-gradient-to-r from-rose-500 to-rose-700 shadow-[0_0_10px_rgba(244,63,94,0.6)]"
+                    )}
+                    style={{ width: `${Math.min(b.utilizationPct * 100, 100)}%` }}
                   />
                 </div>
-                <span className="mt-0.5 block text-xs text-navy/40 dark:text-white/40">{formatPercent(b.utilizationPct)}</span>
+                <span className="mt-0.5 flex items-center gap-1 text-xs text-navy/40 dark:text-white/40">
+                  {formatPercent(b.utilizationPct)}
+                  {tier === "critical" && <AlertTriangle className="h-3 w-3 text-rose-500" />}
+                </span>
               </td>
               <td className="px-4 py-3">
                 <Badge tone={statusTone[b.status]}>{statusLabel[b.status]}</Badge>
@@ -106,7 +125,8 @@ export function BudgetTable({ periodKey }: { periodKey: string }) {
                 </button>
               </td>
             </tr>
-          ))}
+            );
+          })}
         </tbody>
       </table>
     </div>
