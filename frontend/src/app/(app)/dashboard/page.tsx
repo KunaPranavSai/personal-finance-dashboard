@@ -225,7 +225,14 @@ function DashboardContent() {
             {trendData.length > 0 && (
               <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
                 <div className="lg:col-span-2">
-                  <IncomeExpenseChart data={trendData} />
+                  <IncomeExpenseChart
+                    data={trendData}
+                    budgetLimit={
+                      summary?.kpis && summary.kpis.budgetUtilizationPct > 0
+                        ? summary.kpis.totalExpenses / (summary.kpis.budgetUtilizationPct / 100)
+                        : undefined
+                    }
+                  />
                 </div>
                 <FinancialHealthGauge score={summary?.kpis?.financialHealthScore ?? 0} />
               </div>
