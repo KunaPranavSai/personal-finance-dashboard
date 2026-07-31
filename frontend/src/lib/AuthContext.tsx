@@ -47,6 +47,12 @@ interface AuthContextType {
   confirmPasswordReset: (uid: string, code: string, newPassword: string, method?: string) => Promise<void>;
   getRecoveryOptions: (uid: string) => Promise<{ email: boolean; totp: boolean; backup: boolean }>;
   changeUid: (password: string, newUid: string) => Promise<void>;
+  /** Locally patches the signed-in user's display name — call this right
+   * after a profile save succeeds so greetings/the topbar/etc. (which all
+   * read `user.name` from this context) update immediately instead of only
+   * on the next login/page load. No network request; the account record
+   * itself is already updated server-side by the profile save. */
+  updateUserName: (name: string) => void;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -394,6 +400,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser((u) => (u ? { ...u, uid: data.uid } : u));
   }, []);
 
+  const updateUserName = useCallback((name: string) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    setUser((u) => (u ? { ...u, name: trimmed } : u));
+  }, []);
+
   return (
     <AuthContext.Provider value={{
       user,
@@ -418,6 +430,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       confirmPasswordReset,
       getRecoveryOptions,
       changeUid,
+      updateUserName,
     }}>
       {children}
     </AuthContext.Provider>

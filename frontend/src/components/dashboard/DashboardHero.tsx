@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { motion, useScroll, useTransform, AnimatePresence } from "framer-motion";
 import { Sunrise, CloudSun, MoonStar, Send, Cloud, Mountain, ChevronDown, Sparkles } from "lucide-react";
 import { GoldCoin } from "@/components/ui/GoldCoin";
+import { FlightPathGraph } from "@/components/dashboard/FlightPathGraph";
 import { cn } from "@/lib/format";
 import { api } from "@/lib/api";
 import type { DashboardSummary, Transaction, Investment } from "@/types";
@@ -56,6 +57,9 @@ interface DashboardHeroProps {
   netWorthLabel: string;
   incomeLabel: string;
   expenseLabel: string;
+  /** Chronological trend points (oldest → newest) driving the flight-path
+   * graph next to the Net Worth value. Needs at least 2 points to render. */
+  netWorthTrend?: number[];
   summary: DashboardSummary | undefined;
   scrollContainerRef: RefObject<HTMLElement | null>;
   heroRef: RefObject<HTMLDivElement | null>;
@@ -76,25 +80,31 @@ function TipCarousel({ tips, textClass, pillClass }: { tips: string[]; textClass
       type="button"
       onClick={() => setIndex((i) => (i + 1) % tips.length)}
       className={cn(
-        "relative flex w-full items-start gap-1.5 overflow-hidden rounded-full px-3 py-1.5 text-left text-xs font-medium backdrop-blur-sm transition-colors sm:mt-4",
+        // Fixed height + overflow-hidden so a longer/shorter tip swapping in
+        // never changes the hero's total height (was the main source of the
+        // page jumping up/down every 6s) — the sliding text is positioned
+        // absolutely inside this fixed box instead of taking part in layout.
+        "relative flex w-full min-h-[36px] items-start gap-1.5 overflow-hidden rounded-full px-3 py-1.5 text-left text-xs font-medium backdrop-blur-sm transition-colors sm:mt-4",
         textClass,
         pillClass
       )}
       aria-label="Next financial tip"
     >
       <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500 dark:text-amber-300" />
-      <AnimatePresence mode="wait" initial={false}>
-        <motion.span
-          key={index}
-          initial={{ opacity: 0, x: 12 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: -12 }}
-          transition={{ duration: 0.35, ease: "easeOut" }}
-          className="block"
-        >
-          {tips[index]}
-        </motion.span>
-      </AnimatePresence>
+      <span className="relative min-h-[18px] flex-1">
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.span
+            key={index}
+            initial={{ opacity: 0, x: 12 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -12 }}
+            transition={{ duration: 0.35, ease: "easeOut" }}
+            className="absolute inset-x-0 top-0 line-clamp-2"
+          >
+            {tips[index]}
+          </motion.span>
+        </AnimatePresence>
+      </span>
     </button>
   );
 }
@@ -104,6 +114,7 @@ export function DashboardHero({
   netWorthLabel,
   incomeLabel,
   expenseLabel,
+  netWorthTrend,
   summary,
   scrollContainerRef,
   heroRef,
@@ -306,7 +317,15 @@ export function DashboardHero({
             <span className={cn("text-[11px] font-semibold uppercase tracking-wider", period === "night" ? "text-white/60" : "text-slate-600 dark:text-white/50")}>
               Net Worth · Flight Deck Status
             </span>
-            <span className={cn("mt-0.5 text-2xl font-extrabold sm:text-3xl", textClass)}>{netWorthLabel}</span>
+            <div className="mt-0.5 flex w-full items-center justify-between gap-3">
+              <span className={cn("text-2xl font-extrabold sm:text-3xl", textClass)}>{netWorthLabel}</span>
+              {netWorthTrend && netWorthTrend.length > 1 && (
+                <FlightPathGraph
+                  data={netWorthTrend}
+                  className={cn("h-8 w-20 shrink-0 sm:h-9 sm:w-28", period === "night" ? "text-violet-300" : "text-indigo-500 dark:text-violet-300")}
+                />
+              )}
+            </div>
 
             <AnimatePresence>
               {coinDrops.map((id) => (
@@ -333,8 +352,12 @@ export function DashboardHero({
           </div>
         </div>
 
-        {/* Bottom row: dynamic tagline + rotating actionable-tip carousel */}
-        <p className={cn("mt-4 text-[13px] font-semibold leading-snug sm:mt-5", textClass)}>{tagline}</p>
+        {/* Bottom row: dynamic tagline + rotating actionable-tip carousel.
+            Both are capped to a fixed min-height with line-clamp so the
+            hero's total height never shifts as the tagline/tips text length
+            varies across financial-health rules — the root cause of the
+            page jumping up/down as this content changed. */}
+        <p className={cn("mt-4 min-h-[40px] text-[13px] font-semibold leading-snug line-clamp-2 sm:mt-5", textClass)}>{tagline}</p>
         <div className="mt-2">
           <TipCarousel tips={tips} textClass={textClass} pillClass={pillClass} />
         </div>

@@ -75,6 +75,13 @@ async function updateProfile(userId: string, data: Record<string, unknown>): Pro
     update: { data: merged as object },
     create: { userId, data: merged as object },
   });
+  // Keep the account's own `name` (used by /api/auth/me, greetings, the
+  // topbar, etc.) in sync with the profile's display name — these used to
+  // be two independent fields that only the profile one was ever written
+  // to, so the rest of the app kept showing whatever name was set at signup.
+  if (typeof data.name === "string" && data.name.trim()) {
+    await prisma.user.update({ where: { id: userId }, data: { name: data.name.trim() } });
+  }
   return merged;
 }
 
