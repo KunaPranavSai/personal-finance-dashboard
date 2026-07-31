@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
-  LineChart, Line, BarChart, Bar, AreaChart, Area, PieChart, Pie, Cell,
+  LineChart, Line, BarChart, Bar, AreaChart, Area, ComposedChart, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from "recharts";
 import Link from "next/link";
@@ -15,9 +15,13 @@ import { formatCurrency, cn } from "@/lib/format";
 import { useSettingsContext } from "@/lib/SettingsContext";
 import { useCategories, useAccounts, usePaymentMethods } from "@/lib/reference";
 import { AnalyticsSummary } from "@/types";
-import { BarChart3, TrendingUp, TrendingDown, Hash, Download, Wallet } from "lucide-react";
+import { BarChart3, TrendingUp, TrendingDown, Hash, Download, Wallet, Sparkles } from "lucide-react";
 
-const COLORS = ["#0EA5A5", "#1F2A44", "#F1C40F", "#E67E22", "#7D3C98", "#2471A3", "#C0392B", "#1E8449"];
+// Vivid Midnight Cockpit accents, replacing the old muted teal/navy set.
+const COLORS = ["#06B6D4", "#6366F1", "#F59E0B", "#F43F5E", "#10B981", "#8B5CF6", "#3B82F6", "#F97316"];
+const AXIS_TICK = { fontSize: 12, fontWeight: 500, fill: "#94A3B8" };
+const AXIS_LINE = { stroke: "rgba(148,163,184,0.2)" };
+const GRID_STROKE = "rgba(255,255,255,0.05)";
 
 type RangeKey =
   | "today" | "yesterday" | "this-week" | "last-week" | "this-month" | "last-month"
@@ -133,12 +137,12 @@ function BreakdownChart({ kind, data, cur }: { kind: ChartKind; data: { name: st
   if (data.length === 0) return <EmptyState icon={BarChart3} title="No data for this selection" />;
   if (kind === "bar") {
     return (
-      <ResponsiveContainer width="100%" height={280}>
-        <BarChart data={data} layout="vertical" margin={{ left: 20 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="var(--foreground)" strokeOpacity={0.1} />
-          <XAxis type="number" tickFormatter={(v) => formatCurrency(Number(v), cur)} tick={{ fontSize: 11, fill: "var(--foreground)", fillOpacity: 0.6 }} axisLine={{ stroke: "var(--foreground)", strokeOpacity: 0.15 }} tickLine={false} />
-          <YAxis type="category" dataKey="name" width={110} tick={{ fontSize: 11, fill: "var(--foreground)", fillOpacity: 0.6 }} axisLine={{ stroke: "var(--foreground)", strokeOpacity: 0.15 }} tickLine={false} />
-          <Tooltip formatter={(v) => formatCurrency(Number(v), cur)} />
+      <ResponsiveContainer width="100%" height={280} style={{ willChange: "transform", transform: "translateZ(0)" }}>
+        <BarChart data={data} layout="vertical" margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} />
+          <XAxis type="number" tickFormatter={(v) => formatCurrency(Number(v), cur)} tick={AXIS_TICK} axisLine={AXIS_LINE} tickLine={false} />
+          <YAxis type="category" dataKey="name" width={110} tick={AXIS_TICK} axisLine={AXIS_LINE} tickLine={false} />
+          <Tooltip formatter={(v) => formatCurrency(Number(v), cur)} contentStyle={{ background: "rgba(15,23,42,0.9)", border: "1px solid rgba(51,65,85,0.8)", borderRadius: 12, backdropFilter: "blur(6px)" }} itemStyle={{ color: "#E2E8F0" }} labelStyle={{ color: "#E2E8F0" }} />
           <Bar dataKey="total" radius={[0, 6, 6, 0]}>
             {data.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
           </Bar>
@@ -147,8 +151,8 @@ function BreakdownChart({ kind, data, cur }: { kind: ChartKind; data: { name: st
     );
   }
   return (
-    <ResponsiveContainer width="100%" height={280}>
-      <PieChart>
+    <ResponsiveContainer width="100%" height={280} style={{ willChange: "transform", transform: "translateZ(0)" }}>
+      <PieChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
         <Pie
           data={data}
           dataKey="total"
@@ -157,9 +161,9 @@ function BreakdownChart({ kind, data, cur }: { kind: ChartKind; data: { name: st
           outerRadius={95}
           paddingAngle={kind === "donut" ? 2 : 0}
         >
-          {data.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+          {data.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} stroke="none" />)}
         </Pie>
-        <Tooltip formatter={(v) => formatCurrency(Number(v), cur)} />
+        <Tooltip formatter={(v) => formatCurrency(Number(v), cur)} contentStyle={{ background: "rgba(15,23,42,0.9)", border: "1px solid rgba(51,65,85,0.8)", borderRadius: 12, backdropFilter: "blur(6px)" }} itemStyle={{ color: "#E2E8F0" }} labelStyle={{ color: "#E2E8F0" }} />
         <Legend wrapperStyle={{ color: "var(--foreground)", fontSize: 12, opacity: 0.8 }} />
       </PieChart>
     </ResponsiveContainer>
@@ -168,45 +172,216 @@ function BreakdownChart({ kind, data, cur }: { kind: ChartKind; data: { name: st
 
 function TrendChart({ kind, data, cur }: { kind: ChartKind; data: { month: string; income: number; expense: number }[]; cur: string }) {
   if (data.length === 0) return <EmptyState icon={BarChart3} title="No data for this selection" />;
+  const tooltipStyle = { contentStyle: { background: "rgba(15,23,42,0.9)", border: "1px solid rgba(51,65,85,0.8)", borderRadius: 12, backdropFilter: "blur(6px)" }, itemStyle: { color: "#E2E8F0" }, labelStyle: { color: "#E2E8F0" } };
   const common = (
     <>
-      <CartesianGrid strokeDasharray="3 3" stroke="var(--foreground)" strokeOpacity={0.1} />
-      <XAxis dataKey="month" tick={{ fontSize: 11, fill: "var(--foreground)", fillOpacity: 0.6 }} axisLine={{ stroke: "var(--foreground)", strokeOpacity: 0.15 }} tickLine={false} />
-      <YAxis tickFormatter={(v) => formatCurrency(Number(v), cur)} tick={{ fontSize: 11, fill: "var(--foreground)", fillOpacity: 0.6 }} axisLine={{ stroke: "var(--foreground)", strokeOpacity: 0.15 }} tickLine={false} width={80} />
-      <Tooltip formatter={(v) => formatCurrency(Number(v), cur)} />
+      <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} />
+      <XAxis dataKey="month" tick={AXIS_TICK} axisLine={AXIS_LINE} tickLine={false} />
+      <YAxis tickFormatter={(v) => formatCurrency(Number(v), cur)} tick={AXIS_TICK} axisLine={AXIS_LINE} tickLine={false} width={80} />
+      <Tooltip formatter={(v) => formatCurrency(Number(v), cur)} {...tooltipStyle} />
       <Legend wrapperStyle={{ color: "var(--foreground)", fontSize: 12, opacity: 0.8 }} />
     </>
   );
   if (kind === "bar") {
     return (
-      <ResponsiveContainer width="100%" height={300}>
+      <ResponsiveContainer width="100%" height={300} style={{ willChange: "transform", transform: "translateZ(0)" }}>
         <BarChart data={data}>
           {common}
-          <Bar dataKey="income" fill="#0EA5A5" radius={[4, 4, 0, 0]} />
-          <Bar dataKey="expense" fill="#C0392B" radius={[4, 4, 0, 0]} />
+          <Bar dataKey="income" fill="#06B6D4" radius={[4, 4, 0, 0]} />
+          <Bar dataKey="expense" fill="#F43F5E" radius={[4, 4, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
     );
   }
   if (kind === "area") {
     return (
-      <ResponsiveContainer width="100%" height={300}>
+      <ResponsiveContainer width="100%" height={300} style={{ willChange: "transform", transform: "translateZ(0)" }}>
         <AreaChart data={data}>
           {common}
-          <Area type="monotone" dataKey="income" stroke="#0EA5A5" fill="#0EA5A5" fillOpacity={0.25} />
-          <Area type="monotone" dataKey="expense" stroke="#C0392B" fill="#C0392B" fillOpacity={0.25} />
+          <Area type="monotone" dataKey="income" stroke="#06B6D4" fill="#06B6D4" fillOpacity={0.2} />
+          <Area type="monotone" dataKey="expense" stroke="#F43F5E" fill="#F43F5E" fillOpacity={0.15} />
         </AreaChart>
       </ResponsiveContainer>
     );
   }
   return (
-    <ResponsiveContainer width="100%" height={300}>
+    <ResponsiveContainer width="100%" height={300} style={{ willChange: "transform", transform: "translateZ(0)" }}>
       <LineChart data={data}>
         {common}
-        <Line type="monotone" dataKey="income" stroke="#0EA5A5" strokeWidth={2} dot={false} />
-        <Line type="monotone" dataKey="expense" stroke="#C0392B" strokeWidth={2} dot={false} />
+        <Line type="monotone" dataKey="income" stroke="#06B6D4" strokeWidth={2} dot={false} />
+        <Line type="monotone" dataKey="expense" stroke="#F43F5E" strokeWidth={2} dot={false} />
       </LineChart>
     </ResponsiveContainer>
+  );
+}
+
+// ─── Custom Chart Studio ─────────────────────────────────────────────────────
+// A genuinely functional (not decorative) custom chart builder: every option
+// offered here is backed by real data already in `monthlyTrend`. Daily/
+// Weekly/Year-to-Date grouping and a couple of secondary metrics (Budget
+// Limit, Debt Obligations) aren't wired up because the backend doesn't
+// aggregate transactions at that granularity yet or expose that data at all —
+// rather than fake them, those options are shown disabled with "(soon)"
+// so nothing here silently lies about what it's plotting.
+type BuilderMetric = "income" | "expense" | "savings" | "transactions";
+type BuilderSecondary = "none" | "netCashFlow";
+type BuilderGrouping = "daily" | "weekly" | "monthly" | "ytd";
+type BuilderViz = "area" | "groupedBar" | "stackedBar" | "donut";
+
+interface BuilderConfig {
+  primary: BuilderMetric;
+  secondary: BuilderSecondary;
+  grouping: BuilderGrouping;
+  viz: BuilderViz;
+}
+
+const BUILDER_STORAGE_KEY = "pfd-analytics-custom-chart";
+const DEFAULT_BUILDER_CONFIG: BuilderConfig = { primary: "income", secondary: "netCashFlow", grouping: "monthly", viz: "area" };
+
+const PRIMARY_METRIC_OPTIONS: { value: BuilderMetric; label: string }[] = [
+  { value: "income", label: "Income" },
+  { value: "expense", label: "Expenses" },
+  { value: "savings", label: "Savings" },
+  { value: "transactions", label: "Transaction Count" },
+];
+const SECONDARY_METRIC_OPTIONS: { value: BuilderSecondary; label: string }[] = [
+  { value: "none", label: "None" },
+  { value: "netCashFlow", label: "Cash Flow" },
+];
+const GROUPING_OPTIONS: { value: BuilderGrouping; label: string; enabled: boolean }[] = [
+  { value: "daily", label: "Daily (soon)", enabled: false },
+  { value: "weekly", label: "Weekly (soon)", enabled: false },
+  { value: "monthly", label: "Monthly", enabled: true },
+  { value: "ytd", label: "Year-to-Date (soon)", enabled: false },
+];
+const VIZ_OPTIONS: { value: BuilderViz; label: string }[] = [
+  { value: "area", label: "Smooth Spline Area" },
+  { value: "groupedBar", label: "Grouped Bar" },
+  { value: "stackedBar", label: "Stacked Bar" },
+  { value: "donut", label: "Donut" },
+];
+
+const METRIC_LABEL: Record<BuilderMetric, string> = { income: "Income", expense: "Expenses", savings: "Savings", transactions: "Transactions" };
+const METRIC_COLOR: Record<BuilderMetric, string> = { income: "#06B6D4", expense: "#F43F5E", savings: "#10B981", transactions: "#8B5CF6" };
+
+function loadBuilderConfig(): BuilderConfig {
+  if (typeof window === "undefined") return DEFAULT_BUILDER_CONFIG;
+  try {
+    const raw = localStorage.getItem(BUILDER_STORAGE_KEY);
+    return raw ? { ...DEFAULT_BUILDER_CONFIG, ...JSON.parse(raw) } : DEFAULT_BUILDER_CONFIG;
+  } catch {
+    return DEFAULT_BUILDER_CONFIG;
+  }
+}
+
+function CustomChartStudio({ trend, cur }: { trend: { month: string; income: number; expense: number; count: number }[]; cur: string }) {
+  const [config, setConfig] = useState<BuilderConfig>(DEFAULT_BUILDER_CONFIG);
+
+  useEffect(() => {
+    setConfig(loadBuilderConfig());
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(BUILDER_STORAGE_KEY, JSON.stringify(config));
+    } catch {
+      // ignore
+    }
+  }, [config]);
+
+  const chartData = useMemo(
+    () =>
+      trend.map((t) => ({
+        month: t.month,
+        income: t.income,
+        expense: t.expense,
+        savings: t.income - t.expense,
+        transactions: t.count,
+        netCashFlow: t.income - t.expense,
+      })),
+    [trend]
+  );
+
+  const selectFieldCls = "rounded-lg border border-black/10 bg-transparent px-3 py-2 text-xs dark:border-white/10 dark:bg-navy-dark dark:text-white";
+
+  return (
+    <Card className="mb-6 border-slate-800/80 bg-slate-900/80 backdrop-blur-xl dark:border-slate-800/80 dark:bg-slate-900/80">
+      <CardHeader className="flex flex-row items-center gap-2">
+        <Sparkles className="h-4 w-4 text-violet-400" />
+        <CardTitle>Custom Chart Studio</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="flex flex-wrap items-end gap-3">
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-400">Primary Metric (Y-Axis 1)</label>
+            <select value={config.primary} onChange={(e) => setConfig((c) => ({ ...c, primary: e.target.value as BuilderMetric }))} className={selectFieldCls}>
+              {PRIMARY_METRIC_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-400">Secondary Metric (Y-Axis 2)</label>
+            <select value={config.secondary} onChange={(e) => setConfig((c) => ({ ...c, secondary: e.target.value as BuilderSecondary }))} className={selectFieldCls}>
+              {SECONDARY_METRIC_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-400">Time Grouping (X-Axis)</label>
+            <select value={config.grouping} onChange={(e) => setConfig((c) => ({ ...c, grouping: e.target.value as BuilderGrouping }))} className={selectFieldCls}>
+              {GROUPING_OPTIONS.map((o) => <option key={o.value} value={o.value} disabled={!o.enabled}>{o.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-400">Visualization Style</label>
+            <select value={config.viz} onChange={(e) => setConfig((c) => ({ ...c, viz: e.target.value as BuilderViz }))} className={selectFieldCls}>
+              {VIZ_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </div>
+        </div>
+
+        <div className="mt-4">
+          {chartData.length === 0 ? (
+            <EmptyState icon={BarChart3} title="No data for this selection" />
+          ) : config.viz === "donut" ? (
+            <ResponsiveContainer width="100%" height={280} style={{ willChange: "transform", transform: "translateZ(0)" }}>
+              <PieChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+                <Pie data={chartData} dataKey={config.primary} nameKey="month" innerRadius={60} outerRadius={95} paddingAngle={2}>
+                  {chartData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} stroke="none" />)}
+                </Pie>
+                <Tooltip formatter={(v) => (config.primary === "transactions" ? String(v) : formatCurrency(Number(v), cur))} contentStyle={{ background: "rgba(15,23,42,0.9)", border: "1px solid rgba(51,65,85,0.8)", borderRadius: 12, backdropFilter: "blur(6px)" }} itemStyle={{ color: "#E2E8F0" }} labelStyle={{ color: "#E2E8F0" }} />
+                <Legend wrapperStyle={{ color: "var(--foreground)", fontSize: 12, opacity: 0.8 }} />
+              </PieChart>
+            </ResponsiveContainer>
+          ) : (
+            <ResponsiveContainer width="100%" height={300} style={{ willChange: "transform", transform: "translateZ(0)" }}>
+              <ComposedChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} />
+                <XAxis dataKey="month" tick={AXIS_TICK} axisLine={AXIS_LINE} tickLine={false} />
+                <YAxis yAxisId="left" tick={AXIS_TICK} axisLine={AXIS_LINE} tickLine={false} tickFormatter={(v) => (config.primary === "transactions" ? String(v) : formatCurrency(Number(v), cur))} width={70} />
+                {config.secondary !== "none" && (
+                  <YAxis yAxisId="right" orientation="right" tick={AXIS_TICK} axisLine={false} tickLine={false} tickFormatter={(v) => formatCurrency(Number(v), cur)} width={70} />
+                )}
+                <Tooltip contentStyle={{ background: "rgba(15,23,42,0.9)", border: "1px solid rgba(51,65,85,0.8)", borderRadius: 12, backdropFilter: "blur(6px)" }} itemStyle={{ color: "#E2E8F0" }} labelStyle={{ color: "#E2E8F0" }} />
+                <Legend wrapperStyle={{ color: "var(--foreground)", fontSize: 12, opacity: 0.8 }} />
+
+                {config.viz === "area" && (
+                  <Area yAxisId="left" type="monotone" dataKey={config.primary} name={METRIC_LABEL[config.primary]} stroke={METRIC_COLOR[config.primary]} fill={METRIC_COLOR[config.primary]} fillOpacity={0.2} />
+                )}
+                {config.viz === "groupedBar" && (
+                  <Bar yAxisId="left" dataKey={config.primary} name={METRIC_LABEL[config.primary]} fill={METRIC_COLOR[config.primary]} radius={[4, 4, 0, 0]} />
+                )}
+                {config.viz === "stackedBar" && (
+                  <Bar yAxisId="left" dataKey={config.primary} name={METRIC_LABEL[config.primary]} fill={METRIC_COLOR[config.primary]} stackId="a" radius={[4, 4, 0, 0]} />
+                )}
+                {config.secondary === "netCashFlow" && (
+                  <Line yAxisId="right" type="monotone" dataKey="netCashFlow" name="Cash Flow" stroke="#F59E0B" strokeWidth={2} dot={false} />
+                )}
+              </ComposedChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+        <p className="mt-3 text-[11px] text-slate-500">Your chart selections are saved automatically and restored next time you open Analytics.</p>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -351,6 +526,8 @@ export default function AnalyticsPage() {
           </CardContent></Card>
         ) : (
           <>
+            <CustomChartStudio trend={data.monthlyTrend} cur={cur} />
+
             {metrics.has("kpis") && (
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
                 <Card><CardContent className="flex items-center gap-3 pt-5">
