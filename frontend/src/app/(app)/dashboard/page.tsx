@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { Topbar } from "@/components/layout/Topbar";
 import { DashboardHero } from "@/components/dashboard/DashboardHero";
+import { MonthlyAuditBanner } from "@/components/dashboard/MonthlyAuditBanner";
 import { KpiCard } from "@/components/kpi/KpiCard";
 import { KpiExpandedCard, KpiDetailData } from "@/components/kpi/KpiExpandedCard";
 import { IncomeExpenseChart } from "@/components/charts/IncomeExpenseChart";
@@ -84,6 +85,7 @@ function DashboardContent() {
     <>
       <Topbar title="Dashboard" />
       <main ref={mainRef} className="flex-1 overflow-y-auto p-4 lg:p-6">
+        <MonthlyAuditBanner />
         <DashboardHero
           firstName={firstName}
           netWorthLabel={f(summary?.kpis?.netWorth ?? 0)}
