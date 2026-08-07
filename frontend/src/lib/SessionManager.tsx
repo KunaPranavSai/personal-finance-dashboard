@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, ReactNode } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useAuth, SESSION_EXPIRED_REASON_KEY } from "./AuthContext";
 import { API_ACTIVITY_EVENT, SESSION_EXPIRED_EVENT } from "./api";
 import { SessionWarningModal } from "@/components/ui/SessionWarningModal";
@@ -37,7 +37,6 @@ export function useSessionManager() {
 
 export function SessionManagerProvider({ children }: { children: ReactNode }) {
   const { isAuthenticated, sessionTimeoutMinutes, extendSession, logout } = useAuth();
-  const router = useRouter();
   const pathname = usePathname();
 
   const [warningOpen, setWarningOpen] = useState(false);
@@ -75,9 +74,11 @@ export function SessionManagerProvider({ children }: { children: ReactNode }) {
       }
       if (broadcastToOtherTabs) broadcast({ type: "logout", ts: Date.now() });
       await logout();
-      router.replace("/login");
+      // Hard navigation — see Topbar's handleLogout for why router.replace
+      // isn't enough for a real logout.
+      window.location.href = "/login";
     },
-    [clearTimers, broadcast, logout, router]
+    [clearTimers, broadcast, logout]
   );
 
   const startWarningCountdown = useCallback(() => {

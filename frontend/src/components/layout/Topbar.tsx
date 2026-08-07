@@ -68,13 +68,14 @@ export function Topbar({ title }: { title: string }) {
   const handleLogout = useCallback(async () => {
     setIsLoggingOut(true);
     setAvatarOpen(false);
-    try {
-      await logout();
-      router.replace("/login");
-    } finally {
-      setIsLoggingOut(false);
-    }
-  }, [logout, router]);
+    await logout();
+    // Hard navigation, not router.replace — a client-side route change
+    // leaves the whole in-memory app (React Query cache, any component
+    // state, other logic that assumed a signed-in user) alive underneath
+    // the login screen. A full reload guarantees every last bit of that is
+    // torn down and /login starts from a truly clean slate.
+    window.location.href = "/login";
+  }, [logout]);
 
   const displayName = profile?.name || "User";
   const displayEmail = profile?.email || "";
