@@ -659,7 +659,26 @@ router.post(
 );
 
 // ─── POST /api/auth/logout ───────────────────────────────────────────────────
+// A hard logout: cookies are cleared unconditionally below, but that alone
+// is a "soft" logout — a stale refresh cookie left behind by a race (e.g.
+// the tab reloads before this request finishes) or lingering in another tab
+// would still work with /api/auth/refresh. Bumping the session version here
+// makes every outstanding access/refresh token cryptographically invalid
+// immediately, closing that gap regardless of cookie-clearing mechanics.
 router.post("/logout", (req: Request, res: Response) => {
+  const signed = req.signedCookies as Record<string, string | undefined>;
+  const token = signed["access_token"] || signed["refresh_token"];
+  if (token) {
+    try {
+      // decode (not verify) — the cookie's HMAC signature already proves it
+      // came from us via express's signed-cookie parsing; we only need the
+      // userId claim, and the JWT itself may already be expired.
+      const payload = jwt.decode(token) as { userId?: string } | null;
+      if (payload?.userId) bumpSessionVersion(payload.userId);
+    } catch {
+      // ignore — cookies are still cleared below regardless
+    }
+  }
   res.clearCookie("access_token", { path: "/" });
   res.clearCookie("refresh_token", { path: "/api/auth" });
   res.json({ ok: true });

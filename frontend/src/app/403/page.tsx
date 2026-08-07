@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Lock, LogOut } from "lucide-react";
 import { ErrorPageShell, errorPrimaryButton, errorGhostButton } from "@/components/ui/ErrorPageShell";
@@ -10,12 +9,13 @@ import { useAuth } from "@/lib/AuthContext";
 
 export default function AccessDeniedPage() {
   const { logout } = useAuth();
-  const router = useRouter();
   const [shake, setShake] = useState(0);
 
   const handleSwitchAccount = async () => {
     await logout();
-    router.replace("/login");
+    // Hard navigation — see Topbar's handleLogout for why router.replace
+    // isn't enough for a real logout.
+    window.location.href = "/login";
   };
 
   return (
