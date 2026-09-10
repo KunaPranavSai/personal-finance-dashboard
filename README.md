@@ -1,44 +1,152 @@
 # Penny Pilot
 
-A modern personal finance management web app: Next.js 15 + TypeScript frontend,
-Express + Prisma + PostgreSQL backend. Built to replace the Excel-based
-personal finance workbook with a real SaaS-style application.
+**Live app: [https://www.pennypilot.pro](https://www.pennypilot.pro)**
 
-## What's implemented in this pass
+Penny Pilot is a full-stack personal finance management web application for tracking income,
+expenses, budgets, savings, investments, bills/EMIs, and financial goals — with a distinctive
+architectural choice: **every user's financial data is stored in their own Google Drive**, not in
+a central database. Penny Pilot is the application layer; your Google Drive is the database.
 
-- **Dashboard** — 17 live KPI cards (income, expenses, savings, net worth, cash
-  flow, budget utilization, savings rate, financial health score, emergency
-  fund progress, investment growth, highest category, largest expense,
-  averages, transaction count) + Income vs Expense trend chart, Category
-  donut chart, and a Financial Health gauge. All computed live from the
-  database — nothing hardcoded.
-- **Transactions** — full CRUD, search, type filter, pagination, empty state.
-- **Budget Planner** — set a monthly budget per category; actual spend,
-  remaining, utilization %, variance, and status (Under Budget / Near Limit /
-  Over Budget) are all computed live from transactions.
-- No demo/seed transactions. The seed script only creates the category /
-  subcategory / account taxonomy so dropdowns aren't empty — every screen
-  starts with a proper empty state ("No Transactions Yet", "Create Your First
-  Budget", "No Data Available" on charts) per the spec.
-- All currency is ₹ INR formatted with the Indian numbering system
-  (`en-IN` locale, e.g. ₹12,50,000), dates are DD-MM-YYYY.
+Built with a Next.js 15 + TypeScript frontend and an Express + Prisma + PostgreSQL backend.
 
-## Not implemented in this pass (see PROJECT_STATUS.md)
+---
 
-Auth, Income/Expenses/Savings/Investments/Bills/Goals/Analytics/Reports/
-Notifications/Settings/Profile pages, CSV/Excel/PDF import-export, and the
-exotic chart types (treemap/sunburst/waterfall) are not built yet. The nav
-sidebar links to all of them, but only Dashboard, Transactions, and Budget
-have real pages right now — the rest will 404 until built in a follow-up
-pass. This was scoped deliberately (see your last answer: "full-stack core
-… Dashboard + Transactions + Budget … no auth yet").
+## Table of Contents
 
-## Prerequisites
+- [Key Features](#key-features)
+- [Why Google Drive as Storage?](#why-google-drive-as-storage)
+- [Tech Stack](#tech-stack)
+- [Architecture Overview](#architecture-overview)
+- [Project Structure](#project-structure)
+- [Getting Started Locally](#getting-started-locally)
+- [Google OAuth Setup](#google-oauth-setup-required-to-run-financial-features-locally)
+- [Environment Variables](#environment-variables)
+- [Security](#security)
+- [Progressive Web App](#progressive-web-app)
+- [Deployment](#deployment)
+- [License & Legal](#license--legal)
+- [Contact](#contact)
+
+---
+
+## Key Features
+
+- **Dashboard** — live KPI cards (income, expenses, savings, net worth, cash flow, budget
+  utilization, savings rate, a rule-based Financial Health Score, emergency fund progress,
+  investment growth, and more), an animated hero with time-of-day scenes, an income/expense trend
+  chart, a category breakdown donut chart, and a net-worth flight-path graph — all computed live
+  from your own data, nothing hardcoded or seeded.
+- **Transactions** — full CRUD, search, type filtering, and pagination.
+- **Budget Planner** — monthly budgets per category with live actual spend, remaining amount,
+  utilization %, variance, and tiered status indicators.
+- **Income, Expenses, Savings, Investments, Bills/EMIs, Goals** — dedicated modules for every
+  major personal-finance record type.
+- **Analytics** — a Midnight-Cockpit-themed charts suite plus a Custom Chart Studio for building
+  your own metric/grouping/visualization combinations.
+- **Reports** — a monthly financial statement summary with month-over-month/year-over-year deltas,
+  CSV export, and a print-to-PDF flight summary.
+- **Settings & Profile** — theme (light/dark), session timeout, security (2FA, passkeys), Google
+  Drive connection management, data restore, and data export (CSV/Excel/JSON/PDF).
+- **Admin panel** — user management, platform settings, and activity monitoring for admin-role
+  accounts.
+- **Installable PWA** — offline-aware, with an offline write queue and background sync.
+
+## Why Google Drive as Storage?
+
+> Penny Pilot provides the application. Your Google Drive owns and stores your financial data.
+
+After registering, every user account connects its own Google Drive via Google OAuth. Penny Pilot
+then creates a dedicated `Penny Pilot` folder in that Drive and stores all financial records there
+as versioned JSON files — never in Penny Pilot's own database.
+
+- **What lives in your Google Drive**: transactions, budgets, investments, bills/EMIs, goals,
+  accounts, categories, payment methods, and financial preferences. See
+  `backend/src/services/drive/`.
+- **What lives in Penny Pilot's PostgreSQL database**: only account/authentication data — your
+  name, email, password hash, 2FA/passkey credentials, session state, activity log, and the
+  encrypted Google OAuth connection record. No financial data ever touches this database.
+- **OAuth scope**: `drive.file` + `userinfo.email` only — the narrowest scope available. Penny
+  Pilot can see and manage only the `Penny Pilot` folder and files it creates itself; it can never
+  see anything else already in your Drive.
+- **Token security**: OAuth tokens are AES-256-GCM encrypted at rest (`backend/src/lib/crypto.ts`)
+  and are never written into any Drive file or exposed to the frontend.
+- **Mandatory connection**: every standard user account must connect Google Drive before reaching
+  the dashboard — enforced by both a frontend redirect and a backend middleware
+  (`requireDriveConnected`) on every financial API route.
+- **Disconnect / reconnect**: disconnecting only removes the local connection record — it never
+  touches anything already saved in your Drive. Connecting a different Google account never
+  silently merges data; if that account already has a Penny Pilot workspace, you're asked to
+  choose between using it or starting fresh.
+- **Version history & restore**: Google Drive's own native file-revision history powers a
+  built-in "restore a previous version" feature per data collection — no separate backup system
+  is needed.
+
+See the [Privacy Policy](https://www.pennypilot.pro/privacy-policy) for the full data-handling
+explanation.
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Frontend | Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS, Framer Motion, TanStack Query, Recharts |
+| Backend | Node.js, Express 5, TypeScript, Prisma ORM |
+| Database | PostgreSQL (account/auth data only) |
+| Primary data store | Google Drive (per-user, via Google OAuth 2.0) |
+| Auth | JWT (httpOnly signed cookies), bcrypt, TOTP 2FA, WebAuthn passkeys |
+| Email | Resend (transactional email) |
+| PWA | `@ducanh2912/next-pwa` / Workbox |
+| Hosting | Vercel (frontend), Render (backend) |
+
+## Architecture Overview
+
+```
+Browser (pennypilot.pro)
+   │  HTTPS, credentialed fetch
+   ▼
+Next.js frontend (Vercel)
+   │  REST calls, signed cookies
+   ▼
+Express + Prisma backend (Render)
+   │                              │
+   ▼                              ▼
+PostgreSQL                  Google Drive API
+(account/auth data only)    (per-user financial data,
+                              via encrypted OAuth tokens)
+```
+
+## Project Structure
+
+```
+personal-finance-dashboard-pro/
+├── backend/                Express + Prisma API
+│   ├── prisma/              schema.prisma, migrations, seed.ts
+│   └── src/
+│       ├── controllers/       business logic (KPI aggregation, budget status, etc.)
+│       ├── routes/            REST endpoints (auth, transactions, budgets, drive, admin, ...)
+│       ├── services/drive/    Google Drive data service — the financial-data source of truth
+│       ├── middleware/        auth, 2FA re-verification, Drive-connection gate, error handling
+│       └── lib/                crypto, tokens, session expiry, email
+├── frontend/                Next.js 15 App Router
+│   └── src/
+│       ├── app/(app)/          dashboard, transactions, budget, income, expenses, savings,
+│       │                       investments, bills, goals, analytics, reports, settings, profile
+│       ├── app/(admin)/        admin panel
+│       ├── app/privacy-policy, app/terms   public legal pages
+│       ├── app/connect-drive/  Google Drive OAuth connect flow
+│       ├── components/         charts, KPI cards, layout, legal, UI primitives
+│       └── lib/                API client, auth context, formatting
+└── docker-compose.yml       local Postgres for development
+```
+
+## Getting Started Locally
+
+### Prerequisites
 
 - Node.js 20+
-- Docker + Docker Compose (for Postgres, or install Postgres locally)
+- PostgreSQL (locally installed, or via `docker compose up -d postgres`)
+- A Google Cloud project with the Drive API enabled (see below)
 
-## Quick start
+### Setup
 
 ```bash
 # 1. Start Postgres (or point DATABASE_URL at your own instance)
@@ -46,198 +154,87 @@ docker compose up -d postgres
 
 # 2. Backend
 cd backend
-cp .env.example .env
+cp .env.example .env      # fill in the values described below
 npm install
-npx prisma generate      # downloads Prisma's query engine — needs network access
-npx prisma migrate dev --name init
-npm run seed              # creates categories/subcategories/accounts only, no transactions
-npm run dev                # http://localhost:4000
+npx prisma generate
+npx prisma migrate dev
+npm run seed                # creates category/account taxonomy only — no financial data
+npm run dev                 # http://localhost:4000
 
 # 3. Frontend (new terminal)
 cd frontend
 cp .env.example .env.local
 npm install
-npm run dev                # http://localhost:3000
+npm run dev                 # http://localhost:3000
 ```
 
-Open http://localhost:3000 — you'll land on the Dashboard with an honest
-empty state until you add your first transaction and budget.
+Open `http://localhost:3000`, create an account, sign in, and connect a Google Drive account to
+reach the dashboard — Drive connection is required before any financial feature becomes usable.
 
-## Important: Prisma generate
-
-This code was written in a sandboxed environment that could not reach
-`binaries.prisma.sh`, so `npx prisma generate` / `prisma migrate` could not
-be run or verified here. The schema (`backend/prisma/schema.prisma`) and all
-controller code were written and hand-reviewed against it, and the rest of
-the backend (`tsc --noEmit`) has zero errors once the Prisma client types
-exist — but you must run `npx prisma generate` and `npx prisma migrate dev`
-yourself as the first step. The frontend was fully installed and both
-`tsc --noEmit` and `next build` pass with zero errors in this environment.
-
-## Project structure
-
-```
-pfd-pro/
-├── backend/           Express + Prisma API (REST, no auth yet)
-│   ├── prisma/         schema.prisma, seed.ts
-│   └── src/
-│       ├── controllers/  business logic (budget status calc, KPI aggregation)
-│       ├── routes/
-│       ├── schemas/     Zod validation
-│       └── middleware/   error handling, validation
-├── frontend/          Next.js 15 App Router
-│   └── src/
-│       ├── app/(app)/    dashboard, transactions, budget pages (sidebar shell)
-│       ├── components/   kpi, charts, transactions, budget, ui primitives
-│       ├── lib/          api client, ₹ / date formatting
-│       └── store/        zustand (theme)
-├── docker-compose.yml  postgres + backend + frontend
-└── .github/workflows/ci.yml
-```
-
-## API summary
-
-| Method | Path | Description |
-|---|---|---|
-| GET | `/api/dashboard/summary` | All dashboard KPIs |
-| GET | `/api/dashboard/trend/income-expense` | Monthly income/expense trend |
-| GET | `/api/dashboard/breakdown/category` | Category-wise expense totals |
-| GET/POST | `/api/transactions` | List (paginated/filtered) / create |
-| GET/PATCH/DELETE | `/api/transactions/:id` | Read / update / delete |
-| POST | `/api/transactions/bulk-delete` | Bulk delete by id array |
-| GET/POST | `/api/budgets` | List with live actual/status / create |
-| PATCH/DELETE | `/api/budgets/:id` | Update / delete |
-| GET/POST | `/api/categories`, `/api/accounts` | Reference data for dropdowns |
-
-## Data Storage: Google Drive
-
-**Every user's financial data lives in their own Google Drive — never in this app's PostgreSQL
-database.** PostgreSQL retains only the minimum account/authentication data needed to run the
-app (login, 2FA, session, role, activity log). The principle:
-
-> Penny Pilot provides the application, while the user's Google Drive owns and stores the
-> user's financial data.
-
-- **What's in Drive**: transactions, budgets, investments, bills/EMIs, goals, accounts,
-  categories, payment methods, and financial preferences/settings — one JSON file per
-  collection under a `Penny Pilot/Data/` folder created in the user's own Drive, plus a
-  `Penny Pilot/Metadata/manifest.json` tracking each file's schema version, a monotonic
-  `dataVersion`, and a SHA-256 checksum of its records. See `backend/src/services/drive/`.
-- **What's in Postgres**: `User` (auth fields, 2FA, passkeys, session), `ActivityLog`,
-  `Notification`, `PlatformSettings`, and the OAuth connection record (`BackupConnection` —
-  encrypted tokens only, never financial data). Admin accounts (not regular users) keep their
-  own settings/profile in Postgres too, since they don't have a personal finance workspace.
-- **OAuth scope**: `drive.file` + `userinfo.email` — the app can only see/manage the
-  `Penny Pilot` folder and files it itself creates; it can never see anything else in the
-  user's Drive. Tokens are AES-256-GCM encrypted at rest (`backend/src/lib/crypto.ts`) and are
-  never written into any Drive file.
-- **Mandatory connection**: every new/existing `USER`-role account must connect Google Drive
-  before reaching the dashboard — enforced both by a frontend redirect
-  (`frontend/src/app/(app)/layout.tsx` → `/connect-drive`) and a backend middleware
-  (`requireDriveConnected` in `backend/src/middleware/auth.ts`) on every financial API route.
-  There is no skip option. Admin accounts are exempt (they manage the platform, not a personal
-  finance workspace).
-- **Disconnect / reconnect**: disconnecting removes only the local connection record — it never
-  deletes anything in the user's Drive. Reconnecting the same Google account re-adopts the
-  existing workspace as-is. Connecting a *different* Google account never auto-merges data; if
-  that account already has a Penny Pilot workspace, the user is asked to choose between using it
-  or starting a new empty one.
-- **Restore**: each data file's revision history (Google Drive's own, native versioning) is the
-  restore source — Settings → Data & Google Drive → Restore Data lets a user revert one
-  collection to an earlier saved version. Nothing is ever deleted: restoring just writes another
-  new revision on top.
-- **Export**: Settings → Data & Google Drive → Export Data generates CSV/Excel/JSON/PDF on
-  demand from the live Drive data; no server-side copies are kept.
-
-### Setting up Google OAuth (required to run financial features locally)
+## Google OAuth Setup (required to run financial features locally)
 
 1. [console.cloud.google.com](https://console.cloud.google.com) → create/select a project.
 2. **APIs & Services → Library** → enable the **Google Drive API**.
-3. **APIs & Services → OAuth consent screen** → External → fill in app name/support email →
-   add scopes `https://www.googleapis.com/auth/drive.file` and
-   `https://www.googleapis.com/auth/userinfo.email` → add your own Google account under
-   **Test users** (while the app is in Testing mode).
+3. **APIs & Services → OAuth consent screen** → External → fill in app name/support email → add
+   scopes `https://www.googleapis.com/auth/drive.file` and
+   `https://www.googleapis.com/auth/userinfo.email` → add your own Google account under **Test
+   users** (while the app is in Testing mode).
 4. **APIs & Services → Credentials → Create Credentials → OAuth client ID** → Web application →
-   add an Authorized redirect URI for each environment, pointing at the **backend's**
-   `/api/drive/callback` (not the frontend), e.g. `http://localhost:4000/api/drive/callback`
-   for local dev.
-5. Copy the generated Client ID/Secret into `backend/.env` (see `.env.example`):
-   `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`, and a random 32+ character
-   `BACKUP_TOKEN_ENCRYPTION_KEY`.
+   add an Authorized redirect URI pointing at the **backend's** `/api/drive/callback` (not the
+   frontend), e.g. `http://localhost:4000/api/drive/callback` for local dev, or
+   `https://<your-backend-domain>/api/drive/callback` in production.
+5. Copy the generated Client ID/Secret into `backend/.env`: `GOOGLE_CLIENT_ID`,
+   `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`, and a random 32+ character
+   `BACKUP_TOKEN_ENCRYPTION_KEY` used to encrypt stored OAuth tokens.
 
-## Progressive Web App
+## Environment Variables
 
-The frontend is an installable PWA (`@ducanh2912/next-pwa`, Workbox under the hood). Configuration lives in
-`frontend/next.config.ts`; only regenerate the pieces below if you deliberately want to change PWA behavior.
-
-- **Manifest**: `frontend/public/manifest.webmanifest` — name, icons, `display: standalone`,
-  `orientation: portrait-primary`, theme/background colors, and app shortcuts (Dashboard, Add Expense, Add
-  Income, Investments).
-- **Icons**: `frontend/public/icons/*.png`, generated from `public/logo.png` via `sharp`. Regenerate with:
-  ```bash
-  node -e "const sharp=require('sharp'); const sizes=[72,96,128,144,152,192,384,512]; (async()=>{ for (const s of sizes) await sharp('public/logo.png').resize(s,s).png().toFile('public/icons/icon-'+s+'.png'); })()"
-  ```
-  if the source logo ever changes.
-- **Service worker**: generated at build time only (`disable: NODE_ENV === "development"`) into
-  `frontend/public/sw.js` + `workbox-*.js` — these are build artifacts, not committed (see `.gitignore`).
-  Runtime caching: dashboard endpoints and lookup data (`categories`/`accounts`/`payment-methods`) use
-  `StaleWhileRevalidate`; every other `/api/*` route is `NetworkOnly` (financial write/read endpoints must
-  never serve stale data); static assets/images use Workbox's default cache-first strategy.
-  `cleanupOutdatedCaches: true` removes stale precaches automatically on each new deploy.
-- **Offline fallback**: `frontend/src/app/~offline/page.tsx`, served when a navigation has no cache match and
-  no network.
-- **Offline write queue**: creating an Expense, Income, Budget, or Investment while offline is queued in
-  IndexedDB (`frontend/src/lib/offlineQueue.ts`) instead of failing. It syncs automatically when the tab
-  regains connectivity (`OfflineSyncManager`), and via the Background Sync API (`frontend/worker/index.ts`,
-  a custom service worker source merged into the generated one) if the tab was closed before that happened —
-  falls back gracefully to the online-event listener on browsers without Background Sync support (Safari).
-- **Update prompts**: `skipWaiting: false` — a new deployed version sits "waiting" until the user clicks
-  Refresh in `ServiceWorkerUpdatePrompt`, rather than silently swapping under an open tab.
-- **Testing locally**: the service worker only runs on a production build (`npm run build && npm run start`),
-  not `npm run dev`. Use Chrome DevTools → Application → Service Workers / Manifest, or Lighthouse's PWA
-  audit, against the `next start` server.
+See `backend/.env.example` and `frontend/.env.example` for the full annotated list. At minimum,
+the backend needs `DATABASE_URL`, `APP_URL`/`FRONTEND_URL` (the frontend origin(s), used for CORS
+and CSRF checks), `JWT_ACCESS_SECRET`/`JWT_REFRESH_SECRET`/`COOKIE_SECRET`, and the Google OAuth
+variables above; the frontend needs `NEXT_PUBLIC_API_URL` pointing at the backend.
 
 ## Security
 
-- **PWA install prompt**: gated to after login only (`frontend/src/components/pwa/PwaInstallPrompt.tsx`,
-  `frontend/src/lib/pwaInstall.ts`) — shown once per device 7s after the dashboard loads, never if already
-  installed, and not again for 1h after a dismissal. Manual install is always available from
-  Settings → Appearance → Install App.
-- **Strict, server-anchored session timer**: the absolute session deadline is computed and enforced entirely
-  server-side (`backend/src/lib/sessionExpiry.ts`, `sessionExpiresAt` JWT claim, checked in
-  `backend/src/middleware/auth.ts`'s `authenticate` and in `POST /api/auth/refresh`) — it's set once at login
-  and clamped to whichever comes first: the configured session-timeout minutes, or the next daily 00:00 IST
-  cutoff. Ordinary silent token refreshes (page load, PWA relaunch) carry this deadline forward unchanged;
-  only the explicit "Extend Session" action (`extend: true` on `/api/auth/refresh`) recomputes a fresh one.
-  This is what makes the timer actually strict: previously the client computed its own deadline on every
-  page load, so a still-valid 7-day refresh-token cookie could silently mint a brand-new session window every
-  time the app (or PWA) was reopened, regardless of the configured timeout — the fix moves the source of
-  truth server-side and the frontend (`frontend/src/lib/AuthContext.tsx`) now only mirrors the
-  `sessionExpiresAt` value returned by the server. A warning banner appears at 30s remaining, a blocking modal
-  at 15s (`SessionWarningBanner`/`SessionWarningModal`). The countdown is synced across tabs via
-  `localStorage` + the `storage` event, and expiry logs out every open tab. Every account is also force-logged
-  out at midnight IST daily, independent of when it logged in.
-- **Periodic 2FA re-verification**: accounts with 2FA enabled must re-enter a TOTP code every 12h
-  (`tfaVerifiedAt` JWT claim, enforced by `requireRecent2FA` in `backend/src/middleware/auth.ts`) before
-  sensitive actions — export, backup/restore, profile changes, password/UID changes, disabling 2FA. Blocked
-  requests return `403 { code: "2FA_REVERIFICATION_REQUIRED" }`, which the frontend
-  (`frontend/src/components/ui/TwoFactorReverifyDialog.tsx`) intercepts with a full-screen re-verify prompt
-  hitting `POST /api/auth/2fa/reverify`. Users without 2FA are unaffected.
-- **Passkeys / biometric sign-in**: WebAuthn-based sign-in (`@simplewebauthn/server` + `@simplewebauthn/browser`)
-  supporting Windows Hello, Touch ID, Face ID, Android biometrics, and hardware security keys. Enroll or
-  remove devices from Settings → Security → Passkeys & Biometrics (both require password, plus a TOTP code
-  if 2FA is enabled). The login screen offers "Continue with Biometrics" as a usernameless (discoverable
-  credential) flow alongside the standard password form, with automatic fallback when the browser/device
-  doesn't support WebAuthn. Credentials are stored in the `Passkey` Prisma model
-  (`backend/prisma/schema.prisma`); the RP ID/origin are derived from the existing `APP_URL`/`FRONTEND_URL`
-  env vars (`backend/src/lib/webauthn.ts`) — no new config needed.
-- **Self-service registration (no admin approval)**: `POST /api/auth/signup` (`backend/src/routes/auth.routes.ts`)
-  now collects a password directly from the applicant and creates the account as `ACTIVE` immediately — there
-  is no `PENDING` admin-approval step to wait through. The user can sign in right after registering; the
-  frontend (`frontend/src/app/signup/page.tsx`) redirects straight to `/login` on success. The `PENDING`/
-  `REJECTED` `UserStatus` values and their DB columns (`approvedAt`, `rejectedAt`, `rejectionReason`, etc.)
-  are kept as-is for backward compatibility with any accounts created before this change — an admin can still
-  activate a legacy `PENDING` account from Admin → All Users → Edit. `SUSPENDED` and the rest of admin user
-  management (edit, reset password/UID, delete) are unaffected.
+- **Signed, httpOnly session cookies** with a server-anchored, strict session-timeout deadline
+  (`backend/src/lib/sessionExpiry.ts`) — computed and enforced entirely server-side, not trusted
+  to the client. A hard logout also bumps a per-user session version, immediately invalidating any
+  surviving token.
+- **Two-factor authentication** (TOTP + backup codes), with periodic re-verification required
+  every 12h before sensitive actions (export, restore, profile/password changes).
+- **Passkeys / biometric sign-in** via WebAuthn (`@simplewebauthn`) — Windows Hello, Touch ID,
+  Face ID, Android biometrics, and hardware security keys.
+- **CORS + CSRF allowlisting** — cross-origin requests are only accepted from explicitly
+  configured frontend origins (`APP_URL`/`FRONTEND_URL`).
+- **Encrypted OAuth tokens at rest** (AES-256-GCM) and bcrypt-hashed passwords — see
+  `backend/src/lib/crypto.ts`.
+- **Rate limiting** on signup and login endpoints.
 
-See PROJECT_STATUS.md for what to build next.
+## Progressive Web App
+
+The frontend is an installable PWA (`@ducanh2912/next-pwa`, Workbox under the hood):
+
+- Manifest, icons, and app shortcuts for a native-like install experience.
+- Runtime caching: dashboard/lookup data uses `StaleWhileRevalidate`; every other financial
+  read/write API route is `NetworkOnly` so it never serves stale data.
+- An offline write queue (IndexedDB) for creating records while offline, synced automatically via
+  the Background Sync API when connectivity returns.
+- A dedicated offline fallback page and update-available prompt.
+
+Service worker output is only generated on a production build (`npm run build && npm run start`),
+not `npm run dev`.
+
+## Deployment
+
+- **Frontend**: [Vercel](https://vercel.com), serving [https://www.pennypilot.pro](https://www.pennypilot.pro).
+- **Backend**: [Render](https://render.com), a Node.js web service exposing the REST API.
+- **Database**: managed PostgreSQL, storing only account/authentication data.
+
+## License & Legal
+
+- [Privacy Policy](https://www.pennypilot.pro/privacy-policy)
+- [Terms of Service](https://www.pennypilot.pro/terms)
+
+## Contact
+
+For support, security, or privacy inquiries: **superadminpennypilot@gmail.com**
