@@ -1,4 +1,5 @@
-import { prisma } from "../../lib/prisma";
+import { listAllCollections, getRecord } from "../drive/dataService";
+import { DriveRecord } from "../drive/types";
 
 export interface ExportData {
   profile: Record<string, unknown> | null;
@@ -19,65 +20,87 @@ export interface ExportDateRange {
   to?: Date;
 }
 
+interface TransactionRecord extends DriveRecord {
+  date: string;
+  description: string;
+  amount: number;
+  type: "INCOME" | "EXPENSE";
+  categoryId: string;
+  accountId?: string | null;
+  paymentMethodTypeId?: string | null;
+  merchant?: string | null;
+  notes?: string | null;
+}
+interface CategoryRecord extends DriveRecord {
+  name: string;
+  type: "INCOME" | "EXPENSE";
+  subcategories: { id: string; name: string }[];
+}
+interface AccountRecord extends DriveRecord { name: string }
+interface PaymentMethodRecord extends DriveRecord { name: string }
+interface BudgetRecord extends DriveRecord { categoryId: string; period: string; periodKey: string; amount: number }
+interface InvestmentRecord extends DriveRecord { instrument: string; category: string; currentValue: number; monthlyContribution: number; annualReturnPct: number }
+interface BillRecord extends DriveRecord { name: string; type: string; dueDate: string; amount: number; paidAmount: number; autoPay: boolean; notes?: string | null }
+interface GoalRecord extends DriveRecord { name: string; category: string; targetAmount: number; currentAmount: number; monthlyContribution: number }
+
+/** Reads a user's full Penny Pilot workspace from their Google Drive and assembles the same
+ * shape the CSV/Excel/JSON/PDF exporters and (formerly) the Postgres-backup feature both
+ * already expected — those consumers need no changes since this is a drop-in replacement for
+ * what used to be a Prisma-backed aggregator. */
 export async function fetchAllExportData(userId: string, range?: ExportDateRange): Promise<ExportData> {
-  const dateFilter =
-    range?.from || range?.to
-      ? { date: { ...(range.from && { gte: range.from }), ...(range.to && { lte: range.to }) } }
-      : {};
+  const [collections, profileRecord, settingsRecord] = await Promise.all([
+    listAllCollections(userId),
+    getRecord(userId, "settings", "app_profile"),
+    getRecord(userId, "settings", "app_settings"),
+  ]);
 
-  const [profileRow, settingsRow, transactions, budgets, investments, bills, goals, accounts, categories] =
-    await Promise.all([
-      prisma.appProfile.findUnique({ where: { userId } }),
-      prisma.appSettings.findUnique({ where: { userId } }),
-      prisma.transaction.findMany({
-        where: { userId, ...dateFilter },
-        include: { category: true, account: true, paymentMethodType: true },
-        orderBy: { date: "desc" },
-        take: 10000,
-      }),
-      prisma.budget.findMany({ where: { userId }, include: { category: true } }),
-      prisma.investment.findMany({ where: { userId } }),
-      prisma.bill.findMany({ where: { userId }, orderBy: { dueDate: "asc" } }),
-      prisma.goal.findMany({ where: { userId } }),
-      prisma.account.findMany({ where: { userId }, orderBy: { name: "asc" } }),
-      prisma.category.findMany({ where: { userId }, include: { subcategories: true }, orderBy: { name: "asc" } }),
-    ]);
+  const categories = collections.categories as CategoryRecord[];
+  const accounts = collections.accounts as AccountRecord[];
+  const paymentMethods = collections.paymentMethods as PaymentMethodRecord[];
+  const budgets = collections.budgets as BudgetRecord[];
+  const investments = collections.investments as InvestmentRecord[];
+  const bills = collections.bills as BillRecord[];
+  const goals = collections.goals as GoalRecord[];
 
-  const totalIncome = Number(
-    (await prisma.transaction.aggregate({ where: { userId, ...dateFilter, type: "INCOME" }, _sum: { amount: true } }))._sum.amount ?? 0
-  );
-  const totalExpenses = Number(
-    (await prisma.transaction.aggregate({ where: { userId, ...dateFilter, type: "EXPENSE" }, _sum: { amount: true } }))._sum.amount ?? 0
-  );
+  let transactions = collections.transactions as TransactionRecord[];
+  if (range?.from) transactions = transactions.filter((t) => new Date(t.date) >= range.from!);
+  if (range?.to) transactions = transactions.filter((t) => new Date(t.date) <= range.to!);
+  transactions = [...transactions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 10000);
 
+  const categoryMap = new Map(categories.map((c) => [c.id, c]));
+  const accountMap = new Map(accounts.map((a) => [a.id, a]));
+  const paymentMethodMap = new Map(paymentMethods.map((p) => [p.id, p]));
+
+  const totalIncome = transactions.filter((t) => t.type === "INCOME").reduce((s, t) => s + t.amount, 0);
+  const totalExpenses = transactions.filter((t) => t.type === "EXPENSE").reduce((s, t) => s + t.amount, 0);
   const portfolioValue = investments.reduce((s, i) => s + Number(i.currentValue), 0);
 
-  const categoriesMap = Object.fromEntries(categories.map((c) => [c.id, c.name]));
-  const expenseByCategory = await prisma.transaction.groupBy({
-    by: ["categoryId"],
-    where: { userId, ...dateFilter, type: "EXPENSE" },
-    _sum: { amount: true },
-    _count: true,
-  });
+  const expenseByCategory = new Map<string, { total: number; count: number }>();
+  for (const t of transactions) {
+    if (t.type !== "EXPENSE") continue;
+    const entry = expenseByCategory.get(t.categoryId) ?? { total: 0, count: 0 };
+    entry.total += t.amount; entry.count += 1;
+    expenseByCategory.set(t.categoryId, entry);
+  }
 
   return {
-    profile: (profileRow?.data ?? null) as Record<string, unknown> | null,
-    settings: (settingsRow?.data ?? null) as Record<string, unknown> | null,
+    profile: (profileRecord as Record<string, unknown> | null) ?? null,
+    settings: (settingsRecord as Record<string, unknown> | null) ?? null,
     transactions: transactions.map((t) => ({
       id: t.id,
-      date: t.date.toISOString(),
+      date: t.date,
       description: t.description,
       amount: Number(t.amount),
       type: t.type,
-      category: t.category ? { id: t.category.id, name: t.category.name, type: t.category.type } : null,
-      account: t.account ? { id: t.account.id, name: t.account.name } : null,
-      merchant: t.merchant,
-      paymentMethod: t.paymentMethodType?.name ?? null,
-      notes: t.notes,
+      category: categoryMap.has(t.categoryId) ? { id: t.categoryId, name: categoryMap.get(t.categoryId)!.name, type: categoryMap.get(t.categoryId)!.type } : null,
+      account: t.accountId && accountMap.has(t.accountId) ? { id: t.accountId, name: accountMap.get(t.accountId)!.name } : null,
+      merchant: t.merchant ?? null,
+      paymentMethod: t.paymentMethodTypeId ? paymentMethodMap.get(t.paymentMethodTypeId)?.name ?? null : null,
+      notes: t.notes ?? null,
     })),
     budgets: budgets.map((b) => ({
       id: b.id,
-      category: b.category ? { id: b.category.id, name: b.category.name } : null,
+      category: categoryMap.has(b.categoryId) ? { id: b.categoryId, name: categoryMap.get(b.categoryId)!.name } : null,
       period: b.period,
       periodKey: b.periodKey,
       amount: Number(b.amount),
@@ -97,11 +120,11 @@ export async function fetchAllExportData(userId: string, range?: ExportDateRange
       id: b.id,
       name: b.name,
       type: b.type,
-      dueDate: b.dueDate.toISOString(),
+      dueDate: b.dueDate,
       amount: Number(b.amount),
       paidAmount: Number(b.paidAmount),
       autoPay: b.autoPay,
-      notes: b.notes,
+      notes: b.notes ?? null,
     })),
     goals: goals.map((g) => ({
       id: g.id,
@@ -122,10 +145,10 @@ export async function fetchAllExportData(userId: string, range?: ExportDateRange
       totalIncome,
       totalExpenses,
       totalSavings: totalIncome - totalExpenses,
-      categoryBreakdown: expenseByCategory.map((c) => ({
-        category: categoriesMap[c.categoryId] ?? c.categoryId,
-        total: Number(c._sum.amount ?? 0),
-        count: c._count,
+      categoryBreakdown: [...expenseByCategory.entries()].map(([id, v]) => ({
+        category: categoryMap.get(id)?.name ?? id,
+        total: v.total,
+        count: v.count,
       })),
     },
     dashboard: {

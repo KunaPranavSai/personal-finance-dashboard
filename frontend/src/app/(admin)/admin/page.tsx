@@ -11,14 +11,13 @@ import { StatCard, StatCardSkeleton } from "@/components/admin/StatCard";
 import { Timeline, TimelineEvent } from "@/components/admin/Timeline";
 import { api } from "@/lib/api";
 import {
-  LayoutDashboard, Users, UserCheck, Clock, UserX, Wallet, ArrowLeftRight, PiggyBank, Target,
-  TrendingUp, Receipt, Activity as ActivityIcon, ArrowRight,
+  LayoutDashboard, Users, UserCheck, Clock, UserX,
+  Activity as ActivityIcon, ArrowRight,
 } from "lucide-react";
 
 interface AdminStats {
   users: { total: number; active: number; pending: number; suspended: number };
   signups: { today: number; week: number; month: number };
-  records: { accounts: number; transactions: number; budgets: number; goals: number; investments: number; bills: number; categories: number };
   signupTrend: { day: string; count: number }[];
   recentActivity: { id: string; event: string; detail: string | null; createdAt: string; user: { name: string; email: string } | null }[];
   systemHealth: { database: string; uptimeSeconds: number };
@@ -60,15 +59,6 @@ export default function AdminDashboardPage() {
               <StatCard label="New Signups (Week)" value={data.signups.week} icon={Users} />
               <StatCard label="New Signups (Month)" value={data.signups.month} icon={Users} />
               <StatCard label="System Health" value={data.systemHealth.database === "ok" ? "Healthy" : "Issue"} icon={ActivityIcon} tone={data.systemHealth.database === "ok" ? "emerald" : "red"} />
-            </div>
-
-            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3 md:grid-cols-6">
-              <StatCard label="Accounts" value={data.records.accounts} icon={Wallet} tone="navy" />
-              <StatCard label="Transactions" value={data.records.transactions} icon={ArrowLeftRight} tone="navy" />
-              <StatCard label="Budgets" value={data.records.budgets} icon={PiggyBank} tone="navy" />
-              <StatCard label="Goals" value={data.records.goals} icon={Target} tone="navy" />
-              <StatCard label="Investments" value={data.records.investments} icon={TrendingUp} tone="navy" />
-              <StatCard label="Bills" value={data.records.bills} icon={Receipt} tone="navy" />
             </div>
 
             <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">

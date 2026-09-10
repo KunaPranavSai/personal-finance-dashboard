@@ -33,7 +33,7 @@ interface AuthContextType {
   sessionTimeoutMinutes: number;
   login: (uid: string, password: string) => Promise<LoginResult>;
   loginWithPasskey: () => Promise<void>;
-  signup: (name: string, email: string, phone: string) => Promise<void>;
+  signup: (name: string, email: string, phone: string, password: string) => Promise<void>;
   verifyLogin2FA: (challengeToken: string, code: string) => Promise<void>;
   forceChangePassword: (passwordChangeToken: string, newPassword: string) => Promise<{ justOnboarded: boolean; user: AuthUser }>;
   logout: (opts?: { preserveRedirect?: boolean }) => Promise<void>;
@@ -224,10 +224,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refreshTwoFactorStatus();
   }, [refreshTwoFactorStatus]);
 
-  const signup = useCallback(async (name: string, email: string, phone: string) => {
+  const signup = useCallback(async (name: string, email: string, phone: string, password: string) => {
     const res = await apiFetch("/api/auth/signup", {
       method: "POST",
-      body: JSON.stringify({ name, email, phone }),
+      body: JSON.stringify({ name, email, phone, password }),
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));

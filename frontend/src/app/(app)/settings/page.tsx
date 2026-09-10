@@ -28,7 +28,7 @@ const TABS = [
   { id: "appearance", label: "Appearance", icon: Palette },
   { id: "notifications", label: "Notification Preferences", icon: Bell },
   { id: "security", label: "Security", icon: Shield },
-  { id: "backup", label: "Backup & Export", icon: Database },
+  { id: "backup", label: "Data & Google Drive", icon: Database },
   { id: "privacy", label: "Privacy", icon: Eye },
 ];
 
@@ -812,7 +812,6 @@ function SettingsContent() {
   const notifs = (s.notifications as Record<string, unknown>) ?? {};
   const sec = (s.security as Record<string, unknown>) ?? {};
   const exp = (s.export as Record<string, unknown>) ?? {};
-  const backup = (s.backup as Record<string, unknown>) ?? {};
   const priv = (s.privacy as Record<string, unknown>) ?? {};
   const pref = (s.preferences as Record<string, unknown>) ?? {};
 
@@ -1102,26 +1101,6 @@ function SettingsContent() {
         return (
           <div className="space-y-4">
             <GoogleDriveBackupCard />
-            <Card>
-              <CardHeader><CardTitle>Backup Settings</CardTitle></CardHeader>
-              <CardContent className="space-y-4">
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input type="checkbox" checked={Boolean(backup.autoBackup ?? false)} onChange={(e) => handleNestedChange("backup", "autoBackup", e.target.checked)} className="h-4 w-4 rounded border-black/20 text-teal dark:border-white/20" />
-                  <span className="text-sm text-navy dark:text-white">Automatic Backup</span>
-                </label>
-                <div>
-                  <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Backup Frequency</label>
-                  <select value={String(backup.backupFrequency ?? "weekly")} onChange={(e) => handleNestedChange("backup", "backupFrequency", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
-                    <option value="daily">Daily</option>
-                    <option value="weekly">Weekly</option>
-                    <option value="monthly">Monthly</option>
-                  </select>
-                </div>
-                <div className="pt-2">
-                  <Button onClick={handleSave} disabled={isSaving}><Save className="h-4 w-4" /> {isSaving ? "Saving..." : "Save Settings"}</Button>
-                </div>
-              </CardContent>
-            </Card>
             <div className="border-t border-black/5 pt-4 dark:border-white/10">
               <ExportTab />
             </div>

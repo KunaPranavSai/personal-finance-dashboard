@@ -1,34 +1,41 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
 import { api } from "@/lib/api";
+import { useDriveStatus, isDriveReady, DRIVE_STATUS_QUERY_KEY } from "@/lib/driveStatus";
 import { formatDateIN } from "@/lib/format";
-import { Cloud, CloudUpload, CloudDownload, Unlink, CheckCircle2, XCircle, History } from "lucide-react";
+import { HardDrive, Unlink, CheckCircle2, ShieldCheck, History, RotateCcw } from "lucide-react";
 
-interface BackupStatus {
-  configured: boolean;
-  connected: boolean;
-  accountEmail: string | null;
-  lastBackupAt: string | null;
+const COLLECTION_LABELS: Record<string, string> = {
+  transactions: "Transactions",
+  budgets: "Budgets",
+  investments: "Investments",
+  bills: "Bills & EMIs",
+  goals: "Goals",
+  accounts: "Wallets",
+  categories: "Categories",
+  paymentMethods: "Money Sources",
+  settings: "Settings & Profile",
+};
+const COLLECTIONS = Object.keys(COLLECTION_LABELS);
+
+interface VerifyResult {
+  ok: boolean;
+  issues: string[];
+  collections: Record<string, { count: number; dataVersion: number; lastUpdated: string }>;
 }
-
-interface RestorePreview {
-  createdAt: string;
-  counts: Record<string, number>;
-}
-
-interface BackupHistoryItem {
+interface Revision {
   id: string;
-  status: "success" | "failed";
-  errorMessage: string | null;
-  attempt: number;
-  triggeredBy: "manual" | "scheduled";
-  createdAt: string;
+  modifiedTime: string;
+}
+interface RevisionPreview {
+  recordCount: number;
+  lastUpdated: string;
 }
 
 export function GoogleDriveBackupCard() {
@@ -36,62 +43,66 @@ export function GoogleDriveBackupCard() {
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const [restorePreview, setRestorePreview] = useState<RestorePreview | null>(null);
 
-  const [showHistory, setShowHistory] = useState(false);
-
-  const { data: status, isLoading } = useQuery({
-    queryKey: ["backup-status"],
-    queryFn: () => api.get<BackupStatus>("/api/backup/status"),
-  });
-
-  const { data: history } = useQuery({
-    queryKey: ["backup-history"],
-    queryFn: () => api.get<{ items: BackupHistoryItem[] }>("/api/backup/history"),
-    enabled: showHistory,
-  });
+  const { data: status, isLoading } = useDriveStatus();
+  const [verifyResult, setVerifyResult] = useState<VerifyResult | null>(null);
+  const [restoreCollection, setRestoreCollection] = useState<string | null>(null);
+  const [selectedRevision, setSelectedRevision] = useState<string | null>(null);
+  const [revisionPreview, setRevisionPreview] = useState<RevisionPreview | null>(null);
 
   useEffect(() => {
-    if (searchParams.get("backupConnected") === "1") {
+    if (searchParams.get("driveConnected") === "1") {
       toast("Google Drive connected", "success");
-      queryClient.invalidateQueries({ queryKey: ["backup-status"] });
+      queryClient.invalidateQueries({ queryKey: DRIVE_STATUS_QUERY_KEY });
       router.replace("/settings?tab=backup");
-    } else if (searchParams.get("backupError")) {
+    } else if (searchParams.get("driveError")) {
       toast("Failed to connect Google Drive. Please try again.", "error");
       router.replace("/settings?tab=backup");
     }
   }, [searchParams, toast, queryClient, router]);
 
+  const { data: revisions } = useQuery({
+    queryKey: ["drive-revisions", restoreCollection],
+    queryFn: () => api.get<{ items: Revision[] }>(`/api/drive/restore/${restoreCollection}/revisions`),
+    enabled: Boolean(restoreCollection),
+  });
+
   const connectMutation = useMutation({
-    mutationFn: () => api.get<{ authUrl: string }>("/api/backup/connect?provider=google_drive"),
+    mutationFn: () => api.get<{ authUrl: string }>("/api/drive/connect"),
     onSuccess: (data) => { window.location.href = data.authUrl; },
     onError: (err) => toast(err instanceof Error ? err.message : "Could not start Google Drive connection", "error"),
   });
 
   const disconnectMutation = useMutation({
-    mutationFn: () => api.delete("/api/backup/disconnect"),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["backup-status"] }); toast("Google Drive disconnected", "success"); },
-  });
-
-  const backupNowMutation = useMutation({
-    mutationFn: () => api.post("/api/backup/now", {}),
+    mutationFn: () => api.delete("/api/drive/disconnect"),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["backup-status"] });
-      queryClient.invalidateQueries({ queryKey: ["backup-history"] });
-      toast("Backup saved to Google Drive", "success");
+      queryClient.invalidateQueries({ queryKey: DRIVE_STATUS_QUERY_KEY });
+      toast("Google Drive disconnected. Reconnect to access your Penny Pilot data.", "success");
     },
-    onError: (err) => toast(err instanceof Error ? err.message : "Backup failed", "error"),
+    onError: (err) => toast(err instanceof Error ? err.message : "Failed to disconnect", "error"),
   });
 
-  const previewRestoreMutation = useMutation({
-    mutationFn: () => api.get<RestorePreview>("/api/backup/preview-restore"),
-    onSuccess: (data) => setRestorePreview(data),
-    onError: (err) => toast(err instanceof Error ? err.message : "No backup found to restore", "error"),
+  const verifyMutation = useMutation({
+    mutationFn: () => api.post<VerifyResult>("/api/drive/verify"),
+    onSuccess: (data) => {
+      setVerifyResult(data);
+      toast(data.ok ? "All your data checks out" : "Some data files failed an integrity check", data.ok ? "success" : "error");
+    },
+    onError: (err) => toast(err instanceof Error ? err.message : "Verification failed", "error"),
+  });
+
+  const previewRevisionMutation = useMutation({
+    mutationFn: (revisionId: string) => api.get<RevisionPreview>(`/api/drive/restore/${restoreCollection}/preview?revisionId=${encodeURIComponent(revisionId)}`),
+    onSuccess: (data, revisionId) => { setRevisionPreview(data); setSelectedRevision(revisionId); },
+    onError: (err) => toast(err instanceof Error ? err.message : "Could not read that version", "error"),
   });
 
   const restoreMutation = useMutation({
-    mutationFn: () => api.post("/api/backup/restore", { confirm: true }),
-    onSuccess: () => { setRestorePreview(null); toast("Restore complete", "success"); },
+    mutationFn: () => api.post(`/api/drive/restore/${restoreCollection}`, { revisionId: selectedRevision, confirm: true }),
+    onSuccess: () => {
+      toast(`${COLLECTION_LABELS[restoreCollection ?? ""] ?? "Data"} restored`, "success");
+      setRestoreCollection(null); setSelectedRevision(null); setRevisionPreview(null);
+    },
     onError: (err) => toast(err instanceof Error ? err.message : "Restore failed", "error"),
   });
 
@@ -101,98 +112,96 @@ export function GoogleDriveBackupCard() {
 
   return (
     <Card>
-      <CardHeader><CardTitle>Google Drive Backup</CardTitle></CardHeader>
+      <CardHeader><CardTitle>Google Drive</CardTitle></CardHeader>
       <CardContent className="space-y-4">
         {!status?.configured ? (
-          <p className="text-sm text-navy/50 dark:text-white/50">
-            Google Drive backup isn&apos;t set up on this server yet. Check back soon.
-          </p>
-        ) : status?.connected ? (
+          <p className="text-sm text-navy/50 dark:text-white/50">Google Drive isn&apos;t set up on this server yet. Check back soon.</p>
+        ) : isDriveReady(status) ? (
           <>
             <div className="flex items-center gap-3 rounded-lg bg-emerald-50 px-3 py-2 dark:bg-emerald-500/10">
               <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
               <div className="min-w-0 text-sm">
                 <p className="truncate font-medium text-navy dark:text-white">Connected as {status.accountEmail}</p>
-                <p className="text-xs text-navy/50 dark:text-white/50">
-                  {status.lastBackupAt ? `Last backup: ${formatDateIN(status.lastBackupAt)}` : "No backup yet"}
-                </p>
+                <p className="text-xs text-navy/50 dark:text-white/50">Your financial data is stored in your Google Drive, in a &quot;Penny Pilot&quot; folder.</p>
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button size="sm" onClick={() => backupNowMutation.mutate()} disabled={backupNowMutation.isPending}>
-                <CloudUpload className="h-4 w-4" /> {backupNowMutation.isPending ? "Backing up…" : "Backup Now"}
+              <Button size="sm" variant="secondary" onClick={() => verifyMutation.mutate()} disabled={verifyMutation.isPending}>
+                <ShieldCheck className="h-4 w-4" /> {verifyMutation.isPending ? "Checking…" : "Verify Data"}
               </Button>
-              <Button size="sm" variant="secondary" onClick={() => previewRestoreMutation.mutate()} disabled={previewRestoreMutation.isPending}>
-                <CloudDownload className="h-4 w-4" /> Restore
+              <Button size="sm" variant="ghost" onClick={() => setRestoreCollection(restoreCollection ? null : "transactions")}>
+                <History className="h-4 w-4" /> {restoreCollection ? "Hide Restore" : "Restore Data"}
               </Button>
               <Button size="sm" variant="ghost" onClick={() => disconnectMutation.mutate()} disabled={disconnectMutation.isPending}>
                 <Unlink className="h-4 w-4" /> Disconnect
               </Button>
-              <Button size="sm" variant="ghost" onClick={() => setShowHistory((v) => !v)}>
-                <History className="h-4 w-4" /> {showHistory ? "Hide History" : "Backup History"}
-              </Button>
             </div>
 
-            {showHistory && (
-              <div className="rounded-lg border border-black/10 dark:border-white/10">
-                {!history ? (
-                  <div className="p-3 text-xs text-navy/40 dark:text-white/40">Loading…</div>
-                ) : history.items.length === 0 ? (
-                  <div className="p-3 text-xs text-navy/40 dark:text-white/40">No backups yet.</div>
-                ) : (
-                  <ul className="divide-y divide-black/5 dark:divide-white/10">
-                    {history.items.map((h) => (
-                      <li key={h.id} className="flex items-center gap-2 px-3 py-2 text-xs">
-                        {h.status === "success" ? (
-                          <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
-                        ) : (
-                          <XCircle className="h-3.5 w-3.5 shrink-0 text-red-600" />
-                        )}
-                        <span className="text-navy/70 dark:text-white/70">{formatDateIN(h.createdAt)}</span>
-                        <span className="text-navy/40 dark:text-white/40">
-                          · {h.triggeredBy === "manual" ? "Manual" : "Scheduled"}
-                          {h.attempt > 1 ? ` (attempt ${h.attempt})` : ""}
-                        </span>
-                        {h.status === "failed" && h.errorMessage && (
-                          <span className="truncate text-red-600" title={h.errorMessage}>· {h.errorMessage}</span>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
+            {verifyResult && (
+              <div className="rounded-lg border border-black/10 p-3 text-xs dark:border-white/10">
+                <p className="mb-2 font-medium text-navy dark:text-white">Storage status</p>
+                <div className="grid grid-cols-2 gap-1 text-navy/60 dark:text-white/60 sm:grid-cols-3">
+                  {Object.entries(verifyResult.collections).map(([key, v]) => (
+                    <span key={key}>{COLLECTION_LABELS[key] ?? key}: {v.count}</span>
+                  ))}
+                </div>
+                {verifyResult.issues.length > 0 && (
+                  <p className="mt-2 text-red-600 dark:text-red-400">{verifyResult.issues.join("; ")}</p>
                 )}
               </div>
             )}
 
-            {restorePreview && (
-              <div className="rounded-lg border border-black/10 p-3 text-sm dark:border-white/10">
-                <p className="mb-2 font-medium text-navy dark:text-white">
-                  Backup from {formatDateIN(restorePreview.createdAt)} includes:
+            {restoreCollection && (
+              <div className="rounded-lg border border-black/10 p-3 space-y-3 dark:border-white/10">
+                <p className="text-xs font-medium text-navy dark:text-white">
+                  Restore reverts one data file to an earlier saved version from your Google Drive&apos;s own history — nothing is ever deleted, so you can always restore again.
                 </p>
-                <div className="mb-3 grid grid-cols-2 gap-1 text-xs text-navy/60 dark:text-white/60">
-                  {Object.entries(restorePreview.counts).map(([k, v]) => (
-                    <span key={k}>{k}: {v}</span>
-                  ))}
-                </div>
-                <p className="mb-2 text-xs text-navy/40 dark:text-white/40">
-                  Restores expenses, income, budgets, investments, categories, wallets, money sources, and settings.
-                  Existing records are matched and skipped, so restoring never creates duplicates.
-                </p>
-                <div className="flex gap-2">
-                  <Button size="sm" onClick={() => restoreMutation.mutate()} disabled={restoreMutation.isPending}>
-                    {restoreMutation.isPending ? "Restoring…" : "Confirm Restore"}
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={() => setRestorePreview(null)}>Cancel</Button>
-                </div>
+                <select
+                  value={restoreCollection}
+                  onChange={(e) => { setRestoreCollection(e.target.value); setSelectedRevision(null); setRevisionPreview(null); }}
+                  className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white"
+                >
+                  {COLLECTIONS.map((c) => <option key={c} value={c}>{COLLECTION_LABELS[c]}</option>)}
+                </select>
+
+                {!revisions || revisions.items.length === 0 ? (
+                  <p className="text-xs text-navy/40 dark:text-white/40">No earlier versions found for this data yet.</p>
+                ) : (
+                  <ul className="max-h-40 divide-y divide-black/5 overflow-y-auto rounded-lg border border-black/10 dark:divide-white/10 dark:border-white/10">
+                    {revisions.items.map((r) => (
+                      <li key={r.id}>
+                        <button
+                          type="button"
+                          onClick={() => previewRevisionMutation.mutate(r.id)}
+                          className={`flex w-full items-center justify-between px-3 py-2 text-left text-xs hover:bg-black/5 dark:hover:bg-white/5 ${selectedRevision === r.id ? "bg-teal/10" : ""}`}
+                        >
+                          <span className="text-navy/70 dark:text-white/70">{formatDateIN(r.modifiedTime)}</span>
+                          {selectedRevision === r.id && <RotateCcw className="h-3.5 w-3.5 text-teal" />}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
+                {revisionPreview && selectedRevision && (
+                  <div className="rounded-lg bg-black/5 p-2 text-xs dark:bg-white/5">
+                    <p className="text-navy/70 dark:text-white/70">This version has {revisionPreview.recordCount} record(s), last updated {formatDateIN(revisionPreview.lastUpdated)}.</p>
+                    <p className="mt-1 text-navy/40 dark:text-white/40">Restoring replaces your current {COLLECTION_LABELS[restoreCollection]?.toLowerCase()} with this version.</p>
+                    <Button size="sm" className="mt-2" variant="danger" onClick={() => restoreMutation.mutate()} disabled={restoreMutation.isPending}>
+                      {restoreMutation.isPending ? "Restoring…" : `Restore ${COLLECTION_LABELS[restoreCollection]}`}
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
           </>
         ) : (
           <>
             <p className="text-sm text-navy/60 dark:text-white/60">
-              Connect Google Drive to automatically back up your expenses, income, budgets, investments, categories, and settings.
+              Google Drive is disconnected. Reconnect your Google Drive to access your Penny Pilot data.
             </p>
             <Button size="sm" onClick={() => connectMutation.mutate()} disabled={connectMutation.isPending}>
-              <Cloud className="h-4 w-4" /> Connect Google Drive
+              <HardDrive className="h-4 w-4" /> Reconnect Google Drive
             </Button>
           </>
         )}

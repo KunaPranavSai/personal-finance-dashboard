@@ -11,6 +11,7 @@ import { DataInit } from "@/components/DataInit";
 import { LockScreen } from "@/components/ui/LockScreen";
 import { TwoFactorReverifyDialog } from "@/components/ui/TwoFactorReverifyDialog";
 import { useAuth } from "@/lib/AuthContext";
+import { useDriveStatus, isDriveReady } from "@/lib/driveStatus";
 
 export default function AppShellLayout({ children }: { children: React.ReactNode }) {
   const { user, isAuthenticated, isLoading, isLocked, unlock } = useAuth();
@@ -19,6 +20,13 @@ export default function AppShellLayout({ children }: { children: React.ReactNode
   // Admins keep self-service access to their own Settings (password/UID/2FA), but
   // every other personal-finance page belongs to the USER role's dashboard only.
   const isSelfServiceRoute = pathname?.startsWith("/settings");
+  // Google Drive is the only persistent store for a USER account's financial data — the
+  // mandatory-onboarding gate below redirects here until it's connected. Admins don't use
+  // this app for personal finances, so they're exempt (mirrors the backend's
+  // requireDriveConnected middleware, which skips non-USER roles the same way).
+  const requiresDrive = Boolean(user && user.role === "USER");
+  const { data: driveStatus, isLoading: driveStatusLoading } = useDriveStatus();
+  const driveReady = !requiresDrive || isDriveReady(driveStatus);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -26,10 +34,12 @@ export default function AppShellLayout({ children }: { children: React.ReactNode
       router.replace(`/login${redirect}`);
     } else if (!isLoading && user && user.role !== "USER" && !isSelfServiceRoute) {
       router.replace("/admin");
+    } else if (!isLoading && requiresDrive && !driveStatusLoading && !driveReady) {
+      router.replace("/connect-drive");
     }
-  }, [isAuthenticated, isLoading, user, isSelfServiceRoute, router, pathname]);
+  }, [isAuthenticated, isLoading, user, isSelfServiceRoute, requiresDrive, driveStatusLoading, driveReady, router, pathname]);
 
-  if (isLoading || (user && user.role !== "USER" && !isSelfServiceRoute)) {
+  if (isLoading || (user && user.role !== "USER" && !isSelfServiceRoute) || (requiresDrive && (driveStatusLoading || !driveReady))) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-surface dark:bg-navy-dark">
         <div className="flex flex-col items-center gap-4">

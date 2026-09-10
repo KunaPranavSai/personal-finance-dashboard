@@ -8,6 +8,10 @@ export const API_ACTIVITY_EVENT = "pfd:api-activity";
 /** Dispatched when a request 401s and a silent token refresh also fails —
  * i.e. the server-side inactivity window has genuinely lapsed. */
 export const SESSION_EXPIRED_EVENT = "pfd:session-expired";
+/** Dispatched whenever the backend reports Google Drive isn't connected/initialized
+ * (or a reauth is needed) — lets the app redirect to /connect-drive immediately, even
+ * mid-session (e.g. the connection was revoked in Google, or disconnected in another tab). */
+export const DRIVE_DISCONNECTED_EVENT = "pfd:drive-disconnected";
 
 class ApiClientError extends Error {
   status: number;
@@ -72,6 +76,12 @@ async function request<T>(path: string, options: RequestInit = {}, isRetry = fal
     if (res.status === 403 && (body as { code?: string })?.code === "2FA_REVERIFICATION_REQUIRED") {
       if (typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent(TWO_FA_REVERIFY_EVENT));
+      }
+    }
+    const code = (body as { code?: string })?.code;
+    if (code === "DRIVE_NOT_CONNECTED" || code === "DRIVE_REAUTH_REQUIRED" || code === "DRIVE_NOT_INITIALIZED") {
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent(DRIVE_DISCONNECTED_EVENT));
       }
     }
     throw new ApiClientError(res.status, message, body);

@@ -3,9 +3,11 @@ import { ZodError } from "zod";
 
 export class ApiError extends Error {
   status: number;
-  constructor(status: number, message: string) {
+  code?: string;
+  constructor(status: number, message: string, code?: string) {
     super(message);
     this.status = status;
+    this.code = code;
   }
 }
 
@@ -18,7 +20,7 @@ export function errorHandler(err: unknown, _req: Request, res: Response, _next: 
     return res.status(400).json({ error: "Validation failed", details: err.flatten() });
   }
   if (err instanceof ApiError) {
-    return res.status(err.status).json({ error: err.message });
+    return res.status(err.status).json({ error: err.message, ...(err.code && { code: err.code }) });
   }
   // Prisma known error shape (duck-typed to avoid hard dependency on error classes here)
   const prismaErr = err as { code?: string; meta?: unknown };

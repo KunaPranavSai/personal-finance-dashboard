@@ -3,6 +3,7 @@ import jwt from "jsonwebtoken";
 import { getSessionVersion } from "../lib/sessionVersion";
 import { ACCESS_SECRET, signAccess, signRefresh, setTokenCookies } from "../lib/tokens";
 import { computeSessionExpiryForUser } from "../lib/sessionExpiry";
+import { prisma } from "../lib/prisma";
 
 export interface AuthPayload {
   userId: string;
@@ -113,6 +114,37 @@ export function requireRecent2FA(req: Request, res: Response, next: NextFunction
       error: "Please re-verify your two-factor authentication code to continue.",
       code: "2FA_REVERIFICATION_REQUIRED",
     });
+    return;
+  }
+  next();
+}
+
+/**
+ * Blocks every financial route until the user has connected AND initialized their Google
+ * Drive storage — Drive is the only persistent store for financial data, so nothing here can
+ * function without it. `backupFolderId` is only set once initialization actually completes
+ * (see services/drive/init.ts), so a connection that's mid-way through an unresolved
+ * account-change choice does not count as "connected" yet. Must run after `authenticate`.
+ */
+export async function requireDriveConnected(req: Request, res: Response, next: NextFunction): Promise<void> {
+  const userId = req.auth?.userId;
+  if (!userId) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+  // Admins manage the platform, not a personal finance workspace — their own account
+  // preferences (settings/profile) stay Postgres-backed as before, unaffected by the
+  // mandatory-Drive requirement that applies to USER accounts' financial data.
+  if (req.auth?.role !== "USER") {
+    next();
+    return;
+  }
+  const connection = await prisma.backupConnection.findUnique({
+    where: { userId_provider: { userId, provider: "google_drive" } },
+    select: { backupFolderId: true },
+  });
+  if (!connection?.backupFolderId) {
+    res.status(403).json({ error: "Connect your Google Drive to access your Penny Pilot data.", code: "DRIVE_NOT_CONNECTED" });
     return;
   }
   next();

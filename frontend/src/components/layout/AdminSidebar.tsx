@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
-  LayoutDashboard, Users, UserCheck, ShieldCheck, ShieldAlert, History,
+  LayoutDashboard, Users, ShieldCheck, ShieldAlert, History,
   User, X, ChevronDown, KeyRound, FileText, Mail,
   Settings as SettingsIcon, Database, ClipboardList,
 } from "lucide-react";
@@ -29,7 +29,6 @@ const ADMIN_NAV_GROUPS: NavGroup[] = [
     label: "User Management",
     items: [
       { href: "/admin/users", label: "All Users", icon: Users },
-      { href: "/admin/pending", label: "Pending Approvals", icon: UserCheck },
       { href: "/admin/roles", label: "Roles & Permissions", icon: KeyRound },
     ],
   },
