@@ -1,14 +1,29 @@
 import { Router } from "express";
-import { Prisma } from "@prisma/client";
-import { prisma } from "../lib/prisma";
 import { asyncHandler } from "../utils/asyncHandler";
+import { listRecords } from "../services/drive/dataService";
+import { DriveRecord } from "../services/drive/types";
+
+interface TransactionRecord extends DriveRecord {
+  date: string;
+  amount: number;
+  type: "INCOME" | "EXPENSE";
+  categoryId: string;
+  accountId?: string | null;
+  paymentMethodTypeId?: string | null;
+}
+interface CategoryRecord extends DriveRecord {
+  name: string;
+}
+interface PaymentMethodRecord extends DriveRecord {
+  name: string;
+}
 
 const router = Router();
 
 router.get(
   "/summary",
   asyncHandler(async (req, res) => {
-    // Optional filters: from/to (ISO dates), categoryId, accountId, paymentMethodTypeId
+    const userId = req.auth!.userId;
     const from = req.query.from ? new Date(String(req.query.from)) : undefined;
     const to = req.query.to ? new Date(String(req.query.to)) : undefined;
     const categoryId = req.query.categoryId ? String(req.query.categoryId) : undefined;
@@ -17,125 +32,77 @@ router.get(
 
     const validFrom = from && !isNaN(from.getTime()) ? from : undefined;
     const validTo = to && !isNaN(to.getTime()) ? to : undefined;
-    const userId = req.auth!.userId;
 
-    const where: Prisma.TransactionWhereInput = {
-      userId,
-      ...((validFrom || validTo) && {
-        date: { ...(validFrom && { gte: validFrom }), ...(validTo && { lte: validTo }) },
-      }),
-      ...(categoryId && { categoryId }),
-      ...(accountId && { accountId }),
-      ...(paymentMethodTypeId && { paymentMethodTypeId }),
-    };
-
-    // The raw monthly-trend query needs the same filters expressed as SQL conditions.
-    const conditions: Prisma.Sql[] = [Prisma.sql`"userId" = ${userId}`];
-    if (validFrom) conditions.push(Prisma.sql`"date" >= ${validFrom}`);
-    if (validTo) conditions.push(Prisma.sql`"date" <= ${validTo}`);
-    if (categoryId) conditions.push(Prisma.sql`"categoryId" = ${categoryId}`);
-    if (accountId) conditions.push(Prisma.sql`"accountId" = ${accountId}`);
-    if (paymentMethodTypeId) conditions.push(Prisma.sql`"paymentMethodTypeId" = ${paymentMethodTypeId}`);
-    const whereSql = conditions.length > 0 ? Prisma.sql`WHERE ${Prisma.join(conditions, " AND ")}` : Prisma.empty;
-
-    const [
-      txCount,
-      expenseCategoryBreakdown,
-      incomeCategoryBreakdown,
-      monthlyTotals,
-      paymentMethodBreakdown,
-      overallAvg,
-      totals,
-    ] = await Promise.all([
-      prisma.transaction.count({ where }),
-      prisma.transaction.groupBy({
-        by: ["categoryId"],
-        _sum: { amount: true },
-        _count: true,
-        where: { ...where, type: "EXPENSE" },
-        orderBy: { _sum: { amount: "desc" } },
-      }),
-      prisma.transaction.groupBy({
-        by: ["categoryId"],
-        _sum: { amount: true },
-        _count: true,
-        where: { ...where, type: "INCOME" },
-        orderBy: { _sum: { amount: "desc" } },
-      }),
-      prisma.$queryRaw<
-        { month: string; income: string; expense: string; count: string }[]
-      >`
-        SELECT to_char(date_trunc('month', "date"), 'YYYY-MM') as month,
-               SUM(CASE WHEN "type" = 'INCOME' THEN "amount" ELSE 0 END)::text as income,
-               SUM(CASE WHEN "type" = 'EXPENSE' THEN "amount" ELSE 0 END)::text as expense,
-               COUNT(*)::text as count
-        FROM "Transaction"
-        ${whereSql}
-        GROUP BY 1
-        ORDER BY 1 ASC
-      `,
-      prisma.transaction.groupBy({
-        by: ["paymentMethodTypeId"],
-        _sum: { amount: true },
-        _count: true,
-        where,
-      }),
-      prisma.transaction.aggregate({ _avg: { amount: true }, where }),
-      Promise.all([
-        prisma.transaction.aggregate({ where: { ...where, type: "INCOME" }, _sum: { amount: true } }),
-        prisma.transaction.aggregate({ where: { ...where, type: "EXPENSE" }, _sum: { amount: true } }),
-      ]),
+    const [allTransactions, categories, paymentMethods] = await Promise.all([
+      listRecords<TransactionRecord>(userId, "transactions"),
+      listRecords<CategoryRecord>(userId, "categories"),
+      listRecords<PaymentMethodRecord>(userId, "paymentMethods"),
     ]);
-
-    const catIds = [
-      ...expenseCategoryBreakdown.map((c) => c.categoryId),
-      ...incomeCategoryBreakdown.map((c) => c.categoryId),
-    ];
-    const cats = await prisma.category.findMany({ where: { id: { in: catIds } } });
-    const catMap = new Map(cats.map((c) => [c.id, c.name]));
-
-    const paymentMethodIds = paymentMethodBreakdown
-      .map((p) => p.paymentMethodTypeId)
-      .filter((id): id is string => id !== null);
-    const paymentMethods = await prisma.paymentMethodType.findMany({ where: { id: { in: paymentMethodIds } } });
+    const categoryMap = new Map(categories.map((c) => [c.id, c.name]));
     const paymentMethodMap = new Map(paymentMethods.map((p) => [p.id, p.name]));
 
-    // True monthly average: average of each month's total transaction volume, not a flat all-time average.
-    const monthlyAverage =
-      monthlyTotals.length > 0
-        ? monthlyTotals.reduce((sum, m) => sum + Number(m.income) + Number(m.expense), 0) / monthlyTotals.length
-        : 0;
+    const items = allTransactions.filter((t) => {
+      if (validFrom && new Date(t.date) < validFrom) return false;
+      if (validTo && new Date(t.date) > validTo) return false;
+      if (categoryId && t.categoryId !== categoryId) return false;
+      if (accountId && t.accountId !== accountId) return false;
+      if (paymentMethodTypeId && t.paymentMethodTypeId !== paymentMethodTypeId) return false;
+      return true;
+    });
 
-    const totalIncome = Number(totals[0]._sum.amount ?? 0);
-    const totalExpense = Number(totals[1]._sum.amount ?? 0);
+    const expenseByCategory = new Map<string, { total: number; count: number }>();
+    const incomeByCategory = new Map<string, { total: number; count: number }>();
+    const byMonth = new Map<string, { income: number; expense: number; count: number }>();
+    const byPaymentMethod = new Map<string, { total: number; count: number }>();
+    let totalIncome = 0;
+    let totalExpense = 0;
+
+    for (const t of items) {
+      const month = new Date(t.date).toISOString().slice(0, 7);
+      const monthEntry = byMonth.get(month) ?? { income: 0, expense: 0, count: 0 };
+      monthEntry.count += 1;
+      if (t.type === "INCOME") {
+        monthEntry.income += t.amount;
+        totalIncome += t.amount;
+        const entry = incomeByCategory.get(t.categoryId) ?? { total: 0, count: 0 };
+        entry.total += t.amount; entry.count += 1;
+        incomeByCategory.set(t.categoryId, entry);
+      } else {
+        monthEntry.expense += t.amount;
+        totalExpense += t.amount;
+        const entry = expenseByCategory.get(t.categoryId) ?? { total: 0, count: 0 };
+        entry.total += t.amount; entry.count += 1;
+        expenseByCategory.set(t.categoryId, entry);
+      }
+      byMonth.set(month, monthEntry);
+
+      const pmKey = t.paymentMethodTypeId ?? "UNKNOWN";
+      const pmEntry = byPaymentMethod.get(pmKey) ?? { total: 0, count: 0 };
+      pmEntry.total += t.amount; pmEntry.count += 1;
+      byPaymentMethod.set(pmKey, pmEntry);
+    }
+
+    const monthlyTrend = [...byMonth.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([month, v]) => ({ month, ...v }));
+    const monthlyAverage = monthlyTrend.length > 0 ? monthlyTrend.reduce((s, m) => s + m.income + m.expense, 0) / monthlyTrend.length : 0;
 
     res.json({
-      totalTransactions: txCount,
-      averageTransaction: Number(overallAvg._avg.amount ?? 0),
+      totalTransactions: items.length,
+      averageTransaction: items.length > 0 ? (totalIncome + totalExpense) / items.length : 0,
       averageMonthlyVolume: monthlyAverage,
       totalIncome,
       totalExpense,
       totalSavings: totalIncome - totalExpense,
-      categoryBreakdown: expenseCategoryBreakdown.map((c) => ({
-        category: catMap.get(c.categoryId) ?? "Unknown",
-        total: Number(c._sum.amount ?? 0),
-        count: c._count,
-      })),
-      incomeCategoryBreakdown: incomeCategoryBreakdown.map((c) => ({
-        category: catMap.get(c.categoryId) ?? "Unknown",
-        total: Number(c._sum.amount ?? 0),
-        count: c._count,
-      })),
-      monthlyTrend: monthlyTotals.map((r) => ({
-        month: r.month,
-        income: Number(r.income),
-        expense: Number(r.expense),
-        count: Number(r.count),
-      })),
-      paymentMethodBreakdown: paymentMethodBreakdown.map((p) => ({
-        method: p.paymentMethodTypeId ? paymentMethodMap.get(p.paymentMethodTypeId) ?? "Unknown" : "UNKNOWN",
-        total: Number(p._sum.amount ?? 0),
-        count: p._count,
+      categoryBreakdown: [...expenseByCategory.entries()]
+        .sort((a, b) => b[1].total - a[1].total)
+        .map(([id, v]) => ({ category: categoryMap.get(id) ?? "Unknown", total: v.total, count: v.count })),
+      incomeCategoryBreakdown: [...incomeByCategory.entries()]
+        .sort((a, b) => b[1].total - a[1].total)
+        .map(([id, v]) => ({ category: categoryMap.get(id) ?? "Unknown", total: v.total, count: v.count })),
+      monthlyTrend,
+      paymentMethodBreakdown: [...byPaymentMethod.entries()].map(([id, v]) => ({
+        method: id !== "UNKNOWN" ? paymentMethodMap.get(id) ?? "Unknown" : "UNKNOWN",
+        total: v.total,
+        count: v.count,
       })),
     });
   })

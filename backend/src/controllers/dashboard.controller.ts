@@ -1,5 +1,32 @@
 import { Request, Response } from "express";
-import { prisma } from "../lib/prisma";
+import { listRecords } from "../services/drive/dataService";
+import { DriveRecord } from "../services/drive/types";
+
+interface TransactionRecord extends DriveRecord {
+  date: string;
+  amount: number;
+  type: "INCOME" | "EXPENSE";
+  categoryId: string;
+}
+interface CategoryRecord extends DriveRecord {
+  name: string;
+}
+interface BudgetRecord extends DriveRecord {
+  categoryId: string;
+  amount: number;
+}
+interface InvestmentRecord extends DriveRecord {
+  currentValue: number;
+  monthlyContribution: number;
+}
+interface BillRecord extends DriveRecord {
+  dueDate: string;
+}
+interface GoalRecord extends DriveRecord {
+  name: string;
+  currentAmount: number;
+  targetAmount: number;
+}
 
 function monthRange(offset = 0) {
   const now = new Date();
@@ -8,38 +35,32 @@ function monthRange(offset = 0) {
   return { start, end };
 }
 
+function sumAmount(items: TransactionRecord[], type: "INCOME" | "EXPENSE", from?: Date, to?: Date): number {
+  return items
+    .filter((t) => t.type === type && (!from || new Date(t.date) >= from) && (!to || new Date(t.date) < to))
+    .reduce((s, t) => s + t.amount, 0);
+}
+
 export async function getDashboardSummary(req: Request, res: Response) {
   const userId = req.auth!.userId;
   const { start: curStart, end: curEnd } = monthRange(0);
   const { start: prevStart, end: prevEnd } = monthRange(-1);
 
-  const [
-    totalIncomeAgg, totalExpenseAgg,
-    curIncomeAgg, curExpenseAgg,
-    prevIncomeAgg, prevExpenseAgg,
-    txCount, largestExpense, allExpenseTx, budgets, investments, upcomingBills, goals,
-  ] = await Promise.all([
-    prisma.transaction.aggregate({ where: { userId, type: "INCOME" }, _sum: { amount: true } }),
-    prisma.transaction.aggregate({ where: { userId, type: "EXPENSE" }, _sum: { amount: true } }),
-    prisma.transaction.aggregate({ where: { userId, type: "INCOME", date: { gte: curStart, lt: curEnd } }, _sum: { amount: true } }),
-    prisma.transaction.aggregate({ where: { userId, type: "EXPENSE", date: { gte: curStart, lt: curEnd } }, _sum: { amount: true } }),
-    prisma.transaction.aggregate({ where: { userId, type: "INCOME", date: { gte: prevStart, lt: prevEnd } }, _sum: { amount: true } }),
-    prisma.transaction.aggregate({ where: { userId, type: "EXPENSE", date: { gte: prevStart, lt: prevEnd } }, _sum: { amount: true } }),
-    prisma.transaction.count({ where: { userId } }),
-    prisma.transaction.findFirst({ where: { userId, type: "EXPENSE" }, orderBy: { amount: "desc" }, include: { category: true } }),
-    prisma.transaction.groupBy({ by: ["categoryId"], where: { userId, type: "EXPENSE" }, _sum: { amount: true } }),
-    prisma.budget.findMany({ where: { userId }, include: { category: true } }),
-    prisma.investment.findMany({ where: { userId } }),
-    prisma.bill.findMany({ where: { userId, dueDate: { gte: new Date() } }, orderBy: { dueDate: "asc" }, take: 5 }),
-    prisma.goal.findMany({ where: { userId } }),
+  const [transactions, categories, budgets, investments, bills, goals] = await Promise.all([
+    listRecords<TransactionRecord>(userId, "transactions"),
+    listRecords<CategoryRecord>(userId, "categories"),
+    listRecords<BudgetRecord>(userId, "budgets"),
+    listRecords<InvestmentRecord>(userId, "investments"),
+    listRecords<BillRecord>(userId, "bills"),
+    listRecords<GoalRecord>(userId, "goals"),
   ]);
 
-  const totalIncome = Number(totalIncomeAgg._sum.amount ?? 0);
-  const totalExpense = Number(totalExpenseAgg._sum.amount ?? 0);
-  const curIncome = Number(curIncomeAgg._sum.amount ?? 0);
-  const curExpense = Number(curExpenseAgg._sum.amount ?? 0);
-  const prevIncome = Number(prevIncomeAgg._sum.amount ?? 0);
-  const prevExpense = Number(prevExpenseAgg._sum.amount ?? 0);
+  const totalIncome = sumAmount(transactions, "INCOME");
+  const totalExpense = sumAmount(transactions, "EXPENSE");
+  const curIncome = sumAmount(transactions, "INCOME", curStart, curEnd);
+  const curExpense = sumAmount(transactions, "EXPENSE", curStart, curEnd);
+  const prevIncome = sumAmount(transactions, "INCOME", prevStart, prevEnd);
+  const prevExpense = sumAmount(transactions, "EXPENSE", prevStart, prevEnd);
 
   const totalSavings = totalIncome - totalExpense;
   const savingsRate = totalIncome > 0 ? totalSavings / totalIncome : 0;
@@ -48,14 +69,19 @@ export async function getDashboardSummary(req: Request, res: Response) {
   const portfolioValue = investments.reduce((s, i) => s + Number(i.currentValue), 0);
   const netWorth = totalSavings + portfolioValue;
 
+  const categoryMap = new Map(categories.map((c) => [c.id, c.name]));
   let highestCategory: { name: string; total: number } | null = null;
-  if (allExpenseTx.length > 0) {
-    const catIdMap = new Map<string, string>();
-    const cats = await prisma.category.findMany({ where: { id: { in: allExpenseTx.map((c) => c.categoryId) } } });
-    cats.forEach((c) => catIdMap.set(c.id, c.name));
-    const top = [...allExpenseTx].sort((a, b) => Number(b._sum.amount) - Number(a._sum.amount))[0];
-    highestCategory = top ? { name: catIdMap.get(top.categoryId) ?? "Unknown", total: Number(top._sum.amount) } : null;
+  const expenseByCategory = new Map<string, number>();
+  for (const t of transactions) {
+    if (t.type !== "EXPENSE") continue;
+    expenseByCategory.set(t.categoryId, (expenseByCategory.get(t.categoryId) ?? 0) + t.amount);
   }
+  if (expenseByCategory.size > 0) {
+    const [topCategoryId, topTotal] = [...expenseByCategory.entries()].sort((a, b) => b[1] - a[1])[0];
+    highestCategory = { name: categoryMap.get(topCategoryId) ?? "Unknown", total: topTotal };
+  }
+
+  const largestExpense = transactions.filter((t) => t.type === "EXPENSE").sort((a, b) => b.amount - a.amount)[0];
 
   const totalBudget = budgets.reduce((s, b) => s + Number(b.amount), 0);
   const totalBudgetActual = curExpense; // simplification: current-month actual vs monthly budgets
@@ -68,19 +94,11 @@ export async function getDashboardSummary(req: Request, res: Response) {
     ? Number(emergencyFund.currentAmount) / Math.max(Number(emergencyFund.targetAmount), 1)
     : 0;
 
-  // Calculate cash flow: income - expenses in trailing 30 days
+  // Cash flow: income - expenses in trailing 30 days
   const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000);
-  const [recentIncomeAgg, recentExpenseAgg] = await Promise.all([
-    prisma.transaction.aggregate({
-      where: { userId, type: "INCOME", date: { gte: thirtyDaysAgo } },
-      _sum: { amount: true },
-    }),
-    prisma.transaction.aggregate({
-      where: { userId, type: "EXPENSE", date: { gte: thirtyDaysAgo } },
-      _sum: { amount: true },
-    }),
-  ]);
-  const cashFlow = Number(recentIncomeAgg._sum.amount ?? 0) - Number(recentExpenseAgg._sum.amount ?? 0);
+  const recentIncome = sumAmount(transactions, "INCOME", thirtyDaysAgo);
+  const recentExpense = sumAmount(transactions, "EXPENSE", thirtyDaysAgo);
+  const cashFlow = recentIncome - recentExpense;
 
   // Financial Health Score (0-100), weighted like the workbook version
   const budgetAdherence = 1 - Math.min(budgetUtilization, 1.5) / 1.5;
@@ -94,12 +112,16 @@ export async function getDashboardSummary(req: Request, res: Response) {
     ))
   );
 
-  const daysSpan = await prisma.transaction.aggregate({ where: { userId }, _min: { date: true }, _max: { date: true } });
-  const minDate = daysSpan._min.date;
-  const maxDate = daysSpan._max.date;
-  const spanDays = minDate && maxDate ? Math.max(1, Math.round((maxDate.getTime() - minDate.getTime()) / 86400000)) : 1;
+  const dates = transactions.map((t) => new Date(t.date).getTime());
+  const spanDays = dates.length > 0 ? Math.max(1, Math.round((Math.max(...dates) - Math.min(...dates)) / 86400000)) : 1;
   const avgDailySpending = totalExpense / spanDays;
-  const avgTransactionAmount = txCount > 0 ? (totalIncome + totalExpense) / txCount : 0;
+  const avgTransactionAmount = transactions.length > 0 ? (totalIncome + totalExpense) / transactions.length : 0;
+
+  const now = new Date();
+  const upcomingBills = bills
+    .filter((b) => new Date(b.dueDate) >= now)
+    .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
+    .slice(0, 5);
 
   res.json({
     kpis: {
@@ -116,7 +138,7 @@ export async function getDashboardSummary(req: Request, res: Response) {
       largestExpense: largestExpense ? Number(largestExpense.amount) : 0,
       avgDailySpending,
       avgTransactionAmount,
-      transactionCount: txCount,
+      transactionCount: transactions.length,
       cashFlow,
       monthlyBalance: curIncome - curExpense,
       currentMonth: { income: curIncome, expense: curExpense },
@@ -132,31 +154,44 @@ export async function getDashboardSummary(req: Request, res: Response) {
 
 export async function getIncomeExpenseTrend(req: Request, res: Response) {
   const userId = req.auth!.userId;
-  const rows = await prisma.$queryRaw<
-    { month: string; type: string; total: string }[]
-  >`
-    SELECT to_char(date_trunc('month', "date"), 'YYYY-MM') as month, "type", SUM("amount")::text as total
-    FROM "Transaction"
-    WHERE "userId" = ${userId}
-    GROUP BY 1, 2
-    ORDER BY 1 ASC
-  `;
-  res.json({ items: rows });
+  const transactions = await listRecords<TransactionRecord>(userId, "transactions");
+
+  const byMonth = new Map<string, { INCOME: number; EXPENSE: number }>();
+  for (const t of transactions) {
+    const month = new Date(t.date).toISOString().slice(0, 7); // "YYYY-MM"
+    const entry = byMonth.get(month) ?? { INCOME: 0, EXPENSE: 0 };
+    entry[t.type] += t.amount;
+    byMonth.set(month, entry);
+  }
+
+  const items = [...byMonth.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .flatMap(([month, totals]) => [
+      { month, type: "INCOME", total: String(totals.INCOME) },
+      { month, type: "EXPENSE", total: String(totals.EXPENSE) },
+    ]);
+
+  res.json({ items });
 }
 
 export async function getCategoryBreakdown(req: Request, res: Response) {
   const userId = req.auth!.userId;
-  const rows = await prisma.transaction.groupBy({
-    by: ["categoryId"],
-    where: { userId, type: "EXPENSE" },
-    _sum: { amount: true },
-  });
-  const cats = await prisma.category.findMany({ where: { id: { in: rows.map((r) => r.categoryId) } } });
-  const catMap = new Map(cats.map((c) => [c.id, c.name]));
+  const [transactions, categories] = await Promise.all([
+    listRecords<TransactionRecord>(userId, "transactions"),
+    listRecords<CategoryRecord>(userId, "categories"),
+  ]);
+  const categoryMap = new Map(categories.map((c) => [c.id, c.name]));
+
+  const totals = new Map<string, number>();
+  for (const t of transactions) {
+    if (t.type !== "EXPENSE") continue;
+    totals.set(t.categoryId, (totals.get(t.categoryId) ?? 0) + t.amount);
+  }
+
   res.json({
-    items: rows.map((r) => ({
-      category: catMap.get(r.categoryId) ?? "Unknown",
-      total: Number(r._sum.amount ?? 0),
+    items: [...totals.entries()].map(([categoryId, total]) => ({
+      category: categoryMap.get(categoryId) ?? "Unknown",
+      total,
     })),
   });
 }

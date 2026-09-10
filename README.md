@@ -109,6 +109,62 @@ pfd-pro/
 | PATCH/DELETE | `/api/budgets/:id` | Update / delete |
 | GET/POST | `/api/categories`, `/api/accounts` | Reference data for dropdowns |
 
+## Data Storage: Google Drive
+
+**Every user's financial data lives in their own Google Drive — never in this app's PostgreSQL
+database.** PostgreSQL retains only the minimum account/authentication data needed to run the
+app (login, 2FA, session, role, activity log). The principle:
+
+> Penny Pilot provides the application, while the user's Google Drive owns and stores the
+> user's financial data.
+
+- **What's in Drive**: transactions, budgets, investments, bills/EMIs, goals, accounts,
+  categories, payment methods, and financial preferences/settings — one JSON file per
+  collection under a `Penny Pilot/Data/` folder created in the user's own Drive, plus a
+  `Penny Pilot/Metadata/manifest.json` tracking each file's schema version, a monotonic
+  `dataVersion`, and a SHA-256 checksum of its records. See `backend/src/services/drive/`.
+- **What's in Postgres**: `User` (auth fields, 2FA, passkeys, session), `ActivityLog`,
+  `Notification`, `PlatformSettings`, and the OAuth connection record (`BackupConnection` —
+  encrypted tokens only, never financial data). Admin accounts (not regular users) keep their
+  own settings/profile in Postgres too, since they don't have a personal finance workspace.
+- **OAuth scope**: `drive.file` + `userinfo.email` — the app can only see/manage the
+  `Penny Pilot` folder and files it itself creates; it can never see anything else in the
+  user's Drive. Tokens are AES-256-GCM encrypted at rest (`backend/src/lib/crypto.ts`) and are
+  never written into any Drive file.
+- **Mandatory connection**: every new/existing `USER`-role account must connect Google Drive
+  before reaching the dashboard — enforced both by a frontend redirect
+  (`frontend/src/app/(app)/layout.tsx` → `/connect-drive`) and a backend middleware
+  (`requireDriveConnected` in `backend/src/middleware/auth.ts`) on every financial API route.
+  There is no skip option. Admin accounts are exempt (they manage the platform, not a personal
+  finance workspace).
+- **Disconnect / reconnect**: disconnecting removes only the local connection record — it never
+  deletes anything in the user's Drive. Reconnecting the same Google account re-adopts the
+  existing workspace as-is. Connecting a *different* Google account never auto-merges data; if
+  that account already has a Penny Pilot workspace, the user is asked to choose between using it
+  or starting a new empty one.
+- **Restore**: each data file's revision history (Google Drive's own, native versioning) is the
+  restore source — Settings → Data & Google Drive → Restore Data lets a user revert one
+  collection to an earlier saved version. Nothing is ever deleted: restoring just writes another
+  new revision on top.
+- **Export**: Settings → Data & Google Drive → Export Data generates CSV/Excel/JSON/PDF on
+  demand from the live Drive data; no server-side copies are kept.
+
+### Setting up Google OAuth (required to run financial features locally)
+
+1. [console.cloud.google.com](https://console.cloud.google.com) → create/select a project.
+2. **APIs & Services → Library** → enable the **Google Drive API**.
+3. **APIs & Services → OAuth consent screen** → External → fill in app name/support email →
+   add scopes `https://www.googleapis.com/auth/drive.file` and
+   `https://www.googleapis.com/auth/userinfo.email` → add your own Google account under
+   **Test users** (while the app is in Testing mode).
+4. **APIs & Services → Credentials → Create Credentials → OAuth client ID** → Web application →
+   add an Authorized redirect URI for each environment, pointing at the **backend's**
+   `/api/drive/callback` (not the frontend), e.g. `http://localhost:4000/api/drive/callback`
+   for local dev.
+5. Copy the generated Client ID/Secret into `backend/.env` (see `.env.example`):
+   `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`, and a random 32+ character
+   `BACKUP_TOKEN_ENCRYPTION_KEY`.
+
 ## Progressive Web App
 
 The frontend is an installable PWA (`@ducanh2912/next-pwa`, Workbox under the hood). Configuration lives in
@@ -175,5 +231,13 @@ The frontend is an installable PWA (`@ducanh2912/next-pwa`, Workbox under the ho
   doesn't support WebAuthn. Credentials are stored in the `Passkey` Prisma model
   (`backend/prisma/schema.prisma`); the RP ID/origin are derived from the existing `APP_URL`/`FRONTEND_URL`
   env vars (`backend/src/lib/webauthn.ts`) — no new config needed.
+- **Self-service registration (no admin approval)**: `POST /api/auth/signup` (`backend/src/routes/auth.routes.ts`)
+  now collects a password directly from the applicant and creates the account as `ACTIVE` immediately — there
+  is no `PENDING` admin-approval step to wait through. The user can sign in right after registering; the
+  frontend (`frontend/src/app/signup/page.tsx`) redirects straight to `/login` on success. The `PENDING`/
+  `REJECTED` `UserStatus` values and their DB columns (`approvedAt`, `rejectedAt`, `rejectionReason`, etc.)
+  are kept as-is for backward compatibility with any accounts created before this change — an admin can still
+  activate a legacy `PENDING` account from Admin → All Users → Edit. `SUSPENDED` and the rest of admin user
+  management (edit, reset password/UID, delete) are unaffected.
 
 See PROJECT_STATUS.md for what to build next.

@@ -5,8 +5,11 @@ import { generateCSV } from "../services/export/csvExporter";
 import { generateExcel } from "../services/export/excelExporter";
 import { generateJSON } from "../services/export/jsonExporter";
 import { generatePDF } from "../services/export/pdfExporter";
-import { prisma } from "../lib/prisma";
+import { listRecords } from "../services/drive/dataService";
+import { DriveRecord } from "../services/drive/types";
 import { requireRecent2FA } from "../middleware/auth";
+
+interface DatedRecord extends DriveRecord { date: string }
 
 const router = Router();
 
@@ -29,23 +32,25 @@ router.get(
     const to = req.query.to ? new Date(req.query.to as string) : undefined;
     const validFrom = from && !isNaN(from.getTime()) ? from : undefined;
     const validTo = to && !isNaN(to.getTime()) ? to : undefined;
-    const dateFilter =
-      validFrom || validTo
-        ? { date: { ...(validFrom && { gte: validFrom }), ...(validTo && { lte: validTo }) } }
-        : {};
 
-    const [transactions, budgets, investments, bills, goals, categories, accounts] = await Promise.all([
-      prisma.transaction.count({ where: { userId, ...dateFilter } }),
-      prisma.budget.count({ where: { userId } }),
-      prisma.investment.count({ where: { userId } }),
-      prisma.bill.count({ where: { userId } }),
-      prisma.goal.count({ where: { userId } }),
-      prisma.category.count({ where: { userId } }),
-      prisma.account.count({ where: { userId } }),
+    const [allTransactions, budgets, investments, bills, goals, categories, accounts] = await Promise.all([
+      listRecords<DatedRecord>(userId, "transactions"),
+      listRecords(userId, "budgets"),
+      listRecords(userId, "investments"),
+      listRecords(userId, "bills"),
+      listRecords(userId, "goals"),
+      listRecords(userId, "categories"),
+      listRecords(userId, "accounts"),
     ]);
+    const transactions = allTransactions.filter(
+      (t) => (!validFrom || new Date(t.date) >= validFrom) && (!validTo || new Date(t.date) <= validTo)
+    );
 
     res.json({
-      counts: { transactions, budgets, investments, bills, goals, categories, accounts },
+      counts: {
+        transactions: transactions.length, budgets: budgets.length, investments: investments.length,
+        bills: bills.length, goals: goals.length, categories: categories.length, accounts: accounts.length,
+      },
       range: { from: validFrom?.toISOString() ?? null, to: validTo?.toISOString() ?? null },
     });
   })

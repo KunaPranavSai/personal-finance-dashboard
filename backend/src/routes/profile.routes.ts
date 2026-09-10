@@ -3,6 +3,10 @@ import { asyncHandler } from "../utils/asyncHandler";
 import { prisma } from "../lib/prisma";
 import { requireRecent2FA } from "../middleware/auth";
 import { z } from "zod";
+import { getRecord, upsertRecordWithId } from "../services/drive/dataService";
+import { DriveRecord } from "../services/drive/types";
+
+const PROFILE_RECORD_ID = "app_profile";
 
 const defaultProfile = {
   name: "User",
@@ -53,32 +57,35 @@ function deepMerge(target: Record<string, unknown>, source: Record<string, unkno
   return result;
 }
 
-async function getOrCreateProfile(userId: string): Promise<Record<string, unknown>> {
-  let row = await prisma.appProfile.findUnique({ where: { userId } });
-  if (!row) {
-    row = await prisma.appProfile.create({
-      data: { userId, data: defaultProfile as object },
-    });
-  }
-  const data = row.data as Record<string, unknown>;
-  if (!data.name || Object.keys(data).length === 0) {
-    return defaultProfile as unknown as Record<string, unknown>;
-  }
-  return deepMerge(defaultProfile as unknown as Record<string, unknown>, data);
+interface ProfileRecord extends DriveRecord {
+  [key: string]: unknown;
 }
 
-async function updateProfile(userId: string, data: Record<string, unknown>): Promise<Record<string, unknown>> {
-  const current = await getOrCreateProfile(userId);
+/** Financial preferences live in the user's own Google Drive (see services/drive) — admin
+ * accounts don't have a personal financial workspace, so their profile stays Postgres-backed. */
+async function getOrCreateProfile(userId: string, isAdmin: boolean): Promise<Record<string, unknown>> {
+  if (isAdmin) {
+    let row = await prisma.appProfile.findUnique({ where: { userId } });
+    if (!row) row = await prisma.appProfile.create({ data: { userId, data: defaultProfile as object } });
+    const data = row.data as Record<string, unknown>;
+    if (!data.name || Object.keys(data).length === 0) return defaultProfile as unknown as Record<string, unknown>;
+    return deepMerge(defaultProfile as unknown as Record<string, unknown>, data);
+  }
+  const record = await getRecord<ProfileRecord>(userId, "settings", PROFILE_RECORD_ID);
+  if (!record) return defaultProfile as unknown as Record<string, unknown>;
+  return deepMerge(defaultProfile as unknown as Record<string, unknown>, record);
+}
+
+async function updateProfile(userId: string, isAdmin: boolean, data: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const current = await getOrCreateProfile(userId, isAdmin);
   const merged = deepMerge(current, data);
-  await prisma.appProfile.upsert({
-    where: { userId },
-    update: { data: merged as object },
-    create: { userId, data: merged as object },
-  });
-  // Keep the account's own `name` (used by /api/auth/me, greetings, the
-  // topbar, etc.) in sync with the profile's display name — these used to
-  // be two independent fields that only the profile one was ever written
-  // to, so the rest of the app kept showing whatever name was set at signup.
+  if (isAdmin) {
+    await prisma.appProfile.upsert({ where: { userId }, update: { data: merged as object }, create: { userId, data: merged as object } });
+  } else {
+    await upsertRecordWithId(userId, "settings", PROFILE_RECORD_ID, merged);
+  }
+  // Keep the account's own `name` (used by /api/auth/me, greetings, the topbar, etc.) in sync
+  // with the profile's display name — this is auth-account data, so it always stays in Postgres.
   if (typeof data.name === "string" && data.name.trim()) {
     await prisma.user.update({ where: { id: userId }, data: { name: data.name.trim() } });
   }
@@ -127,7 +134,7 @@ const router = Router();
 router.get(
   "/",
   asyncHandler(async (req, res) => {
-    const profile = await getOrCreateProfile(req.auth!.userId);
+    const profile = await getOrCreateProfile(req.auth!.userId, req.auth!.role !== "USER");
     res.json(profile);
   })
 );
@@ -137,7 +144,7 @@ router.patch(
   requireRecent2FA,
   asyncHandler(async (req, res) => {
     const data = updateProfileSchema.parse(req.body);
-    const updated = await updateProfile(req.auth!.userId, data);
+    const updated = await updateProfile(req.auth!.userId, req.auth!.role !== "USER", data);
     res.json(updated);
   })
 );

@@ -1,22 +1,33 @@
 import { Router } from "express";
+import crypto from "crypto";
 import { asyncHandler } from "../utils/asyncHandler";
-import { safeParam, safeBody } from "../utils/safeRequest";
-import { prisma } from "../lib/prisma";
+import { safeParam } from "../utils/safeRequest";
 import { z } from "zod";
 import { validateBody } from "../middleware/validate";
 import { ApiError } from "../middleware/errorHandler";
+import { requireDriveConnected } from "../middleware/auth";
+import { listRecords, createRecord, updateRecord, deleteRecord, getRecord } from "../services/drive/dataService";
+import { DriveRecord } from "../services/drive/types";
+
+interface CategoryRecord extends DriveRecord {
+  name: string;
+  type: "INCOME" | "EXPENSE";
+  subcategories: { id: string; name: string }[];
+}
+interface TransactionRecord extends DriveRecord {
+  categoryId: string;
+  accountId?: string | null;
+  paymentMethodTypeId?: string | null;
+}
 
 const router = Router();
+router.use(requireDriveConnected);
 
 router.get(
   "/categories",
   asyncHandler(async (req, res) => {
-    const categories = await prisma.category.findMany({
-      where: { userId: req.auth!.userId },
-      include: { subcategories: true },
-      orderBy: { name: "asc" },
-    });
-    res.json({ items: categories });
+    const items = await listRecords<CategoryRecord>(req.auth!.userId, "categories");
+    res.json({ items: [...items].sort((a, b) => a.name.localeCompare(b.name)) });
   })
 );
 
@@ -24,7 +35,8 @@ router.post(
   "/categories",
   validateBody(z.object({ name: z.string().min(1), type: z.enum(["INCOME", "EXPENSE"]) })),
   asyncHandler(async (req, res) => {
-    const category = await prisma.category.create({ data: { ...req.body, userId: req.auth!.userId } });
+    const { name, type } = req.body as { name: string; type: "INCOME" | "EXPENSE" };
+    const category = await createRecord<CategoryRecord>(req.auth!.userId, "categories", { name, type, subcategories: [] });
     res.status(201).json(category);
   })
 );
@@ -34,32 +46,32 @@ router.post(
   validateBody(z.object({ name: z.string().min(1) })),
   asyncHandler(async (req, res) => {
     const categoryId = safeParam(req, "id");
-    const category = await prisma.category.findFirst({ where: { id: categoryId, userId: req.auth!.userId } });
+    const userId = req.auth!.userId;
+    const category = await getRecord<CategoryRecord>(userId, "categories", categoryId);
     if (!category) throw new ApiError(404, "Category not found");
-    const sub = await prisma.subcategory.create({
-      data: { name: req.body.name, categoryId },
+    const sub = { id: crypto.randomUUID(), name: req.body.name as string };
+    const updated = await updateRecord<CategoryRecord>(userId, "categories", categoryId, {
+      subcategories: [...category.subcategories, sub],
     });
-    res.status(201).json(sub);
+    res.status(201).json({ ...sub, categoryId: updated.id });
   })
 );
 
 router.get(
   "/accounts",
   asyncHandler(async (req, res) => {
-    const accounts = await prisma.account.findMany({ where: { userId: req.auth!.userId }, orderBy: { name: "asc" } });
-    res.json({ items: accounts });
+    const items = await listRecords(req.auth!.userId, "accounts");
+    res.json({ items: [...items].sort((a, b) => (a.name as string).localeCompare(b.name as string)) });
   })
 );
 
-const updateAccountSchema = z.object({
-  name: z.string().min(1).optional(),
-});
+const updateAccountSchema = z.object({ name: z.string().min(1).optional() });
 
 router.post(
   "/accounts",
   validateBody(z.object({ name: z.string().min(1) })),
   asyncHandler(async (req, res) => {
-    const account = await prisma.account.create({ data: { ...req.body, userId: req.auth!.userId } });
+    const account = await createRecord(req.auth!.userId, "accounts", { name: req.body.name as string });
     res.status(201).json(account);
   })
 );
@@ -68,10 +80,11 @@ router.patch(
   "/accounts/:id",
   validateBody(updateAccountSchema),
   asyncHandler(async (req, res) => {
-    const id = String(req.params.id);
-    const existing = await prisma.account.findFirst({ where: { id, userId: req.auth!.userId } });
+    const id = safeParam(req, "id");
+    const userId = req.auth!.userId;
+    const existing = await getRecord(userId, "accounts", id);
     if (!existing) throw new ApiError(404, "Account not found");
-    const account = await prisma.account.update({ where: { id }, data: req.body });
+    const account = await updateRecord(userId, "accounts", id, req.body as { name?: string });
     res.json(account);
   })
 );
@@ -79,13 +92,14 @@ router.patch(
 router.delete(
   "/accounts/:id",
   asyncHandler(async (req, res) => {
-    const id = String(req.params.id);
+    const id = safeParam(req, "id");
     const userId = req.auth!.userId;
-    const existing = await prisma.account.findFirst({ where: { id, userId } });
+    const existing = await getRecord(userId, "accounts", id);
     if (!existing) throw new ApiError(404, "Account not found");
-    const txnCount = await prisma.transaction.count({ where: { accountId: id, userId } });
-    if (txnCount > 0) throw new ApiError(400, `Cannot delete account with ${txnCount} linked transaction(s). Archive instead.`);
-    await prisma.account.delete({ where: { id } });
+    const transactions = await listRecords<TransactionRecord>(userId, "transactions");
+    const linked = transactions.filter((t) => t.accountId === id).length;
+    if (linked > 0) throw new ApiError(400, `Cannot delete account with ${linked} linked transaction(s). Archive instead.`);
+    await deleteRecord(userId, "accounts", id);
     res.json({ success: true });
   })
 );
@@ -93,20 +107,18 @@ router.delete(
 router.get(
   "/payment-methods",
   asyncHandler(async (req, res) => {
-    const items = await prisma.paymentMethodType.findMany({ where: { userId: req.auth!.userId }, orderBy: { name: "asc" } });
-    res.json({ items });
+    const items = await listRecords(req.auth!.userId, "paymentMethods");
+    res.json({ items: [...items].sort((a, b) => (a.name as string).localeCompare(b.name as string)) });
   })
 );
 
-const updatePaymentMethodSchema = z.object({
-  name: z.string().min(1).optional(),
-});
+const updatePaymentMethodSchema = z.object({ name: z.string().min(1).optional() });
 
 router.post(
   "/payment-methods",
   validateBody(z.object({ name: z.string().min(1) })),
   asyncHandler(async (req, res) => {
-    const paymentMethod = await prisma.paymentMethodType.create({ data: { ...req.body, userId: req.auth!.userId } });
+    const paymentMethod = await createRecord(req.auth!.userId, "paymentMethods", { name: req.body.name as string });
     res.status(201).json(paymentMethod);
   })
 );
@@ -115,10 +127,11 @@ router.patch(
   "/payment-methods/:id",
   validateBody(updatePaymentMethodSchema),
   asyncHandler(async (req, res) => {
-    const id = String(req.params.id);
-    const existing = await prisma.paymentMethodType.findFirst({ where: { id, userId: req.auth!.userId } });
+    const id = safeParam(req, "id");
+    const userId = req.auth!.userId;
+    const existing = await getRecord(userId, "paymentMethods", id);
     if (!existing) throw new ApiError(404, "Payment method not found");
-    const paymentMethod = await prisma.paymentMethodType.update({ where: { id }, data: req.body });
+    const paymentMethod = await updateRecord(userId, "paymentMethods", id, req.body as { name?: string });
     res.json(paymentMethod);
   })
 );
@@ -126,13 +139,14 @@ router.patch(
 router.delete(
   "/payment-methods/:id",
   asyncHandler(async (req, res) => {
-    const id = String(req.params.id);
+    const id = safeParam(req, "id");
     const userId = req.auth!.userId;
-    const existing = await prisma.paymentMethodType.findFirst({ where: { id, userId } });
+    const existing = await getRecord(userId, "paymentMethods", id);
     if (!existing) throw new ApiError(404, "Payment method not found");
-    const txnCount = await prisma.transaction.count({ where: { paymentMethodTypeId: id, userId } });
-    if (txnCount > 0) throw new ApiError(400, `Cannot delete payment method with ${txnCount} linked transaction(s).`);
-    await prisma.paymentMethodType.delete({ where: { id } });
+    const transactions = await listRecords<TransactionRecord>(userId, "transactions");
+    const linked = transactions.filter((t) => t.paymentMethodTypeId === id).length;
+    if (linked > 0) throw new ApiError(400, `Cannot delete payment method with ${linked} linked transaction(s).`);
+    await deleteRecord(userId, "paymentMethods", id);
     res.json({ success: true });
   })
 );

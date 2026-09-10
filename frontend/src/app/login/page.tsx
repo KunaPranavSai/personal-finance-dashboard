@@ -40,6 +40,21 @@ function ErrorMessage({ children }: { children: React.ReactNode }) {
   );
 }
 
+function SuccessMessage({ children }: { children: React.ReactNode }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, height: 0 }}
+      animate={{ opacity: 1, height: "auto" }}
+      exit={{ opacity: 0, height: 0 }}
+      transition={{ duration: 0.35 }}
+      className="flex items-center gap-2 rounded-lg border border-teal-500/20 bg-teal-500/10 px-3 py-2 text-sm text-teal-300"
+    >
+      <ShieldCheck className="h-4 w-4 shrink-0" />
+      {children}
+    </motion.div>
+  );
+}
+
 export default function LoginPage() {
   const { user, login, loginWithPasskey, verifyLogin2FA, forceChangePassword, isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
@@ -55,6 +70,7 @@ export default function LoginPage() {
   const [webAuthnSupported, setWebAuthnSupported] = useState(false);
   const [mode, setMode] = useState<"password" | "biometric">("password");
   const [biometricPending, setBiometricPending] = useState(false);
+  const [info, setInfo] = useState("");
 
   useEffect(() => {
     const supported = browserSupportsWebAuthn();
@@ -62,12 +78,20 @@ export default function LoginPage() {
     if (supported && localStorage.getItem(PREFER_BIOMETRIC_KEY) === "1") {
       setMode("biometric");
     }
+    const params = new URLSearchParams(window.location.search);
     const remembered = localStorage.getItem(REMEMBERED_UID_KEY);
+    const registeredUid = params.get("registered") === "1" ? params.get("uid") : null;
     if (remembered) {
       setUid(remembered);
       setRememberMe(true);
+    } else if (registeredUid) {
+      setUid(registeredUid);
+      setRememberMe(false);
     } else {
       setRememberMe(false);
+    }
+    if (registeredUid) {
+      setInfo("Your account has been created. Sign in below to get started.");
     }
     if (sessionStorage.getItem(SESSION_EXPIRED_REASON_KEY) === "inactivity") {
       sessionStorage.removeItem(SESSION_EXPIRED_REASON_KEY);
@@ -265,6 +289,8 @@ export default function LoginPage() {
           </motion.div>
         ) : (
           <motion.form key="password" initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 12 }} transition={{ duration: 0.25 }} onSubmit={handleSubmit} className="space-y-5">
+            {info && <SuccessMessage>{info}</SuccessMessage>}
+
             {webAuthnSupported && (
               <button
                 type="button"

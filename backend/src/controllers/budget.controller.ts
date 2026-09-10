@@ -1,8 +1,25 @@
 import { Request, Response } from "express";
-import { prisma } from "../lib/prisma";
-import { Prisma } from "@prisma/client";
 import { safeBody, safeParam, safeQuery } from "../utils/safeRequest";
 import { createBudgetSchema, listBudgetsQuerySchema, updateBudgetSchema } from "../schemas/budget.schema";
+import { listRecords, createRecord, updateRecord, deleteRecord, getRecord } from "../services/drive/dataService";
+import { DriveRecord } from "../services/drive/types";
+
+interface BudgetRecord extends DriveRecord {
+  categoryId: string;
+  period: "MONTHLY" | "QUARTERLY" | "YEARLY";
+  periodKey: string;
+  amount: number;
+}
+interface CategoryRecord extends DriveRecord {
+  name: string;
+  type: "INCOME" | "EXPENSE";
+}
+interface TransactionRecord extends DriveRecord {
+  date: string;
+  amount: number;
+  type: "INCOME" | "EXPENSE";
+  categoryId: string;
+}
 
 // Convert a periodKey + period into a date range for matching actual expenses.
 function periodToRange(period: "MONTHLY" | "QUARTERLY" | "YEARLY", periodKey: string) {
@@ -33,63 +50,64 @@ export async function listBudgets(req: Request, res: Response) {
   const query = safeQuery(listBudgetsQuerySchema, req);
   const userId = req.auth!.userId;
 
-  const budgets = await prisma.budget.findMany({
-    where: { userId, ...(query.period && { period: query.period }), ...(query.periodKey && { periodKey: query.periodKey }) },
-    include: { category: true },
-    orderBy: { category: { name: "asc" } },
-  });
+  const [allBudgets, categories, transactions] = await Promise.all([
+    listRecords<BudgetRecord>(userId, "budgets"),
+    listRecords<CategoryRecord>(userId, "categories"),
+    listRecords<TransactionRecord>(userId, "transactions"),
+  ]);
+  const categoryMap = new Map(categories.map((c) => [c.id, c]));
 
-  const enriched = await Promise.all(
-    budgets.map(async (b: Prisma.BudgetGetPayload<{ include: { category: true } }>) => {
-      const { start, end } = periodToRange(b.period, b.periodKey);
-      const agg = await prisma.transaction.aggregate({
-        where: { userId, categoryId: b.categoryId, type: "EXPENSE", date: { gte: start, lt: end } },
-        _sum: { amount: true },
-      });
-      const actual = Number(agg._sum.amount ?? 0);
-      const budgetAmount = Number(b.amount);
-      const remaining = budgetAmount - actual;
-      const utilization = budgetAmount > 0 ? actual / budgetAmount : 0;
-      return {
-        ...b,
-        amount: budgetAmount,
-        actual,
-        remaining,
-        utilizationPct: utilization,
-        variance: actual - budgetAmount,
-        status: computeStatus(utilization),
-      };
-    })
-  );
+  let budgets = allBudgets;
+  if (query.period) budgets = budgets.filter((b) => b.period === query.period);
+  if (query.periodKey) budgets = budgets.filter((b) => b.periodKey === query.periodKey);
+  budgets = [...budgets].sort((a, b) => (categoryMap.get(a.categoryId)?.name ?? "").localeCompare(categoryMap.get(b.categoryId)?.name ?? ""));
+
+  const enriched = budgets.map((b) => {
+    const { start, end } = periodToRange(b.period, b.periodKey);
+    const actual = transactions
+      .filter((t) => t.categoryId === b.categoryId && t.type === "EXPENSE" && new Date(t.date) >= start && new Date(t.date) < end)
+      .reduce((sum, t) => sum + t.amount, 0);
+    const budgetAmount = Number(b.amount);
+    const remaining = budgetAmount - actual;
+    const utilization = budgetAmount > 0 ? actual / budgetAmount : 0;
+    const category = categoryMap.get(b.categoryId) ?? null;
+    return {
+      ...b,
+      category: category ? { id: category.id, name: category.name, type: category.type } : null,
+      amount: budgetAmount,
+      actual,
+      remaining,
+      utilizationPct: utilization,
+      variance: actual - budgetAmount,
+      status: computeStatus(utilization),
+    };
+  });
 
   res.json({ items: enriched });
 }
 
 export async function createBudget(req: Request, res: Response) {
   const data = safeBody(createBudgetSchema, req);
-  const budget = await prisma.budget.create({
-    data: { userId: req.auth!.userId, categoryId: data.categoryId, period: data.period, periodKey: data.periodKey, amount: data.amount },
-    include: { category: true },
-  });
-  res.status(201).json(budget);
+  const userId = req.auth!.userId;
+  const budget = await createRecord<BudgetRecord>(userId, "budgets", data);
+  const category = await getRecord<CategoryRecord>(userId, "categories", data.categoryId);
+  res.status(201).json({ ...budget, category: category ? { id: category.id, name: category.name, type: category.type } : null });
 }
 
 export async function updateBudget(req: Request, res: Response) {
   const id = safeParam(req, "id");
   const data = safeBody(updateBudgetSchema, req);
-  const existing = await prisma.budget.findFirst({ where: { id, userId: req.auth!.userId } });
+  const userId = req.auth!.userId;
+  const existing = await getRecord<BudgetRecord>(userId, "budgets", id);
   if (!existing) { res.status(404).json({ error: "Budget not found" }); return; }
-  const budget = await prisma.budget.update({
-    where: { id },
-    data,
-    include: { category: true },
-  });
-  res.json(budget);
+  const budget = await updateRecord<BudgetRecord>(userId, "budgets", id, data);
+  const category = await getRecord<CategoryRecord>(userId, "categories", budget.categoryId);
+  res.json({ ...budget, category: category ? { id: category.id, name: category.name, type: category.type } : null });
 }
 
 export async function deleteBudget(req: Request, res: Response) {
   const id = safeParam(req, "id");
-  const result = await prisma.budget.deleteMany({ where: { id, userId: req.auth!.userId } });
-  if (result.count === 0) { res.status(404).json({ error: "Budget not found" }); return; }
+  const deleted = await deleteRecord(req.auth!.userId, "budgets", id);
+  if (!deleted) { res.status(404).json({ error: "Budget not found" }); return; }
   res.status(204).send();
 }

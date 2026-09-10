@@ -78,8 +78,6 @@ router.get(
     const [
       totalUsers, activeUsers, pendingApprovals, suspendedUsers,
       signupsToday, signupsWeek, signupsMonth,
-      totalAccounts, totalTransactions, totalBudgets, totalGoals,
-      totalInvestments, totalBills, totalCategories,
       recentActivity,
     ] = await Promise.all([
       prisma.user.count(),
@@ -89,13 +87,6 @@ router.get(
       prisma.user.count({ where: { createdAt: { gte: startOfToday } } }),
       prisma.user.count({ where: { createdAt: { gte: startOfWeek } } }),
       prisma.user.count({ where: { createdAt: { gte: startOfMonth } } }),
-      prisma.account.count(),
-      prisma.transaction.count(),
-      prisma.budget.count(),
-      prisma.goal.count(),
-      prisma.investment.count(),
-      prisma.bill.count(),
-      prisma.category.count(),
       prisma.activityLog.findMany({
         where: { event: { in: ADMIN_ACTIVITY_EVENTS } },
         orderBy: { createdAt: "desc" },
@@ -115,10 +106,8 @@ router.get(
     res.json({
       users: { total: totalUsers, active: activeUsers, pending: pendingApprovals, suspended: suspendedUsers },
       signups: { today: signupsToday, week: signupsWeek, month: signupsMonth },
-      records: {
-        accounts: totalAccounts, transactions: totalTransactions, budgets: totalBudgets, goals: totalGoals,
-        investments: totalInvestments, bills: totalBills, categories: totalCategories,
-      },
+      // No "records" (transactions/budgets/etc.) section — that data now lives in each user's
+      // own Google Drive, which the platform has no visibility into by design.
       signupTrend: signupTrend.map((r) => ({ day: r.day, count: Number(r.count) })),
       recentActivity: recentActivity.map((a) => ({
         id: a.id, event: a.event, detail: a.detail, createdAt: a.createdAt,
@@ -270,8 +259,10 @@ router.get(
 );
 
 // ─── GET /api/admin/backup ────────────────────────────────────────────────────
-// Platform-wide JSON backup: per-user app settings/profile + aggregate counts only —
-// never individual users' transactions, budgets, investments, bills, or goals.
+// Platform-wide JSON backup of ACCOUNT records only — role, status, timestamps. Never
+// financial data: that lives solely in each user's own Google Drive, which the platform has
+// no access to. Admin-account settings/profile (Postgres-backed, see requireDriveConnected)
+// are included since those are genuinely this platform's own data, not a user's financial data.
 router.get(
   "/backup",
   asyncHandler(async (req: Request, res: Response) => {
@@ -280,19 +271,17 @@ router.get(
         id: true, uid: true, email: true, name: true, role: true, status: true, createdAt: true, approvedAt: true,
         settings: { select: { data: true } },
         profile: { select: { data: true } },
-        _count: { select: { transactions: true, budgets: true, investments: true, bills: true, goals: true, categories: true, accounts: true } },
       },
     });
     const backup = {
       exportedAt: new Date().toISOString(),
-      version: "1.0.0",
+      version: "2.0.0",
       userCount: users.length,
       users: users.map((u) => ({
         uid: u.uid, email: u.email, name: u.name, role: u.role, status: u.status,
         createdAt: u.createdAt, approvedAt: u.approvedAt,
-        settings: u.settings?.data ?? null,
-        profile: u.profile?.data ?? null,
-        recordCounts: u._count,
+        settings: u.role !== "USER" ? (u.settings?.data ?? null) : null,
+        profile: u.role !== "USER" ? (u.profile?.data ?? null) : null,
       })),
     };
     const ds = new Date().toISOString().slice(0, 10);

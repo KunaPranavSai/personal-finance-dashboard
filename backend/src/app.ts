@@ -17,12 +17,12 @@ import notificationsRoutes from "./routes/notifications.routes";
 import profileRoutes from "./routes/profile.routes";
 import settingsRoutes from "./routes/settings.routes";
 import exportRoutes from "./routes/export.routes";
-import backupRoutes from "./routes/backup.routes";
+import driveRoutes from "./routes/drive.routes";
 import authRoutes from "./routes/auth.routes";
 import activityRoutes from "./routes/activity.routes";
 import adminRoutes from "./routes/admin.routes";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler";
-import { authenticate, requireRole } from "./middleware/auth";
+import { authenticate, requireRole, requireDriveConnected } from "./middleware/auth";
 
 const isProd = process.env.NODE_ENV === "production";
 const COOKIE_SECRET = process.env.COOKIE_SECRET ?? "pfd-cookie-secret";
@@ -116,24 +116,38 @@ export function createApp() {
   // Auth routes (public — login / logout / refresh)
   app.use("/api/auth", authRoutes);
 
-  // Protected finance routes
-  app.use("/api/transactions", authenticate, transactionsRoutes);
-  app.use("/api/budgets", authenticate, budgetRoutes);
-  app.use("/api/dashboard", authenticate, dashboardRoutes);
-  app.use("/api", authenticate, referenceRoutes);
-  app.use("/api/investments", authenticate, investmentsRoutes);
-  app.use("/api/bills", authenticate, billsRoutes);
-  app.use("/api/goals", authenticate, goalsRoutes);
-  app.use("/api/savings", authenticate, savingsRoutes);
-  app.use("/api/analytics", authenticate, analyticsRoutes);
-  app.use("/api/reports", authenticate, reportsRoutes);
+  // Google Drive connection itself — must be reachable before a user is "connected", so this
+  // is authenticated but NOT gated behind requireDriveConnected (that would be circular).
+  app.use("/api/drive", authenticate, driveRoutes);
+
+  // Protected finance routes — Drive is the only persistent store for this data, so every one
+  // of these requires an initialized Drive connection in addition to being logged in.
+  app.use("/api/transactions", authenticate, requireDriveConnected, transactionsRoutes);
+  app.use("/api/budgets", authenticate, requireDriveConnected, budgetRoutes);
+  app.use("/api/dashboard", authenticate, requireDriveConnected, dashboardRoutes);
+  app.use("/api/investments", authenticate, requireDriveConnected, investmentsRoutes);
+  app.use("/api/bills", authenticate, requireDriveConnected, billsRoutes);
+  app.use("/api/goals", authenticate, requireDriveConnected, goalsRoutes);
+  app.use("/api/savings", authenticate, requireDriveConnected, savingsRoutes);
+  app.use("/api/analytics", authenticate, requireDriveConnected, analyticsRoutes);
+  app.use("/api/reports", authenticate, requireDriveConnected, reportsRoutes);
+  app.use("/api/profile", authenticate, requireDriveConnected, profileRoutes);
+  app.use("/api/settings", authenticate, requireDriveConnected, settingsRoutes);
+  app.use("/api/export", authenticate, requireDriveConnected, exportRoutes);
+
+  // Not financial data — stays Postgres-backed, no Drive gate needed.
   app.use("/api/notifications", authenticate, notificationsRoutes);
-  app.use("/api/profile", authenticate, profileRoutes);
-  app.use("/api/settings", authenticate, settingsRoutes);
-  app.use("/api/export", authenticate, exportRoutes);
-  app.use("/api/backup", authenticate, backupRoutes);
   app.use("/api/activity", authenticate, activityRoutes);
   app.use("/api/admin", authenticate, requireRole("SUPER_ADMIN", "ADMIN"), adminRoutes);
+
+  // referenceRoutes is mounted at the bare "/api" prefix (its own routes are /categories,
+  // /accounts, /payment-methods) and MUST be registered last among /api/* mounts: Express
+  // matches middleware by registration order for overlapping prefixes, not by specificity, and
+  // an Express Router falls through to the next app.use when none of its own routes match a
+  // path — so if this were registered earlier, its requireDriveConnected (applied inside
+  // reference.routes.ts) would incorrectly run for every other /api/* request too, before ever
+  // reaching their real, more specific handlers below.
+  app.use("/api", authenticate, referenceRoutes);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

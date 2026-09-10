@@ -10,8 +10,7 @@ import { prisma } from "../lib/prisma";
 import { authenticate, requireRole, requireRecent2FA, AuthPayload } from "../middleware/auth";
 import { getSessionVersion, bumpSessionVersion } from "../lib/sessionVersion";
 import { logActivity } from "../lib/activityLog";
-import { notifySecurityEvent, notifyAdmins, sendEmail, createNotification } from "../lib/notify";
-import { seedDefaultDataForUser } from "../lib/startup";
+import { notifySecurityEvent, sendEmail, createNotification } from "../lib/notify";
 import { RP_ID, RP_NAME, RP_ORIGINS } from "../lib/webauthn";
 import { computeSessionExpiryForUser } from "../lib/sessionExpiry";
 import { ACCESS_SECRET, REFRESH_SECRET, signAccess, signRefresh, setTokenCookies, TfaClaims } from "../lib/tokens";
@@ -27,7 +26,7 @@ import type {
   AuthenticatorTransportFuture,
 } from "@simplewebauthn/server";
 import {
-  WELCOME_EMAIL_HTML, REJECTION_EMAIL_HTML, PASSWORD_RESET_BY_ADMIN_EMAIL_HTML,
+  PASSWORD_RESET_BY_ADMIN_EMAIL_HTML,
   UID_RESET_BY_ADMIN_EMAIL_HTML, ACCOUNT_UPDATED_BY_ADMIN_EMAIL_HTML,
 } from "../lib/emailTemplates";
 import type { User } from "@prisma/client";
@@ -105,13 +104,16 @@ async function verifyTwoFactorCode(userId: string, security: SecurityState, code
 }
 
 // ─── POST /api/auth/signup ───────────────────────────────────────────────────
+// Accounts are activated immediately on signup — there is no admin approval
+// step. The user sets their own password here (instead of an admin issuing a
+// temporary one), so the account is usable right away.
 router.post(
   "/signup",
   signupLimiter,
   asyncHandler(async (req: Request, res: Response) => {
-    const { name, email, phone } = req.body as { name?: string; email?: string; phone?: string };
-    if (!name?.trim() || !email?.trim()) {
-      res.status(400).json({ error: "Name and email are required" });
+    const { name, email, phone, password } = req.body as { name?: string; email?: string; phone?: string; password?: string };
+    if (!name?.trim() || !email?.trim() || !password) {
+      res.status(400).json({ error: "Name, email, and password are required" });
       return;
     }
     const normalizedEmail = email.trim().toLowerCase();
@@ -119,11 +121,16 @@ router.post(
       res.status(400).json({ error: "Please enter a valid email address" });
       return;
     }
+    if (!isStrongPassword(password)) {
+      res.status(400).json({ error: "Password must be at least 8 characters and include a letter and a number" });
+      return;
+    }
     const existing = await prisma.user.findFirst({ where: { email: normalizedEmail } });
     if (existing) {
       res.status(409).json({ error: "An account with this email already exists" });
       return;
     }
+    const passwordHash = await bcrypt.hash(password, 12);
     const user = await prisma.user.create({
       data: {
         uid: normalizedEmail,
@@ -131,16 +138,16 @@ router.post(
         name: name.trim(),
         phone: phone?.trim() || null,
         role: "USER",
-        status: "PENDING",
+        status: "ACTIVE",
+        passwordHash,
+        mustChangePassword: false,
       },
     });
-    void logActivity(req, "signup_requested", `Registration submitted for ${normalizedEmail}`, user.id);
-    void notifyAdmins(
-      "user_signup",
-      "New user registration",
-      `${user.name} (${user.email}${user.phone ? `, ${user.phone}` : ""}) has requested access and is awaiting approval.`
-    );
-    res.status(201).json({ ok: true, message: "Your registration has been received and is pending administrator approval." });
+    // No default categories/accounts are seeded here — that now happens once the user
+    // connects Google Drive (see services/drive/init.ts), since that data belongs in their
+    // Drive, not Postgres.
+    void logActivity(req, "signup_requested", `Account created for ${normalizedEmail}`, user.id);
+    res.status(201).json({ ok: true, message: "Your account has been created. You can sign in now." });
   })
 );
 
@@ -157,14 +164,6 @@ router.post(
     const user = await prisma.user.findUnique({ where: { uid: uid.trim() } });
     if (!user || !user.passwordHash) {
       res.status(401).json({ error: "Invalid credentials" });
-      return;
-    }
-    if (user.status === "PENDING") {
-      res.status(403).json({ error: "Your account is awaiting administrator approval." });
-      return;
-    }
-    if (user.status === "REJECTED") {
-      res.status(403).json({ error: "Your registration was not approved. Contact support for details." });
       return;
     }
     if (user.status === "SUSPENDED") {
@@ -801,114 +800,15 @@ router.get(
   })
 );
 
-// ─── GET /api/auth/users/pending ─────────────────────────────────────────────
-router.get(
-  "/users/pending",
-  authenticate,
-  requireRole("SUPER_ADMIN", "ADMIN"),
-  asyncHandler(async (_req: Request, res: Response) => {
-    const users = await prisma.user.findMany({
-      where: { status: "PENDING" },
-      orderBy: { createdAt: "asc" },
-      select: { id: true, name: true, email: true, phone: true, createdAt: true },
-    });
-    res.json({ items: users });
-  })
-);
-
 // ─── GET /api/auth/users/generate-temp-password ──────────────────────────────
-// Stateless helper for the admin approval/reset-password forms — generates a
-// candidate strong password without writing anything to the database.
+// Stateless helper for the admin reset-password form — generates a candidate
+// strong password without writing anything to the database.
 router.get(
   "/users/generate-temp-password",
   authenticate,
   requireRole("SUPER_ADMIN", "ADMIN"),
   asyncHandler(async (_req: Request, res: Response) => {
     res.json({ password: generateTempPassword() });
-  })
-);
-
-// ─── POST /api/auth/users/:id/approve ────────────────────────────────────────
-router.post(
-  "/users/:id/approve",
-  authenticate,
-  requireRole("SUPER_ADMIN", "ADMIN"),
-  asyncHandler(async (req: Request, res: Response) => {
-    const id = String(req.params.id);
-    const { uid, password, sendEmail: shouldSendEmail } = req.body as { uid?: string; password?: string; sendEmail?: boolean };
-    const target = await prisma.user.findUnique({ where: { id } });
-    if (!target || target.status !== "PENDING") {
-      res.status(400).json({ error: "User not found or not pending approval" });
-      return;
-    }
-    const finalUid = (uid?.trim() || target.email).trim();
-    if (!/^[a-zA-Z0-9_.@-]{4,50}$/.test(finalUid)) {
-      res.status(400).json({ error: "UID must be 4-50 characters (letters, numbers, _ . @ -)" });
-      return;
-    }
-    const finalPassword = password?.trim() || generateTempPassword();
-    if (!isStrongPassword(finalPassword)) {
-      res.status(400).json({ error: "Password must be at least 8 characters and include a letter and a number" });
-      return;
-    }
-    if (finalUid !== target.uid) {
-      const conflict = await prisma.user.findFirst({ where: { uid: finalUid, id: { not: id } } });
-      if (conflict) {
-        res.status(409).json({ error: "That UID is already taken" });
-        return;
-      }
-    }
-    const hash = await bcrypt.hash(finalPassword, 12);
-    const updated = await prisma.user.update({
-      where: { id },
-      data: {
-        uid: finalUid,
-        status: "ACTIVE",
-        passwordHash: hash,
-        mustChangePassword: true,
-        approvedAt: new Date(),
-        approvedById: req.auth!.userId,
-      },
-    });
-    void seedDefaultDataForUser(updated.id);
-    void logActivity(req, "user_approved", `Approved ${updated.email}`, req.auth!.userId);
-
-    let emailSent = false;
-    if (shouldSendEmail !== false) {
-      emailSent = await sendEmail(updated.email, "Welcome to Penny Pilot — your account is approved", WELCOME_EMAIL_HTML(updated.name, updated.uid, finalPassword));
-    }
-    res.json({
-      ok: true,
-      emailSent,
-      message: emailSent
-        ? `${updated.name} has been approved and notified by email.`
-        : `${updated.name} has been approved. Share these credentials with them directly — the email was not sent.`,
-      uid: updated.uid,
-      password: emailSent ? undefined : finalPassword,
-    });
-  })
-);
-
-// ─── POST /api/auth/users/:id/reject ─────────────────────────────────────────
-router.post(
-  "/users/:id/reject",
-  authenticate,
-  requireRole("SUPER_ADMIN", "ADMIN"),
-  asyncHandler(async (req: Request, res: Response) => {
-    const id = String(req.params.id);
-    const { reason } = req.body as { reason?: string };
-    const target = await prisma.user.findUnique({ where: { id } });
-    if (!target || target.status !== "PENDING") {
-      res.status(400).json({ error: "User not found or not pending approval" });
-      return;
-    }
-    const updated = await prisma.user.update({
-      where: { id },
-      data: { status: "REJECTED", rejectedAt: new Date(), rejectionReason: reason?.trim() || null },
-    });
-    void sendEmail(updated.email, "Penny Pilot registration update", REJECTION_EMAIL_HTML(updated.name, updated.rejectionReason ?? undefined));
-    void logActivity(req, "user_rejected", `Rejected ${updated.email}${reason ? `: ${reason}` : ""}`, req.auth!.userId);
-    res.json({ ok: true, message: `${updated.name}'s registration has been rejected.` });
   })
 );
 
@@ -979,7 +879,9 @@ router.patch(
         res.status(400).json({ error: "Invalid status" });
         return;
       }
-      if (target.status === "SUSPENDED" || target.status === "ACTIVE") {
+      // PENDING is included so any account created before this workflow was
+      // removed can still be manually activated from here.
+      if (target.status === "SUSPENDED" || target.status === "ACTIVE" || target.status === "PENDING") {
         data.status = status;
         changes.push(`Status changed to ${status}`);
         if (status !== "ACTIVE") data.sessionVersion = { increment: 1 };
@@ -1082,23 +984,15 @@ router.get(
       res.status(404).json({ error: "User not found" });
       return;
     }
-    const [
-      transactions, budgets, investments, bills, goals,
-      categories, accounts, paymentMethods, notifications, activityLogs,
-    ] = await Promise.all([
-      prisma.transaction.count({ where: { userId: id } }),
-      prisma.budget.count({ where: { userId: id } }),
-      prisma.investment.count({ where: { userId: id } }),
-      prisma.bill.count({ where: { userId: id } }),
-      prisma.goal.count({ where: { userId: id } }),
-      prisma.category.count({ where: { userId: id } }),
-      prisma.account.count({ where: { userId: id } }),
-      prisma.paymentMethodType.count({ where: { userId: id } }),
+    // Financial-model counts (transactions/budgets/etc.) are deliberately not included here —
+    // that data lives solely in the user's own Google Drive, which the platform (and its
+    // admins) has no visibility into by design.
+    const [notifications, activityLogs] = await Promise.all([
       prisma.notification.count({ where: { userId: id } }),
       prisma.activityLog.count({ where: { userId: id } }),
     ]);
     res.json({
-      counts: { transactions, budgets, investments, bills, goals, categories, accounts, paymentMethods, notifications, activityLogs },
+      counts: { notifications, activityLogs },
       createdAt: target.createdAt,
       approvedAt: target.approvedAt,
     });

@@ -63,7 +63,7 @@ export default function AdminBackupPage() {
               <div>
                 <p className="text-sm font-semibold text-navy dark:text-white">Download Full Backup</p>
                 <p className="mt-1 text-sm text-navy/60 dark:text-white/60">
-                  Every account&apos;s settings, profile, and record counts — as JSON.
+                  Every account&apos;s role, status, and timestamps — as JSON.
                 </p>
               </div>
               <Button onClick={handleDownload} disabled={downloading}>
@@ -83,8 +83,9 @@ export default function AdminBackupPage() {
             </div>
             <div className="mt-3 flex items-start gap-2 rounded-lg bg-black/5 p-3 text-xs text-navy/50 dark:bg-white/5 dark:text-white/50">
               <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-              Backups never include individual transactions, budget line items, investments, bills, or goals — only
-              account metadata and aggregate record counts, consistent with the platform&apos;s privacy boundary.
+              Backups never include financial data (transactions, budgets, investments, bills, goals, categories,
+              accounts) — that lives solely in each user&apos;s own Google Drive, which the platform has no access
+              to. Only account metadata (role, status, timestamps) is included.
             </div>
           </CardContent>
         </Card>
