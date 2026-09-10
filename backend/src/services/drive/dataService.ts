@@ -448,3 +448,73 @@ export async function initializeEmptyWorkspace(accessToken: string, dataFolderId
   manifest.accountEmail = accountEmail;
   manifestFileId = await upsertFile(accessToken, metadataFolderId, MANIFEST_FILENAME, JSON.stringify(manifest, null, 2), manifestFileId ?? undefined);
 }
+
+// ─── Setup-time helpers (raw accessToken/folder context, no DB lookup) ────────
+// The functions below are used only during the connect/setup flow (services/drive/init.ts),
+// before the connection's `backupFolderId` is durably persisted to Postgres — so they take
+// their Drive context directly instead of going through `withWorkspace`, which requires that
+// row to already exist. This is what lets setup verify a workspace is fully ready *before*
+// the app ever marks the account "Drive-initialized".
+
+/** Bulk-replace an entire collection's records, given an already-resolved Drive context. Used
+ * only by the one-time legacy-data migration (services/drive/init.ts), which resolves its own
+ * folder ids up front rather than via a persisted connection. */
+export async function replaceCollectionWithContext<T extends DriveRecord = DriveRecord>(
+  userId: string,
+  accessToken: string,
+  dataFolderId: string,
+  metadataFolderId: string,
+  collection: CollectionName,
+  records: T[]
+): Promise<void> {
+  return withLock(`${userId}:${collection}`, async () => {
+    const file = await loadCollectionFile(userId, accessToken, dataFolderId, metadataFolderId, collection, { bypassCache: true });
+    file.records = records;
+    await saveCollectionFile(userId, accessToken, dataFolderId, metadataFolderId, collection, file);
+  });
+}
+
+/** Reads the manifest's migration-completion marker directly (raw context, no DB/user cache). */
+export async function readMigrationMarker(accessToken: string, metadataFolderId: string): Promise<string | null> {
+  const manifestFileId = await findFile(accessToken, metadataFolderId, MANIFEST_FILENAME);
+  if (!manifestFileId) return null;
+  try {
+    const manifest: ManifestFile = JSON.parse(await readFileContent(accessToken, manifestFileId));
+    return manifest.migrationCompletedAt ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Stamps the manifest as migration-verified — only ever called after the migrated data has
+ * been read back from Drive and confirmed to match what was written (see init.ts). This stamp,
+ * not mere manifest existence, is what setupWorkspace uses to decide whether legacy-data
+ * migration still needs to (re)run, which is what makes a retry after a partial failure safe. */
+export async function markMigrationVerified(accessToken: string, metadataFolderId: string): Promise<void> {
+  const manifestFileId = await findFile(accessToken, metadataFolderId, MANIFEST_FILENAME);
+  if (!manifestFileId) throw new ApiError(500, "Cannot mark migration complete: manifest is missing.", "DRIVE_DATA_CORRUPTED");
+  const manifest: ManifestFile = JSON.parse(await readFileContent(accessToken, manifestFileId));
+  manifest.migrationCompletedAt = new Date().toISOString();
+  manifest.updatedAt = manifest.migrationCompletedAt;
+  await upsertFile(accessToken, metadataFolderId, MANIFEST_FILENAME, JSON.stringify(manifest, null, 2), manifestFileId);
+}
+
+/** Same as verifyStorage(), but for setup-time use with a raw, not-yet-persisted Drive context. */
+export async function verifyStorageWithContext(
+  accessToken: string,
+  dataFolderId: string,
+  metadataFolderId: string,
+  userId: string
+): Promise<{ ok: boolean; issues: string[]; counts: Partial<Record<CollectionName, number>> }> {
+  const issues: string[] = [];
+  const counts: Partial<Record<CollectionName, number>> = {};
+  for (const name of COLLECTIONS) {
+    try {
+      const file = await loadCollectionFile(userId, accessToken, dataFolderId, metadataFolderId, name, { bypassCache: true });
+      counts[name] = file.records.length;
+    } catch (err) {
+      issues.push(`${name}: ${err instanceof Error ? err.message : "unknown error"}`);
+    }
+  }
+  return { ok: issues.length === 0, issues, counts };
+}

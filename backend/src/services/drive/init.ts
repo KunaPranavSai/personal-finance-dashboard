@@ -3,11 +3,17 @@ import { prisma } from "../../lib/prisma";
 import {
   findOrCreateFolder,
   findExistingPennyPilotRoot,
-  findFile,
   DATA_FOLDER_NAME,
   METADATA_FOLDER_NAME,
 } from "./googleDriveClient";
-import { initializeEmptyWorkspace, replaceCollection, invalidateAllCachesForUser } from "./dataService";
+import {
+  initializeEmptyWorkspace,
+  replaceCollectionWithContext,
+  readMigrationMarker,
+  markMigrationVerified,
+  verifyStorageWithContext,
+  invalidateAllCachesForUser,
+} from "./dataService";
 import { DriveRecord } from "./types";
 
 const expenseCategories: Record<string, string[]> = {
@@ -64,13 +70,37 @@ function defaultAccountRecords(): DriveRecord[] {
   return defaultAccountNames.map((name) => ({ id: crypto.randomUUID(), name, createdAt: now, updatedAt: now }));
 }
 
+/** True if this account has any pre-existing financial rows in Postgres from before Penny
+ * Pilot moved to Google Drive as the source of truth — i.e. a "legacy" account that needs the
+ * migration flow, as opposed to a genuinely new signup with nothing to move. Read-only, side
+ * effect free, safe to call before any Drive connection exists (used by GET /api/drive/status
+ * so the frontend can show "Migrate your data" messaging before the user even connects). */
+export async function hasLegacyPostgresData(userId: string): Promise<boolean> {
+  const [categoryCount, transactionCount, budgetCount, investmentCount, billCount, goalCount] = await Promise.all([
+    prisma.category.count({ where: { userId } }),
+    prisma.transaction.count({ where: { userId } }),
+    prisma.budget.count({ where: { userId } }),
+    prisma.investment.count({ where: { userId } }),
+    prisma.bill.count({ where: { userId } }),
+    prisma.goal.count({ where: { userId } }),
+  ]);
+  return categoryCount + transactionCount + budgetCount + investmentCount + billCount + goalCount > 0;
+}
+
 /**
- * One-time migration of a user's pre-existing Postgres financial rows into their freshly
- * initialized Drive workspace. Only ever runs against an empty workspace (checked by the
- * caller), so it can never overwrite records the user has already created in Drive. Postgres
- * rows are left untouched (not deleted) — nothing in the app reads them again after this.
+ * One-time migration of a user's pre-existing Postgres financial rows into their Drive
+ * workspace. Safe to re-run: it always re-reads Postgres (which this never modifies or
+ * deletes) and wholesale-replaces the Drive collections, so a retry after a partial failure
+ * overwrites rather than duplicates. The caller (setupWorkspace) only invokes this while the
+ * migration-verified marker is absent, and only stamps that marker after this succeeds and the
+ * written data is read back and verified.
  */
-async function migratePostgresDataToDrive(userId: string): Promise<{ migrated: boolean; counts: Record<string, number> }> {
+async function migratePostgresDataToDrive(
+  userId: string,
+  accessToken: string,
+  dataFolderId: string,
+  metadataFolderId: string
+): Promise<{ migrated: boolean; counts: Record<string, number> }> {
   const [categories, accounts, paymentMethods, transactions, budgets, investments, bills, goals] = await Promise.all([
     prisma.category.findMany({ where: { userId }, include: { subcategories: true } }),
     prisma.account.findMany({ where: { userId } }),
@@ -115,13 +145,33 @@ async function migratePostgresDataToDrive(userId: string): Promise<{ migrated: b
     return { id: newId, name: p.name, createdAt: p.createdAt.toISOString(), updatedAt: p.createdAt.toISOString() };
   });
 
+  // A transaction/budget whose Postgres categoryId doesn't resolve to one of this user's
+  // categories (a pre-existing dangling reference — e.g. the category row was removed
+  // directly in the database at some point) is remapped to a lazily-created "Uncategorized"
+  // fallback category instead of being written with a null categoryId. This is the actual
+  // fix for the dashboard's "Cannot read properties of null (reading 'name')" crash: the API
+  // legitimately returns `category: null` for an unresolvable categoryId, and every migrated
+  // record now has a real, resolvable one instead of ever depending on that null case.
+  const fallbackCategoryIds = new Map<"EXPENSE" | "INCOME", string>();
+  function resolveCategoryId(oldCategoryId: string, type: "EXPENSE" | "INCOME"): string {
+    const mapped = categoryIdMap.get(oldCategoryId);
+    if (mapped) return mapped;
+    let fallbackId = fallbackCategoryIds.get(type);
+    if (!fallbackId) {
+      fallbackId = crypto.randomUUID();
+      fallbackCategoryIds.set(type, fallbackId);
+      categoryRecords.push({ id: fallbackId, name: "Uncategorized", type, subcategories: [], createdAt: now, updatedAt: now });
+    }
+    return fallbackId;
+  }
+
   const transactionRecords: DriveRecord[] = transactions.map((t) => ({
     id: crypto.randomUUID(),
     date: t.date.toISOString(),
     description: t.description,
     amount: Number(t.amount),
     type: t.type,
-    categoryId: categoryIdMap.get(t.categoryId) ?? null,
+    categoryId: resolveCategoryId(t.categoryId, t.type),
     merchant: t.merchant,
     accountId: t.accountId ? accountIdMap.get(t.accountId) ?? null : null,
     paymentMethodTypeId: t.paymentMethodTypeId ? paymentMethodIdMap.get(t.paymentMethodTypeId) ?? null : null,
@@ -138,7 +188,7 @@ async function migratePostgresDataToDrive(userId: string): Promise<{ migrated: b
 
   const budgetRecords: DriveRecord[] = budgets.map((b) => ({
     id: crypto.randomUUID(),
-    categoryId: categoryIdMap.get(b.categoryId) ?? null,
+    categoryId: resolveCategoryId(b.categoryId, "EXPENSE"),
     period: b.period,
     periodKey: b.periodKey,
     amount: Number(b.amount),
@@ -189,14 +239,14 @@ async function migratePostgresDataToDrive(userId: string): Promise<{ migrated: b
   }));
 
   await Promise.all([
-    replaceCollection(userId, "categories", categoryRecords),
-    replaceCollection(userId, "accounts", accountRecords),
-    replaceCollection(userId, "paymentMethods", paymentMethodRecords),
-    replaceCollection(userId, "transactions", transactionRecords),
-    replaceCollection(userId, "budgets", budgetRecords),
-    replaceCollection(userId, "investments", investmentRecords),
-    replaceCollection(userId, "bills", billRecords),
-    replaceCollection(userId, "goals", goalRecords),
+    replaceCollectionWithContext(userId, accessToken, dataFolderId, metadataFolderId, "categories", categoryRecords),
+    replaceCollectionWithContext(userId, accessToken, dataFolderId, metadataFolderId, "accounts", accountRecords),
+    replaceCollectionWithContext(userId, accessToken, dataFolderId, metadataFolderId, "paymentMethods", paymentMethodRecords),
+    replaceCollectionWithContext(userId, accessToken, dataFolderId, metadataFolderId, "transactions", transactionRecords),
+    replaceCollectionWithContext(userId, accessToken, dataFolderId, metadataFolderId, "budgets", budgetRecords),
+    replaceCollectionWithContext(userId, accessToken, dataFolderId, metadataFolderId, "investments", investmentRecords),
+    replaceCollectionWithContext(userId, accessToken, dataFolderId, metadataFolderId, "bills", billRecords),
+    replaceCollectionWithContext(userId, accessToken, dataFolderId, metadataFolderId, "goals", goalRecords),
   ]);
 
   return {
@@ -222,33 +272,60 @@ export interface WorkspaceResult {
 
 /**
  * Sets up (or safely re-adopts) a user's Penny Pilot Drive workspace under the given root
- * folder. Idempotent for an already-initialized workspace — never overwrites existing records.
- * Only migrates Postgres data / seeds default categories the very first time a workspace with
- * no manifest yet is created.
+ * folder, and — the first time only — migrates any pre-existing Postgres financial data (or
+ * seeds the default category/account taxonomy for a genuinely new account) into it.
+ *
+ * Whether that (re)migration step still needs to run is decided by a `migrationCompletedAt`
+ * marker stamped onto the Drive manifest itself, NOT by whether the manifest/collection files
+ * already exist. This is what makes retrying after an interrupted first attempt safe: if a
+ * prior call got partway through (e.g. some collections written, others lost to a transient
+ * Drive API error) and threw before reaching the marker, the manifest and some collection
+ * files already exist, but the marker doesn't — so the next call re-runs migration, which
+ * wholesale-replaces every collection from Postgres again (Postgres is never modified by this,
+ * so replaying it is always safe and never duplicates records).
+ *
+ * The marker is only stamped after the migrated/seeded data has been read back from Drive and
+ * verified — the caller (POST /api/drive/callback) only persists this connection as
+ * "initialized" in Postgres after setupWorkspace returns successfully, so a user can never be
+ * routed to the dashboard against a workspace that hasn't actually been confirmed complete.
  */
 export async function setupWorkspace(userId: string, accessToken: string, rootFolderId: string, accountEmail: string | null): Promise<WorkspaceResult> {
   const dataFolderId = await findOrCreateFolder(accessToken, DATA_FOLDER_NAME, rootFolderId);
   const metadataFolderId = await findOrCreateFolder(accessToken, METADATA_FOLDER_NAME, rootFolderId);
 
-  const existingManifestId = await findFile(accessToken, metadataFolderId, "manifest.json");
-  const isFreshWorkspace = !existingManifestId;
-
   await initializeEmptyWorkspace(accessToken, dataFolderId, metadataFolderId, accountEmail);
   invalidateAllCachesForUser(userId);
 
-  if (!isFreshWorkspace) {
+  const alreadyMigrated = await readMigrationMarker(accessToken, metadataFolderId);
+  if (alreadyMigrated) {
     return { rootFolderId, migrated: false, counts: {} };
   }
 
-  const migration = await migratePostgresDataToDrive(userId);
+  const migration = await migratePostgresDataToDrive(userId, accessToken, dataFolderId, metadataFolderId);
   if (!migration.migrated) {
     // Genuinely new user with nothing in Postgres either — seed the same default
     // category/account taxonomy the app has always given new users, just in Drive now.
     await Promise.all([
-      replaceCollection(userId, "categories", defaultCategoryRecords()),
-      replaceCollection(userId, "accounts", defaultAccountRecords()),
+      replaceCollectionWithContext(userId, accessToken, dataFolderId, metadataFolderId, "categories", defaultCategoryRecords()),
+      replaceCollectionWithContext(userId, accessToken, dataFolderId, metadataFolderId, "accounts", defaultAccountRecords()),
     ]);
   }
+
+  // Verify what was actually written before declaring this workspace ready — a silent partial
+  // failure here must never be indistinguishable from success.
+  const verification = await verifyStorageWithContext(accessToken, dataFolderId, metadataFolderId, userId);
+  if (!verification.ok) {
+    throw new Error(`Google Drive workspace verification failed after setup: ${verification.issues.join("; ")}`);
+  }
+  const expectedNonEmpty = migration.migrated
+    ? (Object.entries(migration.counts) as [string, number][]).filter(([, count]) => count > 0).map(([name]) => name)
+    : ["categories", "accounts"];
+  const shortfall = expectedNonEmpty.filter((name) => !verification.counts[name as keyof typeof verification.counts]);
+  if (shortfall.length > 0) {
+    throw new Error(`Google Drive workspace verification found missing data after setup: ${shortfall.join(", ")}`);
+  }
+
+  await markMigrationVerified(accessToken, metadataFolderId);
   invalidateAllCachesForUser(userId);
 
   return { rootFolderId, migrated: migration.migrated, counts: migration.counts };

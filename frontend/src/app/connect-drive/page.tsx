@@ -145,17 +145,31 @@ export default function ConnectDrivePage() {
     );
   }
 
+  // A pre-existing account created back when Postgres held financial data gets distinct
+  // "migrate" messaging instead of the generic new-user copy — the underlying connect flow is
+  // identical either way; only what the user is told up front differs.
+  const isLegacyAccount = Boolean(status?.hasLegacyData);
+  const title = isLegacyAccount ? "Move your Penny Pilot data to Google Drive" : "Penny Pilot";
+  const subtitle = isLegacyAccount ? "One-time migration, nothing is deleted" : "Your money. Your data.";
+  const description = isLegacyAccount
+    ? "Penny Pilot now stores all financial data in your own Google Drive. We found existing data on your account from before this change — connecting Google Drive will copy it into your new Drive workspace. Your original data is never deleted."
+    : "Penny Pilot stores your financial data directly in your Google Drive. Connect your Google account to securely create your personal financial workspace.";
+  const connectLabel = isLegacyAccount ? "Connect Google Drive & Migrate Data" : "Connect Google Drive";
+  const connectingLabel = view === "connecting" ? "Redirecting to Google…" : isLegacyAccount ? "Migrating your data…" : "Setting up your workspace…";
+
   return (
-    <AuthPageShell icon={HardDrive} title="Penny Pilot" subtitle="Your money. Your data." footer={<Footer variant="dark" />}>
+    <AuthPageShell icon={HardDrive} title={title} subtitle={subtitle} footer={<Footer variant="dark" />}>
       <div className="space-y-5 text-center">
-        <p className="text-sm text-[#94A3B8]">
-          Penny Pilot stores your financial data directly in your Google Drive. Connect your Google
-          account to securely create your personal financial workspace.
-        </p>
+        <p className="text-sm text-[#94A3B8]">{description}</p>
         {error && (
           <div className="flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-left text-sm text-red-300">
             <AlertCircle className="h-4 w-4 shrink-0" /> {error}
           </div>
+        )}
+        {error && (
+          <p className="text-xs text-white/40">
+            Nothing was lost — your data is safe. You can retry the connection below.
+          </p>
         )}
         <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} type="button" disabled={view === "connecting"} onClick={handleConnect} className={primaryButton}>
           {view === "connecting" ? (
@@ -163,7 +177,7 @@ export default function ConnectDrivePage() {
           ) : (
             <HardDrive className="h-4 w-4" />
           )}
-          {view === "connecting" ? "Redirecting to Google…" : "Connect Google Drive"}
+          {view === "connecting" ? connectingLabel : error ? "Retry Connection" : connectLabel}
         </motion.button>
         <p className="text-xs text-white/30">Your data remains under your Google account.</p>
       </div>

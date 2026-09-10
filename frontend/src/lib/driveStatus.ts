@@ -9,6 +9,10 @@ export interface DriveStatus {
   connected: boolean;
   initialized: boolean;
   accountEmail: string | null;
+  /** True for a pre-existing account created back when Postgres (not Drive) held financial
+   * data — used to show "migrate your data" messaging instead of generic new-user copy on the
+   * connect-drive screen, before the user has connected anything. */
+  hasLegacyData: boolean;
 }
 
 export const DRIVE_STATUS_QUERY_KEY = ["drive-status"];
