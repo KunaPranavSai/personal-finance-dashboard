@@ -124,3 +124,33 @@ body {
     grid-template-columns: repeat(3, 1fr);
   }
 }
+
+/* Lightweight prose styling for long-form legal content (Privacy Policy /
+   Terms of Service) — there's no @tailwindcss/typography plugin installed,
+   so this covers the handful of elements those pages actually use. */
+@layer components {
+  .prose-legal h2 {
+    @apply mt-8 mb-3 text-lg font-bold text-navy first:mt-0 dark:text-white sm:text-xl;
+  }
+  .prose-legal h3 {
+    @apply mt-5 mb-2 text-base font-semibold text-navy dark:text-white;
+  }
+  .prose-legal p {
+    @apply mb-4 text-sm leading-relaxed text-navy/70 dark:text-white/70 sm:text-[0.95rem];
+  }
+  .prose-legal ul {
+    @apply mb-4 list-disc space-y-1.5 pl-5 text-sm leading-relaxed text-navy/70 dark:text-white/70 sm:text-[0.95rem];
+  }
+  .prose-legal li strong {
+    @apply text-navy dark:text-white;
+  }
+  .prose-legal a {
+    @apply font-medium text-teal underline underline-offset-2 hover:opacity-80;
+  }
+  .prose-legal strong {
+    @apply font-semibold text-navy dark:text-white;
+  }
+  .prose-legal hr {
+    @apply my-8 border-black/10 dark:border-white/10;
+  }
+}
