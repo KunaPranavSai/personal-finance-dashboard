@@ -187,13 +187,19 @@ export function buildFinancialSignals({
   // Category spike: this-week spend in a category vs the trailing-3-week
   // average for that same category — flagged when meaningfully (>=40%) higher.
   const byCategoryThisWeek = new Map<string, number>();
-  last7.forEach((t) => byCategoryThisWeek.set(t.category.name, (byCategoryThisWeek.get(t.category.name) ?? 0) + t.amount));
+  last7.forEach((t) => {
+    const name = t.category?.name ?? "Uncategorized";
+    byCategoryThisWeek.set(name, (byCategoryThisWeek.get(name) ?? 0) + t.amount);
+  });
   const priorWeeks = sortedTx.filter((t) => {
     const d = daysBetween(now, new Date(t.date));
     return t.type === "EXPENSE" && d > 7 && d <= 28;
   });
   const byCategoryPrior = new Map<string, number>();
-  priorWeeks.forEach((t) => byCategoryPrior.set(t.category.name, (byCategoryPrior.get(t.category.name) ?? 0) + t.amount));
+  priorWeeks.forEach((t) => {
+    const name = t.category?.name ?? "Uncategorized";
+    byCategoryPrior.set(name, (byCategoryPrior.get(name) ?? 0) + t.amount);
+  });
   let categorySpike: { category: string; pctUp: number } | null = null;
   for (const [cat, thisWeek] of byCategoryThisWeek) {
     const priorAvgWeekly = (byCategoryPrior.get(cat) ?? 0) / 3;
@@ -212,7 +218,7 @@ export function buildFinancialSignals({
   const largeTransaction = largeTx ? { amount: largeTx.amount, description: largeTx.description } : null;
 
   const unplannedTx = todayTx.find(
-    (t) => t.type === "EXPENSE" && matchesKeyword(`${t.category.name} ${t.description}`, ["medical", "hospital", "repair", "doctor", "pharmacy"])
+    (t) => t.type === "EXPENSE" && matchesKeyword(`${t.category?.name ?? ""} ${t.description}`, ["medical", "hospital", "repair", "doctor", "pharmacy"])
   );
   const unplannedLargeExpense = unplannedTx ? { amount: unplannedTx.amount, description: unplannedTx.description } : null;
 

@@ -43,4 +43,10 @@ export interface ManifestFile {
   initializedAt: string;
   updatedAt: string;
   files: Partial<Record<CollectionName, ManifestFileEntry>>;
+  /** Set only once legacy-data migration (or fresh-workspace seeding) has run AND been
+   * verified by reading the written collections back. Its absence — even when the manifest
+   * and collection files already exist from a prior, interrupted attempt — is what tells
+   * setupWorkspace() a (re)migration is still needed, making retry after a partial failure
+   * safe instead of silently skipping migration forever. */
+  migrationCompletedAt?: string;
 }

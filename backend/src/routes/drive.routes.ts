@@ -17,7 +17,7 @@ import {
   ROOT_FOLDER_NAME,
 } from "../services/drive/googleDriveClient";
 import { requireConnection, DRIVE_PROVIDER } from "../services/drive/connection";
-import { setupWorkspace } from "../services/drive/init";
+import { setupWorkspace, hasLegacyPostgresData } from "../services/drive/init";
 import {
   verifyStorage,
   invalidateAllCachesForUser,
@@ -63,14 +63,20 @@ function redirectBase(): string {
 router.get(
   "/status",
   asyncHandler(async (req: Request, res: Response) => {
-    const connection = await prisma.backupConnection.findUnique({
-      where: { userId_provider: { userId: req.auth!.userId, provider: DRIVE_PROVIDER } },
-    });
+    const [connection, hasLegacyData] = await Promise.all([
+      prisma.backupConnection.findUnique({
+        where: { userId_provider: { userId: req.auth!.userId, provider: DRIVE_PROVIDER } },
+      }),
+      hasLegacyPostgresData(req.auth!.userId),
+    ]);
     res.json({
       configured: isGoogleDriveConfigured(),
       connected: Boolean(connection),
       initialized: Boolean(connection?.backupFolderId),
       accountEmail: connection?.accountEmail ?? null,
+      // Lets the frontend show "migrate your existing data" messaging before the user even
+      // connects, for accounts created back when Postgres (not Drive) held financial data.
+      hasLegacyData,
     });
   })
 );
@@ -159,12 +165,21 @@ router.get(
         // No prior Penny Pilot data in this account — safe to initialize fresh automatically.
       }
 
+      // `backupFolderId` is what requireDriveConnected/isDriveReady treat as "Drive is ready" —
+      // it's deliberately only persisted AFTER setupWorkspace succeeds (which itself verifies
+      // the written data before returning), never before. That ordering is what prevents a
+      // user from ever being routed to the dashboard against a workspace that a transient
+      // failure left only partially set up: if setupWorkspace throws, this connection stays
+      // "connected" (tokens saved) but not "initialized", so the mandatory-onboarding gate
+      // keeps showing the migrate/connect screen — with a safe, idempotent retry — instead of
+      // ever letting the app render against incomplete data.
       const folders = await getOrCreatePennyPilotFolders(tokens.accessToken);
+      const result = await setupWorkspace(pending.userId, tokens.accessToken, folders.rootId, tokens.accountEmail ?? null);
       await prisma.backupConnection.update({
         where: { userId_provider: { userId: pending.userId, provider: DRIVE_PROVIDER } },
         data: { backupFolderId: folders.rootId },
       });
-      const result = await setupWorkspace(pending.userId, tokens.accessToken, folders.rootId, tokens.accountEmail ?? null);
+      invalidateAllCachesForUser(pending.userId);
       res.redirect(`${base}?driveConnected=1&migrated=${result.migrated ? "1" : "0"}`);
     } catch (err) {
       console.error("Google Drive connect failed:", err);
@@ -193,11 +208,14 @@ router.post(
       rootId = await findOrCreateFolder(pending.accessToken, `${ROOT_FOLDER_NAME} (${new Date().toISOString().slice(0, 10)})`);
     }
 
+    // Same ordering as the /callback flow: only mark this connection "initialized" once
+    // setupWorkspace has actually verified the workspace, never before.
+    const result = await setupWorkspace(pending.userId, pending.accessToken, rootId, pending.accountEmail);
     await prisma.backupConnection.update({
       where: { userId_provider: { userId: pending.userId, provider: DRIVE_PROVIDER } },
       data: { backupFolderId: rootId },
     });
-    const result = await setupWorkspace(pending.userId, pending.accessToken, rootId, pending.accountEmail);
+    invalidateAllCachesForUser(pending.userId);
     void logActivity(req, "drive_account_change_resolved", `Resolved account change: ${choice}`, pending.userId);
     res.json({ ok: true, migrated: result.migrated, counts: result.counts });
   })

@@ -61,7 +61,7 @@ function RecentTransactionsList({ transactionType }: { transactionType?: "EXPENS
         <div key={t.id} className="flex items-center justify-between gap-3 rounded-lg px-2.5 py-2 hover:bg-black/[0.03] dark:hover:bg-white/[0.03]">
           <div className="min-w-0">
             <p className="truncate text-sm font-medium text-navy dark:text-white">{t.description}</p>
-            <p className="truncate text-xs text-navy/40 dark:text-white/40">{t.category.name} · {new Date(t.date).toLocaleDateString()}</p>
+            <p className="truncate text-xs text-navy/40 dark:text-white/40">{t.category?.name ?? "Uncategorized"} · {new Date(t.date).toLocaleDateString()}</p>
           </div>
           <span className={cn("shrink-0 text-sm font-semibold", t.type === "INCOME" ? "text-emerald-600 dark:text-emerald-400" : "text-navy dark:text-white")}>
             {t.type === "INCOME" ? "+" : "-"}{t.amount.toLocaleString()}

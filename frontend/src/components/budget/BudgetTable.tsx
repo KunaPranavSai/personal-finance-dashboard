@@ -90,7 +90,7 @@ export function BudgetTable({ periodKey }: { periodKey: string }) {
             const tier = progressTier(b.utilizationPct);
             return (
             <tr key={b.id} className="border-t border-black/5 dark:border-white/5">
-              <td className="px-4 py-3 font-medium text-navy dark:text-white">{b.category.name}</td>
+              <td className="px-4 py-3 font-medium text-navy dark:text-white">{b.category?.name ?? "Uncategorized"}</td>
               <td className="px-4 py-3 text-right">{formatINR(b.amount)}</td>
               <td className="px-4 py-3 text-right">{formatINR(b.actual)}</td>
               <td className={`px-4 py-3 text-right ${b.remaining < 0 ? "text-red-600" : "text-navy/70 dark:text-white/70"}`}>

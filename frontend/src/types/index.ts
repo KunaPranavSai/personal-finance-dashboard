@@ -33,7 +33,9 @@ export interface Transaction {
   description: string;
   amount: number;
   type: EntryType;
-  category: Category;
+  // Genuinely nullable: the backend resolves this by categoryId and returns null if that
+  // category no longer exists (e.g. a dangling reference) rather than throwing.
+  category: Category | null;
   categoryId: string;
   subcategory?: Subcategory | null;
   subcategoryId?: string | null;
@@ -53,7 +55,7 @@ export interface Transaction {
 
 export interface Budget {
   id: string;
-  category: Category;
+  category: Category | null;
   categoryId: string;
   period: BudgetPeriod;
   periodKey: string;
