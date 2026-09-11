@@ -914,6 +914,10 @@ router.post(
       res.status(404).json({ error: "User not found" });
       return;
     }
+    if (target.role === "SUPER_ADMIN" && req.auth!.role !== "SUPER_ADMIN") {
+      res.status(403).json({ error: "Only a Super Admin can reset another Super Admin's password" });
+      return;
+    }
     const finalPassword = password?.trim() || generateTempPassword();
     if (!isStrongPassword(finalPassword)) {
       res.status(400).json({ error: "Password must be at least 8 characters and include a letter and a number" });
@@ -946,6 +950,10 @@ router.post(
     const target = await prisma.user.findUnique({ where: { id } });
     if (!target) {
       res.status(404).json({ error: "User not found" });
+      return;
+    }
+    if (target.role === "SUPER_ADMIN" && req.auth!.role !== "SUPER_ADMIN") {
+      res.status(403).json({ error: "Only a Super Admin can reset another Super Admin's UID" });
       return;
     }
     const trimmed = uid?.trim();
@@ -1016,6 +1024,12 @@ router.delete(
       return;
     }
     if (target.role === "SUPER_ADMIN") {
+      // Mirrors PATCH /users/:id's role-change guard: a plain Admin must never be able to
+      // remove a Super Admin account, only a Super Admin can.
+      if (req.auth!.role !== "SUPER_ADMIN") {
+        res.status(403).json({ error: "Only a Super Admin can delete a Super Admin account" });
+        return;
+      }
       const otherSuperAdmins = await prisma.user.count({ where: { role: "SUPER_ADMIN", id: { not: id } } });
       if (otherSuperAdmins === 0) {
         res.status(400).json({ error: "Cannot delete the last Super Admin" });

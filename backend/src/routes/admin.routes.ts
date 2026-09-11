@@ -5,59 +5,14 @@ import { bumpSessionVersion } from "../lib/sessionVersion";
 import { logActivity } from "../lib/activityLog";
 import { sendEmail } from "../lib/notify";
 import { EMAIL_TEMPLATES } from "../lib/emailTemplates";
-import { generateSimpleCSV, generateSimpleJSON, generateSimpleExcel, generateSimplePDF, SimpleTable } from "../services/export/simpleTableExporter";
+import { listMigrationStatuses, getMigrationSummary, deriveMigrationState, MigrationState } from "../services/admin/migrationStatus";
+import { hasLegacyPostgresData } from "../services/drive/init";
 
 const router = Router();
 
-const REPORT_TYPES = ["users", "signups", "security", "pending"] as const;
-type ReportType = (typeof REPORT_TYPES)[number];
-
-async function buildReport(type: ReportType, from?: Date, to?: Date): Promise<SimpleTable> {
-  if (type === "users" || type === "signups") {
-    const dateFilter = from || to ? { createdAt: { ...(from && { gte: from }), ...(to && { lte: to }) } } : {};
-    const users = await prisma.user.findMany({
-      where: dateFilter,
-      orderBy: { createdAt: "desc" },
-      select: { name: true, email: true, uid: true, role: true, status: true, createdAt: true, lastLoginAt: true, twoFactorEnabled: true },
-    });
-    return {
-      title: type === "users" ? "All Users" : "Signups",
-      headers: ["Name", "Email", "UID", "Role", "Status", "Registered", "Last Login", "2FA"],
-      rows: users.map((u) => [
-        u.name, u.email, u.uid, u.role, u.status,
-        u.createdAt.toLocaleDateString("en-IN"),
-        u.lastLoginAt ? u.lastLoginAt.toLocaleDateString("en-IN") : "Never",
-        u.twoFactorEnabled ? "Enabled" : "Disabled",
-      ]),
-    };
-  }
-  if (type === "pending") {
-    const users = await prisma.user.findMany({
-      where: { status: "PENDING" },
-      orderBy: { createdAt: "asc" },
-      select: { name: true, email: true, phone: true, createdAt: true },
-    });
-    return {
-      title: "Pending Approvals",
-      headers: ["Name", "Email", "Phone", "Registered"],
-      rows: users.map((u) => [u.name, u.email, u.phone ?? "—", u.createdAt.toLocaleDateString("en-IN")]),
-    };
-  }
-  // security
-  const securityEvents = ["login_failed", "password_changed", "password_reset", "uid_changed", "2fa_enabled", "2fa_disabled", "password_reset_requested"];
-  const dateFilter = from || to ? { createdAt: { ...(from && { gte: from }), ...(to && { lte: to }) } } : {};
-  const logs = await prisma.activityLog.findMany({
-    where: { event: { in: securityEvents }, ...dateFilter },
-    orderBy: { createdAt: "desc" },
-    take: 5000,
-    include: { user: { select: { name: true, email: true } } },
-  });
-  return {
-    title: "Security Events",
-    headers: ["Event", "User", "Detail", "Time"],
-    rows: logs.map((l) => [l.event, l.user ? `${l.user.name} (${l.user.email})` : "—", l.detail ?? "", l.createdAt.toLocaleString("en-IN")]),
-  };
-}
+const MIGRATION_STATES: MigrationState[] = [
+  "NEW_USER", "DRIVE_SETUP_REQUIRED", "MIGRATION_REQUIRED", "MIGRATION_IN_PROGRESS", "MIGRATION_COMPLETED", "MIGRATION_FAILED",
+];
 
 const ADMIN_ACTIVITY_EVENTS = [
   "user_approved", "user_rejected", "user_updated", "user_deleted",
@@ -78,7 +33,7 @@ router.get(
     const [
       totalUsers, activeUsers, pendingApprovals, suspendedUsers,
       signupsToday, signupsWeek, signupsMonth,
-      recentActivity,
+      recentActivity, migrationSummary,
     ] = await Promise.all([
       prisma.user.count(),
       prisma.user.count({ where: { status: "ACTIVE" } }),
@@ -93,6 +48,7 @@ router.get(
         take: 20,
         include: { user: { select: { name: true, email: true } } },
       }),
+      getMigrationSummary(),
     ]);
 
     const signupTrend = await prisma.$queryRaw<{ day: string; count: bigint }[]>`
@@ -113,6 +69,7 @@ router.get(
         id: a.id, event: a.event, detail: a.detail, createdAt: a.createdAt,
         user: a.user ? { name: a.user.name, email: a.user.email } : null,
       })),
+      migrationSummary,
       systemHealth: { database: "ok", uptimeSeconds: Math.round(process.uptime()) },
     });
   })
@@ -197,64 +154,72 @@ router.post(
   })
 );
 
-// ─── GET /api/admin/reports/:type ────────────────────────────────────────────
+// ─── Migration status (Google Drive migration for legacy accounts) ───────────
+// Derived entirely from Postgres signals (account + BackupConnection rows) — never calls the
+// Google Drive API on a user's behalf, so this view can never expose (or even access) a
+// user's Drive contents. See services/admin/migrationStatus.ts.
+
+// ─── GET /api/admin/migration/summary ────────────────────────────────────────
 router.get(
-  "/reports/:type",
-  asyncHandler(async (req: Request, res: Response) => {
-    const type = req.params.type as ReportType;
-    if (!REPORT_TYPES.includes(type)) {
-      res.status(400).json({ error: `Invalid report type. Must be one of: ${REPORT_TYPES.join(", ")}` });
-      return;
-    }
-    const from = req.query.from ? new Date(req.query.from as string) : undefined;
-    const to = req.query.to ? new Date(req.query.to as string) : undefined;
-    const table = await buildReport(type, from && !isNaN(from.getTime()) ? from : undefined, to && !isNaN(to.getTime()) ? to : undefined);
-    res.json(table);
+  "/migration/summary",
+  asyncHandler(async (_req: Request, res: Response) => {
+    res.json(await getMigrationSummary());
   })
 );
 
-// ─── GET /api/admin/reports/:type/export ─────────────────────────────────────
+// ─── GET /api/admin/migration/status ─────────────────────────────────────────
 router.get(
-  "/reports/:type/export",
+  "/migration/status",
   asyncHandler(async (req: Request, res: Response) => {
-    const type = req.params.type as ReportType;
-    if (!REPORT_TYPES.includes(type)) {
-      res.status(400).json({ error: `Invalid report type. Must be one of: ${REPORT_TYPES.join(", ")}` });
-      return;
-    }
-    const format = ((req.query.format as string) ?? "csv").toLowerCase();
-    const allowed = ["csv", "xlsx", "json", "pdf"];
-    if (!allowed.includes(format)) {
-      res.status(400).json({ error: `Invalid format. Must be one of: ${allowed.join(", ")}` });
-      return;
-    }
-    const from = req.query.from ? new Date(req.query.from as string) : undefined;
-    const to = req.query.to ? new Date(req.query.to as string) : undefined;
-    const table = await buildReport(type, from && !isNaN(from.getTime()) ? from : undefined, to && !isNaN(to.getTime()) ? to : undefined);
-    const ds = new Date().toISOString().slice(0, 10);
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const pageSize = Math.min(100, Math.max(1, Number(req.query.pageSize) || 25));
+    const search = typeof req.query.search === "string" && req.query.search.trim() ? req.query.search.trim() : undefined;
+    const stateParam = typeof req.query.state === "string" ? (req.query.state as MigrationState) : undefined;
+    const state = stateParam && MIGRATION_STATES.includes(stateParam) ? stateParam : undefined;
 
-    switch (format) {
-      case "csv":
-        res.setHeader("Content-Type", "text/csv; charset=utf-8");
-        res.setHeader("Content-Disposition", `attachment; filename="${type}-report-${ds}.csv"`);
-        res.send(generateSimpleCSV(table));
-        break;
-      case "xlsx":
-        res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-        res.setHeader("Content-Disposition", `attachment; filename="${type}-report-${ds}.xlsx"`);
-        res.send(await generateSimpleExcel(table));
-        break;
-      case "json":
-        res.setHeader("Content-Type", "application/json; charset=utf-8");
-        res.setHeader("Content-Disposition", `attachment; filename="${type}-report-${ds}.json"`);
-        res.send(generateSimpleJSON(table));
-        break;
-      case "pdf":
-        res.setHeader("Content-Type", "application/pdf");
-        res.setHeader("Content-Disposition", `attachment; filename="${type}-report-${ds}.pdf"`);
-        res.send(await generateSimplePDF(table));
-        break;
+    const { items, total } = await listMigrationStatuses(page, pageSize, search, state);
+    res.json({ items, pagination: { page, pageSize, total, totalPages: Math.ceil(total / pageSize) || 1 } });
+  })
+);
+
+// ─── POST /api/admin/users/:id/notify-migration ──────────────────────────────
+// The only safe "action" an admin can take on a stuck/required migration: Google OAuth
+// consent can only ever be granted by the account owner, so there is no server-side action
+// that can actually retry it on their behalf. This sends a reminder email instead — real,
+// idempotent (sending it again just sends another email; no state is mutated).
+router.post(
+  "/users/:id/notify-migration",
+  asyncHandler(async (req: Request, res: Response) => {
+    const id = String(req.params.id);
+    const [user, connection, hasLegacyData] = await Promise.all([
+      prisma.user.findUnique({ where: { id }, select: { id: true, name: true, email: true, role: true } }),
+      prisma.backupConnection.findUnique({
+        where: { userId_provider: { userId: id, provider: "google_drive" } },
+        select: { backupFolderId: true, lastConnectError: true },
+      }),
+      hasLegacyPostgresData(id),
+    ]);
+    if (!user || user.role !== "USER") {
+      res.status(404).json({ error: "User not found" });
+      return;
     }
+    const state = deriveMigrationState({
+      hasLegacyData,
+      connected: Boolean(connection),
+      initialized: Boolean(connection?.backupFolderId),
+      hasError: Boolean(connection?.lastConnectError),
+    });
+    if (!["MIGRATION_REQUIRED", "MIGRATION_FAILED", "MIGRATION_IN_PROGRESS"].includes(state)) {
+      res.status(400).json({ error: "This account does not currently need a migration reminder." });
+      return;
+    }
+    const emailSent = await sendEmail(
+      user.email,
+      "Action needed: connect Google Drive to Penny Pilot",
+      `<p>Hi ${user.name},</p><p>Penny Pilot now stores your financial data in your own Google Drive. Please sign in and connect (or reconnect) Google Drive to continue using your account: your existing data is safe and has not been deleted.</p>`
+    );
+    void logActivity(req, "migration_reminder_sent", `Sent a Drive-migration reminder to ${user.email}`, req.auth!.userId);
+    res.json({ ok: true, emailSent });
   })
 );
 
