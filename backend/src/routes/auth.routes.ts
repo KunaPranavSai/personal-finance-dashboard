@@ -30,8 +30,21 @@ import {
   UID_RESET_BY_ADMIN_EMAIL_HTML, ACCOUNT_UPDATED_BY_ADMIN_EMAIL_HTML,
 } from "../lib/emailTemplates";
 import type { User } from "@prisma/client";
+import { TERMS_VERSION, PRIVACY_VERSION } from "../lib/legalVersions";
+import { generateConsentPdf } from "../services/consent/consentPdf";
 
 const router = Router();
+
+const SIGNATURE_NAME_MAX = 150;
+// Letters (incl. accented/Unicode), marks, spaces, hyphens, apostrophes, periods —
+// deliberately permissive so legitimate names in any script are accepted.
+const SIGNATURE_NAME_PATTERN = /^[\p{L}\p{M}][\p{L}\p{M}\s'.-]*$/u;
+
+function isValidSignatureName(raw: unknown): raw is string {
+  if (typeof raw !== "string") return false;
+  const trimmed = raw.trim();
+  return trimmed.length > 0 && trimmed.length <= SIGNATURE_NAME_MAX && SIGNATURE_NAME_PATTERN.test(trimmed);
+}
 
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -111,7 +124,10 @@ router.post(
   "/signup",
   signupLimiter,
   asyncHandler(async (req: Request, res: Response) => {
-    const { name, email, phone, password } = req.body as { name?: string; email?: string; phone?: string; password?: string };
+    const { name, email, phone, password, termsAccepted, privacyAccepted, signedName } = req.body as {
+      name?: string; email?: string; phone?: string; password?: string;
+      termsAccepted?: boolean; privacyAccepted?: boolean; signedName?: string;
+    };
     if (!name?.trim() || !email?.trim() || !password) {
       res.status(400).json({ error: "Name, email, and password are required" });
       return;
@@ -125,29 +141,152 @@ router.post(
       res.status(400).json({ error: "Password must be at least 8 characters and include a letter and a number" });
       return;
     }
+    // Consent is enforced server-side — never trust the frontend's disabled-button state alone.
+    if (termsAccepted !== true) {
+      res.status(400).json({ error: "You must accept the Terms of Service to create an account" });
+      return;
+    }
+    if (privacyAccepted !== true) {
+      res.status(400).json({ error: "You must acknowledge the Privacy Policy to create an account" });
+      return;
+    }
+    if (!isValidSignatureName(signedName)) {
+      res.status(400).json({ error: "Please type your full name as your electronic signature" });
+      return;
+    }
+    const trimmedSignature = (signedName as string).trim();
+
     const existing = await prisma.user.findFirst({ where: { email: normalizedEmail } });
     if (existing) {
       res.status(409).json({ error: "An account with this email already exists" });
       return;
     }
     const passwordHash = await bcrypt.hash(password, 12);
-    const user = await prisma.user.create({
-      data: {
-        uid: normalizedEmail,
-        email: normalizedEmail,
-        name: name.trim(),
-        phone: phone?.trim() || null,
-        role: "USER",
-        status: "ACTIVE",
-        passwordHash,
-        mustChangePassword: false,
-      },
+
+    // User + consent record are created together so an account can never exist
+    // without a corresponding consent record, and vice versa.
+    const { user, consent } = await prisma.$transaction(async (tx) => {
+      const createdUser = await tx.user.create({
+        data: {
+          uid: normalizedEmail,
+          email: normalizedEmail,
+          name: name.trim(),
+          phone: phone?.trim() || null,
+          role: "USER",
+          status: "ACTIVE",
+          passwordHash,
+          mustChangePassword: false,
+        },
+      });
+      const createdConsent = await tx.consentRecord.create({
+        data: {
+          userId: createdUser.id,
+          signedName: trimmedSignature,
+          termsAccepted: true,
+          privacyAccepted: true,
+          termsVersion: TERMS_VERSION,
+          privacyVersion: PRIVACY_VERSION,
+        },
+      });
+      return { user: createdUser, consent: createdConsent };
     });
     // No default categories/accounts are seeded here — that now happens once the user
     // connects Google Drive (see services/drive/init.ts), since that data belongs in their
     // Drive, not Postgres.
     void logActivity(req, "signup_requested", `Account created for ${normalizedEmail}`, user.id);
-    res.status(201).json({ ok: true, message: "Your account has been created. You can sign in now." });
+    void logActivity(req, "consent_recorded", `Terms v${TERMS_VERSION} and Privacy Policy v${PRIVACY_VERSION} accepted`, user.id);
+
+    // Best-effort: generate the signed consent PDF now so the frontend can trigger an
+    // immediate download right after signup, before the user has an authenticated session
+    // (signup does not auto-login). If PDF generation fails for any reason, account
+    // creation still succeeds — the user can always re-download after logging in via
+    // GET /api/auth/consent/download.
+    let consentPdfBase64: string | null = null;
+    try {
+      const pdfBuffer = await generateConsentPdf({
+        name: user.name,
+        email: user.email,
+        signedName: consent.signedName,
+        termsVersion: consent.termsVersion,
+        privacyVersion: consent.privacyVersion,
+        acceptedAt: consent.acceptedAt,
+      });
+      consentPdfBase64 = pdfBuffer.toString("base64");
+    } catch (err) {
+      console.error("Consent PDF generation failed during signup:", err);
+    }
+
+    res.status(201).json({
+      ok: true,
+      message: "Your account has been created. You can sign in now.",
+      consent: {
+        signedName: consent.signedName,
+        termsVersion: consent.termsVersion,
+        privacyVersion: consent.privacyVersion,
+        acceptedAt: consent.acceptedAt,
+      },
+      consentPdfBase64,
+    });
+  })
+);
+
+// ─── GET /api/auth/consent ────────────────────────────────────────────────────
+// Consent metadata for the signed-in user — legal/account metadata, so this
+// lives under /api/auth (Postgres-backed) rather than the Drive-gated routes.
+router.get(
+  "/consent",
+  authenticate,
+  asyncHandler(async (req: Request, res: Response) => {
+    const consent = await prisma.consentRecord.findUnique({ where: { userId: req.auth!.userId } });
+    if (!consent) {
+      res.status(404).json({ error: "No consent record found for this account" });
+      return;
+    }
+    res.json({
+      signedName: consent.signedName,
+      termsAccepted: consent.termsAccepted,
+      privacyAccepted: consent.privacyAccepted,
+      termsVersion: consent.termsVersion,
+      privacyVersion: consent.privacyVersion,
+      acceptedAt: consent.acceptedAt,
+    });
+  })
+);
+
+// ─── GET /api/auth/consent/download ───────────────────────────────────────────
+// Re-generates the signed consent PDF for the signed-in user — used for the
+// "Download Signed Consent" action on the signup confirmation screen (as a
+// fallback if the automatic download was blocked) and from Profile/Settings.
+// Requires authentication; a user can only ever download their own record.
+router.get(
+  "/consent/download",
+  authenticate,
+  asyncHandler(async (req: Request, res: Response) => {
+    const [user, consent] = await Promise.all([
+      prisma.user.findUnique({ where: { id: req.auth!.userId } }),
+      prisma.consentRecord.findUnique({ where: { userId: req.auth!.userId } }),
+    ]);
+    if (!user || !consent) {
+      res.status(404).json({ error: "No consent record found for this account" });
+      return;
+    }
+    try {
+      const pdfBuffer = await generateConsentPdf({
+        name: user.name,
+        email: user.email,
+        signedName: consent.signedName,
+        termsVersion: consent.termsVersion,
+        privacyVersion: consent.privacyVersion,
+        acceptedAt: consent.acceptedAt,
+      });
+      const dateStr = consent.acceptedAt.toISOString().slice(0, 10);
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `attachment; filename="Penny-Pilot-Signed-Consent-${dateStr}.pdf"`);
+      res.send(pdfBuffer);
+    } catch (err) {
+      console.error("Consent PDF generation failed:", err);
+      res.status(500).json({ error: "Failed to generate your signed consent document. Please try again." });
+    }
   })
 );
 

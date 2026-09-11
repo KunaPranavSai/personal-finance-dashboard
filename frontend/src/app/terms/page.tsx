@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { LegalPageShell } from "@/components/legal/LegalPageShell";
+import { TERMS_VERSION } from "@/lib/legalVersions";
 
 export const metadata: Metadata = {
   title: "Terms of Service · Penny Pilot",
@@ -13,7 +14,7 @@ const GOVERNING_JURISDICTION = "India";
 
 export default function TermsOfServicePage() {
   return (
-    <LegalPageShell title="Terms of Service" lastUpdated={LAST_UPDATED} active="terms">
+    <LegalPageShell title="Terms of Service" lastUpdated={LAST_UPDATED} version={TERMS_VERSION} active="terms">
       <p>
         These Terms of Service (&quot;Terms&quot;) govern your access to and use of Penny Pilot (&quot;Penny Pilot&quot;,
         &quot;the App&quot;, &quot;we&quot;, &quot;us&quot;), a personal finance web application for managing income, expenses,

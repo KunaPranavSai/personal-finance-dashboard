@@ -81,8 +81,12 @@ export function TransactionFormModal({
         ? api.patch(`/api/transactions/${editing.id}`, values)
         : postWithOfflineQueue(values.type === "INCOME" ? "income" : "expense", "/api/transactions", values),
     onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: ["transactions"] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] });
+      // refetchType: "all" (not just TanStack's default "active") — the KPI summary card on
+      // this same page is a real bug repro: with the default, its query was invalidated but
+      // did not actually refetch until a manual page reload, leaving a stale total on screen
+      // right after a create/edit even though the write itself succeeded and persisted.
+      queryClient.invalidateQueries({ queryKey: ["transactions"], refetchType: "all" });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-summary"], refetchType: "all" });
       if (result && typeof result === "object" && "queued" in result && result.queued) {
         toast("You're offline — this will be saved automatically once you're back online.", "success");
       }

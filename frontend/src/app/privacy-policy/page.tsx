@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { LegalPageShell } from "@/components/legal/LegalPageShell";
+import { PRIVACY_VERSION } from "@/lib/legalVersions";
 
 export const metadata: Metadata = {
   title: "Privacy Policy · Penny Pilot",
@@ -12,7 +13,7 @@ const PLACEHOLDER_ENTITY = "Pranav Sai Kuna. No physical mailing address provide
 
 export default function PrivacyPolicyPage() {
   return (
-    <LegalPageShell title="Privacy Policy" lastUpdated={LAST_UPDATED} active="privacy">
+    <LegalPageShell title="Privacy Policy" lastUpdated={LAST_UPDATED} version={PRIVACY_VERSION} active="privacy">
       <p>
         This Privacy Policy explains how Penny Pilot (&quot;Penny Pilot&quot;, &quot;the App&quot;, &quot;we&quot;, &quot;us&quot;) collects, uses,
         stores, and protects information when you use the Penny Pilot personal finance web application. It is written to

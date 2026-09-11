@@ -31,7 +31,9 @@ export function BudgetFormModal({
     mutationFn: (values: FormValues) =>
       postWithOfflineQueue("budget", "/api/budgets", { ...values, period: "MONTHLY", periodKey }),
     onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: ["budgets"] });
+      // dashboard-summary's budgetUtilizationPct reads this collection too.
+      queryClient.invalidateQueries({ queryKey: ["budgets"], refetchType: "all" });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-summary"], refetchType: "all" });
       if (result.queued) {
         toast("You're offline — this will be saved automatically once you're back online.", "success");
       }

@@ -233,7 +233,7 @@ export function MonthlyAuditBanner() {
     toast(`${FIELD_META[field].label} updated for ${monthLabel}!`, "success");
     // The hero's Financial Health Score reads live dashboard/investments
     // data reactively — nudging this query is enough for it to recompute.
-    queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] });
+    queryClient.invalidateQueries({ queryKey: ["dashboard-summary"], refetchType: "all" });
   };
 
   if (allDone && !expanded) {

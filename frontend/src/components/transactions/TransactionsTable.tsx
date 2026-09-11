@@ -42,8 +42,9 @@ export function TransactionsTable({
   const deleteMutation = useMutation({
     mutationFn: (id: string) => api.delete(`/api/transactions/${id}`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["transactions"] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] });
+      // See TransactionFormModal.tsx for why refetchType: "all" is needed here.
+      queryClient.invalidateQueries({ queryKey: ["transactions"], refetchType: "all" });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-summary"], refetchType: "all" });
     },
   });
 

@@ -123,7 +123,9 @@ function EntityManager({
     queryFn: () => api.get<{ items: NamedEntity[] }>(apiPath),
   });
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: [queryKey] });
+  // refetchType: "all" — see TransactionFormModal.tsx for why the default (refetch only
+  // "active" queries) isn't reliably picking up this query after a mutation in this app shell.
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: [queryKey], refetchType: "all" });
 
   const createMutation = useMutation({
     mutationFn: (name: string) => api.post<NamedEntity>(apiPath, { name }),
@@ -229,7 +231,7 @@ function NameFormModal({ title, editing, onClose, onSave, isPending, error }: {
         <form onSubmit={handleSubmit((d) => onSave(d.name))} className="mt-4 space-y-4">
           <div>
             <label className="text-xs font-medium text-navy/60 dark:text-white/60">Name</label>
-            <input {...register("name")} className="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 text-sm dark:border-white/10 dark:bg-white/5" autoFocus />
+            <input {...register("name")} className="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 text-sm text-navy dark:border-white/10 dark:bg-white/5 dark:text-white" autoFocus />
             {errors.name && <p className="mt-1 text-xs text-red-600">{errors.name.message}</p>}
           </div>
           {error && <p className="text-xs text-red-600">{error.message}</p>}
@@ -265,13 +267,13 @@ function CategoriesManager() {
 
   const createCategory = useMutation({
     mutationFn: (values: CategoryForm) => api.post<Category>("/api/categories", values),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["categories"] }); setShowCategoryModal(false); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["categories"], refetchType: "all" }); setShowCategoryModal(false); },
   });
 
   const createSubcategory = useMutation({
     mutationFn: ({ categoryId, name }: { categoryId: string; name: string }) =>
       api.post(`/api/categories/${categoryId}/subcategories`, { name }),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["categories"] }); setSubcategoryTarget(null); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["categories"], refetchType: "all" }); setSubcategoryTarget(null); },
   });
 
   const items = data?.items ?? [];
@@ -365,7 +367,7 @@ function CategoryFormModal({ onClose, onSave, isPending, error }: {
         <form onSubmit={handleSubmit(onSave)} className="mt-4 space-y-4">
           <div>
             <label className="text-xs font-medium text-navy/60 dark:text-white/60">Name</label>
-            <input {...register("name")} className="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 text-sm dark:border-white/10 dark:bg-white/5" autoFocus />
+            <input {...register("name")} className="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 text-sm text-navy dark:border-white/10 dark:bg-white/5 dark:text-white" autoFocus />
             {errors.name && <p className="mt-1 text-xs text-red-600">{errors.name.message}</p>}
           </div>
           <div>
@@ -406,7 +408,7 @@ function SubcategoryFormModal({ category, onClose, onSave, isPending, error }: {
         <form onSubmit={handleSubmit((d) => onSave(d.name))} className="mt-4 space-y-4">
           <div>
             <label className="text-xs font-medium text-navy/60 dark:text-white/60">Name</label>
-            <input {...register("name")} className="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 text-sm dark:border-white/10 dark:bg-white/5" autoFocus />
+            <input {...register("name")} className="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 text-sm text-navy dark:border-white/10 dark:bg-white/5 dark:text-white" autoFocus />
             {errors.name && <p className="mt-1 text-xs text-red-600">{errors.name.message}</p>}
           </div>
           {error && <p className="text-xs text-red-600">{error.message}</p>}

@@ -24,6 +24,22 @@ interface LoginResult {
   passwordChangeToken?: string;
 }
 
+export interface SignupInput {
+  name: string;
+  email: string;
+  phone: string;
+  password: string;
+  termsAccepted: boolean;
+  privacyAccepted: boolean;
+  signedName: string;
+}
+
+export interface SignupResult {
+  consent: { signedName: string; termsVersion: string; privacyVersion: string; acceptedAt: string };
+  /** base64-encoded PDF, or null if generation failed — account creation still succeeded either way. */
+  consentPdfBase64: string | null;
+}
+
 interface AuthContextType {
   user: AuthUser | null;
   isLoading: boolean;
@@ -33,7 +49,7 @@ interface AuthContextType {
   sessionTimeoutMinutes: number;
   login: (uid: string, password: string) => Promise<LoginResult>;
   loginWithPasskey: () => Promise<void>;
-  signup: (name: string, email: string, phone: string, password: string) => Promise<void>;
+  signup: (input: SignupInput) => Promise<SignupResult>;
   verifyLogin2FA: (challengeToken: string, code: string) => Promise<void>;
   forceChangePassword: (passwordChangeToken: string, newPassword: string) => Promise<{ justOnboarded: boolean; user: AuthUser }>;
   logout: (opts?: { preserveRedirect?: boolean }) => Promise<void>;
@@ -224,15 +240,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refreshTwoFactorStatus();
   }, [refreshTwoFactorStatus]);
 
-  const signup = useCallback(async (name: string, email: string, phone: string, password: string) => {
+  const signup = useCallback(async (input: SignupInput): Promise<SignupResult> => {
     const res = await apiFetch("/api/auth/signup", {
       method: "POST",
-      body: JSON.stringify({ name, email, phone, password }),
+      body: JSON.stringify(input),
     });
+    const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
       throw new Error(data.error || "Signup failed");
     }
+    return { consent: data.consent, consentPdfBase64: data.consentPdfBase64 ?? null };
   }, []);
 
   const forceChangePassword = useCallback(async (passwordChangeToken: string, newPassword: string) => {

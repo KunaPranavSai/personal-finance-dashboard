@@ -46,7 +46,10 @@ export function BudgetTable({ periodKey }: { periodKey: string }) {
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => api.delete(`/api/budgets/${id}`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["budgets"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["budgets"], refetchType: "all" });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-summary"], refetchType: "all" });
+    },
   });
 
   const items = data?.items ?? [];
