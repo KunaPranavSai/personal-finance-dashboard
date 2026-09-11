@@ -320,41 +320,28 @@ model Passkey {
 // cloud (google_drive today; onedrive/dropbox/icloud can reuse this same table
 // later) a user has linked, so adding a new provider needs no schema change.
 model BackupConnection {
-  id                 String    @id @default(cuid())
-  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId             String
-  provider           String
-  accountEmail       String?
+  id                   String    @id @default(cuid())
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId               String
+  provider             String
+  accountEmail         String?
   // Encrypted at rest (see backend/src/lib/crypto.ts) — never stored or logged in plaintext.
-  accessToken        String
-  refreshToken       String?
-  tokenExpiresAt     DateTime?
-  backupFolderId     String?
-  lastBackupAt       DateTime?
-  lastBackupFileId   String?
-  history            BackupHistory[]
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  accessToken          String
+  refreshToken         String?
+  tokenExpiresAt       DateTime?
+  // Set only once setupWorkspace() has verified the Drive workspace is fully ready — see
+  // services/drive/init.ts. Null here (even with tokens saved) means "connected but not
+  // yet migrated/initialized", which the admin Migration Status view relies on.
+  backupFolderId       String?
+  // Operational visibility into the connect/migrate flow, for the admin Migration Status
+  // view only — never used by any user-facing logic. Set by drive.routes.ts on every
+  // connect attempt; lastConnectError is cleared on a subsequent success.
+  lastConnectAttemptAt DateTime?
+  lastConnectError     String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 
   @@unique([userId, provider])
-}
-
-// One row per backup attempt (success or failure), so users can see their
-// backup history and the scheduler can identify + retry failed attempts.
-model BackupHistory {
-  id            String           @id @default(cuid())
-  connection    BackupConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
-  connectionId  String
-  userId        String
-  status        String // "success" | "failed"
-  fileId        String?
-  errorMessage  String?
-  attempt       Int              @default(1)
-  triggeredBy   String // "manual" | "scheduled"
-  createdAt     DateTime         @default(now())
-
-  @@index([connectionId, createdAt])
-  @@index([userId, status])
 }
 
 model PlatformSettings {

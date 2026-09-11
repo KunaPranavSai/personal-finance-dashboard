@@ -173,16 +173,28 @@ router.get(
       // "connected" (tokens saved) but not "initialized", so the mandatory-onboarding gate
       // keeps showing the migrate/connect screen — with a safe, idempotent retry — instead of
       // ever letting the app render against incomplete data.
+      await prisma.backupConnection.update({
+        where: { userId_provider: { userId: pending.userId, provider: DRIVE_PROVIDER } },
+        data: { lastConnectAttemptAt: new Date() },
+      });
       const folders = await getOrCreatePennyPilotFolders(tokens.accessToken);
       const result = await setupWorkspace(pending.userId, tokens.accessToken, folders.rootId, tokens.accountEmail ?? null);
       await prisma.backupConnection.update({
         where: { userId_provider: { userId: pending.userId, provider: DRIVE_PROVIDER } },
-        data: { backupFolderId: folders.rootId },
+        data: { backupFolderId: folders.rootId, lastConnectError: null },
       });
       invalidateAllCachesForUser(pending.userId);
       res.redirect(`${base}?driveConnected=1&migrated=${result.migrated ? "1" : "0"}`);
     } catch (err) {
       console.error("Google Drive connect failed:", err);
+      // Best-effort — surfaces in the admin Migration Status view; must never itself fail the
+      // redirect back to the user.
+      await prisma.backupConnection
+        .update({
+          where: { userId_provider: { userId: pending.userId, provider: DRIVE_PROVIDER } },
+          data: { lastConnectError: (err instanceof Error ? err.message : "Unknown error").slice(0, 500) },
+        })
+        .catch(() => {});
       res.redirect(`${base}?driveError=connect_failed`);
     }
   })
@@ -210,14 +222,28 @@ router.post(
 
     // Same ordering as the /callback flow: only mark this connection "initialized" once
     // setupWorkspace has actually verified the workspace, never before.
-    const result = await setupWorkspace(pending.userId, pending.accessToken, rootId, pending.accountEmail);
     await prisma.backupConnection.update({
       where: { userId_provider: { userId: pending.userId, provider: DRIVE_PROVIDER } },
-      data: { backupFolderId: rootId },
+      data: { lastConnectAttemptAt: new Date() },
     });
-    invalidateAllCachesForUser(pending.userId);
-    void logActivity(req, "drive_account_change_resolved", `Resolved account change: ${choice}`, pending.userId);
-    res.json({ ok: true, migrated: result.migrated, counts: result.counts });
+    try {
+      const result = await setupWorkspace(pending.userId, pending.accessToken, rootId, pending.accountEmail);
+      await prisma.backupConnection.update({
+        where: { userId_provider: { userId: pending.userId, provider: DRIVE_PROVIDER } },
+        data: { backupFolderId: rootId, lastConnectError: null },
+      });
+      invalidateAllCachesForUser(pending.userId);
+      void logActivity(req, "drive_account_change_resolved", `Resolved account change: ${choice}`, pending.userId);
+      res.json({ ok: true, migrated: result.migrated, counts: result.counts });
+    } catch (err) {
+      await prisma.backupConnection
+        .update({
+          where: { userId_provider: { userId: pending.userId, provider: DRIVE_PROVIDER } },
+          data: { lastConnectError: (err instanceof Error ? err.message : "Unknown error").slice(0, 500) },
+        })
+        .catch(() => {});
+      throw err;
+    }
   })
 );
 
