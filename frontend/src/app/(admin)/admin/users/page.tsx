@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
+import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { MoreVertical, Pencil, RotateCcw, IdCard, HardDrive, Trash2, Search, ShieldCheck, ShieldOff, LogOut, Users } from "lucide-react";
 import { Topbar } from "@/components/layout/Topbar";
@@ -15,6 +16,24 @@ import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import {
   ManagedUser, STATUS_STYLES, EditUserModal, ResetPasswordModal, ResetUidModal, UsageModal, DeleteUserModal,
 } from "@/components/admin/UserManagementShared";
+
+type MigrationState = "NEW_USER" | "DRIVE_SETUP_REQUIRED" | "MIGRATION_REQUIRED" | "MIGRATION_IN_PROGRESS" | "MIGRATION_COMPLETED" | "MIGRATION_FAILED";
+const DRIVE_STATE_LABEL: Record<MigrationState, string> = {
+  NEW_USER: "New",
+  DRIVE_SETUP_REQUIRED: "Setup Required",
+  MIGRATION_REQUIRED: "Migration Required",
+  MIGRATION_IN_PROGRESS: "In Progress",
+  MIGRATION_COMPLETED: "Connected",
+  MIGRATION_FAILED: "Failed",
+};
+const DRIVE_STATE_TONE: Record<MigrationState, string> = {
+  NEW_USER: "bg-navy/10 text-navy/70 dark:bg-white/10 dark:text-white/70",
+  DRIVE_SETUP_REQUIRED: "bg-amber-500/10 text-amber-700 dark:text-amber-400",
+  MIGRATION_REQUIRED: "bg-amber-500/10 text-amber-700 dark:text-amber-400",
+  MIGRATION_IN_PROGRESS: "bg-teal/10 text-teal",
+  MIGRATION_COMPLETED: "bg-emerald-500/10 text-emerald-600",
+  MIGRATION_FAILED: "bg-red-500/10 text-red-500",
+};
 
 const AVATAR_COLORS = ["bg-teal/15 text-teal", "bg-blue-500/15 text-blue-600", "bg-purple-500/15 text-purple-600", "bg-amber-500/15 text-amber-600", "bg-emerald-500/15 text-emerald-600"];
 function avatarColor(seed: string) {
@@ -55,6 +74,17 @@ export default function AdminUsersPage() {
     queryKey: ["users-all"],
     queryFn: () => api.get<{ items: ManagedUser[] }>("/api/auth/users"),
   });
+  // Drive/migration state only applies to USER-role accounts — fetched separately since it's
+  // derived (account + BackupConnection signals), not a User table column. A single page is
+  // fine at this console's scale; rows beyond it simply show no badge.
+  const { data: migrationData } = useQuery({
+    queryKey: ["admin-migration-status", "users-page"],
+    queryFn: () => api.get<{ items: { userId: string; state: MigrationState }[] }>("/api/admin/migration/status?pageSize=500"),
+  });
+  const driveStateByUserId = useMemo(
+    () => new Map((migrationData?.items ?? []).map((r) => [r.userId, r.state])),
+    [migrationData]
+  );
 
   const closeModal = useCallback(() => setModal(null), []);
 
@@ -152,6 +182,7 @@ export default function AdminUsersPage() {
                       <th className="pb-2 pr-3 font-medium">Mobile</th>
                       <th className="pb-2 pr-3 font-medium">Role</th>
                       <th className="pb-2 pr-3 font-medium">Status</th>
+                      <th className="pb-2 pr-3 font-medium">Drive</th>
                       <th className="pb-2 pr-3 font-medium">Created</th>
                       <th className="pb-2 pr-3 font-medium">Last Login</th>
                       <th className="pb-2 pr-3 font-medium">2FA</th>
@@ -177,6 +208,22 @@ export default function AdminUsersPage() {
                           <td className="py-2 pr-3 text-navy/60 dark:text-white/60">{u.role.replace("_", " ")}</td>
                           <td className="py-2 pr-3">
                             <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", STATUS_STYLES[u.status])}>{u.status}</span>
+                          </td>
+                          <td className="py-2 pr-3">
+                            {u.role === "USER" ? (
+                              (() => {
+                                const state = driveStateByUserId.get(u.id);
+                                return state ? (
+                                  <Link href="/admin/migration" className={cn("rounded-full px-2 py-0.5 text-xs font-medium hover:underline", DRIVE_STATE_TONE[state])}>
+                                    {DRIVE_STATE_LABEL[state]}
+                                  </Link>
+                                ) : (
+                                  <span className="text-xs text-navy/30 dark:text-white/30">—</span>
+                                );
+                              })()
+                            ) : (
+                              <span className="text-xs text-navy/30 dark:text-white/30">N/A</span>
+                            )}
                           </td>
                           <td className="py-2 pr-3 text-navy/60 dark:text-white/60 whitespace-nowrap">{new Date(u.createdAt).toLocaleDateString()}</td>
                           <td className="py-2 pr-3 text-navy/60 dark:text-white/60 whitespace-nowrap">{u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleDateString() : "Never"}</td>

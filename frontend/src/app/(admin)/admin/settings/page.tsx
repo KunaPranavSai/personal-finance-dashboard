@@ -2,13 +2,13 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Settings as SettingsIcon, Save, Info } from "lucide-react";
+import { Settings as SettingsIcon, Save, Info, Download, CheckCircle, Database } from "lucide-react";
 import { Topbar } from "@/components/layout/Topbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
-import { api } from "@/lib/api";
+import { api, API_BASE_URL } from "@/lib/api";
 
 interface PlatformSettings {
   siteName: string;
@@ -29,6 +29,32 @@ export default function AdminSystemSettingsPage() {
 
   const [form, setForm] = useState<PlatformSettings | null>(null);
   const [saving, setSaving] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const [justDownloaded, setJustDownloaded] = useState(false);
+
+  const handleDownloadBackup = useCallback(async () => {
+    setDownloading(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/backup`, { credentials: "include" });
+      if (!res.ok) throw new Error("Backup failed");
+      const blob = await res.blob();
+      const disposition = res.headers.get("Content-Disposition") ?? "";
+      const match = disposition.match(/filename="?(.+?)"?$/);
+      const filename = match ? match[1] : `pennypilot-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      setJustDownloaded(true);
+      toast("Account backup downloaded", "success");
+      setTimeout(() => setJustDownloaded(false), 3000);
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Backup failed", "error");
+    } finally {
+      setDownloading(false);
+    }
+  }, [toast]);
 
   useEffect(() => {
     if (data) setForm(data);
@@ -106,6 +132,31 @@ export default function AdminSystemSettingsPage() {
             <Button onClick={handleSave} disabled={saving}>
               <Save className="h-4 w-4" /> {saving ? "Saving…" : "Save Settings"}
             </Button>
+
+            <Card>
+              <CardHeader><CardTitle>Account Backup</CardTitle></CardHeader>
+              <CardContent>
+                <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-navy dark:text-white">Download Account Backup</p>
+                    <p className="mt-1 text-sm text-navy/60 dark:text-white/60">
+                      Every account&apos;s role, status, and timestamps — as JSON.
+                    </p>
+                  </div>
+                  <Button onClick={handleDownloadBackup} disabled={downloading}>
+                    {justDownloaded ? <CheckCircle className="h-4 w-4" /> : <Download className="h-4 w-4" />}
+                    {downloading ? "Preparing…" : justDownloaded ? "Downloaded" : "Download Backup"}
+                  </Button>
+                </div>
+                <div className="mt-4 flex items-start gap-2 rounded-lg bg-black/5 p-3 text-xs text-navy/50 dark:bg-white/5 dark:text-white/50">
+                  <Database className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  Never includes financial data (transactions, budgets, investments, bills, goals, categories,
+                  accounts) — that lives solely in each user&apos;s own Google Drive, which the platform has no
+                  access to. Only account metadata (role, status, timestamps) is included. Restore-from-file is
+                  intentionally not available.
+                </div>
+              </CardContent>
+            </Card>
           </div>
         )}
       </main>
