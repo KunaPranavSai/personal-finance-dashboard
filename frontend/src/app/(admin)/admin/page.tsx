@@ -12,7 +12,7 @@ import { Timeline, TimelineEvent } from "@/components/admin/Timeline";
 import { api } from "@/lib/api";
 import {
   LayoutDashboard, Users, UserCheck, Clock, UserX,
-  Activity as ActivityIcon, ArrowRight,
+  Activity as ActivityIcon, ArrowRight, HardDrive, AlertTriangle, RefreshCw,
 } from "lucide-react";
 
 interface AdminStats {
@@ -20,6 +20,14 @@ interface AdminStats {
   signups: { today: number; week: number; month: number };
   signupTrend: { day: string; count: number }[];
   recentActivity: { id: string; event: string; detail: string | null; createdAt: string; user: { name: string; email: string } | null }[];
+  migrationSummary: {
+    NEW_USER: number;
+    DRIVE_SETUP_REQUIRED: number;
+    MIGRATION_REQUIRED: number;
+    MIGRATION_IN_PROGRESS: number;
+    MIGRATION_COMPLETED: number;
+    MIGRATION_FAILED: number;
+  };
   systemHealth: { database: string; uptimeSeconds: number };
 }
 
@@ -34,6 +42,8 @@ export default function AdminDashboardPage() {
     actorLabel: a.user ? `${a.user.name} (${a.user.email})` : null,
   }));
 
+  const needsAttention = (data?.migrationSummary.MIGRATION_REQUIRED ?? 0) + (data?.migrationSummary.MIGRATION_FAILED ?? 0);
+
   return (
     <>
       <Topbar title="Admin Dashboard" />
@@ -41,7 +51,7 @@ export default function AdminDashboardPage() {
         <AdminPageHeader
           icon={LayoutDashboard}
           title="Platform Overview"
-          description="High-level stats across every account on Penny Pilot."
+          description="Operational status across every account on Penny Pilot."
         />
 
         {isLoading || !data ? (
@@ -60,6 +70,26 @@ export default function AdminDashboardPage() {
               <StatCard label="New Signups (Month)" value={data.signups.month} icon={Users} />
               <StatCard label="System Health" value={data.systemHealth.database === "ok" ? "Healthy" : "Issue"} icon={ActivityIcon} tone={data.systemHealth.database === "ok" ? "emerald" : "red"} />
             </div>
+
+            <div className="mt-6 flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-navy/70 dark:text-white/70">Google Drive Migration</h2>
+              <Link href="/admin/migration" className="flex items-center gap-1 text-xs font-medium text-teal hover:underline">
+                View details <ArrowRight className="h-3 w-3" />
+              </Link>
+            </div>
+            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
+              <StatCard label="Migration Required" value={data.migrationSummary.MIGRATION_REQUIRED} icon={HardDrive} tone="amber" />
+              <StatCard label="In Progress" value={data.migrationSummary.MIGRATION_IN_PROGRESS} icon={RefreshCw} tone="navy" />
+              <StatCard label="Migration Failed" value={data.migrationSummary.MIGRATION_FAILED} icon={AlertTriangle} tone="red" />
+              <StatCard label="Migration Completed" value={data.migrationSummary.MIGRATION_COMPLETED} icon={UserCheck} tone="emerald" />
+            </div>
+            {needsAttention > 0 && (
+              <p className="mt-3 flex items-center gap-1.5 text-xs text-amber-700 dark:text-amber-400">
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                {needsAttention} account{needsAttention === 1 ? "" : "s"} need{needsAttention === 1 ? "s" : ""} attention — see{" "}
+                <Link href="/admin/migration" className="font-medium underline">Migration Status</Link>.
+              </p>
+            )}
 
             <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
               <Card className="lg:col-span-2">

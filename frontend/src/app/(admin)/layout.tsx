@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { AdminSidebar } from "@/components/layout/AdminSidebar";
 import { SwipeSidebarHandler } from "@/components/layout/SwipeSidebarHandler";
 import { Footer } from "@/components/layout/Footer";
@@ -12,16 +12,14 @@ import { useAuth } from "@/lib/AuthContext";
 export default function AdminShellLayout({ children }: { children: React.ReactNode }) {
   const { user, isAuthenticated, isLoading, isLocked, unlock } = useAuth();
   const router = useRouter();
-  const pathname = usePathname();
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      const redirect = pathname ? `?redirect=${encodeURIComponent(pathname)}` : "";
-      router.replace(`/login${redirect}`);
+      router.replace("/admin-login");
     } else if (!isLoading && user && user.role === "USER") {
       router.replace("/dashboard");
     }
-  }, [isAuthenticated, isLoading, user, router, pathname]);
+  }, [isAuthenticated, isLoading, user, router]);
 
   if (isLoading || (user && user.role === "USER")) {
     return (
