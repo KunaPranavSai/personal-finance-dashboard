@@ -16,6 +16,7 @@ import { z } from "zod";
 import { useToast } from "@/components/ui/Toast";
 import { CURRENCIES, TIMEZONES, LANGUAGES, useProfile } from "@/lib/reference";
 import { useAuth } from "@/lib/AuthContext";
+import { downloadConsentPdfAuthenticated } from "@/lib/consent";
 
 const profileSchema = z.object({
   name: z.string().min(1, "Name is required").max(100, "Name too long"),
@@ -355,8 +356,82 @@ export default function ProfilePage() {
               )}
             </form>
           )}
+          {!isLoading && <LegalConsentCard />}
         </div>
       </main>
     </>
+  );
+}
+
+interface ConsentInfo {
+  signedName: string;
+  termsVersion: string;
+  privacyVersion: string;
+  acceptedAt: string;
+}
+
+/** Read-only summary of the consent recorded at signup, with a re-download
+ * action — legal/account metadata, so it reads from /api/auth/consent
+ * (Postgres-backed, auth-only) rather than any Drive-gated endpoint. */
+function LegalConsentCard() {
+  const { toast } = useToast();
+  const [consent, setConsent] = useState<ConsentInfo | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .get<ConsentInfo>("/api/auth/consent")
+      .then((data) => { if (!cancelled) setConsent(data); })
+      .catch(() => { if (!cancelled) setLoadFailed(true); });
+    return () => { cancelled = true; };
+  }, []);
+
+  // No consent record (e.g. a pre-existing account created before this
+  // feature shipped) or still loading — render nothing rather than a
+  // confusing empty card.
+  if (loadFailed || !consent) return null;
+
+  const handleDownload = async () => {
+    setDownloading(true);
+    try {
+      await downloadConsentPdfAuthenticated();
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Failed to download signed consent", "error");
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  return (
+    <Card className="mt-6">
+      <CardHeader><CardTitle>Legal &amp; Consent</CardTitle></CardHeader>
+      <CardContent className="space-y-3">
+        <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+          <div>
+            <p className="text-xs text-navy/50 dark:text-white/50">Terms of Service version accepted</p>
+            <p className="font-medium text-navy dark:text-white">v{consent.termsVersion}</p>
+          </div>
+          <div>
+            <p className="text-xs text-navy/50 dark:text-white/50">Privacy Policy version acknowledged</p>
+            <p className="font-medium text-navy dark:text-white">v{consent.privacyVersion}</p>
+          </div>
+          <div>
+            <p className="text-xs text-navy/50 dark:text-white/50">Signed name</p>
+            <p className="font-medium text-navy dark:text-white">{consent.signedName}</p>
+          </div>
+          <div>
+            <p className="text-xs text-navy/50 dark:text-white/50">Acceptance date</p>
+            <p className="font-medium text-navy dark:text-white">
+              {new Date(consent.acceptedAt).toLocaleString("en-IN", { dateStyle: "long", timeStyle: "short" })}
+            </p>
+          </div>
+        </div>
+        <Button type="button" variant="secondary" size="sm" onClick={handleDownload} disabled={downloading}>
+          {downloading ? "Preparing…" : "Download Signed Consent"}
+        </Button>
+      </CardContent>
+    </Card>
   );
 }

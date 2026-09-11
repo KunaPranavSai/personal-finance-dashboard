@@ -91,8 +91,24 @@ model User {
   profile        AppProfile?
   backupConnections BackupConnection[]
   passkeys       Passkey[]
+  consent        ConsentRecord?
 
   @@index([status])
+}
+
+// Legal/account metadata only (who accepted what, and when) — never financial
+// data, which lives in the user's own Google Drive per the app's architecture.
+model ConsentRecord {
+  id              String   @id @default(cuid())
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId          String   @unique
+  signedName      String
+  termsAccepted   Boolean
+  privacyAccepted Boolean
+  termsVersion    String
+  privacyVersion  String
+  acceptedAt      DateTime @default(now())
+  createdAt       DateTime @default(now())
 }
 
 model Category {

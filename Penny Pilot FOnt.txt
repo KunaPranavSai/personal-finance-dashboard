@@ -1,0 +1,30 @@
+web 
+@import
+Embed code in the <head> of your html
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Iceberg&display=swap');
+</style>
+
+Iceberg: CSS class
+
+.iceberg-regular {
+  font-family: "Iceberg", sans-serif;
+  font-weight: 400;
+  font-style: normal;
+}
+
+Embed code in the <head> of your html
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Iceberg&display=swap" rel="stylesheet">
+Iceberg: CSS class
+
+.iceberg-regular {
+  font-family: "Iceberg", sans-serif;
+  font-weight: 400;
+  font-style: normal;
+}
+
+

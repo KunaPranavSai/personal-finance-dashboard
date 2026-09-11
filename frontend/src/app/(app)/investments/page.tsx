@@ -49,7 +49,10 @@ function InvestmentModal({ open, editing, onClose }: {
   const createMutation = useMutation({
     mutationFn: (data: InvestmentForm) => postWithOfflineQueue<Investment>("investment", "/api/investments", data),
     onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: ["investments"] });
+      // dashboard-summary's netWorth includes portfolio value — must be invalidated here too,
+      // or Net Worth on the dashboard silently shows a stale figure after adding an investment.
+      queryClient.invalidateQueries({ queryKey: ["investments"], refetchType: "all" });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-summary"], refetchType: "all" });
       onClose();
       reset();
       toast(result.queued ? "You're offline — this will be saved automatically once you're back online." : "Investment added", "success");
@@ -58,7 +61,11 @@ function InvestmentModal({ open, editing, onClose }: {
   });
   const updateMutation = useMutation({
     mutationFn: (data: InvestmentForm) => api.patch<Investment>(`/api/investments/${editing!.id}`, data),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["investments"] }); onClose(); reset(); toast("Investment updated", "success"); },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["investments"], refetchType: "all" });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-summary"], refetchType: "all" });
+      onClose(); reset(); toast("Investment updated", "success");
+    },
     onError: () => { toast("Failed to update investment", "error"); },
   });
 
@@ -145,7 +152,11 @@ export default function InvestmentsPage() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => api.delete(`/api/investments/${id}`),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["investments"] }); toast("Investment deleted", "success"); },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["investments"], refetchType: "all" });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-summary"], refetchType: "all" });
+      toast("Investment deleted", "success");
+    },
     onError: () => { toast("Failed to delete investment", "error"); },
   });
 

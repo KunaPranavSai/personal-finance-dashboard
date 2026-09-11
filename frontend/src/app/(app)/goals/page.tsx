@@ -40,12 +40,21 @@ function GoalModal({ open, editing, onClose }: {
 
   const createMutation = useMutation({
     mutationFn: (data: GoalForm) => api.post<Goal>("/api/goals", data),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["goals"] }); onClose(); reset(); toast("Goal created", "success"); },
+    onSuccess: () => {
+      // dashboard-summary's emergencyFund/goalCount read this collection too.
+      queryClient.invalidateQueries({ queryKey: ["goals"], refetchType: "all" });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-summary"], refetchType: "all" });
+      onClose(); reset(); toast("Goal created", "success");
+    },
     onError: () => { toast("Failed to create goal", "error"); },
   });
   const updateMutation = useMutation({
     mutationFn: (data: GoalForm) => api.patch<Goal>(`/api/goals/${editing!.id}`, data),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["goals"] }); onClose(); reset(); toast("Goal updated", "success"); },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["goals"], refetchType: "all" });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-summary"], refetchType: "all" });
+      onClose(); reset(); toast("Goal updated", "success");
+    },
     onError: () => { toast("Failed to update goal", "error"); },
   });
 
@@ -113,7 +122,11 @@ export default function GoalsPage() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => api.delete(`/api/goals/${id}`),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["goals"] }); toast("Goal deleted", "success"); },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["goals"], refetchType: "all" });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-summary"], refetchType: "all" });
+      toast("Goal deleted", "success");
+    },
     onError: () => { toast("Failed to delete goal", "error"); },
   });
 

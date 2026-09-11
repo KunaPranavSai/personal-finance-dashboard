@@ -26,8 +26,8 @@ const billSchema = z.object({
   amount: z.coerce.number().positive("Amount must be positive"),
   paidAmount: z.coerce.number().nonnegative().default(0),
   autoPay: z.boolean().default(false),
-  interestRate: z.coerce.number().optional().or(z.literal("")),
-  tenureMonths: z.coerce.number().optional().or(z.literal("")),
+  interestRate: z.literal("").or(z.coerce.number()).optional(),
+  tenureMonths: z.literal("").or(z.coerce.number()).optional(),
   notes: z.string().optional().or(z.literal("")),
 });
 
@@ -62,7 +62,12 @@ function BillModal({ open, editing, onClose }: {
       const payload = { ...data, interestRate: data.interestRate === "" ? null : Number(data.interestRate), tenureMonths: data.tenureMonths === "" ? null : Number(data.tenureMonths) };
       return api.post<Bill>("/api/bills", payload);
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["bills"] }); onClose(); reset(); toast("Bill added to flight schedule! ✈️", "success"); },
+    onSuccess: () => {
+      // dashboard-summary's upcomingBills reads this collection too.
+      queryClient.invalidateQueries({ queryKey: ["bills"], refetchType: "all" });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-summary"], refetchType: "all" });
+      onClose(); reset(); toast("Bill added to flight schedule! ✈️", "success");
+    },
     onError: (err) => { toast(getErrorMessage(err, "Failed to save bill"), "error"); },
   });
   const updateMutation = useMutation({
@@ -70,7 +75,11 @@ function BillModal({ open, editing, onClose }: {
       const payload = { ...data, interestRate: data.interestRate === "" ? null : Number(data.interestRate), tenureMonths: data.tenureMonths === "" ? null : Number(data.tenureMonths) };
       return api.patch<Bill>(`/api/bills/${editing!.id}`, payload);
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["bills"] }); onClose(); reset(); toast("Bill updated", "success"); },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["bills"], refetchType: "all" });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-summary"], refetchType: "all" });
+      onClose(); reset(); toast("Bill updated", "success");
+    },
     onError: (err) => { toast(getErrorMessage(err, "Failed to update bill"), "error"); },
   });
 
@@ -149,7 +158,11 @@ export default function BillsPage() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => api.delete(`/api/bills/${id}`),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["bills"] }); toast("Bill deleted", "success"); },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["bills"], refetchType: "all" });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-summary"], refetchType: "all" });
+      toast("Bill deleted", "success");
+    },
     onError: (err) => { toast(getErrorMessage(err, "Failed to delete bill"), "error"); },
   });
 
