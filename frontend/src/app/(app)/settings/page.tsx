@@ -19,6 +19,7 @@ import { useToast } from "@/components/ui/Toast";
 import { Palette, Bell, Shield, Download, Database, Eye, Save, Copy, Check, KeyRound, CheckCircle, Sun, Moon, Monitor, Smartphone } from "lucide-react";
 import { cn } from "@/lib/format";
 import { CURRENCIES, DATE_FORMATS, LANGUAGES, TIMEZONES } from "@/lib/reference";
+import { SECURITY_QUESTIONS } from "@/lib/securityQuestions";
 import { isPwaInstalled, canPromptInstall, triggerInstallPrompt, subscribeToInstallAvailability } from "@/lib/pwaInstall";
 import { getPreferBiometric, setPreferBiometric } from "@/lib/passkeyPrefs";
 import { startRegistration, browserSupportsWebAuthn } from "@simplewebauthn/browser";
@@ -647,6 +648,103 @@ function ChangeUidSection() {
   );
 }
 
+interface SecurityQuestionsStatus {
+  configured: boolean;
+  questions: { key: string; position: number }[];
+}
+
+/** Account-recovery security questions (optional second factor after email
+ * OTP). Setting/changing them requires the current password plus a recent
+ * 2FA re-verification — the same bar as ChangeUidSection above — since this
+ * is a sensitive recovery-factor change on an already authenticated
+ * session, not part of the recovery flow itself. */
+function SecurityQuestionsSection() {
+  const { toast } = useToast();
+  const [status, setStatus] = useState<SecurityQuestionsStatus | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [question1, setQuestion1] = useState("");
+  const [answer1, setAnswer1] = useState("");
+  const [question2, setQuestion2] = useState("");
+  const [answer2, setAnswer2] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const loadStatus = useCallback(() => {
+    api.get<SecurityQuestionsStatus>("/api/auth/security-questions").then(setStatus).catch(() => {});
+  }, []);
+
+  useEffect(() => { loadStatus(); }, [loadStatus]);
+
+  const handleSave = useCallback(async () => {
+    setError("");
+    if (!question1 || !question2 || !answer1.trim() || !answer2.trim() || !password) {
+      setError("Both questions, both answers, and your current password are required");
+      return;
+    }
+    if (question1 === question2) {
+      setError("Please choose two different questions");
+      return;
+    }
+    setBusy(true);
+    try {
+      await api.patch("/api/auth/security-questions", { password, question1, answer1, question2, answer2 });
+      setEditing(false);
+      setQuestion1(""); setAnswer1(""); setQuestion2(""); setAnswer2(""); setPassword("");
+      loadStatus();
+      toast("Security questions saved", "success");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save security questions");
+    } finally {
+      setBusy(false);
+    }
+  }, [question1, answer1, question2, answer2, password, loadStatus, toast]);
+
+  return (
+    <div className="rounded-lg border border-black/5 p-4 space-y-3 dark:border-white/10">
+      <p className="text-sm font-semibold text-navy dark:text-white">Account-Recovery Security Questions</p>
+      <p className="text-xs text-navy/50 dark:text-white/50">
+        {status?.configured
+          ? "Configured — used as an extra verification step during password recovery."
+          : "Not configured. Your account remains fully recoverable via email code alone; adding security questions is an optional extra layer."}
+      </p>
+      {!editing ? (
+        <Button type="button" size="sm" variant="secondary" onClick={() => setEditing(true)}>
+          {status?.configured ? "Change Questions" : "Set Up Security Questions"}
+        </Button>
+      ) : (
+        <div className="space-y-3">
+          <div>
+            <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Question 1</label>
+            <select value={question1} onChange={(e) => setQuestion1(e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
+              <option value="">Select…</option>
+              {SECURITY_QUESTIONS.map((q) => <option key={q.key} value={q.key} disabled={q.key === question2}>{q.text}</option>)}
+            </select>
+            <input type="text" value={answer1} onChange={(e) => setAnswer1(e.target.value)} placeholder="Your answer" className="mt-2 w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Question 2</label>
+            <select value={question2} onChange={(e) => setQuestion2(e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
+              <option value="">Select…</option>
+              {SECURITY_QUESTIONS.map((q) => <option key={q.key} value={q.key} disabled={q.key === question1}>{q.text}</option>)}
+            </select>
+            <input type="text" value={answer2} onChange={(e) => setAnswer2(e.target.value)} placeholder="Your answer" className="mt-2 w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Confirm with Password</label>
+            <PasswordInput autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" placeholder="Current password" />
+          </div>
+          {error && <p className="text-xs text-red-500">{error}</p>}
+          <div className="flex gap-2">
+            <Button type="button" size="sm" onClick={handleSave} disabled={busy}>{busy ? "Saving…" : "Save"}</Button>
+            <Button type="button" size="sm" variant="ghost" onClick={() => { setEditing(false); setError(""); }}>Cancel</Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 interface ActivityItem {
   id: string;
   event: string;
@@ -1042,6 +1140,7 @@ function SettingsContent() {
                 </div>
               </div>
               <ChangeUidSection />
+              <SecurityQuestionsSection />
               <TwoFactorSection />
               <PasskeySection />
               <div>

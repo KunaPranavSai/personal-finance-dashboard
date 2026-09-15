@@ -92,8 +92,79 @@ model User {
   backupConnections BackupConnection[]
   passkeys       Passkey[]
   consent        ConsentRecord?
+  recoverySessions  RecoverySession[]
+  securityQuestions SecurityQuestion[]
 
   @@index([status])
+}
+
+enum RecoveryState {
+  // Legacy values from the sequential v2 flow — no longer written by new
+  // code, kept only so the enum type change stays additive (old rows, if
+  // any, remain valid). Do not use in new code.
+  REQUESTED
+  SECURITY_REQUIRED
+  SECURITY_VERIFIED
+  // Choice-based v3 flow states.
+  STARTED
+  METHOD_SELECTED
+  OTP_VERIFIED
+  TOTP_VERIFIED
+  SECURITY_QUESTIONS_VERIFIED
+  AUTHORIZED
+  COMPLETED
+  EXPIRED
+  LOCKED
+}
+
+// Server-authoritative, choice-based account-recovery session. The client
+// never sees this row's identifier or the raw recovery token — the token
+// exists only inside a Secure+HttpOnly+signed cookie the browser cannot read
+// via JavaScript; only this row's SHA-256 hash of it is stored. `method`
+// records which single recovery method the user picked (email OTP, TOTP, or
+// security questions) — once picked, only that method's verification
+// endpoint can advance the session to AUTHORIZED, and no other method's
+// state fields are trusted. Single-use: consumedAt is set the instant a
+// password reset succeeds, and every recovery endpoint checks it first.
+model RecoverySession {
+  id               String        @id @default(cuid())
+  user             User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId           String
+  tokenHash        String        @unique
+  state            RecoveryState @default(STARTED)
+  // "EMAIL_OTP" | "TOTP" | "SECURITY_QUESTIONS" — set once, at select-method time.
+  method           String?
+  otpHash          String?
+  otpExpiresAt     DateTime?
+  otpAttempts      Int           @default(0)
+  otpResendCount   Int           @default(0)
+  otpLastSentAt    DateTime?
+  totpAttempts     Int           @default(0)
+  securityAttempts Int           @default(0)
+  expiresAt        DateTime
+  consumedAt       DateTime?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+// Exactly two rows per user today (position 1/2), structured to allow more
+// later. answerHash is bcrypt(normalize(answer)) — the plaintext answer is
+// never stored or returned anywhere.
+model SecurityQuestion {
+  id          String   @id @default(cuid())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String
+  questionKey String
+  answerHash  String
+  position    Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId, position])
+  @@index([userId])
 }
 
 // Legal/account metadata only (who accepted what, and when) — never financial

@@ -49,7 +49,7 @@ interface ConfirmationState {
   signedName: string;
   acceptedAt: string;
   consentPdfBase64: string | null;
-  uid: string;
+  email: string;
 }
 
 export default function SignupPage() {
@@ -124,7 +124,7 @@ export default function SignupPage() {
         signedName: result.consent.signedName,
         acceptedAt: result.consent.acceptedAt,
         consentPdfBase64: result.consentPdfBase64,
-        uid: normalizedEmail,
+        email: normalizedEmail,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Signup failed");
@@ -189,7 +189,7 @@ export default function SignupPage() {
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             type="button"
-            onClick={() => router.push(`/login?registered=1&uid=${encodeURIComponent(confirmation.uid)}`)}
+            onClick={() => router.push(`/login?registered=1&email=${encodeURIComponent(confirmation.email)}`)}
             className={primaryButton}
           >
             Continue to Sign In
