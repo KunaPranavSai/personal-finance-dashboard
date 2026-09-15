@@ -80,6 +80,12 @@ export function createApp() {
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
+    // Without this, frontend JS can't read Content-Disposition on a
+    // cross-origin fetch response (browsers only expose a small CORS-safelisted
+    // set of response headers by default) — file-download filenames (consent
+    // PDF, data export) silently fall back to a generic name instead of the
+    // server-provided one.
+    exposedHeaders: ["Content-Disposition"],
   }));
 
   // CSRF defense-in-depth: the frontend and backend are cross-origin

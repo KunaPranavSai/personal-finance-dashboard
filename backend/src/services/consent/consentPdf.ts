@@ -127,15 +127,25 @@ export async function generateConsentPdf(input: ConsentPdfInput): Promise<Buffer
     y += 6;
     for (const s of PRIVACY_SECTIONS) section(s);
 
-    // Footer with page numbers on every page
+    // Footer with page numbers on every page. Writing this close to the
+    // bottom edge falls just past pdfkit's default bottom margin, which
+    // makes pdfkit think the text overflows the page and silently appends a
+    // *new* blank page to hold it — doubling the page count with empty
+    // footer-only pages and leaving the real pages without a footer at all.
+    // Zeroing the bottom margin for this call (restored right after) writes
+    // the footer in place instead.
     const range = doc.bufferedPageRange();
+    const bottomMargin = doc.page.margins.bottom;
     for (let i = range.start; i < range.start + range.count; i++) {
       doc.switchToPage(i);
+      doc.page.margins.bottom = 0;
       doc.fontSize(8).fillColor("#999");
       doc.text(`Penny Pilot — Signed Consent — Page ${i + 1} of ${range.count}`, MARGIN, doc.page.height - 40, {
         align: "center",
         width: pageWidth,
+        lineBreak: false,
       });
+      doc.page.margins.bottom = bottomMargin;
     }
 
     doc.end();
