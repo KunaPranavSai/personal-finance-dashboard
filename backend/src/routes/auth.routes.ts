@@ -32,6 +32,11 @@ import {
 import type { User } from "@prisma/client";
 import { TERMS_VERSION, PRIVACY_VERSION } from "../lib/legalVersions";
 import { generateConsentPdf } from "../services/consent/consentPdf";
+import { generateRecoveryToken, hashRecoveryToken } from "../lib/recoveryToken";
+import { setRecoveryCookie, clearRecoveryCookie, readRecoveryToken } from "../lib/recoveryCookie";
+import { SECURITY_QUESTIONS, SECURITY_QUESTION_KEYS, securityQuestionText, normalizeSecurityAnswer } from "../lib/securityQuestions";
+import { RECOVERY_OTP_EMAIL_HTML, PASSWORD_CHANGED_NOTIFICATION_EMAIL_HTML } from "../lib/emailTemplates";
+import type { RecoverySession } from "@prisma/client";
 
 const router = Router();
 
@@ -62,12 +67,41 @@ const signupLimiter = rateLimit({
   message: { error: "Too many signup attempts. Please try again later." },
 });
 
+// Account-recovery v2 limiters — deliberately stricter/hourly, independent
+// of loginLimiter, since these guard the entire recovery surface.
+const forgotPasswordLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests. Please try again later." },
+});
+const resendOtpLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests. Please try again later." },
+});
+const recoveryVerifyLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many attempts. Please try again later." },
+});
+
 const CHALLENGE_TOKEN_TTL = 5 * 60; // 5 minutes
 const PASSWORD_CHANGE_TOKEN_TTL = 30 * 60; // 30 minutes
 const RESET_OTP_TTL_MS = 5 * 60 * 1000; // 5 minutes
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes
 const MAX_OTP_ATTEMPTS = 5;
+const RECOVERY_SESSION_TTL_MS = 15 * 60 * 1000; // 15 minutes — overall ceiling for the whole recovery flow
+const MAX_SECURITY_ANSWER_ATTEMPTS = 5;
+const MAX_OTP_RESENDS = 3;
+const OTP_RESEND_COOLDOWN_MS = 60 * 1000;
+const RECOVERY_GENERIC_ERROR = "This recovery session is invalid or has expired. Please start over.";
 
 function toUserJson(user: User) {
   return { uid: user.uid, name: user.name, email: user.email, role: user.role };
@@ -86,6 +120,24 @@ function generateTempPassword(): string {
 
 function generateOtp(): string {
   return String(crypto.randomInt(100000, 1000000));
+}
+
+/** Resolves a client-supplied recoveryToken to its RecoverySession, or null
+ * if it doesn't exist, is consumed, is locked, or its overall TTL has
+ * elapsed — every case collapses to the same generic response at the call
+ * site, so a guessed/expired/consumed/locked token is indistinguishable. */
+async function loadActiveRecoverySession(recoveryToken: unknown): Promise<RecoverySession | null> {
+  if (typeof recoveryToken !== "string" || !recoveryToken) return null;
+  const tokenHash = hashRecoveryToken(recoveryToken);
+  const session = await prisma.recoverySession.findUnique({ where: { tokenHash } });
+  if (!session) return null;
+  if (session.consumedAt) return null;
+  if (session.state === "LOCKED" || session.state === "EXPIRED") return null;
+  if (session.expiresAt.getTime() < Date.now()) {
+    await prisma.recoverySession.update({ where: { id: session.id }, data: { state: "EXPIRED" } }).catch(() => {});
+    return null;
+  }
+  return session;
 }
 
 function generateBackupCodes(count = 8): string[] {
@@ -295,12 +347,12 @@ router.post(
   "/login",
   loginLimiter,
   asyncHandler(async (req: Request, res: Response) => {
-    const { uid, password } = req.body as { uid?: string; password?: string };
-    if (!uid || !password) {
-      res.status(400).json({ error: "UID and password are required" });
+    const { email, password } = req.body as { email?: string; password?: string };
+    if (!email || !password) {
+      res.status(400).json({ error: "Email and password are required" });
       return;
     }
-    const user = await prisma.user.findUnique({ where: { uid: uid.trim() } });
+    const user = await prisma.user.findUnique({ where: { email: email.trim().toLowerCase() } });
     if (!user || !user.passwordHash) {
       res.status(401).json({ error: "Invalid credentials" });
       return;
@@ -685,114 +737,418 @@ router.post(
   })
 );
 
-// ─── POST /api/auth/recovery-options ────────────────────────────────────────
-// Returns which recovery methods are available for the given UID. Responds
-// identically for unknown UIDs to avoid account enumeration.
-router.post(
-  "/recovery-options",
-  loginLimiter,
-  asyncHandler(async (req: Request, res: Response) => {
-    const { uid } = req.body as { uid?: string };
-    const user = uid ? await prisma.user.findUnique({ where: { uid } }) : null;
-    if (!user || user.status !== "ACTIVE") {
-      res.json({ email: false, totp: false, backup: false });
-      return;
-    }
-    res.json({
-      email: Boolean(process.env.RESEND_API_KEY),
-      totp: user.twoFactorEnabled,
-      backup: user.twoFactorEnabled && user.twoFactorBackupCodes.length > 0,
-    });
-  })
-);
+// ═══ Account recovery v3 — choice-based, cookie-bound ════════════════════════
+// The recovery credential (an opaque, high-entropy token) never appears in a
+// JSON response, localStorage, sessionStorage, or a URL — it lives only in a
+// Secure(prod)+HttpOnly+signed `recovery_token` cookie (see
+// lib/recoveryCookie.ts), so no frontend JavaScript can read or exfiltrate
+// it. Every recovery endpoint below re-derives the session, its state, and
+// its chosen method purely from that cookie via loadActiveRecoverySession —
+// never from anything the client sends in the request body. The user picks
+// exactly ONE recovery method up front; only that method's verify endpoint
+// can ever advance the session to AUTHORIZED (no sequential chaining through
+// multiple factors).
+
+const RECOVERY_METHODS = ["email_otp", "totp", "security_questions"] as const;
+type RecoveryMethod = (typeof RECOVERY_METHODS)[number];
+const METHOD_TO_STATE_FIELD: Record<RecoveryMethod, string> = {
+  email_otp: "EMAIL_OTP",
+  totp: "TOTP",
+  security_questions: "SECURITY_QUESTIONS",
+};
+const MAX_TOTP_ATTEMPTS = 5;
 
 // ─── POST /api/auth/forgot-password ─────────────────────────────────────────
+// Starts a recovery session for the given email. Always enumeration-safe:
+// the JSON response is identical whether or not the account exists, no
+// method availability is revealed, and the SAME cookie shape is set either
+// way (for a nonexistent/inactive account no RecoverySession row backs it,
+// so every later step behaves exactly like an expired/invalid session).
+// Starting a new session invalidates any previous active session for the
+// same user — only the newest stays valid.
 router.post(
   "/forgot-password",
-  loginLimiter,
+  forgotPasswordLimiter,
   asyncHandler(async (req: Request, res: Response) => {
-    const { uid } = req.body as { uid?: string };
-    if (!uid) {
-      res.status(400).json({ error: "UID is required" });
+    const { email } = req.body as { email?: string };
+    if (!email) {
+      res.status(400).json({ error: "Email is required" });
       return;
     }
-    const user = await prisma.user.findUnique({ where: { uid } });
+    const user = await prisma.user.findUnique({ where: { email: email.trim().toLowerCase() } });
+    const recoveryToken = generateRecoveryToken();
+
     if (user && user.status === "ACTIVE") {
-      const otp = generateOtp();
-      const hash = await bcrypt.hash(otp, 10);
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { resetOtpHash: hash, resetOtpExpiry: new Date(Date.now() + RESET_OTP_TTL_MS), resetOtpAttempts: 0 },
+      await prisma.recoverySession.updateMany({
+        where: { userId: user.id, consumedAt: null },
+        data: { consumedAt: new Date(), state: "EXPIRED" },
       });
-      void sendEmail(
-        user.email,
-        "Your Penny Pilot password reset code",
-        `<p>Your password reset code is:</p><h2 style="letter-spacing:4px">${otp}</h2><p>This code expires in 5 minutes. If you didn't request this, you can ignore this email.</p>`
-      );
-      void logActivity(req, "password_reset_requested", "Email OTP requested", user.id);
+      await prisma.recoverySession.create({
+        data: {
+          userId: user.id,
+          tokenHash: hashRecoveryToken(recoveryToken),
+          state: "STARTED",
+          expiresAt: new Date(Date.now() + RECOVERY_SESSION_TTL_MS),
+        },
+      });
+      void logActivity(req, "password_reset_requested", "Account recovery started", user.id);
     }
-    res.json({ ok: true, message: "If the account exists and has an email on file, a reset code has been sent." });
+    // The cookie is set unconditionally with the same shape either way; the
+    // JSON body carries no token and no hint of account existence.
+    setRecoveryCookie(res, recoveryToken);
+    res.json({ ok: true, message: "If an account exists for that email, recovery options are now available." });
   })
 );
 
-// ─── POST /api/auth/reset-password ──────────────────────────────────────────
+// ─── POST /api/auth/recovery/select-method ──────────────────────────────────
+// The user picks exactly one method. Availability (does this account have
+// TOTP / security questions configured?) is checked silently server-side —
+// an unavailable method returns the SAME generic error as a missing/expired
+// session, so a caller can never tell "no such account" apart from "account
+// exists but that method isn't configured for it".
 router.post(
-  "/reset-password",
-  loginLimiter,
+  "/recovery/select-method",
+  recoveryVerifyLimiter,
   asyncHandler(async (req: Request, res: Response) => {
-    const { uid, code, newPassword, method } = req.body as {
-      uid?: string; code?: string; newPassword?: string; method?: string;
-    };
-    if (!uid || !code || !newPassword) {
-      res.status(400).json({ error: "UID, code, and new password are required" });
+    const { method } = req.body as { method?: string };
+    const session = await loadActiveRecoverySession(readRecoveryToken(req));
+    if (!session || (session.state !== "STARTED" && session.state !== "METHOD_SELECTED") || !RECOVERY_METHODS.includes(method as RecoveryMethod)) {
+      res.status(400).json({ error: RECOVERY_GENERIC_ERROR });
+      return;
+    }
+    const chosen = method as RecoveryMethod;
+    const user = await prisma.user.findUnique({ where: { id: session.userId } });
+    if (!user) {
+      res.status(400).json({ error: RECOVERY_GENERIC_ERROR });
+      return;
+    }
+
+    if (chosen === "totp") {
+      if (!user.twoFactorEnabled) {
+        res.status(400).json({ error: RECOVERY_GENERIC_ERROR });
+        return;
+      }
+      await prisma.recoverySession.update({
+        where: { id: session.id },
+        data: { state: "METHOD_SELECTED", method: METHOD_TO_STATE_FIELD.totp, totpAttempts: 0 },
+      });
+      res.json({ ok: true, method: "totp" });
+      return;
+    }
+
+    if (chosen === "security_questions") {
+      const questions = await prisma.securityQuestion.findMany({ where: { userId: user.id }, orderBy: { position: "asc" } });
+      if (questions.length < 2) {
+        res.status(400).json({ error: RECOVERY_GENERIC_ERROR });
+        return;
+      }
+      await prisma.recoverySession.update({
+        where: { id: session.id },
+        data: { state: "METHOD_SELECTED", method: METHOD_TO_STATE_FIELD.security_questions, securityAttempts: 0 },
+      });
+      res.json({
+        ok: true,
+        method: "security_questions",
+        questions: questions.map((q) => ({ key: q.questionKey, text: securityQuestionText(q.questionKey) ?? q.questionKey })),
+      });
+      return;
+    }
+
+    // email_otp — every active account can always use this path, so
+    // generate and send the code immediately on selection.
+    const otp = generateOtp();
+    const otpHash = await bcrypt.hash(otp, 10);
+    const otpExpiresAt = new Date(Date.now() + RESET_OTP_TTL_MS);
+    await prisma.recoverySession.update({
+      where: { id: session.id },
+      data: {
+        state: "METHOD_SELECTED",
+        method: METHOD_TO_STATE_FIELD.email_otp,
+        otpHash, otpExpiresAt, otpAttempts: 0, otpResendCount: 0, otpLastSentAt: new Date(),
+      },
+    });
+    void sendEmail(user.email, "Your Penny Pilot password reset code", RECOVERY_OTP_EMAIL_HTML(user.name, otp));
+    void logActivity(req, "password_reset_requested", "Email OTP requested", user.id);
+    res.json({ ok: true, method: "email_otp" });
+  })
+);
+
+// ─── POST /api/auth/recovery/resend-otp ─────────────────────────────────────
+router.post(
+  "/recovery/resend-otp",
+  resendOtpLimiter,
+  asyncHandler(async (req: Request, res: Response) => {
+    const session = await loadActiveRecoverySession(readRecoveryToken(req));
+    if (!session || session.state !== "METHOD_SELECTED" || session.method !== METHOD_TO_STATE_FIELD.email_otp) {
+      res.status(400).json({ error: RECOVERY_GENERIC_ERROR });
+      return;
+    }
+    if (session.otpResendCount >= MAX_OTP_RESENDS) {
+      await prisma.recoverySession.update({ where: { id: session.id }, data: { state: "LOCKED" } });
+      res.status(429).json({ error: "Too many resend requests for this session. Please start over." });
+      return;
+    }
+    if (session.otpLastSentAt && Date.now() - session.otpLastSentAt.getTime() < OTP_RESEND_COOLDOWN_MS) {
+      res.status(429).json({ error: "Please wait before requesting another code." });
+      return;
+    }
+    const user = await prisma.user.findUnique({ where: { id: session.userId } });
+    if (!user) {
+      res.status(400).json({ error: RECOVERY_GENERIC_ERROR });
+      return;
+    }
+    const otp = generateOtp();
+    const otpHash = await bcrypt.hash(otp, 10);
+    const otpExpiresAt = new Date(Date.now() + RESET_OTP_TTL_MS);
+    await prisma.recoverySession.update({
+      where: { id: session.id },
+      data: { otpHash, otpExpiresAt, otpAttempts: 0, otpResendCount: { increment: 1 }, otpLastSentAt: new Date() },
+    });
+    void sendEmail(user.email, "Your Penny Pilot password reset code", RECOVERY_OTP_EMAIL_HTML(user.name, otp));
+    void logActivity(req, "password_reset_otp_resent", "Recovery OTP resent", user.id);
+    res.json({ ok: true, message: "A new code has been sent." });
+  })
+);
+
+// ─── POST /api/auth/recovery/verify-otp ─────────────────────────────────────
+router.post(
+  "/recovery/verify-otp",
+  recoveryVerifyLimiter,
+  asyncHandler(async (req: Request, res: Response) => {
+    const { code } = req.body as { code?: string };
+    const session = await loadActiveRecoverySession(readRecoveryToken(req));
+    if (!session || session.state !== "METHOD_SELECTED" || session.method !== METHOD_TO_STATE_FIELD.email_otp || !code) {
+      res.status(400).json({ error: RECOVERY_GENERIC_ERROR });
+      return;
+    }
+    if (!session.otpHash || !session.otpExpiresAt || Date.now() > session.otpExpiresAt.getTime()) {
+      res.status(400).json({ error: RECOVERY_GENERIC_ERROR });
+      return;
+    }
+    if (session.otpAttempts >= MAX_OTP_ATTEMPTS) {
+      await prisma.recoverySession.update({ where: { id: session.id }, data: { state: "LOCKED" } });
+      void logActivity(req, "password_reset_failed", "Too many OTP attempts — recovery session locked", session.userId);
+      res.status(429).json({ error: "Too many attempts. Please start over." });
+      return;
+    }
+    const ok = await bcrypt.compare(code, session.otpHash);
+    if (!ok) {
+      await prisma.recoverySession.update({ where: { id: session.id }, data: { otpAttempts: { increment: 1 } } });
+      res.status(400).json({ error: "Incorrect or expired code." });
+      return;
+    }
+    await prisma.recoverySession.update({
+      where: { id: session.id },
+      data: { state: "AUTHORIZED", otpHash: null, otpExpiresAt: null, otpAttempts: 0 },
+    });
+    void logActivity(req, "password_reset_otp_verified", "Recovery OTP verified", session.userId);
+    res.json({ ok: true, state: "AUTHORIZED" });
+  })
+);
+
+// ─── POST /api/auth/recovery/verify-totp ────────────────────────────────────
+// Reuses the existing verifyTwoFactorCode helper, so a saved backup code
+// also satisfies this step (that's exactly what backup codes are for).
+router.post(
+  "/recovery/verify-totp",
+  recoveryVerifyLimiter,
+  asyncHandler(async (req: Request, res: Response) => {
+    const { code } = req.body as { code?: string };
+    const session = await loadActiveRecoverySession(readRecoveryToken(req));
+    if (!session || session.state !== "METHOD_SELECTED" || session.method !== METHOD_TO_STATE_FIELD.totp || !code) {
+      res.status(400).json({ error: RECOVERY_GENERIC_ERROR });
+      return;
+    }
+    if (session.totpAttempts >= MAX_TOTP_ATTEMPTS) {
+      await prisma.recoverySession.update({ where: { id: session.id }, data: { state: "LOCKED" } });
+      void logActivity(req, "password_reset_failed", "Too many authenticator attempts — recovery session locked", session.userId);
+      res.status(429).json({ error: "Too many attempts. Please start over." });
+      return;
+    }
+    const user = await prisma.user.findUnique({ where: { id: session.userId } });
+    if (!user || !user.twoFactorEnabled) {
+      res.status(400).json({ error: RECOVERY_GENERIC_ERROR });
+      return;
+    }
+    const valid = await verifyTwoFactorCode(user.id, user, code);
+    if (!valid) {
+      await prisma.recoverySession.update({ where: { id: session.id }, data: { totpAttempts: { increment: 1 } } });
+      void logActivity(req, "password_reset_failed", "Invalid authenticator code during recovery", user.id);
+      res.status(400).json({ error: "Incorrect verification code." });
+      return;
+    }
+    await prisma.recoverySession.update({ where: { id: session.id }, data: { state: "AUTHORIZED", totpAttempts: 0 } });
+    void logActivity(req, "password_reset_totp_verified", "Recovery authenticator code verified", user.id);
+    res.json({ ok: true, state: "AUTHORIZED" });
+  })
+);
+
+// ─── POST /api/auth/recovery/verify-security-answers ────────────────────────
+router.post(
+  "/recovery/verify-security-answers",
+  recoveryVerifyLimiter,
+  asyncHandler(async (req: Request, res: Response) => {
+    const { answer1, answer2 } = req.body as { answer1?: string; answer2?: string };
+    const session = await loadActiveRecoverySession(readRecoveryToken(req));
+    if (!session || session.state !== "METHOD_SELECTED" || session.method !== METHOD_TO_STATE_FIELD.security_questions || !answer1 || !answer2) {
+      res.status(400).json({ error: RECOVERY_GENERIC_ERROR });
+      return;
+    }
+    if (session.securityAttempts >= MAX_SECURITY_ANSWER_ATTEMPTS) {
+      await prisma.recoverySession.update({ where: { id: session.id }, data: { state: "LOCKED" } });
+      void logActivity(req, "security_question_failed", "Too many security-answer attempts — recovery session locked", session.userId);
+      res.status(429).json({ error: "Too many attempts. Please start over." });
+      return;
+    }
+    const questions = await prisma.securityQuestion.findMany({ where: { userId: session.userId }, orderBy: { position: "asc" } });
+    if (questions.length < 2) {
+      res.status(400).json({ error: RECOVERY_GENERIC_ERROR });
+      return;
+    }
+    // Both answers must be correct — no 1-of-2 recovery, per product decision.
+    const [q1, q2] = questions;
+    const [match1, match2] = await Promise.all([
+      bcrypt.compare(normalizeSecurityAnswer(answer1), q1.answerHash),
+      bcrypt.compare(normalizeSecurityAnswer(answer2), q2.answerHash),
+    ]);
+    if (!match1 || !match2) {
+      await prisma.recoverySession.update({ where: { id: session.id }, data: { securityAttempts: { increment: 1 } } });
+      void logActivity(req, "security_question_failed", "Incorrect security answer(s)", session.userId);
+      res.status(400).json({ error: "One or more answers are incorrect." });
+      return;
+    }
+    await prisma.recoverySession.update({ where: { id: session.id }, data: { state: "AUTHORIZED", securityAttempts: 0 } });
+    void logActivity(req, "security_question_verified", "Security questions verified", session.userId);
+    res.json({ ok: true, state: "AUTHORIZED" });
+  })
+);
+
+// ─── POST /api/auth/recovery/reset-password ─────────────────────────────────
+router.post(
+  "/recovery/reset-password",
+  recoveryVerifyLimiter,
+  asyncHandler(async (req: Request, res: Response) => {
+    const { newPassword } = req.body as { newPassword?: string };
+    const session = await loadActiveRecoverySession(readRecoveryToken(req));
+    if (!session || session.state !== "AUTHORIZED" || !newPassword) {
+      res.status(400).json({ error: RECOVERY_GENERIC_ERROR });
       return;
     }
     if (!isStrongPassword(newPassword)) {
       res.status(400).json({ error: "Password must be at least 8 characters and include a letter and a number" });
       return;
     }
-    const user = await prisma.user.findUnique({ where: { uid } });
-    if (!user || user.status !== "ACTIVE") {
-      res.status(400).json({ error: "Invalid or expired code" });
+    const user = await prisma.user.findUnique({ where: { id: session.userId } });
+    if (!user) {
+      res.status(400).json({ error: RECOVERY_GENERIC_ERROR });
       return;
     }
-
-    const chosen = method === "totp" || method === "backup" ? method : "email";
-    let verified = false;
-
-    if (chosen === "email") {
-      if (user.resetOtpHash && user.resetOtpExpiry && Date.now() <= user.resetOtpExpiry.getTime()) {
-        if (user.resetOtpAttempts >= MAX_OTP_ATTEMPTS) {
-          await prisma.user.update({ where: { id: user.id }, data: { resetOtpHash: null, resetOtpExpiry: null, resetOtpAttempts: 0 } });
-          void logActivity(req, "password_reset_failed", "Too many OTP attempts — code invalidated", user.id);
-          res.status(400).json({ error: "Too many attempts. Request a new code." });
-          return;
-        }
-        if (await bcrypt.compare(code, user.resetOtpHash)) {
-          verified = true;
-        } else {
-          await prisma.user.update({ where: { id: user.id }, data: { resetOtpAttempts: { increment: 1 } } });
-        }
-      }
-    } else if (user.twoFactorEnabled) {
-      verified = await verifyTwoFactorCode(user.id, user, code);
-    }
-
-    if (!verified) {
-      void logActivity(req, "password_reset_failed", `Failed verification via ${chosen}`, user.id);
-      res.status(400).json({ error: "Invalid or expired code" });
-      return;
-    }
-
     const newHash = await bcrypt.hash(newPassword, 12);
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { passwordHash: newHash, resetOtpHash: null, resetOtpExpiry: null, resetOtpAttempts: 0, mustChangePassword: false },
-    });
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: user.id },
+        data: { passwordHash: newHash, mustChangePassword: false },
+      }),
+      prisma.recoverySession.update({ where: { id: session.id }, data: { state: "COMPLETED", consumedAt: new Date() } }),
+    ]);
     bumpSessionVersion(user.id); // sign out any existing sessions after a reset
-    void logActivity(req, "password_reset", `Password reset via ${chosen}`, user.id);
-    void notifySecurityEvent(user.id, "security", "Password reset", `Your password was reset using ${chosen === "email" ? "an email code" : chosen === "totp" ? "an authenticator code" : "a backup code"}.`);
+    clearRecoveryCookie(res);
+    void logActivity(req, "password_reset", `Password reset via account recovery (${session.method ?? "unknown"})`, user.id);
+    void notifySecurityEvent(user.id, "security", "Password reset", "Your password was reset via account recovery.");
+    void sendEmail(user.email, "Your Penny Pilot password was changed", PASSWORD_CHANGED_NOTIFICATION_EMAIL_HTML(user.name));
     res.json({ ok: true, message: "Password reset successfully" });
+  })
+);
+
+// NOTE: the legacy POST /api/auth/reset-password and POST
+// /api/auth/recovery-options endpoints (uid + code + method body) have been
+// removed. They had zero remaining frontend callers (confirmed by searching
+// the frontend source), and — critically — they offered a bypass around the
+// new choice-based recovery model: a caller who knew a valid email OTP or
+// TOTP code could reset a password through them without ever touching a
+// configured security-question requirement, since neither endpoint checked
+// SecurityQuestion rows at all. Removing them (rather than patching them to
+// also enforce security questions) eliminates that bypass surface entirely
+// instead of maintaining two parallel, easy-to-desync reset implementations.
+// User.resetOtpHash / resetOtpExpiry / resetOtpAttempts are left in the
+// schema, unused, per the "don't touch unrelated schema" constraint.
+
+// ─── Security questions (authenticated) ─────────────────────────────────────
+// GET returns configured question KEYS only — never answers or hashes.
+router.get(
+  "/security-questions",
+  authenticate,
+  asyncHandler(async (req: Request, res: Response) => {
+    const questions = await prisma.securityQuestion.findMany({
+      where: { userId: req.auth!.userId },
+      orderBy: { position: "asc" },
+      select: { questionKey: true, position: true },
+    });
+    res.json({
+      configured: questions.length >= 2,
+      questions: questions.map((q) => ({ key: q.questionKey, position: q.position })),
+      available: SECURITY_QUESTIONS,
+    });
+  })
+);
+
+// Setting/changing security questions requires the account's current
+// password plus a recent 2FA re-verification (same bar as /change-uid),
+// since this is a sensitive recovery-factor change on an already
+// authenticated session.
+router.patch(
+  "/security-questions",
+  authenticate,
+  requireRecent2FA,
+  asyncHandler(async (req: Request, res: Response) => {
+    const { password, question1, answer1, question2, answer2 } = req.body as {
+      password?: string; question1?: string; answer1?: string; question2?: string; answer2?: string;
+    };
+    if (!password || !question1 || !answer1 || !question2 || !answer2) {
+      res.status(400).json({ error: "Both questions and answers, and your current password, are required" });
+      return;
+    }
+    if (question1 === question2) {
+      res.status(400).json({ error: "Please choose two different questions" });
+      return;
+    }
+    if (!SECURITY_QUESTION_KEYS.has(question1) || !SECURITY_QUESTION_KEYS.has(question2)) {
+      res.status(400).json({ error: "Please choose from the provided list of questions" });
+      return;
+    }
+    if (normalizeSecurityAnswer(answer1).length === 0 || normalizeSecurityAnswer(answer2).length === 0) {
+      res.status(400).json({ error: "Answers cannot be empty" });
+      return;
+    }
+    const user = await prisma.user.findUnique({ where: { id: req.auth!.userId } });
+    if (!user || !user.passwordHash) {
+      res.status(401).json({ error: "Invalid password" });
+      return;
+    }
+    const validPassword = await bcrypt.compare(password, user.passwordHash);
+    if (!validPassword) {
+      res.status(401).json({ error: "Invalid password" });
+      return;
+    }
+    const [hash1, hash2] = await Promise.all([
+      bcrypt.hash(normalizeSecurityAnswer(answer1), 12),
+      bcrypt.hash(normalizeSecurityAnswer(answer2), 12),
+    ]);
+    await prisma.$transaction([
+      prisma.securityQuestion.upsert({
+        where: { userId_position: { userId: user.id, position: 1 } },
+        create: { userId: user.id, position: 1, questionKey: question1, answerHash: hash1 },
+        update: { questionKey: question1, answerHash: hash1 },
+      }),
+      prisma.securityQuestion.upsert({
+        where: { userId_position: { userId: user.id, position: 2 } },
+        create: { userId: user.id, position: 2, questionKey: question2, answerHash: hash2 },
+        update: { questionKey: question2, answerHash: hash2 },
+      }),
+    ]);
+    void logActivity(req, "security_questions_updated", "Security questions configured/changed", user.id);
+    void notifySecurityEvent(user.id, "security", "Security questions updated", "Your account-recovery security questions were changed.");
+    res.json({ ok: true });
   })
 );
 

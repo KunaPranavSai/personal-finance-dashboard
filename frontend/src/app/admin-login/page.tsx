@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useAuth } from "@/lib/AuthContext";
 import { PasswordInput } from "@/components/ui/PasswordInput";
 import { AnimatedCodeVerification } from "@/components/ui/AnimatedCodeVerification";
-import { ShieldAlert, Lock, UserCircle2, AlertCircle, ArrowLeft } from "lucide-react";
+import { ShieldAlert, Lock, Mail, AlertCircle, ArrowLeft } from "lucide-react";
 
 const inputBase =
   "w-full rounded-lg border border-white/10 bg-white/[0.03] py-2.5 pl-10 pr-4 text-sm text-slate-100 placeholder:text-slate-500 outline-none transition-colors focus:border-teal-500/50 focus:ring-1 focus:ring-teal-500/30";
@@ -24,7 +24,7 @@ const primaryButton =
 export default function AdminLoginPage() {
   const { user, login, verifyLogin2FA, forceChangePassword, logout, isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
-  const [uid, setUid] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isPending, setIsPending] = useState(false);
@@ -57,7 +57,7 @@ export default function AdminLoginPage() {
     setError("");
     setIsPending(true);
     try {
-      const result = await login(uid.trim(), password);
+      const result = await login(email.trim().toLowerCase(), password);
       if (result.requiresPasswordChange && result.passwordChangeToken) {
         setPasswordChangeToken(result.passwordChangeToken);
       } else if (result.requires2FA && result.challengeToken) {
@@ -184,18 +184,18 @@ export default function AdminLoginPage() {
         <div className="rounded-xl border border-white/10 bg-slate-900 p-6">
           <form onSubmit={handleSubmit} className="space-y-4" aria-label="Administrator sign-in">
             <div>
-              <label htmlFor="admin-uid" className="mb-1.5 block text-xs font-medium text-slate-400">
-                Administrator UID
+              <label htmlFor="admin-email" className="mb-1.5 block text-xs font-medium text-slate-400">
+                Administrator Email
               </label>
               <div className="relative">
-                <UserCircle2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+                <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
                 <input
-                  id="admin-uid"
-                  type="text"
-                  autoComplete="username"
-                  value={uid}
-                  onChange={(e) => setUid(e.target.value)}
-                  placeholder="Enter your UID"
+                  id="admin-email"
+                  type="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
                   required
                   autoFocus
                   className={inputBase}
@@ -233,7 +233,7 @@ export default function AdminLoginPage() {
               </div>
             )}
 
-            <button type="submit" disabled={isPending || !uid || !password} className={primaryButton}>
+            <button type="submit" disabled={isPending || !email || !password} className={primaryButton}>
               {isPending ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" /> : <ShieldAlert className="h-4 w-4" />}
               {isPending ? "Signing in…" : "Sign In to Admin Console"}
             </button>

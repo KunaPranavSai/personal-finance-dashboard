@@ -24,6 +24,19 @@ interface LoginResult {
   passwordChangeToken?: string;
 }
 
+export type RecoveryMethod = "email_otp" | "totp" | "security_questions";
+
+export interface RecoverySecurityQuestion {
+  key: string;
+  text: string;
+}
+
+export interface SelectRecoveryMethodResult {
+  method: RecoveryMethod;
+  /** Only present when method === "security_questions". */
+  questions?: RecoverySecurityQuestion[];
+}
+
 export interface SignupInput {
   name: string;
   email: string;
@@ -47,7 +60,7 @@ interface AuthContextType {
   isLocked: boolean;
   twoFactorEnabled: boolean;
   sessionTimeoutMinutes: number;
-  login: (uid: string, password: string) => Promise<LoginResult>;
+  login: (email: string, password: string) => Promise<LoginResult>;
   loginWithPasskey: () => Promise<void>;
   signup: (input: SignupInput) => Promise<SignupResult>;
   verifyLogin2FA: (challengeToken: string, code: string) => Promise<void>;
@@ -59,9 +72,13 @@ interface AuthContextType {
   setupTwoFactor: () => Promise<{ secret: string; qrCode: string }>;
   confirmTwoFactor: (code: string) => Promise<{ backupCodes: string[] }>;
   disableTwoFactor: (password: string, code: string) => Promise<void>;
-  requestPasswordReset: (uid: string) => Promise<void>;
-  confirmPasswordReset: (uid: string, code: string, newPassword: string, method?: string) => Promise<void>;
-  getRecoveryOptions: (uid: string) => Promise<{ email: boolean; totp: boolean; backup: boolean }>;
+  requestPasswordReset: (email: string) => Promise<void>;
+  selectRecoveryMethod: (method: RecoveryMethod) => Promise<SelectRecoveryMethodResult>;
+  resendRecoveryOtp: () => Promise<void>;
+  verifyRecoveryOtp: (code: string) => Promise<void>;
+  verifyRecoveryTotp: (code: string) => Promise<void>;
+  verifyRecoverySecurityAnswers: (answer1: string, answer2: string) => Promise<void>;
+  completePasswordReset: (newPassword: string) => Promise<void>;
   changeUid: (password: string, newUid: string) => Promise<void>;
   /** Locally patches the signed-in user's display name — call this right
    * after a profile save succeeds so greetings/the topbar/etc. (which all
@@ -191,10 +208,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => clearInterval(checkLock);
   }, [user, autoLockTimeout, isLocked]);
 
-  const login = useCallback(async (uid: string, password: string): Promise<LoginResult> => {
+  const login = useCallback(async (email: string, password: string): Promise<LoginResult> => {
     const res = await apiFetch("/api/auth/login", {
       method: "POST",
-      body: JSON.stringify({ uid, password }),
+      body: JSON.stringify({ email, password }),
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
@@ -370,10 +387,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setTwoFactorEnabled(false);
   }, []);
 
-  const requestPasswordReset = useCallback(async (uid: string) => {
+  // Account recovery v3 — choice-based, cookie-bound recovery session. The
+  // recovery credential is a Secure+HttpOnly+signed cookie the browser
+  // attaches automatically (via credentials:"include" in apiFetch); it is
+  // never present in any request body, response body, or client-readable
+  // storage, and no function here ever handles a token value directly.
+  const requestPasswordReset = useCallback(async (email: string): Promise<void> => {
     const res = await apiFetch("/api/auth/forgot-password", {
       method: "POST",
-      body: JSON.stringify({ uid }),
+      body: JSON.stringify({ email }),
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
@@ -381,27 +403,68 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const confirmPasswordReset = useCallback(async (uid: string, code: string, newPassword: string, method?: string) => {
-    const res = await apiFetch("/api/auth/reset-password", {
+  const selectRecoveryMethod = useCallback(async (method: RecoveryMethod): Promise<SelectRecoveryMethodResult> => {
+    const res = await apiFetch("/api/auth/recovery/select-method", {
       method: "POST",
-      body: JSON.stringify({ uid, code, newPassword, method }),
+      body: JSON.stringify({ method }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data.error || "That recovery method isn't available right now.");
+    }
+    return { method: data.method, questions: data.questions };
+  }, []);
+
+  const resendRecoveryOtp = useCallback(async (): Promise<void> => {
+    const res = await apiFetch("/api/auth/recovery/resend-otp", { method: "POST" });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || "Failed to resend code");
+    }
+  }, []);
+
+  const verifyRecoveryOtp = useCallback(async (code: string): Promise<void> => {
+    const res = await apiFetch("/api/auth/recovery/verify-otp", {
+      method: "POST",
+      body: JSON.stringify({ code }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || "Invalid or expired code");
+    }
+  }, []);
+
+  const verifyRecoveryTotp = useCallback(async (code: string): Promise<void> => {
+    const res = await apiFetch("/api/auth/recovery/verify-totp", {
+      method: "POST",
+      body: JSON.stringify({ code }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || "Invalid verification code");
+    }
+  }, []);
+
+  const verifyRecoverySecurityAnswers = useCallback(async (answer1: string, answer2: string): Promise<void> => {
+    const res = await apiFetch("/api/auth/recovery/verify-security-answers", {
+      method: "POST",
+      body: JSON.stringify({ answer1, answer2 }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || "Incorrect answers");
+    }
+  }, []);
+
+  const completePasswordReset = useCallback(async (newPassword: string): Promise<void> => {
+    const res = await apiFetch("/api/auth/recovery/reset-password", {
+      method: "POST",
+      body: JSON.stringify({ newPassword }),
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
       throw new Error(data.error || "Failed to reset password");
     }
-  }, []);
-
-  const getRecoveryOptions = useCallback(async (uid: string) => {
-    const res = await apiFetch("/api/auth/recovery-options", {
-      method: "POST",
-      body: JSON.stringify({ uid }),
-    });
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      throw new Error(data.error || "Failed to load recovery options");
-    }
-    return res.json();
   }, []);
 
   const changeUid = useCallback(async (password: string, newUid: string) => {
@@ -444,8 +507,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       confirmTwoFactor,
       disableTwoFactor,
       requestPasswordReset,
-      confirmPasswordReset,
-      getRecoveryOptions,
+      selectRecoveryMethod,
+      resendRecoveryOtp,
+      verifyRecoveryOtp,
+      verifyRecoveryTotp,
+      verifyRecoverySecurityAnswers,
+      completePasswordReset,
       changeUid,
       updateUserName,
     }}>

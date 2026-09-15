@@ -10,11 +10,11 @@ import { PasswordInput } from "@/components/ui/PasswordInput";
 import { AuthPageShell } from "@/components/ui/AuthPageShell";
 import { AnimatedCheckbox } from "@/components/ui/AnimatedCheckbox";
 import { AnimatedCodeVerification } from "@/components/ui/AnimatedCodeVerification";
-import { ShieldCheck, Lock, Fingerprint, UserCircle2, AlertCircle } from "lucide-react";
+import { ShieldCheck, Lock, Fingerprint, Mail, AlertCircle } from "lucide-react";
 import { browserSupportsWebAuthn } from "@simplewebauthn/browser";
 import { PREFER_BIOMETRIC_KEY } from "@/lib/passkeyPrefs";
 
-const REMEMBERED_UID_KEY = "pfd-remembered-uid";
+const REMEMBERED_EMAIL_KEY = "pfd-remembered-email";
 
 const inputBase =
   "w-full rounded-xl border border-white/10 bg-white/5 py-3 pl-10 pr-4 text-sm text-white placeholder:text-white/30 outline-none transition-all focus:border-purple-400/60 focus:ring-2 focus:ring-purple-400/20 focus:shadow-[0_0_16px_rgba(168,85,247,0.25)]";
@@ -58,7 +58,7 @@ function SuccessMessage({ children }: { children: React.ReactNode }) {
 export default function LoginPage() {
   const { user, login, loginWithPasskey, verifyLogin2FA, forceChangePassword, isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
-  const [uid, setUid] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState("");
@@ -79,18 +79,18 @@ export default function LoginPage() {
       setMode("biometric");
     }
     const params = new URLSearchParams(window.location.search);
-    const remembered = localStorage.getItem(REMEMBERED_UID_KEY);
-    const registeredUid = params.get("registered") === "1" ? params.get("uid") : null;
+    const remembered = localStorage.getItem(REMEMBERED_EMAIL_KEY);
+    const registeredEmail = params.get("registered") === "1" ? params.get("email") : null;
     if (remembered) {
-      setUid(remembered);
+      setEmail(remembered);
       setRememberMe(true);
-    } else if (registeredUid) {
-      setUid(registeredUid);
+    } else if (registeredEmail) {
+      setEmail(registeredEmail);
       setRememberMe(false);
     } else {
       setRememberMe(false);
     }
-    if (registeredUid) {
+    if (registeredEmail) {
       setInfo("Your account has been created. Sign in below to get started.");
     }
     if (sessionStorage.getItem(SESSION_EXPIRED_REASON_KEY) === "inactivity") {
@@ -139,10 +139,10 @@ export default function LoginPage() {
     setError("");
     setIsPending(true);
     try {
-      const result = await login(uid.trim(), password);
+      const result = await login(email.trim().toLowerCase(), password);
       try {
-        if (rememberMe) localStorage.setItem(REMEMBERED_UID_KEY, uid.trim());
-        else localStorage.removeItem(REMEMBERED_UID_KEY);
+        if (rememberMe) localStorage.setItem(REMEMBERED_EMAIL_KEY, email.trim().toLowerCase());
+        else localStorage.removeItem(REMEMBERED_EMAIL_KEY);
       } catch {
         // ignore storage failures (private browsing, etc.)
       }
@@ -303,18 +303,18 @@ export default function LoginPage() {
             )}
 
             <div>
-              <label htmlFor="uid" className="mb-2 block text-xs font-semibold uppercase tracking-wider text-white/50">
-                User ID
+              <label htmlFor="email" className="mb-2 block text-xs font-semibold uppercase tracking-wider text-white/50">
+                Email Address
               </label>
               <div className="relative">
-                <UserCircle2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
+                <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
                 <input
-                  id="uid"
-                  type="text"
-                  autoComplete="username"
-                  value={uid}
-                  onChange={(e) => setUid(e.target.value)}
-                  placeholder="Enter your UID"
+                  id="email"
+                  type="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
                   required
                   className={inputBase}
                 />
@@ -348,7 +348,7 @@ export default function LoginPage() {
 
             {error && <ErrorMessage>{error}</ErrorMessage>}
 
-            <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} type="submit" disabled={isPending || !uid || !password} className={primaryButton}>
+            <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} type="submit" disabled={isPending || !email || !password} className={primaryButton}>
               {isPending ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" /> : <Lock className="h-4 w-4" />}
               {isPending ? "Signing in…" : "Sign In"}
             </motion.button>
