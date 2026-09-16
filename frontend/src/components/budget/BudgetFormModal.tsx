@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -8,7 +9,11 @@ import { Button } from "../ui/Button";
 import { FocusTrap } from "../ui/FocusTrap";
 import { useExpenseCategories } from "@/lib/reference";
 import { postWithOfflineQueue } from "@/lib/offlineAwarePost";
+import { generateIdempotencyKey } from "@/lib/idempotencyKey";
+import { getStorageMode } from "@/lib/storage";
+import { createLocalBudget } from "@/lib/services/budgetsService";
 import { useToast } from "../ui/Toast";
+import type { Budget } from "@/types";
 
 const schema = z.object({
   categoryId: z.string().min(1, "Category is required"),
@@ -27,14 +32,28 @@ export function BudgetFormModal({
     resolver: zodResolver(schema),
   });
 
+  // Stable for the life of one create attempt — reused across manual retries
+  // of the same submission, regenerated only when the modal opens fresh or
+  // after a successful create.
+  const createIdempotencyKeyRef = useRef(generateIdempotencyKey());
+  useEffect(() => {
+    if (open) createIdempotencyKeyRef.current = generateIdempotencyKey();
+  }, [open]);
+
   const mutation = useMutation({
-    mutationFn: (values: FormValues) =>
-      postWithOfflineQueue("budget", "/api/budgets", { ...values, period: "MONTHLY", periodKey }),
+    mutationFn: async (values: FormValues) => {
+      if (getStorageMode() === "local") {
+        const created = await createLocalBudget({ ...values, period: "MONTHLY", periodKey });
+        return { queued: false, data: created };
+      }
+      return postWithOfflineQueue<Budget>("budget", "/api/budgets", { ...values, period: "MONTHLY", periodKey }, createIdempotencyKeyRef.current);
+    },
     onSuccess: (result) => {
       // dashboard-summary's budgetUtilizationPct reads this collection too.
       queryClient.invalidateQueries({ queryKey: ["budgets"], refetchType: "all" });
       queryClient.invalidateQueries({ queryKey: ["dashboard-summary"], refetchType: "all" });
-      if (result.queued) {
+      createIdempotencyKeyRef.current = generateIdempotencyKey();
+      if (result && typeof result === "object" && "queued" in result && result.queued) {
         toast("You're offline — this will be saved automatically once you're back online.", "success");
       }
       onClose();

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Topbar } from "@/components/layout/Topbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { api, ApiClientError } from "@/lib/api";
+import { getStorageMode, getStorageProvider } from "@/lib/storage";
 import { formatCurrency, formatDateIN } from "@/lib/format";
 import { useSettingsContext } from "@/lib/SettingsContext";
 import { Bill } from "@/types";
@@ -18,6 +19,7 @@ import { z } from "zod";
 import { BILL_TYPES } from "@/lib/reference";
 import { FocusTrap } from "@/components/ui/FocusTrap";
 import { useToast } from "@/components/ui/Toast";
+import { generateIdempotencyKey } from "@/lib/idempotencyKey";
 
 const billSchema = z.object({
   name: z.string().min(1, "Name is required").max(100),
@@ -57,22 +59,41 @@ function BillModal({ open, editing, onClose }: {
     } : { name: "", type: "EMI", dueDate: "", amount: 0, paidAmount: 0, autoPay: false, interestRate: "", tenureMonths: "", notes: "" },
   });
 
+  // Stable for the life of one create attempt — reused across manual retries
+  // of the same submission, regenerated only when the modal opens fresh for
+  // a new (non-editing) entry or after a successful create.
+  const createIdempotencyKeyRef = useRef(generateIdempotencyKey());
+  useEffect(() => {
+    if (open && !editing) createIdempotencyKeyRef.current = generateIdempotencyKey();
+  }, [open, editing]);
+
   const createMutation = useMutation({
-    mutationFn: (data: BillForm) => {
+    mutationFn: async (data: BillForm) => {
       const payload = { ...data, interestRate: data.interestRate === "" ? null : Number(data.interestRate), tenureMonths: data.tenureMonths === "" ? null : Number(data.tenureMonths) };
-      return api.post<Bill>("/api/bills", payload);
+      if (getStorageMode() === "local") {
+        const outcome = await getStorageProvider().create<Bill & { createdAt: string; updatedAt: string; [k: string]: unknown }>("bills", payload as never);
+        if (outcome.status !== "success") throw new Error(outcome.message);
+        return outcome.data;
+      }
+      return api.post<Bill>("/api/bills", payload, createIdempotencyKeyRef.current);
     },
     onSuccess: () => {
       // dashboard-summary's upcomingBills reads this collection too.
       queryClient.invalidateQueries({ queryKey: ["bills"], refetchType: "all" });
       queryClient.invalidateQueries({ queryKey: ["dashboard-summary"], refetchType: "all" });
+      createIdempotencyKeyRef.current = generateIdempotencyKey();
       onClose(); reset(); toast("Bill added to flight schedule! ✈️", "success");
     },
     onError: (err) => { toast(getErrorMessage(err, "Failed to save bill"), "error"); },
   });
   const updateMutation = useMutation({
-    mutationFn: (data: BillForm) => {
+    mutationFn: async (data: BillForm) => {
       const payload = { ...data, interestRate: data.interestRate === "" ? null : Number(data.interestRate), tenureMonths: data.tenureMonths === "" ? null : Number(data.tenureMonths) };
+      if (getStorageMode() === "local") {
+        const outcome = await getStorageProvider().update<Bill & { createdAt: string; updatedAt: string; [k: string]: unknown }>("bills", editing!.id, payload as never);
+        if (outcome.status !== "success") throw new Error(outcome.message);
+        return outcome.data;
+      }
       return api.patch<Bill>(`/api/bills/${editing!.id}`, payload);
     },
     onSuccess: () => {
@@ -153,11 +174,23 @@ export default function BillsPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ["bills"],
-    queryFn: () => api.get<{ items: Bill[] }>("/api/bills"),
+    queryFn: () =>
+      getStorageMode() === "local"
+        ? getStorageProvider()
+            .list<Bill & { createdAt: string; updatedAt: string; [k: string]: unknown }>("bills")
+            .then((items) => ({ items }))
+        : api.get<{ items: Bill[] }>("/api/bills"),
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => api.delete(`/api/bills/${id}`),
+    mutationFn: async (id: string) => {
+      if (getStorageMode() === "local") {
+        const outcome = await getStorageProvider().remove("bills", id);
+        if (outcome.status !== "success") throw new Error(outcome.message);
+        return;
+      }
+      return api.delete(`/api/bills/${id}`);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["bills"], refetchType: "all" });
       queryClient.invalidateQueries({ queryKey: ["dashboard-summary"], refetchType: "all" });

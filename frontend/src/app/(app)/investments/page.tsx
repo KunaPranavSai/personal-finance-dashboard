@@ -1,13 +1,16 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Topbar } from "@/components/layout/Topbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { api } from "@/lib/api";
+import { useRouter } from "next/navigation";
+import { api, ApiClientError } from "@/lib/api";
+import { getStorageMode, getStorageProvider } from "@/lib/storage";
+import { getRecoveryAction } from "@/lib/errorActions";
 import { formatCurrency, formatPercent } from "@/lib/format";
 import { useSettingsContext } from "@/lib/SettingsContext";
 import { Investment } from "@/types";
@@ -19,6 +22,7 @@ import { INVESTMENT_CATEGORIES } from "@/lib/reference";
 import { FocusTrap } from "@/components/ui/FocusTrap";
 import { useToast } from "@/components/ui/Toast";
 import { postWithOfflineQueue } from "@/lib/offlineAwarePost";
+import { generateIdempotencyKey } from "@/lib/idempotencyKey";
 
 const investmentSchema = z.object({
   instrument: z.string().min(1, "Name is required").max(100),
@@ -39,6 +43,7 @@ function InvestmentModal({ open, editing, onClose }: {
 }) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const router = useRouter();
   const { register, handleSubmit, reset, formState: { errors } } = useForm<InvestmentForm>({
     resolver: zodResolver(investmentSchema),
     defaultValues: editing
@@ -46,27 +51,57 @@ function InvestmentModal({ open, editing, onClose }: {
       : { instrument: "", category: "", investedAmount: 0, currentValue: 0, purchaseDate: new Date().toISOString().slice(0, 10), monthlyContribution: 0, annualReturnPct: 0, platform: "", notes: "" },
   });
 
+  // Stable for the life of one create attempt — reused across manual retries
+  // of the same submission (including the toast's "Try Again" action below),
+  // regenerated only when the modal opens fresh for a new (non-editing)
+  // entry or after a successful create.
+  const createIdempotencyKeyRef = useRef(generateIdempotencyKey());
+  useEffect(() => {
+    if (open && !editing) createIdempotencyKeyRef.current = generateIdempotencyKey();
+  }, [open, editing]);
+
   const createMutation = useMutation({
-    mutationFn: (data: InvestmentForm) => postWithOfflineQueue<Investment>("investment", "/api/investments", data),
+    mutationFn: async (data: InvestmentForm) => {
+      if (getStorageMode() === "local") {
+        const outcome = await getStorageProvider().create<Investment & { createdAt: string; updatedAt: string; [k: string]: unknown }>("investments", data as never);
+        if (outcome.status !== "success") throw new Error(outcome.message);
+        return { ...outcome.data, queued: false } as Investment & { queued: boolean };
+      }
+      return postWithOfflineQueue<Investment>("investment", "/api/investments", data, createIdempotencyKeyRef.current);
+    },
     onSuccess: (result) => {
       // dashboard-summary's netWorth includes portfolio value — must be invalidated here too,
       // or Net Worth on the dashboard silently shows a stale figure after adding an investment.
       queryClient.invalidateQueries({ queryKey: ["investments"], refetchType: "all" });
       queryClient.invalidateQueries({ queryKey: ["dashboard-summary"], refetchType: "all" });
+      createIdempotencyKeyRef.current = generateIdempotencyKey();
       onClose();
       reset();
       toast(result.queued ? "You're offline — this will be saved automatically once you're back online." : "Investment added", "success");
     },
-    onError: () => { toast("Failed to save investment", "error"); },
+    onError: (err, variables) => {
+      const message = err instanceof ApiClientError ? err.message : err instanceof Error ? err.message : "Failed to save investment";
+      toast(message, "error", { action: getRecoveryAction(err, router, () => createMutation.mutate(variables)) });
+    },
   });
   const updateMutation = useMutation({
-    mutationFn: (data: InvestmentForm) => api.patch<Investment>(`/api/investments/${editing!.id}`, data),
+    mutationFn: async (data: InvestmentForm) => {
+      if (getStorageMode() === "local") {
+        const outcome = await getStorageProvider().update<Investment & { createdAt: string; updatedAt: string; [k: string]: unknown }>("investments", editing!.id, data as never);
+        if (outcome.status !== "success") throw new Error(outcome.message);
+        return outcome.data;
+      }
+      return api.patch<Investment>(`/api/investments/${editing!.id}`, data);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["investments"], refetchType: "all" });
       queryClient.invalidateQueries({ queryKey: ["dashboard-summary"], refetchType: "all" });
       onClose(); reset(); toast("Investment updated", "success");
     },
-    onError: () => { toast("Failed to update investment", "error"); },
+    onError: (err) => {
+      const message = err instanceof ApiClientError ? err.message : "Failed to update investment";
+      toast(message, "error", { action: getRecoveryAction(err, router) });
+    },
   });
 
   const onSubmit = handleSubmit((data) => {
@@ -144,20 +179,36 @@ export default function InvestmentsPage() {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const router = useRouter();
 
   const { data, isLoading } = useQuery({
     queryKey: ["investments"],
-    queryFn: () => api.get<{ items: Investment[] }>("/api/investments"),
+    queryFn: () =>
+      getStorageMode() === "local"
+        ? getStorageProvider()
+            .list<Investment & { createdAt: string; updatedAt: string; [k: string]: unknown }>("investments")
+            .then((items) => ({ items }))
+        : api.get<{ items: Investment[] }>("/api/investments"),
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => api.delete(`/api/investments/${id}`),
+    mutationFn: async (id: string) => {
+      if (getStorageMode() === "local") {
+        const outcome = await getStorageProvider().remove("investments", id);
+        if (outcome.status !== "success") throw new Error(outcome.message);
+        return;
+      }
+      return api.delete(`/api/investments/${id}`);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["investments"], refetchType: "all" });
       queryClient.invalidateQueries({ queryKey: ["dashboard-summary"], refetchType: "all" });
       toast("Investment deleted", "success");
     },
-    onError: () => { toast("Failed to delete investment", "error"); },
+    onError: (err, id) => {
+      const message = err instanceof ApiClientError ? err.message : "Failed to delete investment";
+      toast(message, "error", { action: getRecoveryAction(err, router, () => deleteMutation.mutate(id)) });
+    },
   });
 
   const items = useMemo(() => data?.items ?? [], [data]);

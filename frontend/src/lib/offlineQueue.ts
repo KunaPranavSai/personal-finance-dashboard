@@ -19,6 +19,10 @@ export interface QueuedMutation {
   path: string; // e.g. "/api/transactions"
   body: unknown;
   createdAt: string;
+  /** Same key sent on the original (failed-to-reach-server) attempt — reused
+   * on every later flush of this queued item so a duplicate create can never
+   * result from retrying the same queued mutation more than once. */
+  idempotencyKey: string;
 }
 
 function openDb(): Promise<IDBDatabase> {
@@ -35,7 +39,7 @@ function openDb(): Promise<IDBDatabase> {
   });
 }
 
-export async function enqueueMutation(entity: QueuedEntity, path: string, body: unknown): Promise<QueuedMutation> {
+export async function enqueueMutation(entity: QueuedEntity, path: string, body: unknown, idempotencyKey: string): Promise<QueuedMutation> {
   const db = await openDb();
   const item: QueuedMutation = {
     id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
@@ -44,6 +48,7 @@ export async function enqueueMutation(entity: QueuedEntity, path: string, body: 
     path,
     body,
     createdAt: new Date().toISOString(),
+    idempotencyKey,
   };
   await new Promise<void>((resolve, reject) => {
     const tx = db.transaction(STORE_NAME, "readwrite");

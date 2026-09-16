@@ -89,7 +89,10 @@ export async function listBudgets(req: Request, res: Response) {
 export async function createBudget(req: Request, res: Response) {
   const data = safeBody(createBudgetSchema, req);
   const userId = req.auth!.userId;
-  const budget = await createRecord<BudgetRecord>(userId, "budgets", data);
+  const idempotencyKey = req.headers["idempotency-key"];
+  const budget = await createRecord<BudgetRecord>(userId, "budgets", data, {
+    idempotencyKey: typeof idempotencyKey === "string" ? idempotencyKey : undefined,
+  });
   const category = await getRecord<CategoryRecord>(userId, "categories", data.categoryId);
   res.status(201).json({ ...budget, category: category ? { id: category.id, name: category.name, type: category.type } : null });
 }

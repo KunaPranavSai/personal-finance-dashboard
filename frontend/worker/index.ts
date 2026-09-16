@@ -22,6 +22,7 @@ interface QueuedMutation {
   path: string;
   body: unknown;
   createdAt: string;
+  idempotencyKey: string;
 }
 
 function openDb(): Promise<IDBDatabase> {
@@ -79,7 +80,7 @@ async function flushQueue() {
       const res = await fetch(`${base}${item.path}`, {
         method: item.method,
         credentials: "include",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Idempotency-Key": item.idempotencyKey },
         body: JSON.stringify(item.body),
       });
       if (res.ok) {

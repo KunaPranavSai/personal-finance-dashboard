@@ -18,7 +18,7 @@ export async function flushOfflineQueue(): Promise<SyncResult> {
       const res = await fetch(`${API_BASE_URL}${item.path}`, {
         method: item.method,
         credentials: "include",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Idempotency-Key": item.idempotencyKey },
         body: JSON.stringify(item.body),
       });
       if (res.ok) {
