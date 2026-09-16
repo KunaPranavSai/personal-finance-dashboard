@@ -79,7 +79,16 @@ export function createApp() {
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    // Idempotency-Key: sent by the frontend's api.post() on every create
+    // request (transactions/bills/goals/investments/budgets — see
+    // lib/idempotencyKey.ts) to let a retried request be recognized instead
+    // of creating a duplicate record. Omitting it here doesn't fail loudly —
+    // the browser's CORS preflight silently strips the header from its
+    // Access-Control-Allow-Headers response, so every cross-origin create
+    // request (frontend and backend on different origins/ports, as in prod)
+    // gets blocked client-side with a bare net::ERR_FAILED and no server-side
+    // log at all.
+    allowedHeaders: ["Content-Type", "Authorization", "Idempotency-Key"],
     // Without this, frontend JS can't read Content-Disposition on a
     // cross-origin fetch response (browsers only expose a small CORS-safelisted
     // set of response headers by default) — file-download filenames (consent
