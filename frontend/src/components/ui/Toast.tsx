@@ -7,14 +7,24 @@ import { cn } from "@/lib/format";
 
 type ToastType = "success" | "error" | "info" | "warning";
 
+interface ToastAction {
+  label: string;
+  onClick: () => void;
+}
+
 interface Toast {
   id: number;
   type: ToastType;
   message: string;
+  action?: ToastAction;
+}
+
+interface ToastOptions {
+  action?: ToastAction;
 }
 
 interface ToastContextValue {
-  toast: (message: string, type?: ToastType) => void;
+  toast: (message: string, type?: ToastType, options?: ToastOptions) => void;
 }
 
 const ToastContext = createContext<ToastContextValue>({ toast: () => {} });
@@ -40,12 +50,14 @@ const styles: Record<ToastType, string> = {
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
-  const toast = useCallback((message: string, type: ToastType = "info") => {
+  const toast = useCallback((message: string, type: ToastType = "info", options?: ToastOptions) => {
     const id = Date.now();
-    setToasts((prev) => [...prev, { id, type, message }]);
+    setToasts((prev) => [...prev, { id, type, message, action: options?.action }]);
+    // Toasts offering a recovery action stay up long enough to actually read
+    // and click, instead of the normal 4s ambient-notification duration.
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 4000);
+    }, options?.action ? 10000 : 4000);
   }, []);
 
   const remove = useCallback((id: number) => {
@@ -66,7 +78,17 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               className={cn("flex items-start gap-2 rounded-lg border px-3 py-2.5 text-sm shadow-lg", styles[t.type])}
             >
               {icons[t.type]}
-              <p className="flex-1 text-navy dark:text-white">{t.message}</p>
+              <div className="flex-1">
+                <p className="text-navy dark:text-white">{t.message}</p>
+                {t.action && (
+                  <button
+                    onClick={() => { t.action!.onClick(); remove(t.id); }}
+                    className="mt-1 text-xs font-semibold underline underline-offset-2 text-navy dark:text-white"
+                  >
+                    {t.action.label}
+                  </button>
+                )}
+              </div>
               <button onClick={() => remove(t.id)} className="shrink-0 text-navy/40 hover:text-navy dark:text-white/40">
                 <X className="h-3.5 w-3.5" />
               </button>
