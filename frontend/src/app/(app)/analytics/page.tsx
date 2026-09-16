@@ -11,6 +11,10 @@ import { Topbar } from "@/components/layout/Topbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { api } from "@/lib/api";
+import { getStorageMode } from "@/lib/storage";
+import { getLocalAnalyticsSummary } from "@/lib/services/analyticsService";
+import { useIsMobile } from "@/lib/DeviceContext";
+import { MobileAnalyticsView } from "@/components/mobile/MobileAnalyticsView";
 import { formatCurrency, cn } from "@/lib/format";
 import { useSettingsContext } from "@/lib/SettingsContext";
 import { useCategories, useAccounts, usePaymentMethods } from "@/lib/reference";
@@ -394,6 +398,7 @@ interface FilteredAnalytics extends AnalyticsSummary {
 export default function AnalyticsPage() {
   const { settings } = useSettingsContext();
   const cur = settings.currency;
+  const isMobile = useIsMobile();
 
   const [range, setRange] = useState<RangeKey>("all");
   const [customFrom, setCustomFrom] = useState("");
@@ -423,7 +428,10 @@ export default function AnalyticsPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ["analytics", params],
-    queryFn: () => api.get<FilteredAnalytics>(`/api/analytics/summary${params ? `?${params}` : ""}`),
+    queryFn: () =>
+      getStorageMode() === "local"
+        ? getLocalAnalyticsSummary({ from, to, categoryId, accountId, paymentMethodTypeId })
+        : api.get<FilteredAnalytics>(`/api/analytics/summary${params ? `?${params}` : ""}`),
   });
 
   const toggleMetric = useCallback((id: MetricId) => {
@@ -438,6 +446,8 @@ export default function AnalyticsPage() {
   const expenseData = (data?.categoryBreakdown ?? []).map((c) => ({ name: c.category, total: c.total }));
   const incomeData = (data?.incomeCategoryBreakdown ?? []).map((c) => ({ name: c.category, total: c.total }));
   const paymentData = (data?.paymentMethodBreakdown ?? []).map((p) => ({ name: p.method, total: p.total }));
+
+  if (isMobile) return <MobileAnalyticsView />;
 
   return (
     <>

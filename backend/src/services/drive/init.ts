@@ -77,15 +77,24 @@ function defaultAccountRecords(): DriveRecord[] {
  * effect free, safe to call before any Drive connection exists (used by GET /api/drive/status
  * so the frontend can show "Migrate your data" messaging before the user even connects). */
 export async function hasLegacyPostgresData(userId: string): Promise<boolean> {
-  const [categoryCount, transactionCount, budgetCount, investmentCount, billCount, goalCount] = await Promise.all([
-    prisma.category.count({ where: { userId } }),
-    prisma.transaction.count({ where: { userId } }),
-    prisma.budget.count({ where: { userId } }),
-    prisma.investment.count({ where: { userId } }),
-    prisma.bill.count({ where: { userId } }),
-    prisma.goal.count({ where: { userId } }),
-  ]);
-  return categoryCount + transactionCount + budgetCount + investmentCount + billCount + goalCount > 0;
+  // Sequential, short-circuiting on the first nonzero table instead of firing
+  // all six counts at once via Promise.all — that burst of 6 simultaneous
+  // connections was enough to exhaust the shared pool's session limit under
+  // load. Same result (true iff any of these tables has a row for this
+  // user), just without the connection spike; also cheaper on average since
+  // it usually stops at the first or second table.
+  const counts = [
+    () => prisma.category.count({ where: { userId } }),
+    () => prisma.transaction.count({ where: { userId } }),
+    () => prisma.budget.count({ where: { userId } }),
+    () => prisma.investment.count({ where: { userId } }),
+    () => prisma.bill.count({ where: { userId } }),
+    () => prisma.goal.count({ where: { userId } }),
+  ];
+  for (const count of counts) {
+    if ((await count()) > 0) return true;
+  }
+  return false;
 }
 
 /**

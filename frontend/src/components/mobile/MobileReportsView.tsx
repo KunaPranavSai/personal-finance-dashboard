@@ -34,13 +34,16 @@ function downloadCsv(filename: string, rows: (string | number)[][]) {
 /**
  * Mobile "Reports" screen, reached from More → Financial Modules. Covers the
  * three real report types (Monthly, Category, Budget vs Actual) from
- * /api/reports/* (or Local-Only equivalents) with the same CSV export the
- * desktop page offers for the monthly report. The desktop's PDF "Flight
- * Summary" and full raw-ledger CSV export are not reproduced here — linked
- * out to the existing desktop Reports page instead; see the implementation
- * report.
+ * /api/reports/* (or Local-Only equivalents) with the exact same CSV export
+ * columns as desktop's "Export Raw Ledger (CSV)" button (which itself only
+ * exports the monthly rollup — there is no separate transaction-level ledger
+ * export anywhere in the app). Desktop's "Flight Summary (PDF)" is just
+ * `window.print()` — that works identically on mobile browsers (they open
+ * the native print/share-to-PDF sheet), so the same real report data is
+ * printed here directly via the `.ppm-print-summary` print stylesheet in
+ * mobile.css, entirely inside the mobile UI.
  */
-export default function MobileReportsPage() {
+export function MobileReportsView() {
   const { settings } = useSettingsContext();
   const f = (v: number) => formatCurrency(v, settings.currency);
   const [tab, setTab] = useState<Tab>("monthly");
@@ -72,8 +75,8 @@ export default function MobileReportsPage() {
   const exportMonthlyCsv = () => {
     if (!monthly?.items) return;
     downloadCsv("penny-pilot-monthly-report.csv", [
-      ["Month", "Income", "Expense", "Transactions"],
-      ...monthly.items.map((m) => [m.month, m.income, m.expense, m.count]),
+      ["Month", "Income", "Expense", "Net Savings", "Transactions"],
+      ...monthly.items.map((m) => [m.month, m.income, m.expense, m.income - m.expense, m.count]),
     ]);
   };
 
@@ -99,7 +102,7 @@ export default function MobileReportsPage() {
           {!loadingMonthly && !errorMonthly && (monthly?.items?.length ?? 0) === 0 && <EmptyCard icon="📄" title="No monthly data" subtitle="Add transactions to see monthly reports." />}
           {!loadingMonthly && !errorMonthly && (monthly?.items?.length ?? 0) > 0 && (
             <>
-              <div className="ppm-card">
+              <div className="ppm-card ppm-print-summary">
                 {monthly!.items.map((m) => (
                   <div className="ppm-cat-row" key={m.month}>
                     <div className="ppm-info"><div className="ppm-name">{m.month}</div><div className="ppm-meta">{m.count} transactions</div></div>
@@ -110,7 +113,10 @@ export default function MobileReportsPage() {
                   </div>
                 ))}
               </div>
-              <button type="button" className="ppm-qa-btn" style={{ width: "100%", marginTop: 12 }} onClick={exportMonthlyCsv}>⬇ Export CSV</button>
+              <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                <button type="button" className="ppm-qa-btn" style={{ flex: 1 }} onClick={exportMonthlyCsv}>⬇ Export CSV</button>
+                <button type="button" className="ppm-qa-btn" style={{ flex: 1 }} onClick={() => window.print()}>🖨 Print / Save PDF</button>
+              </div>
             </>
           )}
         </>
@@ -157,14 +163,6 @@ export default function MobileReportsPage() {
           )}
         </>
       )}
-
-      <p style={{ fontSize: 12, color: "var(--ppm-text-dim)", textAlign: "center", marginTop: 16 }}>
-        {/* A plain <a>, not next/link: this needs a full page load so the
-            ?desktop=1 escape hatch always reaches the middleware, even when
-            Next's client router would otherwise treat "same pathname, only
-            the query changed" as a soft navigation and skip re-running it. */}
-        Need the PDF flight summary or a full ledger export? <a href="/reports?desktop=1" style={{ color: "var(--ppm-accent)", fontWeight: 700 }}>Open on desktop</a>
-      </p>
     </MobileShell>
   );
 }

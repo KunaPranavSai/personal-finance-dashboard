@@ -6,9 +6,12 @@ import { motion } from "framer-motion";
 import { useAuth } from "@/lib/AuthContext";
 import { Footer } from "@/components/layout/Footer";
 import { Shield, ShieldCheck, Copy, Check, CheckCircle } from "lucide-react";
+import { useIsMobile } from "@/lib/DeviceContext";
+import { MobileSetup2FAView } from "@/components/mobile/MobileSetup2FAView";
 
 function SetupTwoFactorContent() {
   const { user, isAuthenticated, isLoading, twoFactorEnabled, setupTwoFactor, confirmTwoFactor } = useAuth();
+  const isMobile = useIsMobile();
   const router = useRouter();
   const searchParams = useSearchParams();
   const welcome = searchParams.get("welcome") === "1";
@@ -81,6 +84,8 @@ function SetupTwoFactorContent() {
     setSecretCopied(true);
     setTimeout(() => setSecretCopied(false), 2000);
   };
+
+  if (isMobile) return <MobileSetup2FAView />;
 
   if (isLoading || !isAuthenticated || (twoFactorEnabled && step !== "backup")) {
     return (

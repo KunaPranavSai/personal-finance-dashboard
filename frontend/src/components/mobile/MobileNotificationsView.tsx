@@ -24,8 +24,8 @@ const TYPE_LABEL: Record<string, string> = {
 
 /** Mobile "Notifications" screen — same /api/notifications actions as the
  * desktop page (mark one/all read, delete one/clear all), reached from the
- * bell icon in every /m/* app bar. */
-export default function MobileNotificationsPage() {
+ * bell icon in every MobileShell app bar. */
+export function MobileNotificationsView() {
   const queryClient = useQueryClient();
   const { data, isLoading } = useNotifications();
   const [clearAllOpen, setClearAllOpen] = useState(false);
@@ -84,9 +84,9 @@ export default function MobileNotificationsPage() {
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                 {!n.read && (
-                  <button type="button" className="ppm-chev" aria-label="Mark as read" onClick={() => markReadMutation.mutate(n.id)}>✓</button>
+                  <button type="button" className="ppm-row-action" aria-label="Mark as read" onClick={() => markReadMutation.mutate(n.id)}>✓</button>
                 )}
-                <button type="button" className="ppm-chev" aria-label="Delete" onClick={() => deleteMutation.mutate(n.id)}>🗑</button>
+                <button type="button" className="ppm-row-action" aria-label="Delete" onClick={() => deleteMutation.mutate(n.id)}>🗑</button>
               </div>
             </div>
           ))}

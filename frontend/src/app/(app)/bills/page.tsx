@@ -20,6 +20,22 @@ import { BILL_TYPES } from "@/lib/reference";
 import { FocusTrap } from "@/components/ui/FocusTrap";
 import { useToast } from "@/components/ui/Toast";
 import { generateIdempotencyKey } from "@/lib/idempotencyKey";
+import { useIsMobile } from "@/lib/DeviceContext";
+import { MobileShell } from "@/components/mobile/MobileShell";
+import { LoadingCard, ErrorCard, EmptyCard } from "@/components/mobile/MobileStates";
+import { BillFormSheet } from "@/components/mobile/BillFormSheet";
+import { ConfirmSheet } from "@/components/mobile/ConfirmSheet";
+
+type MobileBillState = "PAID" | "PARTIALLY_PAID" | "OVERDUE" | "UNPAID";
+function mobileBillState(b: Bill): MobileBillState {
+  const overdue = new Date(b.dueDate) < new Date(new Date().toDateString()) && b.paidAmount < b.amount;
+  if (overdue) return "OVERDUE";
+  if (b.paidAmount >= b.amount && b.amount > 0) return "PAID";
+  if (b.paidAmount > 0) return "PARTIALLY_PAID";
+  return "UNPAID";
+}
+const MOBILE_BILL_STATE_LABEL: Record<MobileBillState, string> = { PAID: "Paid", PARTIALLY_PAID: "Partially paid", OVERDUE: "Overdue", UNPAID: "Unpaid" };
+const MOBILE_BILL_STATE_CLASS: Record<MobileBillState, string> = { PAID: "under", PARTIALLY_PAID: "near", OVERDUE: "over", UNPAID: "near" };
 
 const billSchema = z.object({
   name: z.string().min(1, "Name is required").max(100),
@@ -172,7 +188,12 @@ export default function BillsPage() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const { data, isLoading } = useQuery({
+  const isMobile = useIsMobile();
+  const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
+  const [mobileEditing, setMobileEditing] = useState<Bill | null>(null);
+  const [mobileDeleteTarget, setMobileDeleteTarget] = useState<Bill | null>(null);
+
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["bills"],
     queryFn: () =>
       getStorageMode() === "local"
@@ -241,6 +262,66 @@ export default function BillsPage() {
     if (sortBy === field) setSortDir((d) => d === "asc" ? "desc" : "asc");
     else { setSortBy(field); setSortDir("asc"); }
   };
+
+  if (isMobile) {
+    const mItems = [...(data?.items ?? [])].sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
+    return (
+      <MobileShell title="Bills & EMIs">
+        <div className="ppm-page-title" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <h2>Bills &amp; EMIs</h2>
+            <p>{mItems.length} tracked</p>
+          </div>
+          <button type="button" className="ppm-link-btn" onClick={() => { setMobileEditing(null); setMobileSheetOpen(true); }}>+ Add</button>
+        </div>
+
+        {isLoading && <LoadingCard lines={4} />}
+        {isError && !isLoading && <ErrorCard onRetry={() => refetch()} />}
+        {!isLoading && !isError && mItems.length === 0 && (
+          <EmptyCard icon="🧾" title="No bills yet" subtitle="Tap + Add to track a bill, EMI, subscription or rent payment." />
+        )}
+
+        {!isLoading && !isError && mItems.length > 0 && (
+          <div className="ppm-card">
+            {mItems.map((b) => {
+              const state = mobileBillState(b);
+              return (
+                <div className="ppm-list-item" key={b.id} onClick={() => { setMobileEditing(b); setMobileSheetOpen(true); }}>
+                  <div className="ppm-ic" aria-hidden="true">{b.autoPay ? "🔁" : "🧾"}</div>
+                  <div className="ppm-info">
+                    <div className="ppm-name">{b.name}</div>
+                    <div className="ppm-meta">{b.type} · Due {formatDateIN(b.dueDate)}</div>
+                  </div>
+                  <div className="ppm-amt">
+                    {formatCurrency(b.amount, cur)}
+                    <span className={`ppm-status ${MOBILE_BILL_STATE_CLASS[state]}`} style={{ display: "inline-block", marginTop: 3 }}>{MOBILE_BILL_STATE_LABEL[state]}</span>
+                  </div>
+                  <button
+                    type="button"
+                    aria-label={`Delete ${b.name}`}
+                    className="ppm-row-action"
+                    onClick={(e) => { e.stopPropagation(); setMobileDeleteTarget(b); }}
+                  >
+                    🗑
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        <BillFormSheet open={mobileSheetOpen} onClose={() => { setMobileSheetOpen(false); setMobileEditing(null); }} editing={mobileEditing} />
+        <ConfirmSheet
+          open={Boolean(mobileDeleteTarget)}
+          onClose={() => setMobileDeleteTarget(null)}
+          onConfirm={() => mobileDeleteTarget && deleteMutation.mutate(mobileDeleteTarget.id)}
+          title="Delete bill"
+          message={`Delete "${mobileDeleteTarget?.name}"? This can't be undone.`}
+          isPending={deleteMutation.isPending}
+        />
+      </MobileShell>
+    );
+  }
 
   return (
     <>

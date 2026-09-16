@@ -10,6 +10,8 @@ import { api } from "@/lib/api";
 import { formatDateIN } from "@/lib/format";
 import { useNotifications } from "@/lib/reference";
 import { Bell, CheckCheck, AlertTriangle, Receipt, TrendingUp, Lightbulb, Trash2 } from "lucide-react";
+import { useIsMobile } from "@/lib/DeviceContext";
+import { MobileNotificationsView } from "@/components/mobile/MobileNotificationsView";
 
 const typeIcons: Record<string, React.ReactNode> = {
   budget_alert: <AlertTriangle className="h-4 w-4 text-orange-500" />,
@@ -27,6 +29,7 @@ const typeLabels: Record<string, string> = {
 
 export default function NotificationsPage() {
   const queryClient = useQueryClient();
+  const isMobile = useIsMobile();
 
   const { data, isLoading } = useNotifications();
 
@@ -52,6 +55,8 @@ export default function NotificationsPage() {
 
   const items = data?.items ?? [];
   const unreadCount = items.filter((n) => !n.read).length;
+
+  if (isMobile) return <MobileNotificationsView />;
 
   return (
     <>

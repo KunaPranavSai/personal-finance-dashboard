@@ -6,8 +6,9 @@ import { SettingsProvider } from "@/lib/SettingsContext";
 import { ToastProvider } from "@/components/ui/Toast";
 import { AuthProvider } from "@/lib/AuthContext";
 import { SessionManagerProvider } from "@/lib/SessionManager";
+import { DeviceProvider } from "@/lib/DeviceContext";
 
-export function Providers({ children }: { children: React.ReactNode }) {
+export function Providers({ children, isMobile }: { children: React.ReactNode; isMobile: boolean }) {
   const [client] = useState(
     () =>
       new QueryClient({
@@ -19,15 +20,17 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <QueryClientProvider client={client}>
-      <AuthProvider>
-        <SettingsProvider>
-          <ToastProvider>
-            <SessionManagerProvider>
-              {children}
-            </SessionManagerProvider>
-          </ToastProvider>
-        </SettingsProvider>
-      </AuthProvider>
+      <DeviceProvider isMobile={isMobile}>
+        <AuthProvider>
+          <SettingsProvider>
+            <ToastProvider>
+              <SessionManagerProvider>
+                {children}
+              </SessionManagerProvider>
+            </ToastProvider>
+          </SettingsProvider>
+        </AuthProvider>
+      </DeviceProvider>
     </QueryClientProvider>
   );
 }

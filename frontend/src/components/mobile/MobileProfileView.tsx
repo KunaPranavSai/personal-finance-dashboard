@@ -10,20 +10,23 @@ import { useAuth } from "@/lib/AuthContext";
 import { useToast } from "@/components/ui/Toast";
 import type { Profile } from "@/types";
 
-type FormState = Pick<Profile, "name" | "email" | "phone" | "occupation" | "monthlyIncome" | "country" | "state" | "city" | "currency" | "timezone" | "language" | "bio">;
+type FormState = Pick<Profile, "name" | "email" | "phone" | "occupation" | "monthlyIncome" | "country" | "state" | "city" | "currency" | "timezone" | "language" | "bio" | "avatar">;
 
-const EMPTY: FormState = { name: "", email: "", phone: "", occupation: "", monthlyIncome: 0, country: "", state: "", city: "", currency: "INR", timezone: "Asia/Kolkata", language: "en", bio: "" };
+const EMPTY: FormState = { name: "", email: "", phone: "", occupation: "", monthlyIncome: 0, country: "", state: "", city: "", currency: "INR", timezone: "Asia/Kolkata", language: "en", bio: "", avatar: null };
 
 /**
  * Mobile "Profile" screen — a full-screen form (not a bottom sheet, since
  * this is a destination in its own right, same as the desktop /profile
  * page) covering the core identity/financial-context fields via the same
- * PATCH /api/profile the desktop page uses. Avatar upload and the nested
- * financialPreferences/notifications sub-objects (already covered by
- * Settings, linked from More) are not reproduced here — see the
- * implementation report's Known Limitations.
+ * PATCH /api/profile the desktop page uses. There is no file-upload
+ * mechanism anywhere in this app, desktop included — "avatar" is a plain
+ * image-URL string field (`avatar: z.string().nullable().optional()` in
+ * backend/src/routes/profile.routes.ts, and the desktop form is just a URL
+ * text input), so that's what's reproduced here too, not a fabricated
+ * upload flow. The nested financialPreferences/notifications sub-objects
+ * (already covered by Settings, linked from More) are not reproduced here.
  */
-export default function MobileProfilePage() {
+export function MobileProfileView() {
   const { data: profile, isLoading } = useProfile();
   const { updateUserName } = useAuth();
   const { toast } = useToast();
@@ -74,6 +77,20 @@ export default function MobileProfilePage() {
         <form onSubmit={handleSubmit}>
           <div className="ppm-card">
             <div className="ppm-section-label">Identity</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 14 }}>
+              {form.avatar ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={form.avatar} alt="" style={{ width: 56, height: 56, borderRadius: 16, objectFit: "cover", border: "1px solid var(--ppm-border)" }} onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+              ) : (
+                <div className="ppm-avatar">{(form.name || "?").slice(0, 1).toUpperCase()}</div>
+              )}
+              {editing && (
+                <div className="ppm-field" style={{ flex: 1, marginBottom: 0 }}>
+                  <label htmlFor="ppm-p-avatar">Avatar URL</label>
+                  <input id="ppm-p-avatar" value={form.avatar ?? ""} placeholder="https://example.com/avatar.jpg" onChange={(e) => set("avatar", e.target.value || null)} />
+                </div>
+              )}
+            </div>
             <div className="ppm-field">
               <label htmlFor="ppm-p-name">Name<span className="req">*</span></label>
               <input id="ppm-p-name" value={form.name} disabled={!editing} maxLength={100} onChange={(e) => set("name", e.target.value)} />

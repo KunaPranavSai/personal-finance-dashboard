@@ -9,14 +9,84 @@ import { formatCurrency, formatPercent } from "@/lib/format";
 import { useSettingsContext } from "@/lib/SettingsContext";
 import { SavingsSummary } from "@/types";
 import { PiggyBank, TrendingUp, TrendingDown, Wallet } from "lucide-react";
+import { useIsMobile } from "@/lib/DeviceContext";
+import { MobileShell } from "@/components/mobile/MobileShell";
+import { LoadingCard, ErrorCard, EmptyCard } from "@/components/mobile/MobileStates";
 
 export default function SavingsPage() {
   const { settings } = useSettingsContext();
   const cur = settings.currency;
-  const { data, isLoading, error } = useQuery({
+  const isMobile = useIsMobile();
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["savings"],
     queryFn: () => api.get<SavingsSummary>("/api/savings"),
   });
+
+  if (isMobile) {
+    return (
+      <MobileShell title="Savings">
+        <div className="ppm-page-title">
+          <h2>Savings</h2>
+          <p>Income vs. expense, over time</p>
+        </div>
+
+        {isLoading && (
+          <div className="ppm-stack">
+            <LoadingCard lines={1} />
+            <LoadingCard lines={4} />
+          </div>
+        )}
+
+        {(error) && !isLoading && <ErrorCard onRetry={() => refetch()} />}
+
+        {!isLoading && !error && data && data.totalIncome === 0 && data.totalExpenses === 0 && (
+          <EmptyCard icon="🐷" title="No transaction data yet" subtitle="Add some income and expense transactions to see your savings breakdown." />
+        )}
+
+        {!isLoading && !error && data && (data.totalIncome > 0 || data.totalExpenses > 0) && (
+          <>
+            <div className="ppm-card">
+              <div className="ppm-cat-row">
+                <div className="ppm-ic" aria-hidden="true">💰</div>
+                <div className="ppm-info"><div className="ppm-name">Total Income</div></div>
+                <div className="ppm-amt pos">{formatCurrency(data.totalIncome, cur)}</div>
+              </div>
+              <div className="ppm-cat-row">
+                <div className="ppm-ic" aria-hidden="true">📉</div>
+                <div className="ppm-info"><div className="ppm-name">Total Expenses</div></div>
+                <div className="ppm-amt neg">{formatCurrency(data.totalExpenses, cur)}</div>
+              </div>
+              <div className="ppm-cat-row">
+                <div className="ppm-ic" aria-hidden="true">🐷</div>
+                <div className="ppm-info">
+                  <div className="ppm-name">Total Savings</div>
+                  <div className="ppm-meta">Rate: {formatPercent(data.savingsRate)}</div>
+                </div>
+                <div className={`ppm-amt ${data.totalSavings >= 0 ? "pos" : "neg"}`}>{formatCurrency(data.totalSavings, cur)}</div>
+              </div>
+            </div>
+
+            <div className="ppm-card" style={{ marginTop: 14 }}>
+              <div className="ppm-section-label">Monthly Savings Trend</div>
+              {data.monthlyTrend.length === 0 ? (
+                <p style={{ fontSize: 13, color: "var(--ppm-text-dim)" }}>No monthly data yet.</p>
+              ) : (
+                data.monthlyTrend.map((m) => (
+                  <div className="ppm-cat-row" key={m.month}>
+                    <div className="ppm-info">
+                      <div className="ppm-name">{m.month}</div>
+                      <div className="ppm-meta">In {formatCurrency(m.income, cur)} · Out {formatCurrency(m.expense, cur)}</div>
+                    </div>
+                    <div className={`ppm-amt ${m.savings >= 0 ? "pos" : "neg"}`}>{formatCurrency(m.savings, cur)}</div>
+                  </div>
+                ))
+              )}
+            </div>
+          </>
+        )}
+      </MobileShell>
+    );
+  }
 
   if (isLoading) {
     return (

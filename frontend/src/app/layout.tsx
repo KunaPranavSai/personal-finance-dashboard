@@ -1,13 +1,19 @@
 import type { Metadata, Viewport } from "next";
+import { headers } from "next/headers";
 import "./globals.css";
+import "@/styles/mobile.css";
 import { Providers } from "./providers";
 import { Preloader } from "@/components/Preloader";
 import { AntiTamperGuard } from "@/components/AntiTamperGuard";
 import { ServiceWorkerUpdatePrompt } from "@/components/pwa/ServiceWorkerUpdatePrompt";
 import { PwaInstallCapture } from "@/components/pwa/PwaInstallCapture";
+import { isMobileUserAgent } from "@/lib/device";
+
+const SITE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.pennypilot.pro";
 
 export const metadata: Metadata = {
-  title: "Penny Pilot",
+  metadataBase: new URL(SITE_URL),
+  title: { default: "Penny Pilot", template: "%s · Penny Pilot" },
   description: "A modern personal finance management SaaS dashboard",
   manifest: "/manifest.webmanifest",
   icons: {
@@ -23,6 +29,20 @@ export const metadata: Metadata = {
     "mobile-web-app-capable": "yes",
     "apple-mobile-web-app-capable": "yes",
   },
+  openGraph: {
+    title: "Penny Pilot",
+    description: "A modern personal finance management SaaS dashboard",
+    url: SITE_URL,
+    siteName: "Penny Pilot",
+    images: [{ url: "/icons/icon-512.png", width: 512, height: 512 }],
+    type: "website",
+  },
+  twitter: {
+    card: "summary",
+    title: "Penny Pilot",
+    description: "A modern personal finance management SaaS dashboard",
+    images: ["/icons/icon-512.png"],
+  },
 };
 
 export const viewport: Viewport = {
@@ -33,7 +53,9 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const headersList = await headers();
+  const isMobile = isMobileUserAgent(headersList.get("user-agent") ?? "");
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -59,7 +81,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <AntiTamperGuard />
         <PwaInstallCapture />
         <ServiceWorkerUpdatePrompt />
-        <Providers>{children}</Providers>
+        <Providers isMobile={isMobile}>{children}</Providers>
       </body>
     </html>
   );
