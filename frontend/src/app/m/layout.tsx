@@ -6,7 +6,7 @@ import "./mobile.css";
 import { DataInit } from "@/components/DataInit";
 import { LockScreen } from "@/components/ui/LockScreen";
 import { TwoFactorReverifyDialog } from "@/components/ui/TwoFactorReverifyDialog";
-import { useAuth, hasUnconfirmedRecentLogin, SESSION_EXPIRED_REASON_KEY } from "@/lib/AuthContext";
+import { useAuth } from "@/lib/AuthContext";
 import { useDriveStatus, isDriveReady } from "@/lib/driveStatus";
 import { getStorageMode } from "@/lib/storage";
 
@@ -32,13 +32,12 @@ export default function MobileShellLayout({ children }: { children: React.ReactN
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      if (hasUnconfirmedRecentLogin()) {
-        try {
-          sessionStorage.setItem(SESSION_EXPIRED_REASON_KEY, "cookie-not-persisted");
-        } catch {
-          // ignore
-        }
-      }
+      // The desktop shell also surfaces a "cookie not persisted" reason here
+      // via hasUnconfirmedRecentLogin()/SESSION_EXPIRED_REASON_KEY — those
+      // exports aren't yet in the committed AuthContext.tsx this mobile
+      // commit builds against, so that diagnostic messaging is intentionally
+      // omitted here rather than depending on an uncommitted API. The
+      // redirect-to-login behavior itself is unchanged.
       const redirect = pathname ? `?redirect=${encodeURIComponent(pathname)}` : "";
       router.replace(`/login${redirect}`);
     } else if (!isLoading && user && user.role !== "USER") {
