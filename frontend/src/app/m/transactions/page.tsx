@@ -2,13 +2,14 @@
 
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { MobileShell } from "@/components/mobile/MobileShell";
 import { AddTransactionSheet } from "@/components/mobile/AddTransactionSheet";
+import { ConfirmSheet } from "@/components/mobile/ConfirmSheet";
 import { LoadingCard, ErrorCard, EmptyCard } from "@/components/mobile/MobileStates";
 import { api } from "@/lib/api";
 import { getStorageMode } from "@/lib/storage";
-import { listLocalTransactions } from "@/lib/services/transactionsService";
+import { listLocalTransactions, deleteLocalTransaction } from "@/lib/services/transactionsService";
 import { useSettingsContext } from "@/lib/SettingsContext";
 import { formatCurrency, formatDateIN } from "@/lib/format";
 import type { Transaction, PaginatedResponse, EntryType } from "@/types";
@@ -50,6 +51,9 @@ function MobileTransactionsContent() {
   const [type, setType] = useState<"" | EntryType>(impliedType === "INCOME" || impliedType === "EXPENSE" ? impliedType : "");
   const [search, setSearch] = useState("");
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [editing, setEditing] = useState<Transaction | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Transaction | null>(null);
+  const queryClient = useQueryClient();
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["transactions", "activity", type, search],
@@ -59,6 +63,18 @@ function MobileTransactionsContent() {
         : api.get<PaginatedResponse<Transaction>>(
             `/api/transactions?page=1&pageSize=50&sortBy=date&sortDir=desc${type ? `&type=${type}` : ""}${search ? `&search=${encodeURIComponent(search)}` : ""}`
           ),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => (getStorageMode() === "local" ? deleteLocalTransaction(id) : api.delete(`/api/transactions/${id}`)),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] });
+      queryClient.invalidateQueries({ queryKey: ["income-expense-trend"] });
+      queryClient.invalidateQueries({ queryKey: ["category-breakdown"] });
+      queryClient.invalidateQueries({ queryKey: ["budgets"] });
+      setDeleteTarget(null);
+    },
   });
 
   const items = data?.items ?? [];
@@ -110,7 +126,7 @@ function MobileTransactionsContent() {
       {!isLoading && !isError && items.length > 0 && (
         <div className="ppm-card">
           {items.map((t) => (
-            <div className="ppm-txn-row" key={t.id}>
+            <div className="ppm-txn-row" key={t.id} onClick={() => { setEditing(t); setSheetOpen(true); }}>
               <div className="ppm-ic" aria-hidden="true">{t.type === "INCOME" ? "💰" : "🧾"}</div>
               <div className="ppm-info">
                 <div className="ppm-name">{t.description}</div>
@@ -119,6 +135,14 @@ function MobileTransactionsContent() {
               <div className={`ppm-amt ${t.type === "INCOME" ? "pos" : "neg"}`}>
                 {t.type === "INCOME" ? "+" : "-"}{f(t.amount)}
               </div>
+              <button
+                type="button"
+                aria-label={`Delete ${t.description}`}
+                className="ppm-row-action"
+                onClick={(e) => { e.stopPropagation(); setDeleteTarget(t); }}
+              >
+                🗑
+              </button>
             </div>
           ))}
         </div>
@@ -129,12 +153,21 @@ function MobileTransactionsContent() {
         className="ppm-qa-btn primary"
         style={{ position: "fixed", right: 16, bottom: "calc(76px + env(safe-area-inset-bottom, 0px))", width: 56, height: 56, borderRadius: "50%", padding: 0, fontSize: "1.4rem", boxShadow: "var(--ppm-shadow)", zIndex: 15 }}
         aria-label="Add transaction"
-        onClick={() => setSheetOpen(true)}
+        onClick={() => { setEditing(null); setSheetOpen(true); }}
       >
         ＋
       </button>
 
-      <AddTransactionSheet open={sheetOpen} onClose={() => setSheetOpen(false)} />
+      <AddTransactionSheet open={sheetOpen} onClose={() => { setSheetOpen(false); setEditing(null); }} editing={editing} />
+      <ConfirmSheet
+        open={Boolean(deleteTarget)}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
+        title="Delete transaction"
+        message={`Delete "${deleteTarget?.description}"? This can't be undone.`}
+        isPending={deleteMutation.isPending}
+        errorMessage={deleteMutation.isError ? (deleteMutation.error as Error)?.message : null}
+      />
     </MobileShell>
   );
 }

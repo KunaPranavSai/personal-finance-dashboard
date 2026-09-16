@@ -4,17 +4,22 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { getStorageMode } from "@/lib/storage";
-import { createLocalTransaction } from "@/lib/services/transactionsService";
+import { createLocalTransaction, updateLocalTransaction } from "@/lib/services/transactionsService";
 import { useCategories, useAccounts, usePaymentMethods } from "@/lib/reference";
 import { useToast } from "@/components/ui/Toast";
 import { generateIdempotencyKey } from "@/lib/idempotencyKey";
 import { MobileSheet } from "./MobileSheet";
+import type { Transaction } from "@/types";
 
 type EntryType = "EXPENSE" | "INCOME";
 
 interface AddTransactionSheetProps {
   open: boolean;
   onClose: () => void;
+  /** When set, the sheet edits this transaction instead of creating a new
+   * one — same PATCH /api/transactions/:id (or updateLocalTransaction) the
+   * desktop TransactionFormModal uses for edits. */
+  editing?: Transaction | null;
 }
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
@@ -28,12 +33,13 @@ const todayIso = () => new Date().toISOString().slice(0, 10);
  * (getStorageMode()), so a transaction added here shows up identically in
  * the existing desktop Transactions/Expenses/Income pages.
  */
-export function AddTransactionSheet({ open, onClose }: AddTransactionSheetProps) {
+export function AddTransactionSheet({ open, onClose, editing }: AddTransactionSheetProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { data: categoriesData } = useCategories();
   const { data: accountsData } = useAccounts();
   const { data: paymentMethodsData } = usePaymentMethods();
+  const isEditing = Boolean(editing);
 
   const [type, setType] = useState<EntryType>("EXPENSE");
   const [description, setDescription] = useState("");
@@ -61,19 +67,41 @@ export function AddTransactionSheet({ open, onClose }: AddTransactionSheetProps)
     setErrors({});
   };
 
+  useEffect(() => {
+    if (!open) return;
+    if (editing) {
+      setType(editing.type);
+      setDescription(editing.description);
+      setAmount(String(editing.amount));
+      setDate(editing.date.slice(0, 10));
+      setCategoryId(editing.categoryId ?? "");
+      setAccountId(editing.accountId ?? "");
+      setPaymentMethodTypeId(editing.paymentMethodTypeId ?? "");
+      setNotes(editing.notes ?? "");
+      setErrors({});
+    } else {
+      reset();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, editing]);
+
   // Stable for the life of one create attempt — reused across manual retries
   // of the same submission, regenerated only when the sheet opens fresh or
   // after a successful create.
   const createIdempotencyKeyRef = useRef(generateIdempotencyKey());
   useEffect(() => {
-    if (open) createIdempotencyKeyRef.current = generateIdempotencyKey();
-  }, [open]);
+    if (open && !editing) createIdempotencyKeyRef.current = generateIdempotencyKey();
+  }, [open, editing]);
 
   const mutation = useMutation({
-    mutationFn: (payload: Record<string, unknown>) =>
-      getStorageMode() === "local"
-        ? createLocalTransaction(payload)
-        : api.post("/api/transactions", payload, createIdempotencyKeyRef.current),
+    mutationFn: (payload: Record<string, unknown>) => {
+      if (getStorageMode() === "local") {
+        return isEditing ? updateLocalTransaction(editing!.id, payload) : createLocalTransaction(payload);
+      }
+      return isEditing
+        ? api.patch(`/api/transactions/${editing!.id}`, payload)
+        : api.post("/api/transactions", payload, createIdempotencyKeyRef.current);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] });
@@ -81,7 +109,7 @@ export function AddTransactionSheet({ open, onClose }: AddTransactionSheetProps)
       queryClient.invalidateQueries({ queryKey: ["category-breakdown"] });
       queryClient.invalidateQueries({ queryKey: ["budgets"] });
       createIdempotencyKeyRef.current = generateIdempotencyKey();
-      toast(`${type === "EXPENSE" ? "Expense" : "Income"} saved`, "success");
+      toast(isEditing ? "Transaction updated" : `${type === "EXPENSE" ? "Expense" : "Income"} saved`, "success");
       reset();
       onClose();
     },
@@ -125,7 +153,7 @@ export function AddTransactionSheet({ open, onClose }: AddTransactionSheetProps)
   };
 
   return (
-    <MobileSheet open={open} onClose={handleClose} title="Add Transaction">
+    <MobileSheet open={open} onClose={handleClose} title={isEditing ? "Edit Transaction" : "Add Transaction"}>
       <form onSubmit={handleSubmit} noValidate>
         <div className="ppm-type-toggle">
           <button type="button" className={type === "EXPENSE" ? "on" : ""} onClick={() => { setType("EXPENSE"); setCategoryId(""); }}>
@@ -198,7 +226,7 @@ export function AddTransactionSheet({ open, onClose }: AddTransactionSheetProps)
 
         <div className="ppm-sheet-actions">
           <button type="submit" className="ppm-sheet-submit" disabled={mutation.isPending}>
-            {mutation.isPending ? "Saving…" : `Save ${type === "EXPENSE" ? "Expense" : "Income"}`}
+            {mutation.isPending ? "Saving…" : isEditing ? "Save Changes" : `Save ${type === "EXPENSE" ? "Expense" : "Income"}`}
           </button>
           <button type="button" className="ppm-sheet-cancel" onClick={handleClose} disabled={mutation.isPending}>
             Cancel

@@ -74,7 +74,7 @@ export default function MobileMorePage() {
           <span className={`ppm-toggle${notificationsEnabled ? " on" : ""}`} aria-hidden="true" />
           <span className="ppm-chev">›</span>
         </Link>
-        <Link href="/settings?tab=appearance" className="ppm-list-item">
+        <Link href="/settings" className="ppm-list-item">
           <div className="ppm-ic" aria-hidden="true">🎨</div>
           <div className="ppm-info"><div className="ppm-name">Currency, Date &amp; Language</div></div>
           <span className="ppm-chev">›</span>
@@ -93,9 +93,7 @@ export default function MobileMorePage() {
 
       <div className="ppm-card" style={{ marginTop: 14 }}>
         <div className="ppm-section-label">Storage &amp; Account</div>
-        <Link href="/settings?tab=backup" className="ppm-list-item"><div className="ppm-ic" aria-hidden="true">🗄️</div><div className="ppm-info"><div className="ppm-name">Google Drive &amp; Local-Only Storage</div></div><span className="ppm-chev">›</span></Link>
-        <Link href="/settings?tab=security" className="ppm-list-item"><div className="ppm-ic" aria-hidden="true">🔐</div><div className="ppm-info"><div className="ppm-name">Security, 2FA &amp; Recovery</div></div><span className="ppm-chev">›</span></Link>
-        <Link href="/settings?tab=privacy" className="ppm-list-item"><div className="ppm-ic" aria-hidden="true">🛡️</div><div className="ppm-info"><div className="ppm-name">Privacy</div></div><span className="ppm-chev">›</span></Link>
+        <Link href="/settings" className="ppm-list-item"><div className="ppm-ic" aria-hidden="true">⚙️</div><div className="ppm-info"><div className="ppm-name">Settings</div><div className="ppm-meta">Appearance, storage, security, privacy</div></div><span className="ppm-chev">›</span></Link>
         <Link href="/terms" className="ppm-list-item"><div className="ppm-ic" aria-hidden="true">📜</div><div className="ppm-info"><div className="ppm-name">Legal &amp; Consent</div></div><span className="ppm-chev">›</span></Link>
       </div>
 
