@@ -8,7 +8,6 @@ import { useDriveStatus, isDriveReady, DRIVE_STATUS_QUERY_KEY } from "@/lib/driv
 import { api, ApiClientError } from "@/lib/api";
 import { setStorageMode } from "@/lib/storage";
 import { isLocalStorageAvailable } from "@/lib/storage/localDb";
-import { seedLocalDefaultsIfEmpty } from "@/lib/storage/localSeed";
 
 /**
  * Mobile "Connect Drive" screen — a faithful port of the desktop
@@ -86,7 +85,6 @@ export function MobileConnectDriveView() {
         return;
       }
       setStorageMode("local");
-      await seedLocalDefaultsIfEmpty();
       setView("localReady");
     } finally {
       setActivatingLocal(false);

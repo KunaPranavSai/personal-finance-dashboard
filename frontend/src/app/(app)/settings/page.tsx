@@ -14,7 +14,6 @@ import { Button } from "@/components/ui/Button";
 import { PasswordInput } from "@/components/ui/PasswordInput";
 import { ExportPreviewModal } from "@/components/ui/ExportPreviewModal";
 import { GoogleDriveBackupCard } from "@/components/settings/GoogleDriveBackupCard";
-import { DataStorageCard } from "@/components/settings/DataStorageCard";
 import { getStorageMode } from "@/lib/storage";
 import { useSettingsContext } from "@/lib/SettingsContext";
 import { useToast } from "@/components/ui/Toast";
@@ -1206,7 +1205,6 @@ function SettingsContent() {
       case "backup":
         return (
           <div className="space-y-4">
-            <DataStorageCard />
             {getStorageMode() === "drive" && (
               <>
                 <GoogleDriveBackupCard />
