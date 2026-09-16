@@ -17,6 +17,8 @@ import { useToast } from "@/components/ui/Toast";
 import { CURRENCIES, TIMEZONES, LANGUAGES, useProfile } from "@/lib/reference";
 import { useAuth } from "@/lib/AuthContext";
 import { downloadConsentPdfAuthenticated } from "@/lib/consent";
+import { useIsMobile } from "@/lib/DeviceContext";
+import { MobileProfileView } from "@/components/mobile/MobileProfileView";
 
 const profileSchema = z.object({
   name: z.string().min(1, "Name is required").max(100, "Name too long"),
@@ -73,6 +75,7 @@ export default function ProfilePage() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { updateUserName } = useAuth();
+  const isMobile = useIsMobile();
   const [editing, setEditing] = useState(false);
   const [imageError, setImageError] = useState(false);
 
@@ -126,6 +129,8 @@ export default function ProfilePage() {
     reset();
     setImageError(false);
   };
+
+  if (isMobile) return <MobileProfileView />;
 
   return (
     <>

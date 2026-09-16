@@ -1,6 +1,6 @@
 "use client";
 
-/** Shared loading / error / empty states for /m/* screens — same three
+/** Shared loading / error / empty states for migrated mobile screens — same three
  * outcomes every data-fetching page in the existing app already handles,
  * just styled to the mobile shell. */
 

@@ -19,6 +19,11 @@ import { GOAL_CATEGORIES } from "@/lib/reference";
 import { FocusTrap } from "@/components/ui/FocusTrap";
 import { useToast } from "@/components/ui/Toast";
 import { generateIdempotencyKey } from "@/lib/idempotencyKey";
+import { useIsMobile } from "@/lib/DeviceContext";
+import { MobileShell } from "@/components/mobile/MobileShell";
+import { LoadingCard, ErrorCard, EmptyCard } from "@/components/mobile/MobileStates";
+import { GoalFormSheet } from "@/components/mobile/GoalFormSheet";
+import { ConfirmSheet } from "@/components/mobile/ConfirmSheet";
 
 const goalSchema = z.object({
   name: z.string().min(1, "Name is required").max(100),
@@ -140,7 +145,12 @@ export default function GoalsPage() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const { data, isLoading } = useQuery({
+  const isMobile = useIsMobile();
+  const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
+  const [mobileEditing, setMobileEditing] = useState<Goal | null>(null);
+  const [mobileDeleteTarget, setMobileDeleteTarget] = useState<Goal | null>(null);
+
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["goals"],
     queryFn: () =>
       getStorageMode() === "local"
@@ -174,6 +184,61 @@ export default function GoalsPage() {
     const q = search.toLowerCase();
     return items.filter((g) => g.name.toLowerCase().includes(q) || g.category.toLowerCase().includes(q));
   }, [items, search]);
+
+  if (isMobile) {
+    return (
+      <MobileShell title="Goals">
+        <div className="ppm-page-title" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <h2>Goals</h2>
+            <p>{items.length} active</p>
+          </div>
+          <button type="button" className="ppm-link-btn" onClick={() => { setMobileEditing(null); setMobileSheetOpen(true); }}>+ Add</button>
+        </div>
+
+        {isLoading && <LoadingCard lines={4} />}
+        {isError && !isLoading && <ErrorCard onRetry={() => refetch()} />}
+        {!isLoading && !isError && items.length === 0 && (
+          <EmptyCard icon="🎯" title="No goals yet" subtitle="Tap + Add to start a savings goal." />
+        )}
+
+        {!isLoading && !isError && items.map((g) => {
+          const pct = g.targetAmount > 0 ? Math.min(1, g.currentAmount / g.targetAmount) : 0;
+          return (
+            <div className="ppm-card ppm-budget-card" key={g.id}>
+              <div className="ppm-budget-head">
+                <span className="name">🎯 {g.name}</span>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <button type="button" className="ppm-link-btn" onClick={() => { setMobileEditing(g); setMobileSheetOpen(true); }}>Edit</button>
+                  <button type="button" className="ppm-link-btn" style={{ color: "var(--ppm-critical)" }} onClick={() => setMobileDeleteTarget(g)}>Delete</button>
+                </div>
+              </div>
+              <div className="ppm-bar-track">
+                <div className="ppm-bar-fill" style={{ width: `${pct * 100}%`, background: "var(--ppm-accent)" }} />
+              </div>
+              <div className="ppm-budget-nums">
+                <span>{formatPercent(pct)} complete</span>
+                <span>{formatCurrency(g.currentAmount, cur)} of {formatCurrency(g.targetAmount, cur)}</span>
+              </div>
+              {g.monthlyContribution > 0 && (
+                <div className="ppm-meta" style={{ marginTop: 6 }}>Contributing {formatCurrency(g.monthlyContribution, cur)}/month · {g.category}</div>
+              )}
+            </div>
+          );
+        })}
+
+        <GoalFormSheet open={mobileSheetOpen} onClose={() => { setMobileSheetOpen(false); setMobileEditing(null); }} editing={mobileEditing} />
+        <ConfirmSheet
+          open={Boolean(mobileDeleteTarget)}
+          onClose={() => setMobileDeleteTarget(null)}
+          onConfirm={() => mobileDeleteTarget && deleteMutation.mutate(mobileDeleteTarget.id)}
+          title="Delete goal"
+          message={`Delete "${mobileDeleteTarget?.name}"? This can't be undone.`}
+          isPending={deleteMutation.isPending}
+        />
+      </MobileShell>
+    );
+  }
 
   return (
     <>

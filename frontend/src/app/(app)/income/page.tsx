@@ -8,19 +8,26 @@ import { TransactionFormModal } from "@/components/transactions/TransactionFormM
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent } from "@/components/ui/Card";
 import { api } from "@/lib/api";
+import { getStorageMode } from "@/lib/storage";
+import { getLocalDashboardSummary } from "@/lib/services/dashboardService";
 import { formatCurrency } from "@/lib/format";
 import { useSettingsContext } from "@/lib/SettingsContext";
 import { Transaction, DashboardSummary } from "@/types";
 import { Plus, TrendingUp } from "lucide-react";
+import { useIsMobile } from "@/lib/DeviceContext";
+import { MobileTransactionsView } from "@/components/mobile/MobileTransactionsView";
 
 export default function IncomePage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Transaction | null>(null);
   const { settings } = useSettingsContext();
+  const isMobile = useIsMobile();
   const { data: summary } = useQuery({
     queryKey: ["dashboard-summary"],
-    queryFn: () => api.get<DashboardSummary>("/api/dashboard/summary"),
+    queryFn: () => (getStorageMode() === "local" ? getLocalDashboardSummary() : api.get<DashboardSummary>("/api/dashboard/summary")),
   });
+
+  if (isMobile) return <MobileTransactionsView initialType="INCOME" />;
 
   return (
     <>

@@ -23,6 +23,13 @@ import { FocusTrap } from "@/components/ui/FocusTrap";
 import { useToast } from "@/components/ui/Toast";
 import { postWithOfflineQueue } from "@/lib/offlineAwarePost";
 import { generateIdempotencyKey } from "@/lib/idempotencyKey";
+import { useIsMobile } from "@/lib/DeviceContext";
+import { MobileShell } from "@/components/mobile/MobileShell";
+import { LoadingCard, ErrorCard, EmptyCard } from "@/components/mobile/MobileStates";
+import { InvestmentFormSheet } from "@/components/mobile/InvestmentFormSheet";
+import { ConfirmSheet } from "@/components/mobile/ConfirmSheet";
+
+const MOBILE_DOT_COLORS = ["var(--ppm-positive)", "var(--ppm-warning)", "var(--ppm-critical)", "var(--ppm-accent)"];
 
 const investmentSchema = z.object({
   instrument: z.string().min(1, "Name is required").max(100),
@@ -181,7 +188,12 @@ export default function InvestmentsPage() {
   const { toast } = useToast();
   const router = useRouter();
 
-  const { data, isLoading } = useQuery({
+  const isMobile = useIsMobile();
+  const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
+  const [mobileEditing, setMobileEditing] = useState<Investment | null>(null);
+  const [mobileDeleteTarget, setMobileDeleteTarget] = useState<Investment | null>(null);
+
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["investments"],
     queryFn: () =>
       getStorageMode() === "local"
@@ -252,6 +264,89 @@ export default function InvestmentsPage() {
     if (sortBy === field) setSortDir((d) => d === "asc" ? "desc" : "asc");
     else { setSortBy(field); setSortDir("desc"); }
   };
+
+  if (isMobile) {
+    const mCurrentValue = items.reduce((s, i) => s + Number(i.currentValue), 0);
+    const mInvestedValue = items.reduce((s, i) => s + Number(i.investedAmount), 0);
+    const mGainPct = mInvestedValue > 0 ? (mCurrentValue - mInvestedValue) / mInvestedValue : 0;
+    return (
+      <MobileShell title="Investments">
+        <div className="ppm-page-title" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <h2>Investments</h2>
+            <p>Portfolio overview</p>
+          </div>
+          <button type="button" className="ppm-link-btn" onClick={() => { setMobileEditing(null); setMobileSheetOpen(true); }}>+ Add</button>
+        </div>
+
+        {isLoading && (
+          <div className="ppm-stack">
+            <LoadingCard lines={1} />
+            <LoadingCard lines={4} />
+          </div>
+        )}
+
+        {isError && !isLoading && <ErrorCard onRetry={() => refetch()} />}
+
+        {!isLoading && !isError && items.length === 0 && (
+          <EmptyCard icon="↗" title="No investments tracked yet" subtitle="Tap + Add to track a holding." />
+        )}
+
+        {!isLoading && !isError && items.length > 0 && (
+          <>
+            <div className="ppm-card">
+              <div className="ppm-section-label">Current Value</div>
+              <div className="ppm-figure" style={{ justifyContent: "space-between" }}>
+                {formatCurrency(mCurrentValue, cur)}
+                <span className={`ppm-delta${mGainPct < 0 ? " down" : ""}`}>{mGainPct >= 0 ? "+" : ""}{formatPercent(mGainPct)} {mGainPct >= 0 ? "↗" : "↘"}</span>
+              </div>
+            </div>
+
+            <div className="ppm-card" style={{ marginTop: 14 }}>
+              <div className="ppm-section-label">Holdings</div>
+              {items.map((inv, i) => {
+                const gain = Number(inv.currentValue) - Number(inv.investedAmount);
+                const gainPctOne = Number(inv.investedAmount) > 0 ? gain / Number(inv.investedAmount) : 0;
+                return (
+                  <div className="ppm-hold-row" key={inv.id} onClick={() => { setMobileEditing(inv); setMobileSheetOpen(true); }} style={{ cursor: "pointer" }}>
+                    <div className="ppm-hold-dot" style={{ background: MOBILE_DOT_COLORS[i % MOBILE_DOT_COLORS.length] }} />
+                    <div className="ppm-info">
+                      <div className="ppm-name">{inv.instrument}</div>
+                      <div className="ppm-meta">{inv.category}{inv.platform ? ` · ${inv.platform}` : ""}</div>
+                    </div>
+                    <div className="ppm-amt">
+                      {formatCurrency(Number(inv.currentValue), cur)}
+                      <span className="ppm-hold-ret" style={{ color: gain >= 0 ? "var(--ppm-positive)" : "var(--ppm-critical)" }}>
+                        {gain >= 0 ? "+" : ""}{formatPercent(gainPctOne)}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      aria-label={`Delete ${inv.instrument}`}
+                      className="ppm-row-action"
+                      onClick={(e) => { e.stopPropagation(); setMobileDeleteTarget(inv); }}
+                    >
+                      🗑
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
+
+        <InvestmentFormSheet open={mobileSheetOpen} onClose={() => { setMobileSheetOpen(false); setMobileEditing(null); }} editing={mobileEditing} />
+        <ConfirmSheet
+          open={Boolean(mobileDeleteTarget)}
+          onClose={() => setMobileDeleteTarget(null)}
+          onConfirm={() => mobileDeleteTarget && deleteMutation.mutate(mobileDeleteTarget.id)}
+          title="Delete investment"
+          message={`Delete "${mobileDeleteTarget?.instrument}"? This can't be undone.`}
+          isPending={deleteMutation.isPending}
+        />
+      </MobileShell>
+    );
+  }
 
   return (
     <>

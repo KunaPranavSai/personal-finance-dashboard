@@ -14,6 +14,8 @@ import { Button } from "@/components/ui/Button";
 import { PasswordInput } from "@/components/ui/PasswordInput";
 import { ExportPreviewModal } from "@/components/ui/ExportPreviewModal";
 import { GoogleDriveBackupCard } from "@/components/settings/GoogleDriveBackupCard";
+import { DataStorageCard } from "@/components/settings/DataStorageCard";
+import { getStorageMode } from "@/lib/storage";
 import { useSettingsContext } from "@/lib/SettingsContext";
 import { useToast } from "@/components/ui/Toast";
 import { Palette, Bell, Shield, Download, Database, Eye, Save, Copy, Check, KeyRound, CheckCircle, Sun, Moon, Monitor, Smartphone } from "lucide-react";
@@ -24,12 +26,14 @@ import { isPwaInstalled, canPromptInstall, triggerInstallPrompt, subscribeToInst
 import { getPreferBiometric, setPreferBiometric } from "@/lib/passkeyPrefs";
 import { startRegistration, browserSupportsWebAuthn } from "@simplewebauthn/browser";
 import { Fingerprint, Pencil, Trash2, X } from "lucide-react";
+import { useIsMobile } from "@/lib/DeviceContext";
+import { MobileSettingsView } from "@/components/mobile/MobileSettingsView";
 
 const TABS = [
   { id: "appearance", label: "Appearance", icon: Palette },
   { id: "notifications", label: "Notification Preferences", icon: Bell },
   { id: "security", label: "Security", icon: Shield },
-  { id: "backup", label: "Data & Google Drive", icon: Database },
+  { id: "backup", label: "Data & Storage", icon: Database },
   { id: "privacy", label: "Privacy", icon: Eye },
 ];
 
@@ -856,6 +860,7 @@ function ActivityTab() {
 
 function SettingsContent() {
   const searchParams = useSearchParams();
+  const isMobile = useIsMobile();
   const { settings, updateSettings, isLoading, isSaving } = useSettingsContext();
   const { toast } = useToast();
   const { changePassword } = useAuth();
@@ -912,6 +917,8 @@ function SettingsContent() {
   const exp = (s.export as Record<string, unknown>) ?? {};
   const priv = (s.privacy as Record<string, unknown>) ?? {};
   const pref = (s.preferences as Record<string, unknown>) ?? {};
+
+  if (isMobile) return <MobileSettingsView />;
 
   const renderTab = () => {
     switch (activeTab) {
@@ -1199,10 +1206,15 @@ function SettingsContent() {
       case "backup":
         return (
           <div className="space-y-4">
-            <GoogleDriveBackupCard />
-            <div className="border-t border-black/5 pt-4 dark:border-white/10">
-              <ExportTab />
-            </div>
+            <DataStorageCard />
+            {getStorageMode() === "drive" && (
+              <>
+                <GoogleDriveBackupCard />
+                <div className="border-t border-black/5 pt-4 dark:border-white/10">
+                  <ExportTab />
+                </div>
+              </>
+            )}
           </div>
         );
       case "privacy":

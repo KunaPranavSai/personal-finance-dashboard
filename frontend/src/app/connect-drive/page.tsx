@@ -6,29 +6,38 @@ import { motion } from "framer-motion";
 import { useQueryClient } from "@tanstack/react-query";
 import { AuthPageShell } from "@/components/ui/AuthPageShell";
 import { Footer } from "@/components/layout/Footer";
+import { AnimatedCheckbox } from "@/components/ui/AnimatedCheckbox";
 import { useAuth } from "@/lib/AuthContext";
 import { useDriveStatus, isDriveReady, DRIVE_STATUS_QUERY_KEY } from "@/lib/driveStatus";
 import { api, ApiClientError } from "@/lib/api";
-import { HardDrive, CheckCircle2, AlertCircle, ArrowRight, FolderGit2 } from "lucide-react";
+import { setStorageMode } from "@/lib/storage";
+import { isLocalStorageAvailable } from "@/lib/storage/localDb";
+import { seedLocalDefaultsIfEmpty } from "@/lib/storage/localSeed";
+import { HardDrive, CheckCircle2, AlertCircle, ArrowRight, FolderGit2, Laptop, ShieldAlert } from "lucide-react";
+import { useIsMobile } from "@/lib/DeviceContext";
+import { MobileConnectDriveView } from "@/components/mobile/MobileConnectDriveView";
 
 const primaryButton =
   "flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-purple-500/25 transition-all hover:shadow-purple-500/40 disabled:opacity-50 disabled:cursor-not-allowed";
 const secondaryButton =
   "flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white/80 transition-all hover:bg-white/10";
 
-type ViewState = "connect" | "connecting" | "success" | "accountChoice" | "error";
+type ViewState = "storageChoice" | "localWarning" | "connect" | "connecting" | "success" | "localReady" | "accountChoice" | "error";
 
 export default function ConnectDrivePage() {
   const router = useRouter();
+  const isMobile = useIsMobile();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const queryClient = useQueryClient();
   const { data: status, isLoading: statusLoading } = useDriveStatus();
 
-  const [view, setView] = useState<ViewState>("connect");
+  const [view, setView] = useState<ViewState>("storageChoice");
   const [error, setError] = useState("");
   const [migrated, setMigrated] = useState(false);
   const [choiceToken, setChoiceToken] = useState<string | null>(null);
   const [resolvingChoice, setResolvingChoice] = useState(false);
+  const [localAck, setLocalAck] = useState(false);
+  const [activatingLocal, setActivatingLocal] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -62,10 +71,36 @@ export default function ConnectDrivePage() {
 
   // Already fully connected (e.g. navigated back here manually) — just go to the dashboard.
   useEffect(() => {
-    if (!statusLoading && isDriveReady(status) && view === "connect") {
+    if (!statusLoading && isDriveReady(status) && (view === "connect" || view === "storageChoice")) {
       router.replace("/dashboard");
     }
   }, [statusLoading, status, view, router]);
+
+  // Legacy (pre-Drive) accounts already have real data that needs a Drive
+  // destination — skip straight past the Local-Only choice for them.
+  useEffect(() => {
+    if (!statusLoading && status?.hasLegacyData && view === "storageChoice") {
+      setView("connect");
+    }
+  }, [statusLoading, status, view]);
+
+  const handleActivateLocal = useCallback(async () => {
+    setError("");
+    setActivatingLocal(true);
+    try {
+      const available = await isLocalStorageAvailable();
+      if (!available) {
+        setError("This browser doesn't support or allow local storage, so This Device Only mode isn't available here.");
+        setActivatingLocal(false);
+        return;
+      }
+      setStorageMode("local");
+      await seedLocalDefaultsIfEmpty();
+      setView("localReady");
+    } finally {
+      setActivatingLocal(false);
+    }
+  }, []);
 
   const handleConnect = useCallback(async () => {
     setError("");
@@ -96,11 +131,100 @@ export default function ConnectDrivePage() {
     }
   }, [choiceToken, queryClient]);
 
+  if (isMobile) return <MobileConnectDriveView />;
+
   if (authLoading || !isAuthenticated) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#0B0F19]">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-purple-400/30 border-t-purple-400" />
       </div>
+    );
+  }
+
+  if (view === "storageChoice") {
+    return (
+      <AuthPageShell icon={HardDrive} title="Choose how you want to store your data" subtitle="You can change this later in Settings" footer={<Footer variant="dark" />}>
+        <div className="space-y-4">
+          <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+            <h3 className="flex items-center gap-2 text-sm font-semibold text-white">
+              <HardDrive className="h-4 w-4 text-purple-300" /> Google Drive — Recommended
+            </h3>
+            <p className="mt-1.5 text-xs text-[#94A3B8]">Store Penny Pilot data in your own Google Drive, backed up and accessible from any device.</p>
+            <motion.button
+              whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} type="button"
+              onClick={() => setView("connect")} className={`${primaryButton} mt-3`}
+            >
+              Connect Google Drive
+            </motion.button>
+          </div>
+          <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+            <h3 className="flex items-center gap-2 text-sm font-semibold text-white">
+              <Laptop className="h-4 w-4 text-white/60" /> This Device Only
+            </h3>
+            <p className="mt-1.5 text-xs text-[#94A3B8]">Keep Penny Pilot data locally in this browser/device without connecting Google Drive.</p>
+            <motion.button
+              whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} type="button"
+              onClick={() => setView("localWarning")} className={`${secondaryButton} mt-3`}
+            >
+              Continue on this Device
+            </motion.button>
+          </div>
+        </div>
+      </AuthPageShell>
+    );
+  }
+
+  if (view === "localWarning") {
+    return (
+      <AuthPageShell icon={ShieldAlert} title="Important: local-only storage" subtitle="Please read before continuing" footer={<Footer variant="dark" />}>
+        <div className="space-y-4">
+          <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-4 text-sm text-amber-200">
+            <p>
+              Your financial data will be stored only on this browser/device. Penny Pilot will not maintain a cloud backup of this data.
+            </p>
+            <p className="mt-2">
+              If browser/site data is cleared, the device is lost, the browser profile is reset, or you switch devices/browsers,
+              your data may be permanently lost unless you have exported a backup.
+            </p>
+          </div>
+          {error && (
+            <div className="flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+              <AlertCircle className="h-4 w-4 shrink-0" /> {error}
+            </div>
+          )}
+          <AnimatedCheckbox
+            id="local-ack"
+            checked={localAck}
+            onChange={setLocalAck}
+            label="I understand that local-only data may be permanently lost if I do not maintain my own backup."
+          />
+          <motion.button
+            whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} type="button"
+            disabled={!localAck || activatingLocal} onClick={handleActivateLocal} className={primaryButton}
+          >
+            {activatingLocal ? "Setting up…" : "Continue on this Device"}
+          </motion.button>
+          <button type="button" onClick={() => setView("storageChoice")} className="w-full text-center text-xs text-white/40 hover:text-white/60">
+            Back
+          </button>
+        </div>
+      </AuthPageShell>
+    );
+  }
+
+  if (view === "localReady") {
+    return (
+      <AuthPageShell icon={CheckCircle2} title="Local Storage Ready" subtitle="Your data will stay on this device" footer={<Footer variant="dark" />}>
+        <div className="space-y-5 text-center">
+          <p className="text-sm text-[#94A3B8]">
+            Penny Pilot will now store your financial data locally in this browser. You can export a backup or switch to
+            Google Drive anytime from Settings → Data &amp; Storage.
+          </p>
+          <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} type="button" onClick={() => router.replace("/dashboard")} className={primaryButton}>
+            Continue to Dashboard <ArrowRight className="h-4 w-4" />
+          </motion.button>
+        </div>
+      </AuthPageShell>
     );
   }
 
@@ -147,7 +271,8 @@ export default function ConnectDrivePage() {
 
   // A pre-existing account created back when Postgres held financial data gets distinct
   // "migrate" messaging instead of the generic new-user copy — the underlying connect flow is
-  // identical either way; only what the user is told up front differs.
+  // identical either way; only what the user is told up front differs. Local-Only mode isn't
+  // offered to these accounts — they already have real data that needs a Drive destination.
   const isLegacyAccount = Boolean(status?.hasLegacyData);
   const title = isLegacyAccount ? "Move your Penny Pilot data to Google Drive" : "Penny Pilot";
   const subtitle = isLegacyAccount ? "One-time migration, nothing is deleted" : "Your money. Your data.";
@@ -180,6 +305,11 @@ export default function ConnectDrivePage() {
           {view === "connecting" ? connectingLabel : error ? "Retry Connection" : connectLabel}
         </motion.button>
         <p className="text-xs text-white/30">Your data remains under your Google account.</p>
+        {!isLegacyAccount && view !== "connecting" && (
+          <button type="button" onClick={() => setView("storageChoice")} className="w-full text-center text-xs text-white/40 hover:text-white/60">
+            Back
+          </button>
+        )}
       </div>
     </AuthPageShell>
   );

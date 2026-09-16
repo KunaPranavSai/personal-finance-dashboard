@@ -7,11 +7,15 @@ import { Topbar } from "@/components/layout/Topbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { api } from "@/lib/api";
+import { getStorageMode } from "@/lib/storage";
+import { getLocalMonthlyReport, getLocalCategoryReport, getLocalBudgetReport } from "@/lib/services/reportsService";
 import { formatCurrency } from "@/lib/format";
 import { useSettingsContext } from "@/lib/SettingsContext";
 import { ReportItem } from "@/types";
 import { FileText, Download, TrendingUp, TrendingDown, Printer } from "lucide-react";
 import { cn } from "@/lib/format";
+import { useIsMobile } from "@/lib/DeviceContext";
+import { MobileReportsView } from "@/components/mobile/MobileReportsView";
 
 /** Client-side CSV export — no server round-trip or new dependency needed
  * for a simple tabular dump of what's already loaded. */
@@ -45,11 +49,12 @@ function DeltaBadge({ label, pct }: { label: string; pct: number | null }) {
 export default function ReportsPage() {
   const { settings } = useSettingsContext();
   const cur = settings.currency;
+  const isMobile = useIsMobile();
   const [tab, setTab] = useState<"monthly" | "categories" | "budgets">("monthly");
 
   const { data: monthly, isLoading: loadingMonthly } = useQuery({
     queryKey: ["reports-monthly"],
-    queryFn: () => api.get<{ items: ReportItem[] }>("/api/reports/monthly"),
+    queryFn: () => (getStorageMode() === "local" ? getLocalMonthlyReport() : api.get<{ items: ReportItem[] }>("/api/reports/monthly")),
     enabled: tab === "monthly",
   });
 
@@ -87,13 +92,19 @@ export default function ReportsPage() {
 
   const { data: categories, isLoading: loadingCats } = useQuery({
     queryKey: ["reports-categories"],
-    queryFn: () => api.get<{ items: { category: string; total: number; count: number }[] }>("/api/reports/categories"),
+    queryFn: () =>
+      getStorageMode() === "local"
+        ? getLocalCategoryReport()
+        : api.get<{ items: { category: string; total: number; count: number }[] }>("/api/reports/categories"),
     enabled: tab === "categories",
   });
 
   const { data: budgets, isLoading: loadingBudgets } = useQuery({
     queryKey: ["reports-budgets"],
-    queryFn: () => api.get<{ items: { category: string; budgeted: number; actual: number; variance: number }[] }>("/api/reports/budgets"),
+    queryFn: () =>
+      getStorageMode() === "local"
+        ? getLocalBudgetReport()
+        : api.get<{ items: { category: string; budgeted: number; actual: number; variance: number }[] }>("/api/reports/budgets"),
     enabled: tab === "budgets",
   });
 
@@ -102,6 +113,8 @@ export default function ReportsPage() {
     { key: "categories", label: "Category Report" },
     { key: "budgets", label: "Budget vs Actual" },
   ] as const;
+
+  if (isMobile) return <MobileReportsView />;
 
   return (
     <>

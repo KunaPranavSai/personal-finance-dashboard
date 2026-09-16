@@ -1,30 +1,35 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { MobileShell } from "@/components/mobile/MobileShell";
 import { useAuth } from "@/lib/AuthContext";
 import { useProfile } from "@/lib/reference";
 import { useSettingsContext } from "@/lib/SettingsContext";
+import { useIsMobile } from "@/lib/DeviceContext";
 
 /**
- * Mobile "More" tab. Phase 2 modules (Bills, Goals, Savings, Manage
- * (Accounts/Categories/Money Sources), Analytics, Reports, Notifications,
- * Profile) now link to their real /m/* screens. Modules not yet given a
- * mobile screen (full Settings beyond dark mode, Security/2FA/Passkeys,
- * Google Drive & Local-Only storage management, Privacy, Legal) still link
- * to their existing, unmodified desktop pages — nothing disappears while
- * they await their own mobile transformation; see the implementation
- * report's Known Limitations.
+ * Mobile "More" tab — a mobile-only navigation hub with no desktop
+ * equivalent page (desktop reaches these same destinations via the
+ * sidebar), so desktop UAs are redirected to /settings instead of seeing
+ * a broken/empty page. Every link here is a real, already-migrated route.
  */
-export default function MobileMorePage() {
+export default function MorePage() {
   const router = useRouter();
+  const isMobile = useIsMobile();
   const { user, logout } = useAuth();
   const { data: profile } = useProfile();
   const { settings, updateSettings, resolvedTheme } = useSettingsContext();
 
   const [loggingOut, setLoggingOut] = useState(false);
+
+  useEffect(() => {
+    if (!isMobile) router.replace("/settings");
+  }, [isMobile, router]);
+
+  if (!isMobile) return null;
+
   const displayName = user?.name || profile?.name || "";
   const initials = displayName
     .split(" ")

@@ -328,3 +328,16 @@ html.dark .pp-mobile {
     transition: none !important; animation: none !important;
   }
 }
+
+/* Printing (mobile "Download PDF" uses window.print() against this, same as
+   desktop) — hide all chrome and show only the report card being printed. */
+@media print {
+  .pp-mobile .ppm-appbar, .pp-mobile .ppm-bottomnav, .pp-mobile .ppm-filters,
+  .pp-mobile .ppm-qa-btn, .pp-mobile .ppm-page-title p {
+    display: none !important;
+  }
+  .pp-mobile { background: #fff !important; }
+  .pp-mobile .ppm-print-summary {
+    box-shadow: none !important; border: 1px solid #ccc !important; color: #000 !important;
+  }
+}
