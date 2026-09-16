@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { MobileSheet } from "./MobileSheet";
@@ -24,6 +24,18 @@ export function CategoryManagerCard() {
   const [newType, setNewType] = useState<EntryType>("EXPENSE");
   const [subcategoryTarget, setSubcategoryTarget] = useState<Category | null>(null);
   const [subName, setSubName] = useState("");
+  const categoryNameRef = useRef<HTMLInputElement>(null);
+  const subNameRef = useRef<HTMLInputElement>(null);
+
+  // Focus each sheet's input only once it's actually opened — MobileSheet
+  // keeps its children mounted while closed, so bare `autoFocus` would fire
+  // (and pop the keyboard) on page load instead of on open.
+  useEffect(() => {
+    if (categorySheetOpen) categoryNameRef.current?.focus();
+  }, [categorySheetOpen]);
+  useEffect(() => {
+    if (subcategoryTarget) subNameRef.current?.focus();
+  }, [subcategoryTarget]);
 
   const { data, isLoading } = useQuery({
     queryKey: ["categories"],
@@ -76,7 +88,7 @@ export function CategoryManagerCard() {
           </div>
           <div className="ppm-field">
             <label htmlFor="ppm-cat-name">Name<span className="req">*</span></label>
-            <input id="ppm-cat-name" value={newName} maxLength={50} autoFocus onChange={(e) => setNewName(e.target.value)} />
+            <input id="ppm-cat-name" ref={categoryNameRef} value={newName} maxLength={50} onChange={(e) => setNewName(e.target.value)} />
           </div>
           {createCategory.isError && <div className="err" style={{ marginBottom: 10 }}>{(createCategory.error as Error)?.message}</div>}
           <div className="ppm-sheet-actions">
@@ -90,7 +102,7 @@ export function CategoryManagerCard() {
         <form onSubmit={(e: FormEvent) => { e.preventDefault(); if (subcategoryTarget && subName.trim()) createSubcategory.mutate({ categoryId: subcategoryTarget.id, name: subName.trim() }); }}>
           <div className="ppm-field">
             <label htmlFor="ppm-subcat-name">Name<span className="req">*</span></label>
-            <input id="ppm-subcat-name" value={subName} maxLength={50} autoFocus onChange={(e) => setSubName(e.target.value)} />
+            <input id="ppm-subcat-name" ref={subNameRef} value={subName} maxLength={50} onChange={(e) => setSubName(e.target.value)} />
           </div>
           {createSubcategory.isError && <div className="err" style={{ marginBottom: 10 }}>{(createSubcategory.error as Error)?.message}</div>}
           <div className="ppm-sheet-actions">

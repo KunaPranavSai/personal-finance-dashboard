@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { MobileSheet } from "./MobileSheet";
@@ -32,6 +32,7 @@ export function EntityManagerCard({ queryKey, apiPath, itemLabel, addLabel, icon
   const [editing, setEditing] = useState<NamedEntity | null>(null);
   const [name, setName] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<NamedEntity | null>(null);
+  const nameInputRef = useRef<HTMLInputElement>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: [queryKey],
@@ -56,6 +57,13 @@ export function EntityManagerCard({ queryKey, apiPath, itemLabel, addLabel, icon
   useEffect(() => {
     if (sheetOpen) setName(editing?.name ?? "");
   }, [sheetOpen, editing]);
+
+  // Focus the input only once the sheet is actually opened by the user —
+  // MobileSheet keeps its children mounted even while closed, so a bare
+  // `autoFocus` would fire (and pop the keyboard) on page load instead.
+  useEffect(() => {
+    if (sheetOpen) nameInputRef.current?.focus();
+  }, [sheetOpen]);
 
   const items = data?.items ?? [];
   const isPending = createMutation.isPending || updateMutation.isPending;
@@ -93,7 +101,7 @@ export function EntityManagerCard({ queryKey, apiPath, itemLabel, addLabel, icon
         <form onSubmit={handleSubmit}>
           <div className="ppm-field">
             <label htmlFor="ppm-entity-name">Name<span className="req">*</span></label>
-            <input id="ppm-entity-name" value={name} maxLength={50} autoFocus onChange={(e) => setName(e.target.value)} />
+            <input id="ppm-entity-name" ref={nameInputRef} value={name} maxLength={50} onChange={(e) => setName(e.target.value)} />
           </div>
           {(createMutation.isError || updateMutation.isError) && (
             <div className="err" style={{ marginBottom: 10 }}>{((createMutation.error ?? updateMutation.error) as Error)?.message}</div>

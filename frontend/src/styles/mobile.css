@@ -5,7 +5,8 @@
  * Token names are prefixed --ppm- to avoid any collision with existing
  * --navy/--teal custom properties used elsewhere in the app.
  */
-.pp-mobile {
+.pp-mobile,
+.ppm-sheet-portal {
   --ppm-sand: #F0EDE4;
   --ppm-cypress: #004741;
   --ppm-milky: #FFFDF1;
@@ -35,15 +36,37 @@
   --ppm-nav-ink: rgba(255, 255, 255, .62);
   --ppm-nav-ink-active: var(--ppm-tiffany);
   --ppm-chip-bg: rgba(0, 71, 65, .08);
+}
 
+.pp-mobile {
   background: var(--ppm-bg);
   color: var(--ppm-text);
   font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  min-height: 100dvh;
+  /* `100svh` (smallest viewport height, chrome fully expanded) on purpose,
+     not `100dvh`: `dvh` tracks the browser chrome live, so on a page that's
+     already exactly one viewport tall, scrolling to collapse the address
+     bar grows `100dvh` itself, stretching min-height and the scrollable
+     range further — the page never actually reaches a stable bottom. */
+  min-height: 100svh;
+}
+
+/* MobileSheet portals to document.body and stays mounted even while
+   closed (needed for its slide-up transition), so its wrapper must not
+   behave like a page root: no background/min-height, and explicitly
+   zero-height so it never adds to document scroll height. Its
+   position: fixed children (backdrop/sheet) aren't affected by this —
+   fixed positioning escapes a zero-height box and still fills the
+   viewport correctly. It still needs the --ppm-* tokens above for its
+   children's colors. */
+.ppm-sheet-portal {
+  height: 0;
+  overflow: visible;
 }
 
 .pp-mobile.dark,
-html.dark .pp-mobile {
+html.dark .pp-mobile,
+.ppm-sheet-portal.dark,
+html.dark .ppm-sheet-portal {
   --ppm-bg: var(--ppm-noturno);
   --ppm-surface: var(--ppm-darkgray);
   --ppm-surface-2: #1F1F1F;
@@ -62,11 +85,14 @@ html.dark .pp-mobile {
   --ppm-chip-bg: rgba(33, 241, 168, .12);
 }
 
-.pp-mobile * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+.pp-mobile *, .ppm-sheet-portal * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 .pp-mobile h1, .pp-mobile h2, .pp-mobile h3 { font-family: 'Manrope', system-ui, sans-serif; margin: 0; }
 
 .ppm-shell {
-  min-height: 100dvh;
+  /* See .pp-mobile above: `svh` not `dvh`, so this doesn't keep growing
+     the document (and the scrollable range) as the browser chrome collapses
+     on scroll — that was the source of the excess/over-scrolling. */
+  min-height: 100svh;
   display: flex;
   flex-direction: column;
 }

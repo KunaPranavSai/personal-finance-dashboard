@@ -31,7 +31,11 @@ export function MobileSheet({ open, onClose, title, children }: MobileSheetProps
   if (typeof document === "undefined") return null;
 
   return createPortal(
-    <div className="pp-mobile">
+    // .ppm-sheet-portal, not .pp-mobile: this wrapper stays mounted even
+    // while closed (for the slide-up transition), so it must not behave
+    // like a page root — see mobile.css for why that was adding a full
+    // extra viewport of document scroll height per mounted sheet.
+    <div className="ppm-sheet-portal">
       <div className={`ppm-sheet-backdrop${open ? " show" : ""}`} onClick={onClose} aria-hidden={!open} />
       <div
         className={`ppm-sheet${open ? " show" : ""}`}

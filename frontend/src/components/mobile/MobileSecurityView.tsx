@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { startRegistration, browserSupportsWebAuthn } from "@simplewebauthn/browser";
@@ -56,6 +56,15 @@ export function MobileSecurityView() {
   const [deleteCode, setDeleteCode] = useState("");
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
+  const addNameRef = useRef<HTMLInputElement>(null);
+
+  // Focus the passkey-name input only once the "name" step is actually
+  // reached — MobileSheet keeps its children mounted while closed (and this
+  // step is the ternary's default branch), so bare `autoFocus` would fire
+  // (and pop the keyboard) on page load instead of on reaching this step.
+  useEffect(() => {
+    if (addSheet === "name") addNameRef.current?.focus();
+  }, [addSheet]);
 
   // Change password
   const [pwSheet, setPwSheet] = useState(false);
@@ -361,7 +370,7 @@ export function MobileSecurityView() {
           <>
             <div className="ppm-field">
               <label htmlFor="ppm-sec-add-name">Passkey Name</label>
-              <input id="ppm-sec-add-name" value={addName} onChange={(e) => setAddName(e.target.value)} placeholder="e.g. Windows Hello, iPhone" autoFocus />
+              <input id="ppm-sec-add-name" ref={addNameRef} value={addName} onChange={(e) => setAddName(e.target.value)} placeholder="e.g. Windows Hello, iPhone" />
             </div>
             {error && <div className="err" style={{ marginBottom: 10 }}>{error}</div>}
             <div className="ppm-sheet-actions">
