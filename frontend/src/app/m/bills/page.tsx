@@ -101,8 +101,7 @@ export default function MobileBillsPage() {
                 <button
                   type="button"
                   aria-label={`Delete ${b.name}`}
-                  className="ppm-chev"
-                  style={{ fontSize: "1.1rem", padding: "6px 4px" }}
+                  className="ppm-row-action"
                   onClick={(e) => { e.stopPropagation(); setDeleteTarget(b); }}
                 >
                   🗑

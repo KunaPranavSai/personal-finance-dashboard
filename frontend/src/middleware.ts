@@ -41,6 +41,7 @@ const MOBILE_ROUTE_MAP: Record<string, string> = {
   "/reports": "/m/reports",
   "/notifications": "/m/notifications",
   "/profile": "/m/profile",
+  "/settings": "/m/settings",
 };
 
 // A dedicated route-level query param carries the desktop route's implied
@@ -100,5 +101,6 @@ export const config = {
     "/reports",
     "/notifications",
     "/profile",
+    "/settings",
   ],
 };

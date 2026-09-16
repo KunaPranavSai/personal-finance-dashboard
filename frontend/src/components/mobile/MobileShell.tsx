@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ReactNode } from "react";
 import { useNotifications } from "@/lib/reference";
+import { useKeyboardInset } from "./useKeyboardInset";
 
 // Bare, normal Penny Pilot URLs — the middleware (src/middleware.ts) rewrites
 // these transparently to their /m/* implementation for phone-class user
@@ -34,6 +35,11 @@ export function MobileShell({ title, children, onSearchClick }: MobileShellProps
   const pathname = usePathname();
   const { data: notifications } = useNotifications();
   const unreadCount = (notifications?.items ?? []).filter((n) => !n.read).length;
+  // Hide the fixed bottom nav while the on-screen keyboard is open (e.g.
+  // typing in the full-page Profile form) instead of letting it float in
+  // the wrong place or get covered — the standard mobile pattern, and
+  // simpler/less jarring than repositioning a whole tab bar mid-keystroke.
+  const keyboardInset = useKeyboardInset();
 
   return (
     <div className="ppm-shell">
@@ -55,7 +61,7 @@ export function MobileShell({ title, children, onSearchClick }: MobileShellProps
 
       <main className="ppm-main">{children}</main>
 
-      <nav className="ppm-bottomnav" aria-label="Primary">
+      <nav className="ppm-bottomnav" aria-label="Primary" style={keyboardInset > 0 ? { display: "none" } : undefined}>
         {NAV_ITEMS.map((item) => {
           const active = pathname === item.href || pathname === item.mobileHref;
           return (

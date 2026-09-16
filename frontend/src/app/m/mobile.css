@@ -172,6 +172,11 @@ html.dark .pp-mobile {
 .ppm-amt.pos { color: var(--ppm-positive); }
 .ppm-amt .sub { display: block; font-size: .66rem; color: var(--ppm-text-dim); font-weight: 600; margin-top: 1px; }
 
+/* Multi-line variant of .ppm-meta for content that must stay fully readable
+   (notification messages, bio text) instead of being cut off mid-sentence
+   by the single-line ellipsis truncation .ppm-meta uses for row metadata. */
+.ppm-meta-wrap { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: break-word; word-break: break-word; }
+
 .ppm-filters { display: flex; gap: 7px; overflow-x: auto; padding: 2px 0 4px; margin-bottom: 12px; -ms-overflow-style: none; scrollbar-width: none; }
 .ppm-filters::-webkit-scrollbar { display: none; }
 .ppm-chip {
@@ -185,7 +190,7 @@ html.dark .pp-mobile {
   display: flex; align-items: center; gap: 8px; background: var(--ppm-surface); border: 1px solid var(--ppm-border);
   border-radius: 13px; padding: 10px 13px; margin-bottom: 12px;
 }
-.ppm-searchbar input { flex: 1; border: none; background: none; outline: none; color: var(--ppm-text); font-size: .86rem; font-family: inherit; }
+.ppm-searchbar input { flex: 1; border: none; background: none; outline: none; color: var(--ppm-text); font-size: 16px; font-family: inherit; }
 .ppm-searchbar input::placeholder { color: var(--ppm-text-dim); }
 
 .ppm-budget-card + .ppm-budget-card { margin-top: 12px; }
@@ -210,6 +215,17 @@ html.dark .pp-mobile {
 .ppm-toggle::after { content: ''; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%; background: var(--ppm-surface); transition: transform .2s cubic-bezier(0.16, 1, 0.3, 1); box-shadow: 0 1px 3px rgba(0, 0, 0, .3); }
 .ppm-toggle.on::after { transform: translateX(18px); background: var(--ppm-accent-ink); }
 .ppm-chev { color: var(--ppm-text-dim); font-size: .85rem; flex-shrink: 0; }
+/* A real tappable row action (delete, etc.) — unlike the plain decorative
+   ">" arrow .ppm-chev is normally used for, this guarantees the 44px
+   minimum touch target every interactive control needs. Found missing
+   during live QA: the small icon-only delete buttons on Transactions/
+   Bills/Goals/Investments/Budget rows were easy to miss-tap. */
+.ppm-row-action {
+  display: flex; align-items: center; justify-content: center;
+  min-width: 44px; min-height: 44px; flex-shrink: 0;
+  color: var(--ppm-text-dim); font-size: 1rem; background: none; border: none; cursor: pointer;
+}
+.ppm-row-action:active { transform: scale(.9); }
 
 .ppm-badge { font-size: .64rem; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: var(--ppm-chip-bg); color: var(--ppm-accent); flex-shrink: 0; }
 .ppm-badge.warn { background: rgba(255, 190, 11, .18); color: var(--ppm-warning); }
@@ -273,8 +289,11 @@ html.dark .pp-mobile {
 .ppm-field label { display: block; font-size: .7rem; font-weight: 700; color: var(--ppm-text-dim); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 6px; }
 .ppm-field label .req { color: var(--ppm-critical); margin-left: 2px; }
 .ppm-field input, .ppm-field select, .ppm-field textarea {
+  /* 16px minimum is deliberate, not a design choice — iOS Safari auto-zooms
+     the whole page on focus for any input below 16px, which is what reads
+     as an unwanted "jump" when the keyboard opens. */
   width: 100%; padding: 12px 13px; border-radius: 11px; border: 1px solid var(--ppm-border);
-  background: var(--ppm-surface-2); color: var(--ppm-text); font-size: .9rem; font-family: 'Inter';
+  background: var(--ppm-surface-2); color: var(--ppm-text); font-size: 16px; font-family: 'Inter';
   min-height: 44px; -webkit-appearance: none; appearance: none;
 }
 .ppm-field textarea { min-height: 72px; resize: vertical; }

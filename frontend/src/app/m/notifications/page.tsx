@@ -79,7 +79,7 @@ export default function MobileNotificationsPage() {
                   {!n.read && <span className="ppm-badge">New</span>}
                 </div>
                 <div className="ppm-name">{n.title}</div>
-                <div className="ppm-meta">{n.message}</div>
+                <div className="ppm-meta ppm-meta-wrap">{n.message}</div>
                 <div className="ppm-meta" style={{ opacity: 0.7 }}>{formatDateIN(n.createdAt)}</div>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
