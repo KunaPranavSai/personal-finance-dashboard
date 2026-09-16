@@ -5,14 +5,33 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { getStorageMode, getStorageProvider } from "@/lib/storage";
+import { createLocalTransaction, updateLocalTransaction } from "@/lib/services/transactionsService";
 import { Button } from "../ui/Button";
 import { FocusTrap } from "../ui/FocusTrap";
-import { Transaction } from "@/types";
-import { useEffect, useState } from "react";
+import { Transaction, Category, Account, PaymentMethodType } from "@/types";
+import { useEffect, useRef, useState } from "react";
 import { useCategories, useAccounts, usePaymentMethods, ENTRY_TYPES } from "@/lib/reference";
 import { QuickCreateModal } from "../ui/QuickCreateModal";
 import { postWithOfflineQueue } from "@/lib/offlineAwarePost";
+import { generateIdempotencyKey } from "@/lib/idempotencyKey";
 import { useToast } from "../ui/Toast";
+
+/** Shared by all three "+ Add New…" quick-create mutations below: creates a
+ * reference record through the active storage provider (Drive REST API or
+ * local IndexedDB) so quick-create works identically in both storage modes. */
+async function createReferenceRecord<T extends { id: string }>(
+  collection: "categories" | "accounts" | "paymentMethods",
+  apiPath: string,
+  data: Record<string, unknown>
+): Promise<T> {
+  if (getStorageMode() === "local") {
+    const outcome = await getStorageProvider().create<T & { createdAt: string; updatedAt: string }>(collection, data as never);
+    if (outcome.status !== "success") throw new Error(outcome.message);
+    return outcome.data;
+  }
+  return api.post<T>(apiPath, data, generateIdempotencyKey());
+}
 
 const schema = z.object({
   date: z.string().min(1, "Date is required"),
@@ -46,6 +65,12 @@ export function TransactionFormModal({
 
   const [quickCreate, setQuickCreate] = useState<"category" | "account" | "paymentMethod" | null>(null);
 
+  // Stable for the life of one create attempt — reused across manual retries
+  // of the same submission, regenerated only when a fresh entry starts
+  // (below) or after a successful create, so a retry can never be mistaken
+  // for a brand-new record by the backend's idempotency check.
+  const createIdempotencyKeyRef = useRef(generateIdempotencyKey());
+
   const {
     register, handleSubmit, reset, watch, setValue,
     formState: { errors, isSubmitting },
@@ -69,6 +94,8 @@ export function TransactionFormModal({
       });
     } else {
       reset({ type: fixedType ?? "EXPENSE", date: new Date().toISOString().slice(0, 10) });
+      // A fresh (non-edit) form session is a new logical create attempt.
+      createIdempotencyKeyRef.current = generateIdempotencyKey();
     }
   }, [editing, reset, open, fixedType]);
 
@@ -76,11 +103,17 @@ export function TransactionFormModal({
   const { toast } = useToast();
 
   const mutation = useMutation({
-    mutationFn: (values: FormValues) =>
-      editing
+    mutationFn: (values: FormValues) => {
+      if (getStorageMode() === "local") {
+        return editing ? updateLocalTransaction(editing.id, values) : createLocalTransaction(values);
+      }
+      return editing
         ? api.patch(`/api/transactions/${editing.id}`, values)
-        : postWithOfflineQueue(values.type === "INCOME" ? "income" : "expense", "/api/transactions", values),
+        : postWithOfflineQueue(values.type === "INCOME" ? "income" : "expense", "/api/transactions", values, createIdempotencyKeyRef.current);
+    },
     onSuccess: (result) => {
+      // Create succeeded — the next submission (if any) is a new attempt.
+      if (!editing) createIdempotencyKeyRef.current = generateIdempotencyKey();
       // refetchType: "all" (not just TanStack's default "active") — the KPI summary card on
       // this same page is a real bug repro: with the default, its query was invalidated but
       // did not actually refetch until a manual page reload, leaving a stale total on screen
@@ -95,7 +128,8 @@ export function TransactionFormModal({
   });
 
   const createCategory = useMutation({
-    mutationFn: (name: string) => api.post<{ id: string }>("/api/categories", { name, type: selectedType }),
+    mutationFn: (name: string) =>
+      createReferenceRecord<Category>("categories", "/api/categories", { name, type: selectedType, subcategories: [] }),
     onSuccess: (created) => {
       queryClient.invalidateQueries({ queryKey: ["categories"] });
       setValue("categoryId", created.id);
@@ -104,7 +138,7 @@ export function TransactionFormModal({
   });
 
   const createAccount = useMutation({
-    mutationFn: (name: string) => api.post<{ id: string }>("/api/accounts", { name }),
+    mutationFn: (name: string) => createReferenceRecord<Account>("accounts", "/api/accounts", { name }),
     onSuccess: (created) => {
       queryClient.invalidateQueries({ queryKey: ["accounts"] });
       setValue("accountId", created.id);
@@ -113,7 +147,7 @@ export function TransactionFormModal({
   });
 
   const createPaymentMethod = useMutation({
-    mutationFn: (name: string) => api.post<{ id: string }>("/api/payment-methods", { name }),
+    mutationFn: (name: string) => createReferenceRecord<PaymentMethodType>("paymentMethods", "/api/payment-methods", { name }),
     onSuccess: (created) => {
       queryClient.invalidateQueries({ queryKey: ["payment-methods"] });
       setValue("paymentMethodTypeId", created.id);

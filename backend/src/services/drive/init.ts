@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { prisma } from "../../lib/prisma";
+import { ApiError } from "../../middleware/errorHandler";
 import {
   findOrCreateFolder,
   findExistingPennyPilotRoot,
@@ -299,6 +300,27 @@ export async function setupWorkspace(userId: string, accessToken: string, rootFo
   const alreadyMigrated = await readMigrationMarker(accessToken, metadataFolderId);
   if (alreadyMigrated) {
     return { rootFolderId, migrated: false, counts: {} };
+  }
+
+  // Safety gate (see Penny-Pilot-P0-Drive-Safety-Trace.md, issue P0-2-A): the
+  // migration-marker check above is what makes replaying a same-user
+  // interrupted attempt safe, but a *pre-existing, non-empty* workspace that
+  // lacks the marker isn't necessarily that — it could be a different
+  // Penny Pilot connection's data (e.g. this Google account was previously
+  // used by another Penny Pilot login) whose setup was itself interrupted
+  // before the marker was stamped. Blindly proceeding into
+  // migratePostgresDataToDrive below would wholesale-replace those records
+  // with the *current* user's own data. Refuse to guess: if anything is
+  // already there, stop and require an explicit "start fresh" choice
+  // instead of ever silently overwriting unverified existing data.
+  const existingDataCheck = await verifyStorageWithContext(accessToken, dataFolderId, metadataFolderId, userId);
+  const hasUnverifiedExistingData = Object.values(existingDataCheck.counts).some((count) => (count ?? 0) > 0);
+  if (hasUnverifiedExistingData) {
+    throw new ApiError(
+      409,
+      "This Google Drive folder already contains Penny Pilot data, but Penny Pilot can't verify it was fully set up. To protect that data, it can't be automatically reused. Please choose \"Start Fresh\" to create a new workspace instead.",
+      "DRIVE_WORKSPACE_UNVERIFIED"
+    );
   }
 
   const migration = await migratePostgresDataToDrive(userId, accessToken, dataFolderId, metadataFolderId);

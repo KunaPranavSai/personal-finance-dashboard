@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Topbar } from "@/components/layout/Topbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { api } from "@/lib/api";
+import { getStorageMode, getStorageProvider } from "@/lib/storage";
 import { formatCurrency, formatPercent } from "@/lib/format";
 import { useSettingsContext } from "@/lib/SettingsContext";
 import { Goal } from "@/types";
@@ -17,6 +18,7 @@ import { z } from "zod";
 import { GOAL_CATEGORIES } from "@/lib/reference";
 import { FocusTrap } from "@/components/ui/FocusTrap";
 import { useToast } from "@/components/ui/Toast";
+import { generateIdempotencyKey } from "@/lib/idempotencyKey";
 
 const goalSchema = z.object({
   name: z.string().min(1, "Name is required").max(100),
@@ -38,18 +40,41 @@ function GoalModal({ open, editing, onClose }: {
     defaultValues: editing ?? { name: "", category: "", targetAmount: 0, currentAmount: 0, monthlyContribution: 0 },
   });
 
+  // Stable for the life of one create attempt — reused across manual retries
+  // of the same submission, regenerated only when the modal opens fresh for
+  // a new (non-editing) entry or after a successful create.
+  const createIdempotencyKeyRef = useRef(generateIdempotencyKey());
+  useEffect(() => {
+    if (open && !editing) createIdempotencyKeyRef.current = generateIdempotencyKey();
+  }, [open, editing]);
+
   const createMutation = useMutation({
-    mutationFn: (data: GoalForm) => api.post<Goal>("/api/goals", data),
+    mutationFn: async (data: GoalForm) => {
+      if (getStorageMode() === "local") {
+        const outcome = await getStorageProvider().create<Goal & { createdAt: string; updatedAt: string; [k: string]: unknown }>("goals", data as never);
+        if (outcome.status !== "success") throw new Error(outcome.message);
+        return outcome.data;
+      }
+      return api.post<Goal>("/api/goals", data, createIdempotencyKeyRef.current);
+    },
     onSuccess: () => {
       // dashboard-summary's emergencyFund/goalCount read this collection too.
       queryClient.invalidateQueries({ queryKey: ["goals"], refetchType: "all" });
       queryClient.invalidateQueries({ queryKey: ["dashboard-summary"], refetchType: "all" });
+      createIdempotencyKeyRef.current = generateIdempotencyKey();
       onClose(); reset(); toast("Goal created", "success");
     },
     onError: () => { toast("Failed to create goal", "error"); },
   });
   const updateMutation = useMutation({
-    mutationFn: (data: GoalForm) => api.patch<Goal>(`/api/goals/${editing!.id}`, data),
+    mutationFn: async (data: GoalForm) => {
+      if (getStorageMode() === "local") {
+        const outcome = await getStorageProvider().update<Goal & { createdAt: string; updatedAt: string; [k: string]: unknown }>("goals", editing!.id, data as never);
+        if (outcome.status !== "success") throw new Error(outcome.message);
+        return outcome.data;
+      }
+      return api.patch<Goal>(`/api/goals/${editing!.id}`, data);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["goals"], refetchType: "all" });
       queryClient.invalidateQueries({ queryKey: ["dashboard-summary"], refetchType: "all" });
@@ -117,11 +142,23 @@ export default function GoalsPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ["goals"],
-    queryFn: () => api.get<{ items: Goal[] }>("/api/goals"),
+    queryFn: () =>
+      getStorageMode() === "local"
+        ? getStorageProvider()
+            .list<Goal & { createdAt: string; updatedAt: string; [k: string]: unknown }>("goals")
+            .then((items) => ({ items }))
+        : api.get<{ items: Goal[] }>("/api/goals"),
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => api.delete(`/api/goals/${id}`),
+    mutationFn: async (id: string) => {
+      if (getStorageMode() === "local") {
+        const outcome = await getStorageProvider().remove("goals", id);
+        if (outcome.status !== "success") throw new Error(outcome.message);
+        return;
+      }
+      return api.delete(`/api/goals/${id}`);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["goals"], refetchType: "all" });
       queryClient.invalidateQueries({ queryKey: ["dashboard-summary"], refetchType: "all" });

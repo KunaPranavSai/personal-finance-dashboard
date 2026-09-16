@@ -47,11 +47,27 @@ async function request<T>(path: string, options: RequestInit = {}, isRetry = fal
   }
   Object.assign(headers, options.headers);
 
-  const res = await fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    credentials: "include",
-    headers,
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE_URL}${path}`, {
+      ...options,
+      credentials: "include",
+      headers,
+    });
+  } catch {
+    // fetch() itself throwing (not an HTTP error status) means the request
+    // never reached the server at all — offline, DNS failure, connection
+    // refused, etc. Previously this propagated as a raw, unclassified
+    // TypeError; normalizing it here (status 0, Master Plan §16's NETWORK_*
+    // codes) is what lets DriveStorageProvider's existing status===0 →
+    // "unknown outcome" handling ever actually trigger.
+    const online = typeof navigator === "undefined" || navigator.onLine;
+    const code = online ? "NETWORK_TIMEOUT" : "NETWORK_OFFLINE";
+    const message = online
+      ? "Couldn't reach the server. Please try again."
+      : "You're currently offline. Check your connection and try again.";
+    throw new ApiClientError(0, message, { code });
+  }
 
   if (!res.ok) {
     // A 401 on an ordinary API call (as opposed to /api/auth/*) might just
@@ -84,6 +100,12 @@ async function request<T>(path: string, options: RequestInit = {}, isRetry = fal
         window.dispatchEvent(new CustomEvent(DRIVE_DISCONNECTED_EVENT));
       }
     }
+    // A gateway-level 502/503/504 with no JSON body at all (infra-level, never
+    // reached our own error handler) still deserves a stable code rather than
+    // a raw "Request failed with status 503".
+    if (!code && res.status >= 502 && res.status <= 504) {
+      throw new ApiClientError(res.status, "The server is temporarily unavailable. Please try again shortly.", { code: "SERVER_UNAVAILABLE" });
+    }
     throw new ApiClientError(res.status, message, body);
   }
 
@@ -97,8 +119,18 @@ async function request<T>(path: string, options: RequestInit = {}, isRetry = fal
 
 export const api = {
   get: <T>(path: string) => request<T>(path, { method: "GET" }),
-  post: <T>(path: string, body?: unknown) =>
-    request<T>(path, { method: "POST", body: body ? JSON.stringify(body) : undefined }),
+  /** `idempotencyKey`, when supplied, is sent as the `Idempotency-Key` header
+   * (never in the URL/body) so a retried create of the same logical
+   * operation is recognized by the backend instead of creating a duplicate
+   * record. Callers are responsible for reusing the same key across retries
+   * of one attempt and generating a fresh one for a genuinely new attempt —
+   * see `lib/idempotencyKey.ts`. */
+  post: <T>(path: string, body?: unknown, idempotencyKey?: string) =>
+    request<T>(path, {
+      method: "POST",
+      body: body ? JSON.stringify(body) : undefined,
+      ...(idempotencyKey && { headers: { "Idempotency-Key": idempotencyKey } }),
+    }),
   patch: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: "PATCH", body: body ? JSON.stringify(body) : undefined }),
   delete: <T>(path: string, body?: unknown) =>
