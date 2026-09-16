@@ -10,7 +10,7 @@ import { Footer } from "@/components/layout/Footer";
 import { DataInit } from "@/components/DataInit";
 import { LockScreen } from "@/components/ui/LockScreen";
 import { TwoFactorReverifyDialog } from "@/components/ui/TwoFactorReverifyDialog";
-import { useAuth, hasUnconfirmedRecentLogin, SESSION_EXPIRED_REASON_KEY } from "@/lib/AuthContext";
+import { useAuth } from "@/lib/AuthContext";
 import { useDriveStatus, isDriveReady } from "@/lib/driveStatus";
 import { getStorageMode } from "@/lib/storage";
 import { useIsMobile } from "@/lib/DeviceContext";
@@ -39,20 +39,6 @@ export default function AppShellLayout({ children }: { children: React.ReactNode
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      // A login/2FA/passkey action succeeded moments ago in this tab but the
-      // session didn't survive to this check — most commonly the browser
-      // silently refused to persist/attach the auth cookie (e.g. cross-site
-      // cookie restrictions on some mobile browsers). That's a materially
-      // different, more actionable situation than "never signed in" or an
-      // inactivity timeout, so say so explicitly instead of bouncing the
-      // user back to /login with zero explanation.
-      if (hasUnconfirmedRecentLogin()) {
-        try {
-          sessionStorage.setItem(SESSION_EXPIRED_REASON_KEY, "cookie-not-persisted");
-        } catch {
-          // ignore — the redirect still happens, just without the specific reason
-        }
-      }
       const redirect = pathname ? `?redirect=${encodeURIComponent(pathname)}` : "";
       router.replace(`/login${redirect}`);
     } else if (!isLoading && user && user.role !== "USER" && !isSelfServiceRoute) {

@@ -73,7 +73,6 @@ export function MobileTransactionsView({ initialType = "" }: { initialType?: "" 
       getStorageMode() === "local"
         ? listLocalTransactions({
             page, pageSize: 20, type, search: search || undefined,
-            categoryId: filters.categoryId || undefined,
             accountId: filters.accountId || undefined,
             paymentMethodTypeId: filters.paymentMethodTypeId || undefined,
             dateFrom: filters.dateFrom || undefined,

@@ -12,7 +12,6 @@ import { useDriveStatus, isDriveReady, DRIVE_STATUS_QUERY_KEY } from "@/lib/driv
 import { api, ApiClientError } from "@/lib/api";
 import { setStorageMode } from "@/lib/storage";
 import { isLocalStorageAvailable } from "@/lib/storage/localDb";
-import { seedLocalDefaultsIfEmpty } from "@/lib/storage/localSeed";
 import { HardDrive, CheckCircle2, AlertCircle, ArrowRight, FolderGit2, Laptop, ShieldAlert } from "lucide-react";
 import { useIsMobile } from "@/lib/DeviceContext";
 import { MobileConnectDriveView } from "@/components/mobile/MobileConnectDriveView";
@@ -95,7 +94,6 @@ export default function ConnectDrivePage() {
         return;
       }
       setStorageMode("local");
-      await seedLocalDefaultsIfEmpty();
       setView("localReady");
     } finally {
       setActivatingLocal(false);

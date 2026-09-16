@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { MobileShell } from "@/components/mobile/MobileShell";
@@ -9,19 +9,8 @@ import { ConfirmSheet } from "@/components/mobile/ConfirmSheet";
 import { useToast } from "@/components/ui/Toast";
 import { api } from "@/lib/api";
 import { useDriveStatus, isDriveReady, DRIVE_STATUS_QUERY_KEY } from "@/lib/driveStatus";
-import { getStorageMode, setStorageMode, STORAGE_COLLECTIONS, StorageCollection } from "@/lib/storage";
-import { idbGetAll, idbReplaceAll } from "@/lib/storage/localDb";
-import { encryptBackupText, decryptBackupText, isEncryptedBackupEnvelope, type EncryptedBackupEnvelope } from "@/lib/storage/backupCrypto";
+import { getStorageMode, setStorageMode } from "@/lib/storage";
 import { formatDateIN } from "@/lib/format";
-
-const BACKUP_FORMAT_VERSION = 1;
-
-interface LocalBackupFile {
-  formatVersion: number;
-  exportedAt: string;
-  app: "penny-pilot";
-  collections: Partial<Record<StorageCollection, unknown[]>>;
-}
 
 const COLLECTION_LABELS: Record<string, string> = {
   transactions: "Transactions",
@@ -50,61 +39,21 @@ interface RevisionPreview {
   lastUpdated: string;
 }
 
-async function applyBackupJson(json: string): Promise<{ ok: true } | { ok: false; error: string }> {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(json);
-  } catch {
-    return { ok: false, error: "That file isn't a valid Penny Pilot backup (not valid JSON)." };
-  }
-  const backup = parsed as Partial<LocalBackupFile>;
-  if (backup.app !== "penny-pilot" || typeof backup.collections !== "object" || backup.collections === null) {
-    return { ok: false, error: "That file doesn't look like a Penny Pilot backup." };
-  }
-  if (backup.formatVersion !== BACKUP_FORMAT_VERSION) {
-    return { ok: false, error: "This backup was made with a different, unsupported format version." };
-  }
-  for (const collection of STORAGE_COLLECTIONS) {
-    const records = backup.collections[collection];
-    if (records !== undefined && !Array.isArray(records)) {
-      return { ok: false, error: `Backup file is corrupted (invalid "${collection}" section).` };
-    }
-  }
-  for (const collection of STORAGE_COLLECTIONS) {
-    const records = backup.collections[collection];
-    if (Array.isArray(records)) await idbReplaceAll(collection, records);
-  }
-  return { ok: true };
-}
-
 /**
  * Mobile "Manage Storage" — the native equivalent of desktop's Settings →
- * Storage tab (DataStorageCard + GoogleDriveBackupCard), reusing the exact
- * same real endpoints (/api/drive/connect, /disconnect, /verify,
- * /restore/:collection/*) and the exact same client-side encrypted local
- * backup logic (IndexedDB + backupCrypto) — no new backend behavior, no
- * invented states. Reached from Dashboard "Sync" and Settings
+ * Storage tab, reusing the exact same real endpoints (/api/drive/connect,
+ * /disconnect, /verify, /restore/:collection/*) — no new backend behavior,
+ * no invented states. Reached from Dashboard "Sync" and Settings
  * "Manage Storage", both as real /settings/* routes (no desktop escape).
  */
 export function MobileStorageView() {
   const { toast } = useToast();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isLocalOnly = getStorageMode() === "local";
   const { data: status, isLoading: statusLoading } = useDriveStatus();
 
-  // Local-only backup/restore
-  const [exportOpen, setExportOpen] = useState(false);
-  const [exportPassword, setExportPassword] = useState("");
-  const [exportPasswordConfirm, setExportPasswordConfirm] = useState("");
-  const [exportError, setExportError] = useState("");
-  const [exporting, setExporting] = useState(false);
-  const [pendingImportFile, setPendingImportFile] = useState<File | null>(null);
-  const [importPassword, setImportPassword] = useState("");
-  const [importError, setImportError] = useState("");
-  const [importing, setImporting] = useState(false);
   const [switchConfirmOpen, setSwitchConfirmOpen] = useState(false);
 
   // Drive mode
@@ -170,93 +119,6 @@ export function MobileStorageView() {
     onError: (err) => toast(err instanceof Error ? err.message : "Restore failed", "error"),
   });
 
-  const downloadBlob = (content: string, filename: string) => {
-    const blob = new Blob([content], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const handleConfirmExport = async () => {
-    setExportError("");
-    if (exportPassword.length < 8) { setExportError("Password must be at least 8 characters."); return; }
-    if (exportPassword !== exportPasswordConfirm) { setExportError("Passwords do not match."); return; }
-    setExporting(true);
-    try {
-      const collections: LocalBackupFile["collections"] = {};
-      for (const collection of STORAGE_COLLECTIONS) collections[collection] = await idbGetAll(collection);
-      const backup: LocalBackupFile = { formatVersion: BACKUP_FORMAT_VERSION, exportedAt: new Date().toISOString(), app: "penny-pilot", collections };
-      const envelope = await encryptBackupText(JSON.stringify(backup), exportPassword);
-      downloadBlob(JSON.stringify(envelope), `penny-pilot-local-backup-${new Date().toISOString().slice(0, 10)}.json`);
-      toast("Encrypted backup downloaded — remember your password, it can't be recovered.", "success");
-      setExportOpen(false);
-      setExportPassword("");
-      setExportPasswordConfirm("");
-    } catch {
-      toast("Couldn't export your local data. Please try again.", "error");
-    } finally {
-      setExporting(false);
-    }
-  };
-
-  const handleFileSelected = async (file: File) => {
-    const text = await file.text();
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(text);
-    } catch {
-      toast("That file isn't a valid Penny Pilot backup (not valid JSON).", "error");
-      return;
-    }
-    if (isEncryptedBackupEnvelope(parsed)) {
-      setPendingImportFile(file);
-      return;
-    }
-    setImporting(true);
-    try {
-      const result = await applyBackupJson(text);
-      if (!result.ok) toast(result.error, "error");
-      else toast("Backup imported successfully", "success");
-    } catch {
-      toast("Couldn't import that backup. Your existing local data was not changed.", "error");
-    } finally {
-      setImporting(false);
-    }
-  };
-
-  const handleConfirmImport = async () => {
-    if (!pendingImportFile) return;
-    setImportError("");
-    setImporting(true);
-    try {
-      const text = await pendingImportFile.text();
-      const envelope = JSON.parse(text) as EncryptedBackupEnvelope;
-      let decrypted: string;
-      try {
-        decrypted = await decryptBackupText(envelope, importPassword);
-      } catch {
-        setImportError("Incorrect password, or this backup file is corrupted.");
-        return;
-      }
-      const result = await applyBackupJson(decrypted);
-      if (!result.ok) {
-        setImportError(result.error);
-        toast(result.error, "error");
-      } else {
-        toast("Backup imported successfully", "success");
-        setPendingImportFile(null);
-        setImportPassword("");
-      }
-    } catch {
-      toast("Couldn't import that backup. Your existing local data was not changed.", "error");
-    } finally {
-      setImporting(false);
-    }
-  };
-
   return (
     <MobileShell title="Manage Storage">
       <div className="ppm-page-title">
@@ -281,27 +143,6 @@ export function MobileStorageView() {
           </div>
 
           <div className="ppm-card" style={{ marginTop: 14 }}>
-            <button type="button" className="ppm-list-item" onClick={() => { setExportOpen(true); setExportError(""); }}>
-              <div className="ppm-ic" aria-hidden="true">⬇️</div>
-              <div className="ppm-info"><div className="ppm-name">Export Encrypted Backup</div></div>
-              <span className="ppm-chev">›</span>
-            </button>
-            <button type="button" className="ppm-list-item" onClick={() => fileInputRef.current?.click()}>
-              <div className="ppm-ic" aria-hidden="true">⬆️</div>
-              <div className="ppm-info"><div className="ppm-name">Import Backup</div></div>
-              <span className="ppm-chev">›</span>
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="application/json"
-              style={{ display: "none" }}
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) void handleFileSelected(file);
-                e.target.value = "";
-              }}
-            />
             <button type="button" className="ppm-list-item" onClick={() => setSwitchConfirmOpen(true)}>
               <div className="ppm-ic" aria-hidden="true">🔗</div>
               <div className="ppm-info"><div className="ppm-name">Switch to Google Drive</div></div>
@@ -366,40 +207,6 @@ export function MobileStorageView() {
           </button>
         </div>
       )}
-
-      {/* Export encrypted backup */}
-      <MobileSheet open={exportOpen} onClose={() => setExportOpen(false)} title="Export Encrypted Backup">
-        <p style={{ fontSize: 12, color: "var(--ppm-text-dim)", marginBottom: 12 }}>
-          This encrypts the downloaded file. There is no way to recover it if you forget this password — store it somewhere safe.
-        </p>
-        <div className="ppm-field">
-          <label htmlFor="ppm-exp-pw">Backup Password (min 8 characters)</label>
-          <input id="ppm-exp-pw" type="password" value={exportPassword} onChange={(e) => setExportPassword(e.target.value)} />
-        </div>
-        <div className="ppm-field">
-          <label htmlFor="ppm-exp-pw2">Confirm Password</label>
-          <input id="ppm-exp-pw2" type="password" value={exportPasswordConfirm} onChange={(e) => setExportPasswordConfirm(e.target.value)} />
-        </div>
-        {exportError && <div className="err" style={{ marginBottom: 10 }}>{exportError}</div>}
-        <div className="ppm-sheet-actions">
-          <button type="button" className="ppm-sheet-submit" disabled={exporting} onClick={handleConfirmExport}>{exporting ? "Encrypting…" : "Download Encrypted Backup"}</button>
-          <button type="button" className="ppm-sheet-cancel" onClick={() => setExportOpen(false)} disabled={exporting}>Cancel</button>
-        </div>
-      </MobileSheet>
-
-      {/* Import encrypted backup */}
-      <MobileSheet open={Boolean(pendingImportFile)} onClose={() => { setPendingImportFile(null); setImportPassword(""); setImportError(""); }} title="Restore Backup">
-        <p style={{ fontSize: 12, color: "var(--ppm-text-dim)", marginBottom: 12 }}>&quot;{pendingImportFile?.name}&quot; is encrypted. Enter its password.</p>
-        <div className="ppm-field">
-          <label htmlFor="ppm-imp-pw">Backup Password</label>
-          <input id="ppm-imp-pw" type="password" value={importPassword} onChange={(e) => setImportPassword(e.target.value)} />
-        </div>
-        {importError && <div className="err" style={{ marginBottom: 10 }}>{importError}</div>}
-        <div className="ppm-sheet-actions">
-          <button type="button" className="ppm-sheet-submit" disabled={importing} onClick={handleConfirmImport}>{importing ? "Decrypting…" : "Restore Backup"}</button>
-          <button type="button" className="ppm-sheet-cancel" onClick={() => { setPendingImportFile(null); setImportPassword(""); setImportError(""); }} disabled={importing}>Cancel</button>
-        </div>
-      </MobileSheet>
 
       <ConfirmSheet
         open={switchConfirmOpen}
