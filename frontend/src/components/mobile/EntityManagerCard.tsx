@@ -3,15 +3,22 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { getStorageMode, getStorageProvider } from "@/lib/storage";
+import type { StorageCollection } from "@/lib/storage";
 import { MobileSheet } from "./MobileSheet";
 import { ConfirmSheet } from "./ConfirmSheet";
 import { LoadingCard, EmptyCard } from "./MobileStates";
 
-interface NamedEntity { id: string; name: string; }
+interface NamedEntity { id: string; name: string; [key: string]: unknown; }
 
 interface EntityManagerCardProps {
   queryKey: string;
   apiPath: string;
+  /** Local-mode (IndexedDB) collection this entity maps to — "accounts" or
+   * "paymentMethods", mirroring the Drive-backed apiPath 1:1. Both are flat
+   * {id, name} records, so this generic component can read/write either
+   * collection without needing per-entity local service functions. */
+  localCollection: StorageCollection;
   itemLabel: string;
   addLabel: string;
   icon: string;
@@ -26,31 +33,56 @@ interface EntityManagerCardProps {
  * shape server-side), same API paths, same delete-blocked error surfaced
  * verbatim (e.g. "Cannot delete account with N linked transaction(s)...").
  */
-export function EntityManagerCard({ queryKey, apiPath, itemLabel, addLabel, icon, emptyTitle, emptyDescription }: EntityManagerCardProps) {
+export function EntityManagerCard({ queryKey, apiPath, localCollection, itemLabel, addLabel, icon, emptyTitle, emptyDescription }: EntityManagerCardProps) {
   const queryClient = useQueryClient();
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editing, setEditing] = useState<NamedEntity | null>(null);
   const [name, setName] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<NamedEntity | null>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
+  const isLocal = getStorageMode() === "local";
 
   const { data, isLoading } = useQuery({
     queryKey: [queryKey],
-    queryFn: () => api.get<{ items: NamedEntity[] }>(apiPath),
+    queryFn: () =>
+      isLocal
+        ? getStorageProvider().list<NamedEntity & { createdAt: string; updatedAt: string }>(localCollection).then((items) => ({ items }))
+        : api.get<{ items: NamedEntity[] }>(apiPath),
   });
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: [queryKey], refetchType: "all" });
 
   const createMutation = useMutation({
-    mutationFn: (n: string) => api.post<NamedEntity>(apiPath, { name: n }),
+    mutationFn: async (n: string) => {
+      if (isLocal) {
+        const outcome = await getStorageProvider().create(localCollection, { name: n });
+        if (outcome.status !== "success") throw new Error(outcome.message);
+        return outcome.data;
+      }
+      return api.post<NamedEntity>(apiPath, { name: n });
+    },
     onSuccess: () => { invalidate(); setSheetOpen(false); },
   });
   const updateMutation = useMutation({
-    mutationFn: ({ id, n }: { id: string; n: string }) => api.patch<NamedEntity>(`${apiPath}/${id}`, { name: n }),
+    mutationFn: async ({ id, n }: { id: string; n: string }) => {
+      if (isLocal) {
+        const outcome = await getStorageProvider().update(localCollection, id, { name: n });
+        if (outcome.status !== "success") throw new Error(outcome.message);
+        return outcome.data;
+      }
+      return api.patch<NamedEntity>(`${apiPath}/${id}`, { name: n });
+    },
     onSuccess: () => { invalidate(); setSheetOpen(false); setEditing(null); },
   });
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => api.delete(`${apiPath}/${id}`),
+    mutationFn: async (id: string) => {
+      if (isLocal) {
+        const outcome = await getStorageProvider().remove(localCollection, id);
+        if (outcome.status !== "success") throw new Error(outcome.message);
+        return outcome.data;
+      }
+      return api.delete(`${apiPath}/${id}`);
+    },
     onSuccess: () => { invalidate(); setDeleteTarget(null); },
   });
 

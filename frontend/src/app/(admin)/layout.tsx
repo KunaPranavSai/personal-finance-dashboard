@@ -5,12 +5,11 @@ import { useRouter } from "next/navigation";
 import { AdminSidebar } from "@/components/layout/AdminSidebar";
 import { SwipeSidebarHandler } from "@/components/layout/SwipeSidebarHandler";
 import { Footer } from "@/components/layout/Footer";
-import { LockScreen } from "@/components/ui/LockScreen";
 import { TwoFactorReverifyDialog } from "@/components/ui/TwoFactorReverifyDialog";
 import { useAuth } from "@/lib/AuthContext";
 
 export default function AdminShellLayout({ children }: { children: React.ReactNode }) {
-  const { user, isAuthenticated, isLoading, isLocked, unlock } = useAuth();
+  const { user, isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
@@ -42,7 +41,6 @@ export default function AdminShellLayout({ children }: { children: React.ReactNo
         {children}
         <Footer />
       </div>
-      <LockScreen isOpen={isLocked} onUnlock={unlock} />
       <TwoFactorReverifyDialog />
     </div>
   );

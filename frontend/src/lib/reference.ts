@@ -1,6 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "./api";
+import { getStorageMode, getStorageProvider } from "./storage";
 import { Category, Account, PaymentMethodType, Profile } from "@/types";
+
+// Domain types don't declare createdAt/updatedAt (the backend adds them at
+// the API boundary), but every StorageProvider record has them.
+type Stored<T> = T & { createdAt: string; updatedAt: string; [key: string]: unknown };
 
 export const ENTRY_TYPES: { value: string; label: string }[] = [
   { value: "EXPENSE", label: "Expense" },
@@ -60,10 +65,18 @@ export const WEEK_START_OPTIONS = [
   { value: "sunday", label: "Sunday" },
 ];
 
+// Local-mode ("This Device Only") reads/writes go straight to IndexedDB via
+// the StorageProvider abstraction instead of the Drive-backed REST API —
+// Master Implementation Plan Phase 0. Drive mode is completely unchanged.
 export function useCategories() {
   return useQuery({
     queryKey: ["categories"],
-    queryFn: () => api.get<{ items: Category[] }>("/api/categories"),
+    queryFn: () =>
+      getStorageMode() === "local"
+        ? getStorageProvider()
+            .list<Stored<Category>>("categories")
+            .then((items) => ({ items }))
+        : api.get<{ items: Category[] }>("/api/categories"),
     staleTime: 60000,
     refetchOnWindowFocus: false,
   });
@@ -88,7 +101,12 @@ export function useIncomeCategories() {
 export function useAccounts() {
   return useQuery({
     queryKey: ["accounts"],
-    queryFn: () => api.get<{ items: Account[] }>("/api/accounts"),
+    queryFn: () =>
+      getStorageMode() === "local"
+        ? getStorageProvider()
+            .list<Stored<Account>>("accounts")
+            .then((items) => ({ items }))
+        : api.get<{ items: Account[] }>("/api/accounts"),
     staleTime: 30000,
     refetchOnWindowFocus: false,
   });
@@ -97,10 +115,64 @@ export function useAccounts() {
 export function usePaymentMethods() {
   return useQuery({
     queryKey: ["payment-methods"],
-    queryFn: () => api.get<{ items: PaymentMethodType[] }>("/api/payment-methods"),
+    queryFn: () =>
+      getStorageMode() === "local"
+        ? getStorageProvider()
+            .list<Stored<PaymentMethodType>>("paymentMethods")
+            .then((items) => ({ items }))
+        : api.get<{ items: PaymentMethodType[] }>("/api/payment-methods"),
     staleTime: 30000,
     refetchOnWindowFocus: false,
   });
+}
+
+function newLocalId(): string {
+  return typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `local-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+/** Local-mode create/update helpers for the reference-data lists (Categories,
+ * Accounts/Wallets, Payment Method Types/Money Sources) — same throw-on-
+ * failure convention as lib/services/transactionsService.ts's
+ * createLocalTransaction, so callers can keep using
+ * `(mutation.error as Error)?.message` regardless of storage mode. */
+export async function createLocalCategory(values: { name: string; type: string }): Promise<Category> {
+  const outcome = await getStorageProvider().create<Stored<Category>>("categories", { ...values, subcategories: [] } as never);
+  if (outcome.status !== "success") throw new Error(outcome.message);
+  return outcome.data;
+}
+
+export async function createLocalSubcategory(categoryId: string, name: string): Promise<Category> {
+  const provider = getStorageProvider();
+  const existing = await provider.get<Stored<Category>>("categories", categoryId);
+  if (!existing) throw new Error("Category not found");
+  const subcategory = { id: newLocalId(), name, categoryId };
+  const outcome = await provider.update<Stored<Category>>("categories", categoryId, { subcategories: [...(existing.subcategories ?? []), subcategory] } as never);
+  if (outcome.status !== "success") throw new Error(outcome.message);
+  return outcome.data;
+}
+
+export async function createLocalAccount(name: string): Promise<Account> {
+  const outcome = await getStorageProvider().create<Stored<Account>>("accounts", { name } as never);
+  if (outcome.status !== "success") throw new Error(outcome.message);
+  return outcome.data;
+}
+
+export async function updateLocalAccount(id: string, name: string): Promise<Account> {
+  const outcome = await getStorageProvider().update<Stored<Account>>("accounts", id, { name } as never);
+  if (outcome.status !== "success") throw new Error(outcome.message);
+  return outcome.data;
+}
+
+export async function createLocalPaymentMethod(name: string): Promise<PaymentMethodType> {
+  const outcome = await getStorageProvider().create<Stored<PaymentMethodType>>("paymentMethods", { name } as never);
+  if (outcome.status !== "success") throw new Error(outcome.message);
+  return outcome.data;
+}
+
+export async function updateLocalPaymentMethod(id: string, name: string): Promise<PaymentMethodType> {
+  const outcome = await getStorageProvider().update<Stored<PaymentMethodType>>("paymentMethods", id, { name } as never);
+  if (outcome.status !== "success") throw new Error(outcome.message);
+  return outcome.data;
 }
 
 export function useProfile() {

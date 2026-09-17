@@ -93,13 +93,15 @@ export function TransactionFormModal({
         notes: editing.notes ?? "",
       });
     } else {
-      reset({ type: fixedType ?? "EXPENSE", date: new Date().toISOString().slice(0, 10) });
+      reset({ type: fixedType ?? "EXPENSE", date: new Date().toISOString().slice(0, 10), accountId: "", paymentMethodTypeId: "" });
       // A fresh (non-edit) form session is a new logical create attempt.
       createIdempotencyKeyRef.current = generateIdempotencyKey();
     }
   }, [editing, reset, open, fixedType]);
 
   const selectedType = watch("type");
+  const watchedAccountId = watch("accountId");
+  const watchedPaymentMethodTypeId = watch("paymentMethodTypeId");
   const { toast } = useToast();
 
   const mutation = useMutation({
@@ -142,6 +144,7 @@ export function TransactionFormModal({
     onSuccess: (created) => {
       queryClient.invalidateQueries({ queryKey: ["accounts"] });
       setValue("accountId", created.id);
+      setValue("paymentMethodTypeId", "");
       setQuickCreate(null);
     },
   });
@@ -151,6 +154,7 @@ export function TransactionFormModal({
     onSuccess: (created) => {
       queryClient.invalidateQueries({ queryKey: ["payment-methods"] });
       setValue("paymentMethodTypeId", created.id);
+      setValue("accountId", "");
       setQuickCreate(null);
     },
   });
@@ -158,6 +162,8 @@ export function TransactionFormModal({
   if (!open) return null;
 
   const NEW_OPTION = "__new__";
+  const NEW_ACCOUNT_OPTION = "__new_account__";
+  const NEW_PM_OPTION = "__new_pm__";
   const filteredCategories = (categories?.items ?? []).filter((c) => c.type === selectedType);
 
   return (
@@ -219,33 +225,29 @@ export function TransactionFormModal({
             {errors.categoryId && <p className="mt-1 text-xs text-red-600">{errors.categoryId.message}</p>}
           </div>
 
-          <div className="col-span-1">
-            <label className="text-xs font-medium text-navy/60 dark:text-white/60">Wallet</label>
+          <div className="col-span-2">
+            <label className="text-xs font-medium text-navy/60 dark:text-white/60">Wallet / Money Source</label>
             <select
-              {...register("accountId")}
-              onChange={(e) => { if (e.target.value === NEW_OPTION) { setQuickCreate("account"); return; } register("accountId").onChange(e); }}
+              value={watchedAccountId ? `account:${watchedAccountId}` : watchedPaymentMethodTypeId ? `pm:${watchedPaymentMethodTypeId}` : ""}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (v === NEW_ACCOUNT_OPTION) { setQuickCreate("account"); return; }
+                if (v === NEW_PM_OPTION) { setQuickCreate("paymentMethod"); return; }
+                if (v.startsWith("account:")) { setValue("accountId", v.slice(8), { shouldDirty: true }); setValue("paymentMethodTypeId", "", { shouldDirty: true }); }
+                else if (v.startsWith("pm:")) { setValue("paymentMethodTypeId", v.slice(3), { shouldDirty: true }); setValue("accountId", "", { shouldDirty: true }); }
+                else { setValue("accountId", ""); setValue("paymentMethodTypeId", ""); }
+              }}
               className="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white"
             >
-              <option value="">{accLoading ? "Loading…" : "None"}</option>
-              {(accounts?.items ?? []).map((a) => (
-                <option key={a.id} value={a.id}>{a.name}</option>
-              ))}
-              <option value={NEW_OPTION}>+ Add New…</option>
-            </select>
-          </div>
-
-          <div className="col-span-1">
-            <label className="text-xs font-medium text-navy/60 dark:text-white/60">Money Source</label>
-            <select
-              {...register("paymentMethodTypeId")}
-              onChange={(e) => { if (e.target.value === NEW_OPTION) { setQuickCreate("paymentMethod"); return; } register("paymentMethodTypeId").onChange(e); }}
-              className="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white"
-            >
-              <option value="">{pmLoading ? "Loading…" : "None"}</option>
-              {(paymentMethods?.items ?? []).map((pm) => (
-                <option key={pm.id} value={pm.id}>{pm.name}</option>
-              ))}
-              <option value={NEW_OPTION}>+ Add New…</option>
+              <option value="">{accLoading || pmLoading ? "Loading…" : "None"}</option>
+              <optgroup label="Wallet">
+                {(accounts?.items ?? []).map((a) => <option key={a.id} value={`account:${a.id}`}>{a.name}</option>)}
+                <option value={NEW_ACCOUNT_OPTION}>+ Add New Wallet…</option>
+              </optgroup>
+              <optgroup label="Money Source">
+                {(paymentMethods?.items ?? []).map((pm) => <option key={pm.id} value={`pm:${pm.id}`}>{pm.name}</option>)}
+                <option value={NEW_PM_OPTION}>+ Add New Money Source…</option>
+              </optgroup>
             </select>
           </div>
 

@@ -23,7 +23,7 @@ export default function AccountsRedirectPage() {
           <p>Wallets, categories &amp; money sources</p>
         </div>
         <EntityManagerCard
-          queryKey="accounts" apiPath="/api/accounts" itemLabel="wallet" addLabel="Add Wallet" icon="🏦"
+          queryKey="accounts" apiPath="/api/accounts" localCollection="accounts" itemLabel="wallet" addLabel="Add Wallet" icon="🏦"
           emptyTitle="No wallets yet" emptyDescription="Create your first wallet to start tracking expenses and income against it."
         />
       </MobileShell>

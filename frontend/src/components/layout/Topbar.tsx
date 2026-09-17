@@ -1,6 +1,6 @@
 "use client";
 
-import { Moon, Sun, Search, Menu, Bell, User, Settings, Palette, LogOut } from "lucide-react";
+import { Moon, Sun, RefreshCw, Menu, Bell, User, Settings, Palette, LogOut } from "lucide-react";
 import { motion } from "framer-motion";
 import { useUiStore } from "@/store/uiStore";
 import { useNotifications, useProfile } from "@/lib/reference";
@@ -10,20 +10,18 @@ import { cn } from "@/lib/format";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { QuickActions } from "./QuickActions";
+import { DesktopSearch } from "./DesktopSearch";
 
 export function Topbar({ title }: { title: string }) {
   const { toggleSidebar, unreadNotifications, setUnreadNotifications } = useUiStore();
   const { updateSettings, resolvedTheme } = useSettingsContext();
   const { logout, user } = useAuth();
-  const router = useRouter();
   const [avatarOpen, setAvatarOpen] = useState(false);
   const [imgError, setImgError] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
-  const searchRef = useRef<HTMLInputElement>(null);
 
   const { data: profile } = useProfile();
   const { data: notifData } = useNotifications();
@@ -96,22 +94,14 @@ export function Topbar({ title }: { title: string }) {
 
       <div className="flex items-center gap-1 sm:gap-2">
         {user?.role === "USER" && <QuickActions />}
-        <div className="hidden sm:flex items-center gap-2 rounded-lg bg-black/5 px-3 py-1.5 text-sm text-navy/50 dark:bg-white/5 dark:text-white/40">
-          <Search className="h-3.5 w-3.5 shrink-0" />
-          <input
-            ref={searchRef}
-            type="search"
-            placeholder="Search transactions…"
-            className="w-24 min-w-0 bg-transparent text-sm outline-none text-navy dark:text-white placeholder:text-navy/50 dark:placeholder:text-white/40 lg:w-36"
-            aria-label="Search transactions"
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                const val = searchRef.current?.value || "";
-                router.push(`/expenses?search=${encodeURIComponent(val)}`);
-              }
-            }}
-          />
-        </div>
+        <DesktopSearch />
+        <Link
+          href="/settings/storage"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-black/5 text-navy active:scale-90 transition-transform hover:bg-black/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10 sm:h-9 sm:w-9"
+          aria-label="Sync"
+        >
+          <RefreshCw className="h-4 w-4" />
+        </Link>
 
         <button
           onClick={toggleTheme}

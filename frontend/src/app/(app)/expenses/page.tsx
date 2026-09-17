@@ -27,7 +27,7 @@ export default function ExpensesPage() {
     queryFn: () => (getStorageMode() === "local" ? getLocalDashboardSummary() : api.get<DashboardSummary>("/api/dashboard/summary")),
   });
 
-  if (isMobile) return <MobileTransactionsView initialType="EXPENSE" />;
+  if (isMobile) return <Suspense><MobileTransactionsView initialType="EXPENSE" /></Suspense>;
 
   return (
     <>

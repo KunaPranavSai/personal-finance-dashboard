@@ -1,8 +1,10 @@
 "use client";
 
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { getStorageMode } from "@/lib/storage";
+import { useCategories, createLocalCategory, createLocalSubcategory } from "@/lib/reference";
 import { MobileSheet } from "./MobileSheet";
 import { LoadingCard, EmptyCard } from "./MobileStates";
 import type { Category } from "@/types";
@@ -37,20 +39,19 @@ export function CategoryManagerCard() {
     if (subcategoryTarget) subNameRef.current?.focus();
   }, [subcategoryTarget]);
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["categories"],
-    queryFn: () => api.get<{ items: Category[] }>("/api/categories"),
-  });
+  const { data, isLoading } = useCategories();
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["categories"], refetchType: "all" });
 
   const createCategory = useMutation({
-    mutationFn: (values: { name: string; type: EntryType }) => api.post<Category>("/api/categories", values),
+    mutationFn: (values: { name: string; type: EntryType }) =>
+      getStorageMode() === "local" ? createLocalCategory(values) : api.post<Category>("/api/categories", values),
     onSuccess: () => { invalidate(); setCategorySheetOpen(false); setNewName(""); },
   });
 
   const createSubcategory = useMutation({
-    mutationFn: ({ categoryId, name }: { categoryId: string; name: string }) => api.post(`/api/categories/${categoryId}/subcategories`, { name }),
+    mutationFn: ({ categoryId, name }: { categoryId: string; name: string }) =>
+      getStorageMode() === "local" ? createLocalSubcategory(categoryId, name) : api.post(`/api/categories/${categoryId}/subcategories`, { name }),
     onSuccess: () => { invalidate(); setSubcategoryTarget(null); setSubName(""); },
   });
 
@@ -71,9 +72,9 @@ export function CategoryManagerCard() {
             <span className="name">{c.name}</span>
             <span className={`ppm-status ${c.type === "INCOME" ? "under" : "near"}`}>{c.type === "INCOME" ? "Income" : "Expense"}</span>
           </div>
-          {c.subcategories.length > 0 && (
+          {(c.subcategories ?? []).length > 0 && (
             <div className="ppm-filters" style={{ marginBottom: 0 }}>
-              {c.subcategories.map((s) => <span className="ppm-chip" key={s.id} style={{ cursor: "default" }}>{s.name}</span>)}
+              {(c.subcategories ?? []).map((s) => <span className="ppm-chip" key={s.id} style={{ cursor: "default" }}>{s.name}</span>)}
             </div>
           )}
           <button type="button" className="ppm-link-btn" style={{ marginTop: 10 }} onClick={() => setSubcategoryTarget(c)}>+ Add subcategory</button>

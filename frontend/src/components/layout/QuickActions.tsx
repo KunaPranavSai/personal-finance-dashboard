@@ -4,9 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, TrendingDown, TrendingUp, Wallet, LineChart, X } from "lucide-react";
+import { Plus, TrendingDown, TrendingUp, Wallet, LineChart, Target, X } from "lucide-react";
 import { useUiStore } from "@/store/uiStore";
 import { TransactionFormModal } from "@/components/transactions/TransactionFormModal";
+import { AddTransactionSheet } from "@/components/mobile/AddTransactionSheet";
+import { useIsMobile } from "@/lib/DeviceContext";
 import { cn } from "@/lib/format";
 
 const ACTIONS = [
@@ -14,10 +16,12 @@ const ACTIONS = [
   { key: "income", label: "Income", icon: TrendingUp, color: "bg-emerald-500" },
   { key: "budget", label: "Budget", icon: Wallet, color: "bg-amber-500" },
   { key: "investment", label: "Investment", icon: LineChart, color: "bg-teal" },
+  { key: "goals", label: "Goals", icon: Target, color: "bg-indigo-500" },
 ] as const;
 
 export function QuickActions() {
   const router = useRouter();
+  const isMobile = useIsMobile();
   const { quickAddType, openQuickAdd } = useUiStore();
   const [fabOpen, setFabOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -46,13 +50,21 @@ export function QuickActions() {
     if (key === "expense") openQuickAdd("EXPENSE");
     else if (key === "income") openQuickAdd("INCOME");
     else if (key === "budget") router.push("/budget");
-    else router.push("/investments");
+    else if (key === "investment") router.push("/investments");
+    else router.push("/goals");
   };
 
   const floatingUi = (
     <>
-      {/* Mobile: expandable FAB */}
-      <div className="fixed bottom-6 right-6 z-40 flex flex-col items-end gap-3 lg:hidden">
+      {/* Mobile: expandable FAB. Offset clears the fixed bottom nav (~60px)
+          plus safe-area inset — a flat bottom-6 would sit under/behind it
+          on an actual mobile route (.pp-mobile), which is where this now
+          also renders (see MobileShell) alongside its original desktop-
+          narrow-window use inside Topbar. */}
+      <div
+        className="fixed right-6 z-40 flex flex-col items-end gap-3 lg:hidden"
+        style={{ bottom: "calc(76px + env(safe-area-inset-bottom, 0px))" }}
+      >
         <AnimatePresence>
           {fabOpen &&
             ACTIONS.map((action, i) => (
@@ -83,11 +95,15 @@ export function QuickActions() {
         </button>
       </div>
 
-      <TransactionFormModal
-        open={quickAddType !== null}
-        fixedType={quickAddType ?? undefined}
-        onClose={() => openQuickAdd(null)}
-      />
+      {isMobile ? (
+        <AddTransactionSheet open={quickAddType !== null} onClose={() => openQuickAdd(null)} />
+      ) : (
+        <TransactionFormModal
+          open={quickAddType !== null}
+          fixedType={quickAddType ?? undefined}
+          onClose={() => openQuickAdd(null)}
+        />
+      )}
     </>
   );
 

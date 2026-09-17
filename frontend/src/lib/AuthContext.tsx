@@ -1,7 +1,8 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
 import { API_BASE_URL } from "./api";
+import { clearClientSensitiveStorage } from "./clientDataCleanup";
 import { startAuthentication } from "@simplewebauthn/browser";
 import type { PublicKeyCredentialRequestOptionsJSON } from "@simplewebauthn/browser";
 
@@ -16,6 +17,47 @@ export const POST_LOGIN_REDIRECT_KEY = "pfd-post-login-redirect";
 /** Set by SessionManager right before a forced logout so the login page can
  * show "Your session expired due to inactivity." after the redirect. */
 export const SESSION_EXPIRED_REASON_KEY = "pfd-session-expired-reason";
+/** Set the instant a login/2FA/passkey/force-change action successfully
+ * establishes a session (server returned the user object), cleared the
+ * instant that session is independently confirmed by restore()'s own
+ * `/api/auth/me` check. If (app)/layout.tsx's auth guard ever finds
+ * `!isAuthenticated` while this is still set, it means the browser
+ * accepted a login moments ago but didn't actually keep the session alive
+ * (most commonly a cookie the browser silently refused to persist/attach —
+ * e.g. cross-site cookie restrictions) — a materially different, and more
+ * actionable, situation than "never signed in" or "timed out from
+ * inactivity." Never used to change any auth/cookie behavior, only to pick
+ * an honest message instead of a silent or misleading one. */
+export const RECENT_LOGIN_MARKER_KEY = "pfd-recent-login";
+const RECENT_LOGIN_WINDOW_MS = 60 * 1000;
+
+function markRecentLogin(): void {
+  try {
+    sessionStorage.setItem(RECENT_LOGIN_MARKER_KEY, String(Date.now()));
+  } catch {
+    // ignore — private browsing etc.; worst case this diagnostic signal is unavailable
+  }
+}
+
+function clearRecentLoginMarker(): void {
+  try {
+    sessionStorage.removeItem(RECENT_LOGIN_MARKER_KEY);
+  } catch {
+    // ignore
+  }
+}
+
+/** True if a login/2FA/passkey/force-change action succeeded within the
+ * last minute in this tab but hasn't yet been confirmed durable. */
+export function hasUnconfirmedRecentLogin(): boolean {
+  try {
+    const raw = sessionStorage.getItem(RECENT_LOGIN_MARKER_KEY);
+    if (!raw) return false;
+    return Date.now() - Number(raw) < RECENT_LOGIN_WINDOW_MS;
+  } catch {
+    return false;
+  }
+}
 
 interface LoginResult {
   requires2FA: boolean;
@@ -57,7 +99,6 @@ interface AuthContextType {
   user: AuthUser | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  isLocked: boolean;
   twoFactorEnabled: boolean;
   sessionTimeoutMinutes: number;
   login: (email: string, password: string) => Promise<LoginResult>;
@@ -67,7 +108,6 @@ interface AuthContextType {
   forceChangePassword: (passwordChangeToken: string, newPassword: string) => Promise<{ justOnboarded: boolean; user: AuthUser }>;
   logout: (opts?: { preserveRedirect?: boolean }) => Promise<void>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
-  unlock: (password: string) => Promise<void>;
   extendSession: () => Promise<boolean>;
   setupTwoFactor: () => Promise<{ secret: string; qrCode: string }>;
   confirmTwoFactor: (code: string) => Promise<{ backupCodes: string[] }>;
@@ -114,9 +154,7 @@ async function apiFetch(path: string, options?: RequestInit) {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isLocked, setIsLocked] = useState(false);
-  const [sessionTimeout, setSessionTimeout] = useState(30); // minutes; inactivity timeout, 0 = Never
-  const [autoLockTimeout, setAutoLockTimeout] = useState(15); // minutes
+  const [sessionTimeout, setSessionTimeout] = useState(30); // minutes; server-enforced session window, surfaced for display only
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
 
   const refreshTwoFactorStatus = useCallback(async () => {
@@ -137,6 +175,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (res.ok) {
         const data = await res.json();
         setUser(data.user);
+        clearRecentLoginMarker(); // session independently confirmed durable
         refreshTwoFactorStatus();
       } else if (res.status === 401) {
         // Access token expired (or missing) — try a silent refresh. The server
@@ -146,6 +185,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (ref.ok) {
           const data = await ref.json();
           setUser(data.user);
+          clearRecentLoginMarker();
           refreshTwoFactorStatus();
         } else {
           setUser(null);
@@ -172,9 +212,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (typeof data?.security?.sessionTimeout === "number") {
             setSessionTimeout(data.security.sessionTimeout);
           }
-          if (data?.security?.autoLock) {
-            setAutoLockTimeout(Number(data.security.autoLock) || 15);
-          }
         }
       } catch {
         // Use defaults if settings can't be loaded
@@ -184,29 +221,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loadSettings();
     }
   }, [user]);
-
-  // Auto-lock (screen lock behind a password re-entry, separate from session
-  // expiry below) is still allowed to reset on activity — it's a "step away
-  // from the keyboard" convenience lock, not the security-critical session
-  // timeout, and the user explicitly unlocks with their password each time.
-  const lastActivityRef = useRef(Date.now());
-  useEffect(() => {
-    if (!user || isLocked) return;
-    const handleActivity = () => { lastActivityRef.current = Date.now(); };
-    const events = ["mousemove", "keydown", "click", "scroll", "touchstart"];
-    events.forEach((e) => window.addEventListener(e, handleActivity));
-    return () => events.forEach((e) => window.removeEventListener(e, handleActivity));
-  }, [user, isLocked]);
-
-  useEffect(() => {
-    if (!user || autoLockTimeout === 0 || isLocked) return;
-    const checkLock = setInterval(() => {
-      if (Date.now() - lastActivityRef.current > autoLockTimeout * 60 * 1000) {
-        setIsLocked(true);
-      }
-    }, 10000);
-    return () => clearInterval(checkLock);
-  }, [user, autoLockTimeout, isLocked]);
 
   const login = useCallback(async (email: string, password: string): Promise<LoginResult> => {
     const res = await apiFetch("/api/auth/login", {
@@ -225,6 +239,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { requires2FA: true, requiresPasswordChange: false, challengeToken: data.challengeToken };
     }
     setUser(data.user);
+    markRecentLogin();
     refreshTwoFactorStatus();
     return { requires2FA: false, requiresPasswordChange: false };
   }, [refreshTwoFactorStatus]);
@@ -254,6 +269,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     const data = await verifyRes.json();
     setUser(data.user);
+    markRecentLogin();
     refreshTwoFactorStatus();
   }, [refreshTwoFactorStatus]);
 
@@ -280,6 +296,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     const data = await res.json();
     setUser(data.user);
+    markRecentLogin();
     refreshTwoFactorStatus();
     return { justOnboarded: Boolean(data.justOnboarded), user: data.user as AuthUser };
   }, [refreshTwoFactorStatus]);
@@ -295,19 +312,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     const data = await res.json();
     setUser(data.user);
+    markRecentLogin();
     setTwoFactorEnabled(true);
   }, []);
 
   const logout = useCallback(async (opts?: { preserveRedirect?: boolean }) => {
-    if (opts?.preserveRedirect && typeof window !== "undefined") {
+    const redirectTarget = typeof window !== "undefined" ? window.location.pathname + window.location.search : null;
+    // Never let client-storage cleanup race or block the logout request
+    // itself — the server-side session invalidation (cookie clear + session
+    // version bump) always completes first.
+    await apiFetch("/api/auth/logout", { method: "POST" }).catch(() => {});
+    setUser(null);
+    await clearClientSensitiveStorage();
+    if (opts?.preserveRedirect && redirectTarget) {
       try {
-        sessionStorage.setItem(POST_LOGIN_REDIRECT_KEY, window.location.pathname + window.location.search);
+        sessionStorage.setItem(POST_LOGIN_REDIRECT_KEY, redirectTarget);
       } catch {
         // ignore
       }
     }
-    await apiFetch("/api/auth/logout", { method: "POST" }).catch(() => {});
-    setUser(null);
   }, []);
 
   /**
@@ -337,19 +360,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const data = await res.json().catch(() => ({}));
       throw new Error(data.error || "Password change failed");
     }
-  }, []);
-
-  const unlock = useCallback(async (password: string) => {
-    const res = await apiFetch("/api/auth/verify-password", {
-      method: "POST",
-      body: JSON.stringify({ password }),
-    });
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      throw new Error(data.error || "Incorrect password");
-    }
-    setIsLocked(false);
-    lastActivityRef.current = Date.now();
   }, []);
 
   const setupTwoFactor = useCallback(async () => {
@@ -491,7 +501,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       isLoading,
       isAuthenticated: !!user,
-      isLocked,
       twoFactorEnabled,
       sessionTimeoutMinutes: sessionTimeout,
       login,
@@ -501,7 +510,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       forceChangePassword,
       logout,
       changePassword,
-      unlock,
       extendSession,
       setupTwoFactor,
       confirmTwoFactor,

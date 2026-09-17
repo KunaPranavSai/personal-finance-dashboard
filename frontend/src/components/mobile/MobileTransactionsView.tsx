@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { MobileShell } from "@/components/mobile/MobileShell";
 import { AddTransactionSheet } from "@/components/mobile/AddTransactionSheet";
@@ -42,10 +43,12 @@ const FILTERS: { value: "" | EntryType; label: string }[] = [
  * mobile branch, each passing the type their route implies.
  */
 export function MobileTransactionsView({ initialType = "" }: { initialType?: "" | EntryType }) {
+  const searchParams = useSearchParams();
+  const initialSearch = searchParams?.get("search") || "";
   const { settings } = useSettingsContext();
   const f = (v: number) => formatCurrency(v, settings.currency);
   const [type, setType] = useState<"" | EntryType>(initialType);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(initialSearch);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editing, setEditing] = useState<Transaction | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Transaction | null>(null);

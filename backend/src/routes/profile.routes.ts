@@ -9,8 +9,8 @@ import { DriveRecord } from "../services/drive/types";
 const PROFILE_RECORD_ID = "app_profile";
 
 const defaultProfile = {
-  name: "User",
-  email: "user@example.com",
+  name: "",
+  email: "",
   phone: "",
   occupation: "",
   monthlyIncome: 0,
@@ -61,25 +61,53 @@ interface ProfileRecord extends DriveRecord {
   [key: string]: unknown;
 }
 
-/** Financial preferences live in the user's own Google Drive (see services/drive) — admin
- * accounts don't have a personal financial workspace, so their profile stays Postgres-backed. */
-async function getOrCreateProfile(userId: string, isAdmin: boolean): Promise<Record<string, unknown>> {
-  if (isAdmin) {
-    let row = await prisma.appProfile.findUnique({ where: { userId } });
-    if (!row) row = await prisma.appProfile.create({ data: { userId, data: defaultProfile as object } });
-    const data = row.data as Record<string, unknown>;
-    if (!data.name || Object.keys(data).length === 0) return defaultProfile as unknown as Record<string, unknown>;
-    return deepMerge(defaultProfile as unknown as Record<string, unknown>, data);
-  }
-  const record = await getRecord<ProfileRecord>(userId, "settings", PROFILE_RECORD_ID);
-  if (!record) return defaultProfile as unknown as Record<string, unknown>;
-  return deepMerge(defaultProfile as unknown as Record<string, unknown>, record);
+/** Whether this account has a personal Drive-backed financial workspace at
+ * all. Admins never do (they manage the platform, not personal finances).
+ * A regular USER who hasn't connected Drive — most commonly because they
+ * chose "This Device Only" storage — doesn't either, even though role-wise
+ * they're a normal user; this is the same check requireDriveConnected uses
+ * (backend/src/middleware/auth.ts), duplicated here rather than imported
+ * since profile intentionally never blocks on it, only branches on it. */
+async function hasDriveWorkspace(userId: string, isAdmin: boolean): Promise<boolean> {
+  if (isAdmin) return false;
+  const connection = await prisma.backupConnection.findUnique({
+    where: { userId_provider: { userId, provider: "google_drive" } },
+    select: { backupFolderId: true },
+  });
+  return Boolean(connection?.backupFolderId);
 }
 
-async function updateProfile(userId: string, isAdmin: boolean, data: Record<string, unknown>): Promise<Record<string, unknown>> {
-  const current = await getOrCreateProfile(userId, isAdmin);
+/** Profile lives in the user's own Google Drive when they have one (see
+ * services/drive) — everyone else (admins, and USER accounts that chose
+ * Local-Only storage and never connected Drive) gets a Postgres-backed
+ * profile instead, via the same AppProfile table already used for admins.
+ * Local-Only users' actual financial data still never leaves their device;
+ * this is just the small non-financial profile record (name/email/bio/etc.),
+ * which has nowhere else to live for an account with no Drive workspace. */
+async function getOrCreateProfile(userId: string, usePostgres: boolean): Promise<Record<string, unknown>> {
+  // The account's own name/email (set at signup) are the real values for a
+  // user who hasn't filled in a Profile record yet — never a placeholder
+  // like "User"/"user@example.com", which would otherwise get silently
+  // saved as real data the first time the user hits Save without editing
+  // anything.
+  const account = await prisma.user.findUnique({ where: { id: userId }, select: { name: true, email: true } });
+  const seed = { ...defaultProfile, name: account?.name ?? "", email: account?.email ?? "" };
+  if (usePostgres) {
+    let row = await prisma.appProfile.findUnique({ where: { userId } });
+    if (!row) row = await prisma.appProfile.create({ data: { userId, data: seed as object } });
+    const data = row.data as Record<string, unknown>;
+    if (!data.name || Object.keys(data).length === 0) return seed as unknown as Record<string, unknown>;
+    return deepMerge(seed as unknown as Record<string, unknown>, data);
+  }
+  const record = await getRecord<ProfileRecord>(userId, "settings", PROFILE_RECORD_ID);
+  if (!record) return seed as unknown as Record<string, unknown>;
+  return deepMerge(seed as unknown as Record<string, unknown>, record);
+}
+
+async function updateProfile(userId: string, usePostgres: boolean, data: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const current = await getOrCreateProfile(userId, usePostgres);
   const merged = deepMerge(current, data);
-  if (isAdmin) {
+  if (usePostgres) {
     await prisma.appProfile.upsert({ where: { userId }, update: { data: merged as object }, create: { userId, data: merged as object } });
   } else {
     await upsertRecordWithId(userId, "settings", PROFILE_RECORD_ID, merged);
@@ -134,7 +162,8 @@ const router = Router();
 router.get(
   "/",
   asyncHandler(async (req, res) => {
-    const profile = await getOrCreateProfile(req.auth!.userId, req.auth!.role !== "USER");
+    const usePostgres = await hasDriveWorkspace(req.auth!.userId, req.auth!.role !== "USER").then((has) => !has);
+    const profile = await getOrCreateProfile(req.auth!.userId, usePostgres);
     res.json(profile);
   })
 );
@@ -144,7 +173,8 @@ router.patch(
   requireRecent2FA,
   asyncHandler(async (req, res) => {
     const data = updateProfileSchema.parse(req.body);
-    const updated = await updateProfile(req.auth!.userId, req.auth!.role !== "USER", data);
+    const usePostgres = await hasDriveWorkspace(req.auth!.userId, req.auth!.role !== "USER").then((has) => !has);
+    const updated = await updateProfile(req.auth!.userId, usePostgres, data);
     res.json(updated);
   })
 );

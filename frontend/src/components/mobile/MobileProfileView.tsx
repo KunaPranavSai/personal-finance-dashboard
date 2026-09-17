@@ -8,6 +8,7 @@ import { api } from "@/lib/api";
 import { useProfile, CURRENCIES, TIMEZONES, LANGUAGES } from "@/lib/reference";
 import { useAuth } from "@/lib/AuthContext";
 import { useToast } from "@/components/ui/Toast";
+import { AVATAR_OPTIONS } from "@/lib/avatars";
 import type { Profile } from "@/types";
 
 type FormState = Pick<Profile, "name" | "email" | "phone" | "occupation" | "monthlyIncome" | "country" | "state" | "city" | "currency" | "timezone" | "language" | "bio" | "avatar">;
@@ -18,13 +19,12 @@ const EMPTY: FormState = { name: "", email: "", phone: "", occupation: "", month
  * Mobile "Profile" screen — a full-screen form (not a bottom sheet, since
  * this is a destination in its own right, same as the desktop /profile
  * page) covering the core identity/financial-context fields via the same
- * PATCH /api/profile the desktop page uses. There is no file-upload
- * mechanism anywhere in this app, desktop included — "avatar" is a plain
- * image-URL string field (`avatar: z.string().nullable().optional()` in
- * backend/src/routes/profile.routes.ts, and the desktop form is just a URL
- * text input), so that's what's reproduced here too, not a fabricated
- * upload flow. The nested financialPreferences/notifications sub-objects
- * (already covered by Settings, linked from More) are not reproduced here.
+ * PATCH /api/profile the desktop page uses. "avatar" stores a path into the
+ * fixed set of bundled avatar images (see @/lib/avatars) rather than an
+ * arbitrary URL — there's no file-upload or external avatar service in this
+ * app, so the picker below is the only way to change it. The nested
+ * financialPreferences/notifications sub-objects (already covered by
+ * Settings, linked from More) are not reproduced here.
  */
 export function MobileProfileView() {
   const { data: profile, isLoading } = useProfile();
@@ -84,13 +84,32 @@ export function MobileProfileView() {
               ) : (
                 <div className="ppm-avatar">{(form.name || "?").slice(0, 1).toUpperCase()}</div>
               )}
-              {editing && (
-                <div className="ppm-field" style={{ flex: 1, marginBottom: 0 }}>
-                  <label htmlFor="ppm-p-avatar">Avatar URL</label>
-                  <input id="ppm-p-avatar" value={form.avatar ?? ""} placeholder="https://example.com/avatar.jpg" onChange={(e) => set("avatar", e.target.value || null)} />
-                </div>
-              )}
+              {!editing && <div style={{ fontWeight: 700 }}>{form.name || "Your Profile"}</div>}
             </div>
+            {editing && (
+              <div className="ppm-field">
+                <label id="ppm-p-avatar-label">Avatar</label>
+                <div role="group" aria-labelledby="ppm-p-avatar-label" style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8 }}>
+                  {AVATAR_OPTIONS.map((src) => (
+                    <button
+                      key={src}
+                      type="button"
+                      onClick={() => set("avatar", src)}
+                      aria-label="Select avatar"
+                      aria-pressed={form.avatar === src}
+                      style={{
+                        padding: 2, borderRadius: "50%", aspectRatio: "1 / 1",
+                        border: `2px solid ${form.avatar === src ? "var(--ppm-accent)" : "transparent"}`,
+                        background: "none", cursor: "pointer",
+                      }}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={src} alt="" style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }} />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="ppm-field">
               <label htmlFor="ppm-p-name">Name<span className="req">*</span></label>
               <input id="ppm-p-name" value={form.name} disabled={!editing} maxLength={100} onChange={(e) => set("name", e.target.value)} />

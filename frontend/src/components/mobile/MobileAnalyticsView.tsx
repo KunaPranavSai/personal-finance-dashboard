@@ -7,7 +7,8 @@ import { MobileSheet } from "@/components/mobile/MobileSheet";
 import { LoadingCard, ErrorCard, EmptyCard } from "@/components/mobile/MobileStates";
 import { api } from "@/lib/api";
 import { getStorageMode } from "@/lib/storage";
-import { getLocalAnalyticsSummary } from "@/lib/services/analyticsService";
+import { getLocalAnalyticsSummary, AnalyticsFilters } from "@/lib/services/analyticsService";
+import { getGroupedChartData, getYearToDateChartData, ChartPoint } from "@/lib/services/customChartService";
 import { useCategories, useAccounts, usePaymentMethods } from "@/lib/reference";
 import { useSettingsContext } from "@/lib/SettingsContext";
 import { formatCurrency, formatCompactCurrency } from "@/lib/format";
@@ -33,11 +34,11 @@ const SECONDARY_METRIC_OPTIONS: { value: BuilderSecondary; label: string }[] = [
   { value: "none", label: "None" },
   { value: "netCashFlow", label: "Cash Flow" },
 ];
-const GROUPING_OPTIONS: { value: BuilderGrouping; label: string; enabled: boolean }[] = [
-  { value: "daily", label: "Daily (soon)", enabled: false },
-  { value: "weekly", label: "Weekly (soon)", enabled: false },
-  { value: "monthly", label: "Monthly", enabled: true },
-  { value: "ytd", label: "Year-to-Date (soon)", enabled: false },
+const GROUPING_OPTIONS: { value: BuilderGrouping; label: string }[] = [
+  { value: "daily", label: "Daily" },
+  { value: "weekly", label: "Weekly" },
+  { value: "monthly", label: "Monthly" },
+  { value: "ytd", label: "Year-to-Date" },
 ];
 const METRIC_LABEL: Record<BuilderMetric, string> = { income: "Income", expense: "Expenses", savings: "Savings", transactions: "Transactions" };
 
@@ -242,40 +243,11 @@ export function MobileAnalyticsView() {
         <div className="ppm-field">
           <label htmlFor="ppm-cb-grouping">Time Grouping</label>
           <select id="ppm-cb-grouping" value={builderConfig.grouping} onChange={(e) => setBuilderConfig((c) => ({ ...c, grouping: e.target.value as BuilderGrouping }))}>
-            {GROUPING_OPTIONS.map((o) => <option key={o.value} value={o.value} disabled={!o.enabled}>{o.label}</option>)}
+            {GROUPING_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         </div>
 
-        {data && data.monthlyTrend.length > 0 && (() => {
-          const chartRows = data.monthlyTrend.map((m) => ({
-            month: m.month,
-            income: m.income,
-            expense: m.expense,
-            savings: m.income - m.expense,
-            transactions: m.count,
-            netCashFlow: m.income - m.expense,
-          }));
-          const maxVal = Math.max(1, ...chartRows.map((r) => Math.abs(r[builderConfig.primary])));
-          return (
-            <div className="ppm-card" style={{ marginTop: 12, background: "var(--ppm-surface-2)" }}>
-              {chartRows.map((r) => (
-                <div key={r.month} style={{ marginBottom: 10 }}>
-                  <div className="ppm-cf-row" style={{ marginBottom: 4 }}>
-                    <span>{r.month}</span>
-                    <span>
-                      {builderConfig.primary === "transactions" ? r.transactions : f(r[builderConfig.primary])}
-                      {builderConfig.secondary === "netCashFlow" && ` · Cash Flow: ${f(r.netCashFlow)}`}
-                    </span>
-                  </div>
-                  <div className="ppm-bar-track">
-                    <div className="ppm-bar-fill" style={{ width: `${(Math.abs(r[builderConfig.primary]) / maxVal) * 100}%`, background: "var(--ppm-accent)" }} />
-                  </div>
-                </div>
-              ))}
-              <p style={{ fontSize: 11, color: "var(--ppm-text-dim)", marginTop: 8 }}>Plotting {METRIC_LABEL[builderConfig.primary]} by month. Your selections are saved automatically.</p>
-            </div>
-          );
-        })()}
+        <CustomChartRows builderConfig={builderConfig} trend={data?.monthlyTrend ?? []} filters={{ from, to, categoryId, accountId, paymentMethodTypeId }} f={f} />
 
         <div className="ppm-sheet-actions">
           <button type="button" className="ppm-sheet-cancel" onClick={() => setBuilderOpen(false)}>Done</button>
@@ -310,5 +282,75 @@ export function MobileAnalyticsView() {
         </div>
       </MobileSheet>
     </MobileShell>
+  );
+}
+
+/** Renders the Custom Chart's data rows for whichever grouping is selected —
+ * Monthly/Year-to-Date come straight from the page's own monthly trend,
+ * Daily/Weekly re-fetch real transactions and bucket them (see
+ * lib/services/customChartService.ts), same real-data rule as desktop. */
+function CustomChartRows({
+  builderConfig,
+  trend,
+  filters,
+  f,
+}: {
+  builderConfig: BuilderConfig;
+  trend: { month: string; income: number; expense: number; count: number }[];
+  filters: AnalyticsFilters;
+  f: (v: number) => string;
+}) {
+  const { data: groupedData, isLoading: groupedLoading } = useQuery({
+    queryKey: ["custom-chart-grouped-mobile", builderConfig.grouping, filters],
+    queryFn: () => getGroupedChartData(filters, builderConfig.grouping as "daily" | "weekly"),
+    enabled: builderConfig.grouping === "daily" || builderConfig.grouping === "weekly",
+  });
+
+  const monthlyRows: ChartPoint[] = trend.map((m) => ({
+    bucket: m.month,
+    income: m.income,
+    expense: m.expense,
+    savings: m.income - m.expense,
+    transactions: m.count,
+    netCashFlow: m.income - m.expense,
+  }));
+
+  const rows: ChartPoint[] =
+    builderConfig.grouping === "monthly" ? monthlyRows
+    : builderConfig.grouping === "ytd" ? getYearToDateChartData(trend)
+    : groupedData ?? [];
+
+  if ((builderConfig.grouping === "daily" || builderConfig.grouping === "weekly") && groupedLoading) {
+    return <div className="ppm-card" style={{ marginTop: 12, background: "var(--ppm-surface-2)" }}><LoadingCard lines={4} /></div>;
+  }
+
+  if (rows.length === 0) {
+    return (
+      <div className="ppm-card" style={{ marginTop: 12, background: "var(--ppm-surface-2)" }}>
+        <p style={{ fontSize: 12, color: "var(--ppm-text-dim)" }}>No data for this selection.</p>
+      </div>
+    );
+  }
+
+  const maxVal = Math.max(1, ...rows.map((r) => Math.abs(r[builderConfig.primary])));
+
+  return (
+    <div className="ppm-card" style={{ marginTop: 12, background: "var(--ppm-surface-2)" }}>
+      {rows.map((r) => (
+        <div key={r.bucket} style={{ marginBottom: 10 }}>
+          <div className="ppm-cf-row" style={{ marginBottom: 4 }}>
+            <span>{r.bucket}</span>
+            <span>
+              {builderConfig.primary === "transactions" ? r.transactions : f(r[builderConfig.primary])}
+              {builderConfig.secondary === "netCashFlow" && ` · Cash Flow: ${f(r.netCashFlow)}`}
+            </span>
+          </div>
+          <div className="ppm-bar-track">
+            <div className="ppm-bar-fill" style={{ width: `${(Math.abs(r[builderConfig.primary]) / maxVal) * 100}%`, background: "var(--ppm-accent)" }} />
+          </div>
+        </div>
+      ))}
+      <p style={{ fontSize: 11, color: "var(--ppm-text-dim)", marginTop: 8 }}>Plotting {METRIC_LABEL[builderConfig.primary]} by {builderConfig.grouping === "ytd" ? "month (cumulative)" : builderConfig.grouping}. Your selections are saved automatically.</p>
+    </div>
   );
 }

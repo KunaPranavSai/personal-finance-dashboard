@@ -121,7 +121,10 @@ html.dark .ppm-sheet-portal {
   width: 40px; height: 40px; min-width: 44px; min-height: 44px; border-radius: 12px;
   border: 1px solid var(--ppm-border); background: var(--ppm-surface);
   display: flex; align-items: center; justify-content: center; position: relative;
-  font-size: 1rem; color: var(--ppm-text); cursor: pointer; transition: transform .15s ease;
+  /* Header actions (search/notifications) are primary, frequently-tapped
+     controls — 1rem read as too small inside the 44px target, glyph was
+     losing to the touch target around it. */
+  font-size: 1.2rem; color: var(--ppm-text); cursor: pointer; transition: transform .15s ease;
 }
 .ppm-iconbtn:active { transform: scale(.9); }
 .ppm-iconbtn .ppm-dot {
@@ -170,6 +173,10 @@ html.dark .ppm-sheet-portal {
 }
 .ppm-qa-btn.primary { background: var(--ppm-accent); color: var(--ppm-accent-ink); border-color: transparent; }
 .ppm-qa-btn:active { transform: scale(.96); }
+/* The icon glyph (first child span) reads as a distinct icon, not part of
+   the label — scale it up relative to the button's own small label text
+   instead of leaving it the same size as "Add"/"Sync"/"Goals". */
+.ppm-qa-btn > span:first-child { font-size: 1.35em; line-height: 1; }
 
 .ppm-stack { display: flex; flex-direction: column; gap: 14px; margin-top: 14px; }
 .ppm-stack:first-child { margin-top: 0; }
@@ -283,7 +290,9 @@ html.dark .ppm-sheet-portal {
   color: var(--ppm-nav-ink); font-family: 'Inter'; font-size: .64rem; font-weight: 700;
   transition: color .15s ease, transform .15s ease; text-decoration: none;
 }
-.ppm-navbtn .ic { font-size: 1.1rem; transition: transform .15s ease; }
+/* Primary navigation, tapped constantly — 1.1rem read as visually weak
+   against the 44px tap target and the active-state color change. */
+.ppm-navbtn .ic { font-size: 1.35rem; transition: transform .15s ease; }
 .ppm-navbtn.active { color: var(--ppm-nav-ink-active); }
 .ppm-navbtn.active .ic { transform: translateY(-1px); }
 .ppm-navbtn:active { transform: scale(.93); }

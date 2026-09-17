@@ -12,7 +12,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { api } from "@/lib/api";
 import { getStorageMode } from "@/lib/storage";
-import { getLocalAnalyticsSummary } from "@/lib/services/analyticsService";
+import { getLocalAnalyticsSummary, AnalyticsFilters } from "@/lib/services/analyticsService";
+import { getGroupedChartData, getYearToDateChartData, ChartPoint } from "@/lib/services/customChartService";
 import { useIsMobile } from "@/lib/DeviceContext";
 import { MobileAnalyticsView } from "@/components/mobile/MobileAnalyticsView";
 import { formatCurrency, cn } from "@/lib/format";
@@ -221,12 +222,14 @@ function TrendChart({ kind, data, cur }: { kind: ChartKind; data: { month: strin
 
 // ─── Custom Chart Studio ─────────────────────────────────────────────────────
 // A genuinely functional (not decorative) custom chart builder: every option
-// offered here is backed by real data already in `monthlyTrend`. Daily/
-// Weekly/Year-to-Date grouping and a couple of secondary metrics (Budget
-// Limit, Debt Obligations) aren't wired up because the backend doesn't
-// aggregate transactions at that granularity yet or expose that data at all —
-// rather than fake them, those options are shown disabled with "(soon)"
-// so nothing here silently lies about what it's plotting.
+// offered here is backed by real data. Monthly grouping reuses the page's
+// own `monthlyTrend`; Daily/Weekly re-fetch the same real transactions the
+// Transactions page uses (via customChartService) and bucket them
+// client-side; Year-to-Date is a real cumulative sum over the current
+// year's monthly buckets. A secondary metric beyond "Cash Flow" (e.g.
+// Budget Limit, Debt Obligations) isn't offered because no analytics
+// endpoint exposes that data at all — nothing here fakes a field it can't
+// actually back with real data.
 type BuilderMetric = "income" | "expense" | "savings" | "transactions";
 type BuilderSecondary = "none" | "netCashFlow";
 type BuilderGrouping = "daily" | "weekly" | "monthly" | "ytd";
@@ -252,11 +255,11 @@ const SECONDARY_METRIC_OPTIONS: { value: BuilderSecondary; label: string }[] = [
   { value: "none", label: "None" },
   { value: "netCashFlow", label: "Cash Flow" },
 ];
-const GROUPING_OPTIONS: { value: BuilderGrouping; label: string; enabled: boolean }[] = [
-  { value: "daily", label: "Daily (soon)", enabled: false },
-  { value: "weekly", label: "Weekly (soon)", enabled: false },
-  { value: "monthly", label: "Monthly", enabled: true },
-  { value: "ytd", label: "Year-to-Date (soon)", enabled: false },
+const GROUPING_OPTIONS: { value: BuilderGrouping; label: string }[] = [
+  { value: "daily", label: "Daily" },
+  { value: "weekly", label: "Weekly" },
+  { value: "monthly", label: "Monthly" },
+  { value: "ytd", label: "Year-to-Date" },
 ];
 const VIZ_OPTIONS: { value: BuilderViz; label: string }[] = [
   { value: "area", label: "Smooth Spline Area" },
@@ -278,7 +281,7 @@ function loadBuilderConfig(): BuilderConfig {
   }
 }
 
-function CustomChartStudio({ trend, cur }: { trend: { month: string; income: number; expense: number; count: number }[]; cur: string }) {
+function CustomChartStudio({ trend, cur, filters }: { trend: { month: string; income: number; expense: number; count: number }[]; cur: string; filters: AnalyticsFilters }) {
   const [config, setConfig] = useState<BuilderConfig>(DEFAULT_BUILDER_CONFIG);
 
   useEffect(() => {
@@ -293,10 +296,10 @@ function CustomChartStudio({ trend, cur }: { trend: { month: string; income: num
     }
   }, [config]);
 
-  const chartData = useMemo(
+  const monthlyData = useMemo<ChartPoint[]>(
     () =>
       trend.map((t) => ({
-        month: t.month,
+        bucket: t.month,
         income: t.income,
         expense: t.expense,
         savings: t.income - t.expense,
@@ -305,6 +308,23 @@ function CustomChartStudio({ trend, cur }: { trend: { month: string; income: num
       })),
     [trend]
   );
+
+  const { data: groupedData, isLoading: groupedLoading } = useQuery({
+    queryKey: ["custom-chart-grouped", config.grouping, filters],
+    queryFn: () => getGroupedChartData(filters, config.grouping as "daily" | "weekly"),
+    enabled: config.grouping === "daily" || config.grouping === "weekly",
+  });
+
+  const chartPoints: ChartPoint[] =
+    config.grouping === "monthly" ? monthlyData
+    : config.grouping === "ytd" ? getYearToDateChartData(trend)
+    : groupedData ?? [];
+
+  const isGroupedLoading = (config.grouping === "daily" || config.grouping === "weekly") && groupedLoading;
+
+  // recharts needs a consistent x-axis key across viz types; `bucket` covers
+  // day/week/month/YTD labels alike.
+  const chartData = chartPoints.map((p) => ({ ...p, label: p.bucket }));
 
   const selectFieldCls = "rounded-lg border border-black/10 bg-transparent px-3 py-2 text-xs dark:border-white/10 dark:bg-navy-dark dark:text-white";
 
@@ -331,7 +351,7 @@ function CustomChartStudio({ trend, cur }: { trend: { month: string; income: num
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-400">Time Grouping (X-Axis)</label>
             <select value={config.grouping} onChange={(e) => setConfig((c) => ({ ...c, grouping: e.target.value as BuilderGrouping }))} className={selectFieldCls}>
-              {GROUPING_OPTIONS.map((o) => <option key={o.value} value={o.value} disabled={!o.enabled}>{o.label}</option>)}
+              {GROUPING_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </div>
           <div>
@@ -343,12 +363,14 @@ function CustomChartStudio({ trend, cur }: { trend: { month: string; income: num
         </div>
 
         <div className="mt-4">
-          {chartData.length === 0 ? (
+          {isGroupedLoading ? (
+            <div className="h-[280px] animate-pulse rounded-xl2 bg-black/5 dark:bg-white/5" />
+          ) : chartData.length === 0 ? (
             <EmptyState icon={BarChart3} title="No data for this selection" />
           ) : config.viz === "donut" ? (
             <ResponsiveContainer width="100%" height={280} style={{ willChange: "transform", transform: "translateZ(0)" }}>
               <PieChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
-                <Pie data={chartData} dataKey={config.primary} nameKey="month" innerRadius={60} outerRadius={95} paddingAngle={2}>
+                <Pie data={chartData} dataKey={config.primary} nameKey="label" innerRadius={60} outerRadius={95} paddingAngle={2}>
                   {chartData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} stroke="none" />)}
                 </Pie>
                 <Tooltip formatter={(v) => (config.primary === "transactions" ? String(v) : formatCurrency(Number(v), cur))} contentStyle={{ background: "rgba(15,23,42,0.9)", border: "1px solid rgba(51,65,85,0.8)", borderRadius: 12, backdropFilter: "blur(6px)" }} itemStyle={{ color: "#E2E8F0" }} labelStyle={{ color: "#E2E8F0" }} />
@@ -359,7 +381,7 @@ function CustomChartStudio({ trend, cur }: { trend: { month: string; income: num
             <ResponsiveContainer width="100%" height={300} style={{ willChange: "transform", transform: "translateZ(0)" }}>
               <ComposedChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} />
-                <XAxis dataKey="month" tick={AXIS_TICK} axisLine={AXIS_LINE} tickLine={false} />
+                <XAxis dataKey="label" tick={AXIS_TICK} axisLine={AXIS_LINE} tickLine={false} />
                 <YAxis yAxisId="left" tick={AXIS_TICK} axisLine={AXIS_LINE} tickLine={false} tickFormatter={(v) => (config.primary === "transactions" ? String(v) : formatCurrency(Number(v), cur))} width={70} />
                 {config.secondary !== "none" && (
                   <YAxis yAxisId="right" orientation="right" tick={AXIS_TICK} axisLine={false} tickLine={false} tickFormatter={(v) => formatCurrency(Number(v), cur)} width={70} />
@@ -536,7 +558,7 @@ export default function AnalyticsPage() {
           </CardContent></Card>
         ) : (
           <>
-            <CustomChartStudio trend={data.monthlyTrend} cur={cur} />
+            <CustomChartStudio trend={data.monthlyTrend} cur={cur} filters={{ from, to, categoryId, accountId, paymentMethodTypeId }} />
 
             {metrics.has("kpis") && (
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6">

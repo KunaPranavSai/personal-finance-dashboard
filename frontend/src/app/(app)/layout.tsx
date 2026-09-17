@@ -8,7 +8,6 @@ import { OfflineSyncManager } from "@/components/pwa/OfflineSyncManager";
 import { PwaInstallPrompt } from "@/components/pwa/PwaInstallPrompt";
 import { Footer } from "@/components/layout/Footer";
 import { DataInit } from "@/components/DataInit";
-import { LockScreen } from "@/components/ui/LockScreen";
 import { TwoFactorReverifyDialog } from "@/components/ui/TwoFactorReverifyDialog";
 import { useAuth } from "@/lib/AuthContext";
 import { useDriveStatus, isDriveReady } from "@/lib/driveStatus";
@@ -16,7 +15,7 @@ import { getStorageMode } from "@/lib/storage";
 import { useIsMobile } from "@/lib/DeviceContext";
 
 export default function AppShellLayout({ children }: { children: React.ReactNode }) {
-  const { user, isAuthenticated, isLoading, isLocked, unlock } = useAuth();
+  const { user, isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const isMobile = useIsMobile();
@@ -71,7 +70,6 @@ export default function AppShellLayout({ children }: { children: React.ReactNode
       <div className="pp-mobile">
         <DataInit />
         {children}
-        <LockScreen isOpen={isLocked} onUnlock={unlock} />
         <TwoFactorReverifyDialog />
       </div>
     );
@@ -88,7 +86,6 @@ export default function AppShellLayout({ children }: { children: React.ReactNode
         {children}
         <Footer />
       </div>
-      <LockScreen isOpen={isLocked} onUnlock={unlock} />
       <TwoFactorReverifyDialog />
     </div>
   );

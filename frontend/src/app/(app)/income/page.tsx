@@ -27,7 +27,7 @@ export default function IncomePage() {
     queryFn: () => (getStorageMode() === "local" ? getLocalDashboardSummary() : api.get<DashboardSummary>("/api/dashboard/summary")),
   });
 
-  if (isMobile) return <MobileTransactionsView initialType="INCOME" />;
+  if (isMobile) return <Suspense><MobileTransactionsView initialType="INCOME" /></Suspense>;
 
   return (
     <>

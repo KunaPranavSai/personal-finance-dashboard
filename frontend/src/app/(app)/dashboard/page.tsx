@@ -15,15 +15,16 @@ import { FinancialHealthGauge } from "@/components/charts/FinancialHealthGauge";
 import { WelcomeTour } from "@/components/ui/WelcomeTour";
 import { TwoFactorPromptModal } from "@/components/ui/TwoFactorPromptModal";
 import { MobileShell } from "@/components/mobile/MobileShell";
-import { AddTransactionSheet } from "@/components/mobile/AddTransactionSheet";
 import { LoadingCard, ErrorCard } from "@/components/mobile/MobileStates";
+import { MiniFinancialChart } from "@/components/dashboard/MiniFinancialChart";
+import { buildHomeInsights } from "@/components/dashboard/HomeInsights";
 import { useAuth } from "@/lib/AuthContext";
 import { useIsMobile } from "@/lib/DeviceContext";
 import { api } from "@/lib/api";
 import { getStorageMode } from "@/lib/storage";
 import { getLocalDashboardSummary, getLocalIncomeExpenseTrend, getLocalCategoryBreakdown } from "@/lib/services/dashboardService";
 import { listLocalTransactions } from "@/lib/services/transactionsService";
-import { formatCurrency, formatPercent, formatDateIN } from "@/lib/format";
+import { formatCurrency, formatCompactCurrency, formatPercent, formatDateIN } from "@/lib/format";
 import { useSettingsContext } from "@/lib/SettingsContext";
 import { useProfile } from "@/lib/reference";
 import { DashboardSummary, Transaction, PaginatedResponse } from "@/types";
@@ -43,7 +44,6 @@ function DashboardContent() {
   const [show2FAPrompt, setShow2FAPrompt] = useState(false);
   const [isWelcome, setIsWelcome] = useState(false);
   const [selectedKpi, setSelectedKpi] = useState<KpiDetailData | null>(null);
-  const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
   const mainRef = useRef<HTMLElement>(null);
   const heroRef = useRef<HTMLDivElement>(null);
 
@@ -63,6 +63,7 @@ function DashboardContent() {
   const { settings } = useSettingsContext();
   const cur = settings.currency;
   const f = (v: number) => formatCurrency(v, cur);
+  const fCompact = (v: number) => formatCompactCurrency(v, cur);
   const { data: summary, isLoading, isError: summaryIsError, refetch: refetchSummary } = useQuery({
     queryKey: ["dashboard-summary"],
     queryFn: () => (getStorageMode() === "local" ? getLocalDashboardSummary() : api.get<DashboardSummary>("/api/dashboard/summary")),
@@ -147,35 +148,78 @@ function DashboardContent() {
     const k = summary.kpis;
     const incomeChange = k.changeVsPrevMonth?.income ?? 0;
     const netWorthUp = (k.netWorth ?? 0) >= 0;
-    const cashflowTotal = Math.max(k.currentMonth.income, 1);
-    const incomePct = Math.min(100, (k.currentMonth.income / cashflowTotal) * 100);
-    const expensePct = Math.min(100 - incomePct, (k.currentMonth.expense / cashflowTotal) * 100);
+    // Proportional two-segment bar: both segments share ONE denominator
+    // (income + expense), not income alone — the previous version divided
+    // expense's share by income only and capped it at "100 - income's own
+    // 100%", which silently zeroed the expense segment out any time income
+    // was greater than 0 (i.e. essentially always). Recomputed fresh from
+    // `summary` every render, so it can never disagree with the numbers
+    // printed right above it or go stale after a create/edit/delete.
+    const monthTotal = Math.max(k.currentMonth.income + k.currentMonth.expense, 1);
+    const incomePct = (k.currentMonth.income / monthTotal) * 100;
+    const expensePct = (k.currentMonth.expense / monthTotal) * 100;
+    const monthNet = k.currentMonth.income - k.currentMonth.expense;
+    const monthStatus =
+      k.currentMonth.income === 0 && k.currentMonth.expense === 0
+        ? { label: "No activity yet", tone: "neutral" as const }
+        : monthNet >= 0
+        ? { label: "On track", tone: "positive" as const }
+        : { label: "Overspending", tone: "critical" as const };
     const totalBreakdown = (breakdown?.items ?? []).reduce((s, i) => s + i.total, 0) || 1;
+
+    const currentYear = String(new Date().getFullYear());
+    const annual = (trend?.items ?? []).reduce(
+      (acc, row) => {
+        if (!row.month.startsWith(currentYear)) return acc;
+        if (row.type === "INCOME") acc.income += Number(row.total);
+        else acc.expense += Number(row.total);
+        return acc;
+      },
+      { income: 0, expense: 0 }
+    );
+    const annualNet = annual.income - annual.expense;
+    const annualTotal = Math.max(annual.income + annual.expense, 1);
+    const annualIncomePct = (annual.income / annualTotal) * 100;
+    const annualExpensePct = (annual.expense / annualTotal) * 100;
+
+    const insights = buildHomeInsights(summary, f);
 
     return (
       <MobileShell title={firstName ? `Hi, ${firstName}` : "Penny Pilot"}>
-        <div className="ppm-card">
-          <div className="ppm-section-label">Total Net Worth</div>
-          <div className="ppm-figure">
-            {f(k.netWorth)}
-            <span className={`ppm-delta${netWorthUp ? "" : " down"}`}>{netWorthUp ? "+" : ""}{formatPercent(incomeChange)} {netWorthUp ? "↗" : "↘"}</span>
+        <div className="ppm-card" style={{ display: "flex", gap: 14 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="ppm-section-label">Total Net Worth</div>
+            <div className="ppm-figure" style={{ fontSize: "1.5rem" }}>
+              {f(k.netWorth)}
+            </div>
+            <span className={`ppm-delta${netWorthUp ? "" : " down"}`} style={{ display: "inline-block", marginTop: 6 }}>{netWorthUp ? "+" : ""}{formatPercent(incomeChange)} {netWorthUp ? "↗" : "↘"}</span>
+            <div style={{ marginTop: 10, fontSize: 11, fontWeight: 600, color: "var(--ppm-text-dim)", lineHeight: 1.6 }}>
+              <div>Inc: <span style={{ color: "var(--ppm-accent)", fontWeight: 700 }}>{fCompact(k.currentMonth.income)}</span> · Exp: <span style={{ color: "var(--ppm-warning)", fontWeight: 700 }}>{fCompact(k.currentMonth.expense)}</span></div>
+              <div>Savings: <span style={{ color: "var(--ppm-accent)", fontWeight: 700 }}>{fCompact(monthNet)}</span></div>
+            </div>
           </div>
-          <div className="ppm-quick-actions">
-            <button type="button" className="ppm-qa-btn primary" onClick={() => setMobileSheetOpen(true)}>
-              <span aria-hidden="true">＋</span>Add
-            </button>
-            <Link href="/settings/storage" className="ppm-qa-btn">
-              <span aria-hidden="true">⟳</span>Sync
-            </Link>
-            <Link href="/goals" className="ppm-qa-btn">
-              <span aria-hidden="true">◎</span>Goals
-            </Link>
+          <div style={{ borderLeft: "1px dashed var(--ppm-border)" }} />
+          <MiniFinancialChart income={k.currentMonth.income} expense={k.currentMonth.expense} savings={monthNet} format={f} formatCompact={fCompact} />
+        </div>
+
+        <div className="ppm-card">
+          <div className="ppm-section-label">Financial Intelligence</div>
+          <div className="ppm-stack" style={{ marginTop: 0, gap: 10 }}>
+            {insights.map((ins) => (
+              <div key={ins.id} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                <span aria-hidden="true" style={{ fontSize: 16, lineHeight: 1.3 }}>{ins.icon}</span>
+                <p style={{ fontSize: 13, lineHeight: 1.4, color: "var(--ppm-text)", margin: 0 }}>{ins.text}</p>
+              </div>
+            ))}
           </div>
         </div>
 
         <div className="ppm-stack">
           <div className="ppm-card">
-            <div className="ppm-section-label">Monthly Cash Flow</div>
+            <div className="ppm-section-label">
+              Monthly Cash Flow
+              <span className={`ppm-badge${monthStatus.tone === "critical" ? " critical" : monthStatus.tone === "positive" ? "" : " warn"}`}>{monthStatus.label}</span>
+            </div>
             <div className="ppm-cf-row">
               <span className="in">Income {f(k.currentMonth.income)}</span>
               <span className="out">Expenses {f(k.currentMonth.expense)}</span>
@@ -183,6 +227,22 @@ function DashboardContent() {
             <div className="ppm-bar-track">
               <div className="ppm-bar-fill" style={{ width: `${incomePct}%`, background: "var(--ppm-positive)" }} />
               <div className="ppm-bar-fill" style={{ width: `${expensePct}%`, background: "var(--ppm-warning)" }} />
+            </div>
+
+            <div style={{ borderTop: "1px dashed var(--ppm-border)", margin: "16px 0" }} />
+
+            <div className="ppm-section-label">Annual Cash Flow · {currentYear}</div>
+            <div className="ppm-cf-row">
+              <span className="in">Income {f(annual.income)}</span>
+              <span className="out">Expenses {f(annual.expense)}</span>
+            </div>
+            <div className="ppm-bar-track">
+              <div className="ppm-bar-fill" style={{ width: `${annualIncomePct}%`, background: "var(--ppm-positive)" }} />
+              <div className="ppm-bar-fill" style={{ width: `${annualExpensePct}%`, background: "var(--ppm-warning)" }} />
+            </div>
+            <div className="ppm-cf-row" style={{ marginTop: 8, marginBottom: 0 }}>
+              <span style={{ fontSize: 12, color: "var(--ppm-text-dim)" }}>Net Savings</span>
+              <span style={{ fontWeight: 700, color: annualNet >= 0 ? "var(--ppm-positive)" : "var(--ppm-critical)" }}>{f(annualNet)}</span>
             </div>
           </div>
 
@@ -232,8 +292,6 @@ function DashboardContent() {
             )}
           </div>
         </div>
-
-        <AddTransactionSheet open={mobileSheetOpen} onClose={() => setMobileSheetOpen(false)} />
       </MobileShell>
     );
   }

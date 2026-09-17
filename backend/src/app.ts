@@ -25,7 +25,10 @@ import { errorHandler, notFoundHandler } from "./middleware/errorHandler";
 import { authenticate, requireRole, requireDriveConnected } from "./middleware/auth";
 
 const isProd = process.env.NODE_ENV === "production";
-const COOKIE_SECRET = process.env.COOKIE_SECRET ?? "pfd-cookie-secret";
+if (!process.env.COOKIE_SECRET) {
+  throw new Error("COOKIE_SECRET is not set — refusing to start with a default cookie secret.");
+}
+const COOKIE_SECRET = process.env.COOKIE_SECRET;
 
 // The set of origins allowed to make credentialed (cookie-bearing) requests.
 // APP_URL is the same env var already used to build links in outgoing emails
@@ -118,7 +121,7 @@ export function createApp() {
     limit: 300,
     standardHeaders: true,
     legacyHeaders: false,
-    message: { error: "Too many requests. Please slow down and try again shortly." },
+    message: { error: "Too many requests. Please slow down and try again shortly.", code: "RATE_LIMITED" },
   }));
 
   // Body parsing
@@ -146,7 +149,10 @@ export function createApp() {
   app.use("/api/savings", authenticate, requireDriveConnected, savingsRoutes);
   app.use("/api/analytics", authenticate, requireDriveConnected, analyticsRoutes);
   app.use("/api/reports", authenticate, requireDriveConnected, reportsRoutes);
-  app.use("/api/profile", authenticate, requireDriveConnected, profileRoutes);
+  // Profile has its own Drive-vs-Postgres branching per request (see
+  // routes/profile.routes.ts) — Local-Only users' profile is Postgres-backed
+  // exactly like admins', so this route doesn't gate on Drive at all.
+  app.use("/api/profile", authenticate, profileRoutes);
   app.use("/api/settings", authenticate, requireDriveConnected, settingsRoutes);
   app.use("/api/export", authenticate, requireDriveConnected, exportRoutes);
 

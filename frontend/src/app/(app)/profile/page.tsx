@@ -19,6 +19,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { downloadConsentPdfAuthenticated } from "@/lib/consent";
 import { useIsMobile } from "@/lib/DeviceContext";
 import { MobileProfileView } from "@/components/mobile/MobileProfileView";
+import { AVATAR_OPTIONS } from "@/lib/avatars";
 
 const profileSchema = z.object({
   name: z.string().min(1, "Name is required").max(100, "Name too long"),
@@ -81,7 +82,7 @@ export default function ProfilePage() {
 
   const { data: profile, isLoading } = useProfile();
 
-  const { register, handleSubmit, reset, watch, formState: { errors, isDirty } } = useForm<ProfileForm>({
+  const { register, handleSubmit, reset, watch, setValue, formState: { errors, isDirty } } = useForm<ProfileForm>({
     resolver: zodResolver(profileSchema),
     values: profile ?? {
       name: "", email: "", phone: "", occupation: "", monthlyIncome: 0,
@@ -189,26 +190,22 @@ export default function ProfilePage() {
 
               {editing && (
                 <Card>
-                  <CardHeader><CardTitle>Profile Image URL</CardTitle></CardHeader>
-                  <CardContent className="space-y-4">
-                    <div>
-                      <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Image URL</label>
-                      <input {...register("avatar")} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" placeholder="https://example.com/avatar.jpg" />
-                      <p className="mt-1 text-xs text-navy/40 dark:text-white/40">Paste a URL to an image. Preview updates immediately.</p>
-                      {errors.avatar && <p className="mt-1 text-xs text-red-500">{errors.avatar.message}</p>}
+                  <CardHeader><CardTitle>Avatar</CardTitle></CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-4 gap-3 sm:grid-cols-7">
+                      {AVATAR_OPTIONS.map((src) => (
+                        <button
+                          key={src}
+                          type="button"
+                          onClick={() => setValue("avatar", src, { shouldDirty: true })}
+                          className={`relative aspect-square rounded-full border-2 p-0.5 transition ${avatarUrl === src ? "border-teal" : "border-transparent hover:border-teal/40"}`}
+                          aria-label="Select avatar"
+                          aria-pressed={avatarUrl === src}
+                        >
+                          <Image src={src} alt="" className="h-full w-full rounded-full object-cover" width={64} height={64} />
+                        </button>
+                      ))}
                     </div>
-                    {avatarUrl && !imageError && (
-                      <div className="flex items-center gap-3">
-                        <Image src={avatarUrl} alt="Preview" className="h-16 w-16 rounded-full object-cover border" width={64} height={64} unoptimized onError={() => setImageError(true)} />
-                        <span className="text-xs text-emerald-600">Preview active</span>
-                      </div>
-                    )}
-                    {imageError && avatarUrl && (
-                      <div className="flex items-center gap-2">
-                        <UserCircle className="h-16 w-16 text-navy/30 dark:text-white/30" />
-                        <span className="text-xs text-red-500">Invalid or broken URL — showing fallback</span>
-                      </div>
-                    )}
                   </CardContent>
                 </Card>
               )}

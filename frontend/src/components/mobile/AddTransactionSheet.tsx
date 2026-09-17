@@ -195,26 +195,30 @@ export function AddTransactionSheet({ open, onClose, editing }: AddTransactionSh
           {categories.length === 0 && <div className="err" style={{ color: "var(--ppm-text-dim)" }}>No {type.toLowerCase()} categories yet — add one from Settings on desktop.</div>}
         </div>
 
-        {accounts.length > 0 && (
+        {(accounts.length > 0 || paymentMethods.length > 0) && (
           <div className="ppm-field">
-            <label htmlFor="ppm-txn-account">Wallet / Account</label>
-            <select id="ppm-txn-account" value={accountId} onChange={(e) => setAccountId(e.target.value)}>
+            <label htmlFor="ppm-txn-wallet">Wallet / Money Source</label>
+            <select
+              id="ppm-txn-wallet"
+              value={accountId ? `account:${accountId}` : paymentMethodTypeId ? `pm:${paymentMethodTypeId}` : ""}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (v.startsWith("account:")) { setAccountId(v.slice(8)); setPaymentMethodTypeId(""); }
+                else if (v.startsWith("pm:")) { setPaymentMethodTypeId(v.slice(3)); setAccountId(""); }
+                else { setAccountId(""); setPaymentMethodTypeId(""); }
+              }}
+            >
               <option value="">None</option>
-              {accounts.map((a) => (
-                <option key={a.id} value={a.id}>{a.name}</option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        {paymentMethods.length > 0 && (
-          <div className="ppm-field">
-            <label htmlFor="ppm-txn-pm">Money Source</label>
-            <select id="ppm-txn-pm" value={paymentMethodTypeId} onChange={(e) => setPaymentMethodTypeId(e.target.value)}>
-              <option value="">None</option>
-              {paymentMethods.map((p) => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
+              {accounts.length > 0 && (
+                <optgroup label="Wallet">
+                  {accounts.map((a) => <option key={a.id} value={`account:${a.id}`}>{a.name}</option>)}
+                </optgroup>
+              )}
+              {paymentMethods.length > 0 && (
+                <optgroup label="Money Source">
+                  {paymentMethods.map((p) => <option key={p.id} value={`pm:${p.id}`}>{p.name}</option>)}
+                </optgroup>
+              )}
             </select>
           </div>
         )}
