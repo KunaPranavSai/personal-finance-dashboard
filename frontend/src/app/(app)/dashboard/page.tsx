@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
@@ -27,6 +27,7 @@ import { listLocalTransactions } from "@/lib/services/transactionsService";
 import { formatCurrency, formatCompactCurrency, formatPercent, formatDateIN } from "@/lib/format";
 import { useSettingsContext } from "@/lib/SettingsContext";
 import { useProfile } from "@/lib/reference";
+import { getHomeGreeting } from "@/lib/greeting";
 import { DashboardSummary, Transaction, PaginatedResponse } from "@/types";
 import {
   Wallet, TrendingDown, PiggyBank, Activity, Landmark, Gauge,
@@ -125,6 +126,10 @@ function DashboardContent() {
   const { data: profile } = useProfile();
   const displayName = user?.name || profile?.name;
   const firstName = displayName?.split(" ")[0];
+  // Computed once per mount (not on every render) so it stays put for the
+  // whole session/day instead of flickering between variations — see
+  // lib/greeting.ts for the deterministic seeding.
+  const homeGreeting = useMemo(() => getHomeGreeting(firstName), [firstName]);
 
   if (isMobile) {
     if (isLoading) {
@@ -185,7 +190,7 @@ function DashboardContent() {
     const insights = buildHomeInsights(summary, f);
 
     return (
-      <MobileShell title={firstName ? `Hi, ${firstName}` : "Penny Pilot"}>
+      <MobileShell title={homeGreeting}>
         <div className="ppm-card" style={{ display: "flex", gap: 14 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div className="ppm-section-label">Total Net Worth</div>
