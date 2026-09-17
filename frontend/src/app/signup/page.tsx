@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/lib/AuthContext";
+import { useSettingsContext } from "@/lib/SettingsContext";
+import { playVoiceGreeting, isVoiceGreetingsEnabled } from "@/lib/voiceGreeting";
 import { Footer } from "@/components/layout/Footer";
 import { AuthPageShell } from "@/components/ui/AuthPageShell";
 import { AnimatedCheckbox } from "@/components/ui/AnimatedCheckbox";
@@ -54,6 +56,7 @@ interface ConfirmationState {
 
 export default function SignupPage() {
   const { signup } = useAuth();
+  const { settings } = useSettingsContext();
   const router = useRouter();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -126,6 +129,11 @@ export default function SignupPage() {
         consentPdfBase64: result.consentPdfBase64,
         email: normalizedEmail,
       });
+      // Speak only now that account creation has actually succeeded — never
+      // on a failed signup (the catch block below never reaches this line).
+      // No session exists yet at this point, so settings.preferences falls
+      // back to the documented ON-by-default value automatically.
+      playVoiceGreeting("signup", { enabled: isVoiceGreetingsEnabled(settings.preferences) });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Signup failed");
     } finally {

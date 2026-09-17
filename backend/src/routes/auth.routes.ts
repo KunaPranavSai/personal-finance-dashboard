@@ -408,9 +408,14 @@ router.post(
     const sv = bumpSessionVersion(user.id);
     const sessionExpiresAt = await computeSessionExpiryForUser(user.id);
     setTokenCookies(res, signAccess(user, sv, { sessionExpiresAt }), signRefresh(user, sv, { sessionExpiresAt }));
+    // Captured before the update fires, so this reflects the account's real
+    // login history — a null value here means this is genuinely the first
+    // successful login ever (no existing field/flag was added for this; it
+    // reuses the User model's existing lastLoginAt).
+    const isFirstLogin = user.lastLoginAt === null;
     void prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
     void createNotification(user.id, "security", "New sign-in", "Your account was signed in from a new session.");
-    res.json({ user: toUserJson(user), sessionExpiresAt });
+    res.json({ user: toUserJson(user), sessionExpiresAt, isFirstLogin });
   })
 );
 
@@ -478,7 +483,9 @@ router.post(
       );
       await createNotification(user.id, "welcome_tour", "Welcome to Penny Pilot", "Your account is ready. Explore the feature tour to get the most out of Penny Pilot.");
     }
-    res.json({ user: toUserJson(updated), justOnboarded, sessionExpiresAt });
+    // This flow's own existing "first login" signal (mandatory temp-password
+    // change) — reused as-is rather than adding a second one.
+    res.json({ user: toUserJson(updated), justOnboarded, sessionExpiresAt, isFirstLogin: justOnboarded });
   })
 );
 
@@ -517,10 +524,11 @@ router.post(
     const sv = bumpSessionVersion(user.id);
     const sessionExpiresAt = await computeSessionExpiryForUser(user.id);
     const tfa = { tfaEnabled: true, tfaVerifiedAt: Date.now(), sessionExpiresAt };
+    const isFirstLogin = user.lastLoginAt === null;
     setTokenCookies(res, signAccess(user, sv, tfa), signRefresh(user, sv, tfa));
     void prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
     void createNotification(user.id, "security", "New sign-in", "Your account was signed in with two-factor authentication.");
-    res.json({ user: toUserJson(user), sessionExpiresAt });
+    res.json({ user: toUserJson(user), sessionExpiresAt, isFirstLogin });
   })
 );
 
@@ -1812,10 +1820,11 @@ router.post(
     const tfa: TfaClaims = user.twoFactorEnabled
       ? { tfaEnabled: true, tfaVerifiedAt: Date.now(), sessionExpiresAt }
       : { tfaEnabled: false, sessionExpiresAt };
+    const isFirstLogin = user.lastLoginAt === null;
     setTokenCookies(res, signAccess(user, sv, tfa), signRefresh(user, sv, tfa));
     void prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
     void createNotification(user.id, "security", "New sign-in", "Your account was signed in with a passkey.");
-    res.json({ user: toUserJson(user), sessionExpiresAt });
+    res.json({ user: toUserJson(user), sessionExpiresAt, isFirstLogin });
   })
 );
 

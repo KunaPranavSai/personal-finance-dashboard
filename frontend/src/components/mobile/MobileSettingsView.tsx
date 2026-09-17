@@ -10,6 +10,7 @@ import { getStorageMode } from "@/lib/storage";
 import { CURRENCIES, DATE_FORMATS, LANGUAGES, TIMEZONES } from "@/lib/reference";
 import { downloadExport } from "@/lib/export";
 import { useToast } from "@/components/ui/Toast";
+import { isVoiceGreetingsEnabled } from "@/lib/voiceGreeting";
 
 const FIRST_DAY_OPTIONS = [
   { value: "sunday", label: "Sunday" },
@@ -82,8 +83,11 @@ export function MobileSettingsView() {
 
   const notifs = (settings.notifications ?? {}) as Record<string, unknown>;
   const priv = (settings.privacy ?? {}) as Record<string, unknown>;
+  const pref = (settings.preferences ?? {}) as Record<string, unknown>;
   const toggleNotif = (key: string) => updateSettings({ notifications: { ...notifs, [key]: !notifs[key] } });
   const togglePriv = (key: string) => updateSettings({ privacy: { ...priv, [key]: !priv[key] } });
+  const voiceGreetingsEnabled = isVoiceGreetingsEnabled(pref);
+  const toggleVoiceGreetings = () => updateSettings({ preferences: { ...pref, voiceGreetings: !voiceGreetingsEnabled } });
   const toggleExportType = (key: string) => setExportTypes((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
 
   const runExport = async (format: "csv" | "json" | "xlsx" | "pdf") => {
@@ -117,6 +121,25 @@ export function MobileSettingsView() {
           <div className="ppm-info"><div className="ppm-name">Currency, Date &amp; Language</div></div>
           <span className="ppm-chev">›</span>
         </button>
+      </div>
+
+      <div className="ppm-card" style={{ marginTop: 14 }}>
+        <div className="ppm-section-label">Preferences</div>
+        <div className="ppm-list-item" style={{ cursor: "default" }}>
+          <div className="ppm-ic" aria-hidden="true">🔊</div>
+          <div className="ppm-info">
+            <div className="ppm-name">Voice Greetings</div>
+            <div className="ppm-meta">Hear a short spoken greeting when you sign in, sign up, or sign out.</div>
+          </div>
+          <button
+            type="button"
+            className={`ppm-toggle${voiceGreetingsEnabled ? " on" : ""}`}
+            role="switch"
+            aria-checked={voiceGreetingsEnabled}
+            aria-label="Toggle voice greetings"
+            onClick={toggleVoiceGreetings}
+          />
+        </div>
       </div>
 
       <div className="ppm-card" style={{ marginTop: 14 }}>

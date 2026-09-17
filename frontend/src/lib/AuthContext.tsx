@@ -64,6 +64,10 @@ interface LoginResult {
   challengeToken?: string;
   requiresPasswordChange: boolean;
   passwordChangeToken?: string;
+  /** Only meaningful when both of the above are false (login actually
+   * completed) — whether the backend's existing lastLoginAt field was still
+   * null before this login, i.e. a genuine first successful login. */
+  isFirstLogin?: boolean;
 }
 
 export type RecoveryMethod = "email_otp" | "totp" | "security_questions";
@@ -102,10 +106,10 @@ interface AuthContextType {
   twoFactorEnabled: boolean;
   sessionTimeoutMinutes: number;
   login: (email: string, password: string) => Promise<LoginResult>;
-  loginWithPasskey: () => Promise<void>;
+  loginWithPasskey: () => Promise<{ isFirstLogin: boolean }>;
   signup: (input: SignupInput) => Promise<SignupResult>;
-  verifyLogin2FA: (challengeToken: string, code: string) => Promise<void>;
-  forceChangePassword: (passwordChangeToken: string, newPassword: string) => Promise<{ justOnboarded: boolean; user: AuthUser }>;
+  verifyLogin2FA: (challengeToken: string, code: string) => Promise<{ isFirstLogin: boolean }>;
+  forceChangePassword: (passwordChangeToken: string, newPassword: string) => Promise<{ justOnboarded: boolean; user: AuthUser; isFirstLogin: boolean }>;
   logout: (opts?: { preserveRedirect?: boolean }) => Promise<void>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   extendSession: () => Promise<boolean>;
@@ -241,7 +245,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(data.user);
     markRecentLogin();
     refreshTwoFactorStatus();
-    return { requires2FA: false, requiresPasswordChange: false };
+    return { requires2FA: false, requiresPasswordChange: false, isFirstLogin: Boolean(data.isFirstLogin) };
   }, [refreshTwoFactorStatus]);
 
   /**
@@ -271,6 +275,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(data.user);
     markRecentLogin();
     refreshTwoFactorStatus();
+    return { isFirstLogin: Boolean(data.isFirstLogin) };
   }, [refreshTwoFactorStatus]);
 
   const signup = useCallback(async (input: SignupInput): Promise<SignupResult> => {
@@ -298,7 +303,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(data.user);
     markRecentLogin();
     refreshTwoFactorStatus();
-    return { justOnboarded: Boolean(data.justOnboarded), user: data.user as AuthUser };
+    return { justOnboarded: Boolean(data.justOnboarded), user: data.user as AuthUser, isFirstLogin: Boolean(data.isFirstLogin) };
   }, [refreshTwoFactorStatus]);
 
   const verifyLogin2FA = useCallback(async (challengeToken: string, code: string) => {
@@ -314,6 +319,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(data.user);
     markRecentLogin();
     setTwoFactorEnabled(true);
+    return { isFirstLogin: Boolean(data.isFirstLogin) };
   }, []);
 
   const logout = useCallback(async (opts?: { preserveRedirect?: boolean }) => {

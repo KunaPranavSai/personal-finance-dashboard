@@ -1066,6 +1066,13 @@ function SettingsContent() {
                     <input type="checkbox" checked={Boolean(pref.confirmBeforeDelete ?? true)} onChange={(e) => handleNestedChange("preferences", "confirmBeforeDelete", e.target.checked)} className="h-4 w-4 rounded border-black/20 text-teal dark:border-white/20" />
                     <span className="text-sm text-navy dark:text-white">Confirm before deleting items</span>
                   </label>
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input type="checkbox" checked={Boolean(pref.voiceGreetings ?? true)} onChange={(e) => handleNestedChange("preferences", "voiceGreetings", e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-black/20 text-teal dark:border-white/20" />
+                    <span>
+                      <span className="block text-sm text-navy dark:text-white">Voice Greetings</span>
+                      <span className="block text-xs text-navy/50 dark:text-white/50">Hear a short spoken greeting when you sign in, sign up, or sign out.</span>
+                    </span>
+                  </label>
                 </div>
               </div>
 

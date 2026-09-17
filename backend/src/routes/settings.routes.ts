@@ -54,6 +54,7 @@ const defaultSettings = {
     defaultTransactionType: "EXPENSE",
     defaultCharts: "income-expense",
     defaultFilters: "all",
+    voiceGreetings: true,
   },
 };
 

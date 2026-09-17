@@ -8,6 +8,8 @@ import { useAuth } from "@/lib/AuthContext";
 import { useProfile } from "@/lib/reference";
 import { useSettingsContext } from "@/lib/SettingsContext";
 import { useIsMobile } from "@/lib/DeviceContext";
+import { playVoiceGreeting, VOICE_GREETINGS, isVoiceGreetingsEnabled } from "@/lib/voiceGreeting";
+import { useToast } from "@/components/ui/Toast";
 
 /**
  * Mobile "More" tab — a mobile-only navigation hub with no desktop
@@ -21,6 +23,7 @@ export default function MorePage() {
   const { user, logout } = useAuth();
   const { data: profile } = useProfile();
   const { settings, updateSettings, resolvedTheme } = useSettingsContext();
+  const { toast } = useToast();
 
   const [loggingOut, setLoggingOut] = useState(false);
 
@@ -40,7 +43,21 @@ export default function MorePage() {
 
   const handleLogout = async () => {
     setLoggingOut(true);
+    // Real user-initiated sign-out (a deliberate tap on this button) —
+    // session expiry/forced logout never reach this handler.
+    const voiceEnabled = isVoiceGreetingsEnabled(settings.preferences);
+    if (voiceEnabled) {
+      playVoiceGreeting("signOut", { enabled: voiceEnabled });
+      toast(VOICE_GREETINGS.signOut, "info");
+    }
     await logout();
+    if (voiceEnabled) {
+      // Bounded, brief head start for the goodbye clip before this
+      // client-side route change unmounts the app tree — never blocks
+      // logout itself. Client-side navigation (not a hard reload) also
+      // means playback keeps going after this even if it's still fetching.
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
     router.replace("/login");
   };
 

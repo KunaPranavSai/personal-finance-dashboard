@@ -5,6 +5,9 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth, POST_LOGIN_REDIRECT_KEY, SESSION_EXPIRED_REASON_KEY } from "@/lib/AuthContext";
+import { useSettingsContext } from "@/lib/SettingsContext";
+import { useToast } from "@/components/ui/Toast";
+import { playVoiceGreeting, VOICE_GREETINGS, isVoiceGreetingsEnabled } from "@/lib/voiceGreeting";
 import { Footer } from "@/components/layout/Footer";
 import { PasswordInput } from "@/components/ui/PasswordInput";
 import { AuthPageShell } from "@/components/ui/AuthPageShell";
@@ -57,6 +60,8 @@ function SuccessMessage({ children }: { children: React.ReactNode }) {
 
 export default function LoginPage() {
   const { user, login, loginWithPasskey, verifyLogin2FA, forceChangePassword, isAuthenticated, isLoading } = useAuth();
+  const { settings } = useSettingsContext();
+  const { toast } = useToast();
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -107,11 +112,22 @@ export default function LoginPage() {
     }
   }, []);
 
+  // Fires once, right at the moment a login attempt actually succeeds (an
+  // event-handler call site, not an effect), so a fast re-render can never
+  // trigger it twice for the same sign-in.
+  const greetLogin = (isFirstLogin: boolean) => {
+    const key = isFirstLogin ? "firstLogin" : "login";
+    const enabled = isVoiceGreetingsEnabled(settings.preferences);
+    playVoiceGreeting(key, { enabled });
+    toast(VOICE_GREETINGS[key], "success");
+  };
+
   const handleBiometricLogin = async () => {
     setError("");
     setBiometricPending(true);
     try {
-      await loginWithPasskey();
+      const { isFirstLogin } = await loginWithPasskey();
+      greetLogin(isFirstLogin);
       // The auth-state effect below redirects once `user` is populated.
     } catch (err) {
       setError(err instanceof Error ? err.message : "Biometric sign-in failed");
@@ -158,6 +174,8 @@ export default function LoginPage() {
         setPasswordChangeToken(result.passwordChangeToken);
       } else if (result.requires2FA && result.challengeToken) {
         setChallengeToken(result.challengeToken);
+      } else {
+        greetLogin(Boolean(result.isFirstLogin));
       }
       // else: the auth-state effect above redirects once `user` is populated.
     } catch (err) {
@@ -181,7 +199,8 @@ export default function LoginPage() {
     }
     setIsPending(true);
     try {
-      const { justOnboarded, user: updatedUser } = await forceChangePassword(passwordChangeToken, newPassword);
+      const { justOnboarded, user: updatedUser, isFirstLogin } = await forceChangePassword(passwordChangeToken, newPassword);
+      greetLogin(isFirstLogin);
       router.replace(resolveDestination(updatedUser?.role ?? "USER", justOnboarded));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to set new password");
@@ -212,7 +231,10 @@ export default function LoginPage() {
           successTitle="Signed In Successfully!"
           successSubtitle="Redirecting to your dashboard…"
           allowBackupCode
-          onVerify={async (code) => { await verifyLogin2FA(challengeToken, code); }}
+          onVerify={async (code) => {
+            const { isFirstLogin } = await verifyLogin2FA(challengeToken, code);
+            greetLogin(isFirstLogin);
+          }}
           onCancel={() => setChallengeToken(null)}
           cancelLabel="Back to sign in"
         />

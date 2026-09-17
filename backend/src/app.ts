@@ -19,6 +19,7 @@ import settingsRoutes from "./routes/settings.routes";
 import exportRoutes from "./routes/export.routes";
 import driveRoutes from "./routes/drive.routes";
 import authRoutes from "./routes/auth.routes";
+import voiceGreetingRoutes from "./routes/voiceGreeting.routes";
 import activityRoutes from "./routes/activity.routes";
 import adminRoutes from "./routes/admin.routes";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler";
@@ -133,6 +134,11 @@ export function createApp() {
 
   // Auth routes (public — login / logout / refresh)
   app.use("/api/auth", authRoutes);
+
+  // Voice greetings (public — the signup-success greeting fires before any
+  // session exists). Only ever synthesizes one of a small fixed set of
+  // known messages server-side; see routes/voiceGreeting.routes.ts.
+  app.use("/api/voice-greeting", voiceGreetingRoutes);
 
   // Google Drive connection itself — must be reachable before a user is "connected", so this
   // is authenticated but NOT gated behind requireDriveConnected (that would be circular).

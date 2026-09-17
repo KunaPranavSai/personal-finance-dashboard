@@ -49,7 +49,7 @@ const DEFAULT_SETTINGS: AppSettingsData = {
   export: { defaultFormat: "csv", includeAttachments: false },
   backup: { autoBackup: false, backupFrequency: "weekly" },
   privacy: { shareAnonymousData: true, showInSuggestions: false, analytics: true, crashReporting: true, tracking: true },
-  preferences: { compactMode: false, showTips: true, confirmBeforeDelete: true, defaultTransactionType: "EXPENSE", defaultCharts: "income-expense", defaultFilters: "all" },
+  preferences: { compactMode: false, showTips: true, confirmBeforeDelete: true, defaultTransactionType: "EXPENSE", defaultCharts: "income-expense", defaultFilters: "all", voiceGreetings: true },
 };
 
 interface SettingsContextValue {

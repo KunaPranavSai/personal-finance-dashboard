@@ -6,6 +6,8 @@ import { useUiStore } from "@/store/uiStore";
 import { useNotifications, useProfile } from "@/lib/reference";
 import { useSettingsContext } from "@/lib/SettingsContext";
 import { useAuth } from "@/lib/AuthContext";
+import { playVoiceGreeting, VOICE_GREETINGS, isVoiceGreetingsEnabled } from "@/lib/voiceGreeting";
+import { useToast } from "@/components/ui/Toast";
 import { cn } from "@/lib/format";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
@@ -16,8 +18,9 @@ import { DesktopSearch } from "./DesktopSearch";
 
 export function Topbar({ title }: { title: string }) {
   const { toggleSidebar, unreadNotifications, setUnreadNotifications } = useUiStore();
-  const { updateSettings, resolvedTheme } = useSettingsContext();
+  const { settings, updateSettings, resolvedTheme } = useSettingsContext();
   const { logout, user } = useAuth();
+  const { toast } = useToast();
   const [avatarOpen, setAvatarOpen] = useState(false);
   const [imgError, setImgError] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -66,14 +69,29 @@ export function Topbar({ title }: { title: string }) {
   const handleLogout = useCallback(async () => {
     setIsLoggingOut(true);
     setAvatarOpen(false);
+    // Speak before the session is torn down, since this is a real
+    // user-initiated sign-out (a deliberate click on this menu item) — not
+    // a session expiry or forced logout, which never reach this handler.
+    const voiceEnabled = isVoiceGreetingsEnabled(settings.preferences);
+    if (voiceEnabled) {
+      playVoiceGreeting("signOut", { enabled: voiceEnabled });
+      toast(VOICE_GREETINGS.signOut, "info");
+    }
     await logout();
+    // Give the goodbye clip a brief, bounded moment to actually fetch and
+    // start playing before the hard navigation below unloads the page (and
+    // any in-flight audio with it) — never blocks logout itself, and only
+    // applies when a greeting was actually queued.
+    if (voiceEnabled) {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
     // Hard navigation, not router.replace — a client-side route change
     // leaves the whole in-memory app (React Query cache, any component
     // state, other logic that assumed a signed-in user) alive underneath
     // the login screen. A full reload guarantees every last bit of that is
     // torn down and /login starts from a truly clean slate.
     window.location.href = "/login";
-  }, [logout]);
+  }, [logout, settings.preferences, toast]);
 
   const displayName = profile?.name || "User";
   const displayEmail = profile?.email || "";
