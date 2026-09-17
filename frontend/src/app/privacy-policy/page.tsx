@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   description: "How Penny Pilot collects, stores, and protects your account and financial data, including its use of Google Drive and Google OAuth.",
 };
 
-const LAST_UPDATED = "September 11, 2026";
+const LAST_UPDATED = "September 15, 2026";
 const PLACEHOLDER_EMAIL = "superadminpennypilot@gmail.com";
 const PLACEHOLDER_ENTITY = "Pranav Sai Kuna. No physical mailing address provided.";
 
@@ -39,9 +39,12 @@ export default function PrivacyPolicyPage() {
       <p>
         Penny Pilot lets you record and manage income, expenses, transactions, budgets, savings, investments, bills/EMIs,
         and financial goals. This financial data is <strong>not stored in Penny Pilot&apos;s own central database</strong>.
-        Instead, it is stored as structured data files inside a &quot;Penny Pilot&quot; folder created in{" "}
-        <strong>your own Google Drive</strong>, under your own Google account — see Section 2 below for details.
+        You choose where it is stored instead:
       </p>
+      <ul>
+        <li><strong>Google Drive mode</strong> (recommended): stored as structured data files inside a &quot;Penny Pilot&quot; folder created in your own Google Drive, under your own Google account — see Section 2 below for details.</li>
+        <li><strong>This Device Only mode</strong>: stored only in this browser/device&apos;s local storage (IndexedDB). This data is never transmitted to, or held by, Penny Pilot&apos;s servers, database, or any Google account.</li>
+      </ul>
       <h3>1.3 Activity &amp; Security Logs</h3>
       <p>
         We keep a limited activity log tied to your account (e.g. login events, password/2FA changes, Google Drive
@@ -51,10 +54,13 @@ export default function PrivacyPolicyPage() {
 
       <h2>2. Google OAuth &amp; Google Drive Access</h2>
       <p>
-        Penny Pilot uses Google Drive as your primary personal data store. After you register, you are required to
-        connect a Google account so the App can create and manage your financial workspace. Connecting uses Google&apos;s
-        standard OAuth 2.0 sign-in flow, which asks you to explicitly grant Penny Pilot permission before any access is
-        given.
+        This section applies only if you choose Google Drive mode. If you choose This Device Only mode instead,
+        Penny Pilot does not request Google OAuth access or use Google Drive at all for your financial data.
+      </p>
+      <p>
+        In Google Drive mode, after you register (or later switch modes) you connect a Google account so the App can
+        create and manage your financial workspace. Connecting uses Google&apos;s standard OAuth 2.0 sign-in flow, which
+        asks you to explicitly grant Penny Pilot permission before any access is given.
       </p>
       <p>The Google OAuth permissions (&quot;scopes&quot;) Penny Pilot requests are:</p>
       <ul>
@@ -89,6 +95,11 @@ export default function PrivacyPolicyPage() {
         access controls, and Google&apos;s own data-handling practices for files stored in Drive, in addition to this
         Privacy Policy.
       </p>
+      <p>
+        In This Device Only mode, your financial records are instead written directly to this browser&apos;s local
+        IndexedDB storage, with no equivalent Drive-style automatic version history — you are responsible for
+        exporting your own backups using the App&apos;s export feature.
+      </p>
 
       <h2>4. Token &amp; Security Handling</h2>
       <p>
@@ -117,6 +128,11 @@ export default function PrivacyPolicyPage() {
           control or retain a separate copy of that data.
         </li>
         <li>
+          <strong>Financial data in This Device Only mode</strong> remains only in this browser&apos;s local storage
+          for as long as you keep it there. Clearing this browser&apos;s site data, uninstalling the browser, or
+          resetting the device deletes it permanently — Penny Pilot holds no copy anywhere else.
+        </li>
+        <li>
           <strong>Account data in Penny Pilot&apos;s database</strong> (your name, email, password hash, security
           settings, and activity log) is retained for as long as your account remains active.
         </li>
@@ -138,7 +154,8 @@ export default function PrivacyPolicyPage() {
       </ul>
       <p>
         You can also revoke Penny Pilot&apos;s access entirely from your Google Account&apos;s third-party app permissions
-        page, which has the same effect from Google&apos;s side.
+        page, which has the same effect from Google&apos;s side. If you are in This Device Only mode, none of this
+        section applies — there is no Google Drive connection to disconnect.
       </p>
 
       <h2>7. Third-Party Services</h2>

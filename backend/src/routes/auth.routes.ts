@@ -56,7 +56,7 @@ const loginLimiter = rateLimit({
   limit: 10,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: "Too many attempts. Please try again later." },
+  message: { error: "Too many attempts. Please try again later.", code: "AUTH_RATE_LIMITED" },
 });
 
 const signupLimiter = rateLimit({
@@ -354,16 +354,16 @@ router.post(
     }
     const user = await prisma.user.findUnique({ where: { email: email.trim().toLowerCase() } });
     if (!user || !user.passwordHash) {
-      res.status(401).json({ error: "Invalid credentials" });
+      res.status(401).json({ error: "Invalid credentials", code: "AUTH_INVALID" });
       return;
     }
     if (user.status === "SUSPENDED") {
-      res.status(403).json({ error: "Your account has been suspended. Contact support." });
+      res.status(403).json({ error: "Your account has been suspended. Contact support.", code: "AUTH_FORBIDDEN" });
       return;
     }
     if (user.lockedUntil && user.lockedUntil > new Date()) {
       const minutesLeft = Math.ceil((user.lockedUntil.getTime() - Date.now()) / 60000);
-      res.status(423).json({ error: `Too many failed attempts. Try again in ${minutesLeft} minute${minutesLeft === 1 ? "" : "s"}.` });
+      res.status(423).json({ error: `Too many failed attempts. Try again in ${minutesLeft} minute${minutesLeft === 1 ? "" : "s"}.`, code: "AUTH_RATE_LIMITED" });
       return;
     }
     const valid = await bcrypt.compare(password, user.passwordHash);
@@ -385,6 +385,7 @@ router.post(
         error: locked
           ? `Too many failed attempts. Your account is locked for ${LOCKOUT_DURATION_MS / 60000} minutes.`
           : "Invalid credentials",
+        code: locked ? "AUTH_RATE_LIMITED" : "AUTH_INVALID",
       });
       return;
     }
@@ -432,16 +433,16 @@ router.post(
     try {
       payload = jwt.verify(passwordChangeToken, ACCESS_SECRET) as { userId: string; purpose?: string };
     } catch {
-      res.status(401).json({ error: "Invalid or expired session. Please log in again." });
+      res.status(401).json({ error: "Invalid or expired session. Please log in again.", code: "AUTH_EXPIRED" });
       return;
     }
     if (payload.purpose !== "change-password") {
-      res.status(401).json({ error: "Invalid token" });
+      res.status(401).json({ error: "Invalid token", code: "AUTH_INVALID" });
       return;
     }
     const user = await prisma.user.findUnique({ where: { id: payload.userId } });
     if (!user) {
-      res.status(401).json({ error: "Account not found" });
+      res.status(401).json({ error: "Account not found", code: "AUTH_EXPIRED" });
       return;
     }
     const justOnboarded = !user.onboardedAt;
@@ -495,22 +496,22 @@ router.post(
     try {
       payload = jwt.verify(challengeToken, ACCESS_SECRET) as { userId: string; twoFactor?: boolean };
     } catch {
-      res.status(401).json({ error: "Invalid or expired challenge. Please log in again." });
+      res.status(401).json({ error: "Invalid or expired challenge. Please log in again.", code: "AUTH_EXPIRED" });
       return;
     }
     if (!payload.twoFactor) {
-      res.status(401).json({ error: "Invalid challenge" });
+      res.status(401).json({ error: "Invalid challenge", code: "AUTH_INVALID" });
       return;
     }
     const user = await prisma.user.findUnique({ where: { id: payload.userId } });
     if (!user) {
-      res.status(401).json({ error: "Account not found" });
+      res.status(401).json({ error: "Account not found", code: "AUTH_EXPIRED" });
       return;
     }
     const valid = await verifyTwoFactorCode(user.id, user, code);
     if (!valid) {
       void logActivity(req, "login_failed", "Invalid 2FA code", user.id);
-      res.status(401).json({ error: "Invalid verification code" });
+      res.status(401).json({ error: "Invalid verification code", code: "AUTH_INVALID" });
       return;
     }
     const sv = bumpSessionVersion(user.id);
@@ -563,12 +564,12 @@ router.post(
       return;
     }
     if (!/^\d{6}$/.test(code)) {
-      res.status(401).json({ error: "Invalid verification code" });
+      res.status(401).json({ error: "Invalid verification code", code: "AUTH_INVALID" });
       return;
     }
     const { valid } = await verifyTotp({ secret: user.twoFactorPendingSecret, token: code });
     if (!valid) {
-      res.status(401).json({ error: "Invalid verification code" });
+      res.status(401).json({ error: "Invalid verification code", code: "AUTH_INVALID" });
       return;
     }
     const backupCodes = generateBackupCodes();
@@ -608,12 +609,12 @@ router.post(
     }
     const user = await prisma.user.findUnique({ where: { id: req.auth!.userId } });
     if (!user?.passwordHash) {
-      res.status(401).json({ error: "Incorrect password" });
+      res.status(401).json({ error: "Incorrect password", code: "AUTH_INVALID" });
       return;
     }
     const validPassword = await bcrypt.compare(password, user.passwordHash);
     if (!validPassword) {
-      res.status(401).json({ error: "Incorrect password" });
+      res.status(401).json({ error: "Incorrect password", code: "AUTH_INVALID" });
       return;
     }
     if (!user.twoFactorEnabled) {
@@ -622,7 +623,7 @@ router.post(
     }
     const validCode = await verifyTwoFactorCode(user.id, user, code);
     if (!validCode) {
-      res.status(401).json({ error: "Invalid verification code" });
+      res.status(401).json({ error: "Invalid verification code", code: "AUTH_INVALID" });
       return;
     }
     await prisma.user.update({
@@ -661,7 +662,7 @@ router.post(
     const valid = await verifyTwoFactorCode(user.id, user, code);
     if (!valid) {
       void logActivity(req, "login_failed", "Invalid 2FA re-verification code", user.id);
-      res.status(401).json({ error: "Invalid verification code" });
+      res.status(401).json({ error: "Invalid verification code", code: "AUTH_INVALID" });
       return;
     }
     const sv = getSessionVersion(user.id);
@@ -689,13 +690,13 @@ router.post(
     }
     const user = await prisma.user.findUnique({ where: { id: req.auth!.userId } });
     if (!user?.passwordHash) {
-      res.status(401).json({ error: "Incorrect password" });
+      res.status(401).json({ error: "Incorrect password", code: "AUTH_INVALID" });
       return;
     }
     const valid = await bcrypt.compare(password, user.passwordHash);
     if (!valid) {
       void logActivity(req, "uid_change_failed", "Wrong password", user.id);
-      res.status(401).json({ error: "Incorrect password" });
+      res.status(401).json({ error: "Incorrect password", code: "AUTH_INVALID" });
       return;
     }
     if (trimmed === user.uid) {
@@ -730,7 +731,7 @@ router.post(
     }
     const user = await prisma.user.findUnique({ where: { id: req.auth!.userId } });
     if (!user?.passwordHash || !(await bcrypt.compare(password, user.passwordHash))) {
-      res.status(401).json({ error: "Incorrect password" });
+      res.status(401).json({ error: "Incorrect password", code: "AUTH_INVALID" });
       return;
     }
     res.json({ ok: true });
@@ -1122,12 +1123,12 @@ router.patch(
     }
     const user = await prisma.user.findUnique({ where: { id: req.auth!.userId } });
     if (!user || !user.passwordHash) {
-      res.status(401).json({ error: "Invalid password" });
+      res.status(401).json({ error: "Invalid password", code: "AUTH_INVALID" });
       return;
     }
     const validPassword = await bcrypt.compare(password, user.passwordHash);
     if (!validPassword) {
-      res.status(401).json({ error: "Invalid password" });
+      res.status(401).json({ error: "Invalid password", code: "AUTH_INVALID" });
       return;
     }
     const [hash1, hash2] = await Promise.all([
@@ -1184,7 +1185,7 @@ router.post(
   asyncHandler(async (req: Request, res: Response) => {
     const token = (req.signedCookies as Record<string, string | undefined>)["refresh_token"];
     if (!token) {
-      res.status(401).json({ error: "No refresh token" });
+      res.status(401).json({ error: "No refresh token", code: "AUTH_REQUIRED" });
       return;
     }
     try {
@@ -1192,7 +1193,7 @@ router.post(
       if (payload.sv !== getSessionVersion(payload.userId)) {
         res.clearCookie("access_token", { path: "/" });
         res.clearCookie("refresh_token", { path: "/api/auth" });
-        res.status(401).json({ error: "Session ended: you were signed in elsewhere" });
+        res.status(401).json({ error: "Session ended: you were signed in elsewhere", code: "AUTH_EXPIRED" });
         return;
       }
       // Inactivity deadline, enforced independently of token cryptographic
@@ -1201,14 +1202,14 @@ router.post(
       if (payload.sessionExpiresAt !== undefined && Date.now() > payload.sessionExpiresAt) {
         res.clearCookie("access_token", { path: "/" });
         res.clearCookie("refresh_token", { path: "/api/auth" });
-        res.status(401).json({ error: "Session expired due to inactivity", code: "SESSION_EXPIRED" });
+        res.status(401).json({ error: "Session expired due to inactivity", code: "AUTH_EXPIRED" });
         return;
       }
       const user = await prisma.user.findUnique({ where: { id: payload.userId } });
       if (!user || user.status !== "ACTIVE") {
         res.clearCookie("access_token", { path: "/" });
         res.clearCookie("refresh_token", { path: "/api/auth" });
-        res.status(401).json({ error: "Account no longer active" });
+        res.status(401).json({ error: "Account no longer active", code: "AUTH_FORBIDDEN" });
         return;
       }
       // Every refresh call — silent (background token renewal) or explicit
@@ -1221,10 +1222,11 @@ router.post(
       const tfa: TfaClaims = { tfaEnabled: user.twoFactorEnabled, tfaVerifiedAt: payload.tfaVerifiedAt, sessionExpiresAt };
       setTokenCookies(res, signAccess(user, payload.sv, tfa), signRefresh(user, payload.sv, tfa));
       res.json({ user: toUserJson(user), sessionExpiresAt });
-    } catch {
+    } catch (err) {
       res.clearCookie("access_token", { path: "/" });
       res.clearCookie("refresh_token", { path: "/api/auth" });
-      res.status(401).json({ error: "Invalid or expired refresh token" });
+      const code = err instanceof jwt.TokenExpiredError ? "AUTH_EXPIRED" : "AUTH_INVALID";
+      res.status(401).json({ error: "Invalid or expired refresh token", code });
     }
   })
 );
@@ -1236,7 +1238,7 @@ router.get(
   asyncHandler(async (req: Request, res: Response) => {
     const user = await prisma.user.findUnique({ where: { id: req.auth!.userId } });
     if (!user) {
-      res.status(401).json({ error: "Account not found" });
+      res.status(401).json({ error: "Account not found", code: "AUTH_EXPIRED" });
       return;
     }
     res.json({ user: toUserJson(user), sessionExpiresAt: req.auth!.sessionExpiresAt });
@@ -1264,7 +1266,7 @@ router.patch(
     }
     const user = await prisma.user.findUnique({ where: { id: req.auth!.userId } });
     if (!user?.passwordHash || !(await bcrypt.compare(currentPassword, user.passwordHash))) {
-      res.status(401).json({ error: "Current password is incorrect" });
+      res.status(401).json({ error: "Current password is incorrect", code: "AUTH_INVALID" });
       return;
     }
     const newHash = await bcrypt.hash(newPassword, 12);
@@ -1356,7 +1358,7 @@ router.patch(
         return;
       }
       if (req.auth!.role !== "SUPER_ADMIN" && (role === "SUPER_ADMIN" || target.role === "SUPER_ADMIN")) {
-        res.status(403).json({ error: "Only a Super Admin can grant or modify Super Admin access" });
+        res.status(403).json({ error: "Only a Super Admin can grant or modify Super Admin access", code: "AUTH_FORBIDDEN" });
         return;
       }
       if (target.role === "SUPER_ADMIN" && role !== "SUPER_ADMIN") {
@@ -1410,7 +1412,7 @@ router.post(
       return;
     }
     if (target.role === "SUPER_ADMIN" && req.auth!.role !== "SUPER_ADMIN") {
-      res.status(403).json({ error: "Only a Super Admin can reset another Super Admin's password" });
+      res.status(403).json({ error: "Only a Super Admin can reset another Super Admin's password", code: "AUTH_FORBIDDEN" });
       return;
     }
     const finalPassword = password?.trim() || generateTempPassword();
@@ -1448,7 +1450,7 @@ router.post(
       return;
     }
     if (target.role === "SUPER_ADMIN" && req.auth!.role !== "SUPER_ADMIN") {
-      res.status(403).json({ error: "Only a Super Admin can reset another Super Admin's UID" });
+      res.status(403).json({ error: "Only a Super Admin can reset another Super Admin's UID", code: "AUTH_FORBIDDEN" });
       return;
     }
     const trimmed = uid?.trim();
@@ -1522,7 +1524,7 @@ router.delete(
       // Mirrors PATCH /users/:id's role-change guard: a plain Admin must never be able to
       // remove a Super Admin account, only a Super Admin can.
       if (req.auth!.role !== "SUPER_ADMIN") {
-        res.status(403).json({ error: "Only a Super Admin can delete a Super Admin account" });
+        res.status(403).json({ error: "Only a Super Admin can delete a Super Admin account", code: "AUTH_FORBIDDEN" });
         return;
       }
       const otherSuperAdmins = await prisma.user.count({ where: { role: "SUPER_ADMIN", id: { not: id } } });
@@ -1573,12 +1575,12 @@ router.post(
     }
     const user = await prisma.user.findUnique({ where: { id: req.auth!.userId }, include: { passkeys: true } });
     if (!user?.passwordHash || !(await bcrypt.compare(password, user.passwordHash))) {
-      res.status(401).json({ error: "Incorrect password" });
+      res.status(401).json({ error: "Incorrect password", code: "AUTH_INVALID" });
       return;
     }
     if (user.twoFactorEnabled) {
       if (!code || !(await verifyTwoFactorCode(user.id, user, code))) {
-        res.status(401).json({ error: "Invalid or missing verification code" });
+        res.status(401).json({ error: "Invalid or missing verification code", code: "AUTH_INVALID" });
         return;
       }
     }
@@ -1708,12 +1710,12 @@ router.delete(
     }
     const user = await prisma.user.findUnique({ where: { id: req.auth!.userId } });
     if (!user?.passwordHash || !(await bcrypt.compare(password, user.passwordHash))) {
-      res.status(401).json({ error: "Incorrect password" });
+      res.status(401).json({ error: "Incorrect password", code: "AUTH_INVALID" });
       return;
     }
     if (user.twoFactorEnabled) {
       if (!code || !(await verifyTwoFactorCode(user.id, user, code))) {
-        res.status(401).json({ error: "Invalid or missing verification code" });
+        res.status(401).json({ error: "Invalid or missing verification code", code: "AUTH_INVALID" });
         return;
       }
     }
@@ -1768,12 +1770,12 @@ router.post(
     }
     const passkey = await prisma.passkey.findUnique({ where: { credentialId: response.id } });
     if (!passkey) {
-      res.status(401).json({ error: "This passkey is not registered with any account." });
+      res.status(401).json({ error: "This passkey is not registered with any account.", code: "AUTH_INVALID" });
       return;
     }
     const user = await prisma.user.findUnique({ where: { id: passkey.userId } });
     if (!user || user.status !== "ACTIVE") {
-      res.status(403).json({ error: "This account is not available for sign-in." });
+      res.status(403).json({ error: "This account is not available for sign-in.", code: "AUTH_FORBIDDEN" });
       return;
     }
     let verification;
@@ -1791,11 +1793,11 @@ router.post(
         },
       });
     } catch {
-      res.status(401).json({ error: "Could not verify passkey sign-in." });
+      res.status(401).json({ error: "Could not verify passkey sign-in.", code: "AUTH_INVALID" });
       return;
     }
     if (!verification.verified) {
-      res.status(401).json({ error: "Could not verify passkey sign-in." });
+      res.status(401).json({ error: "Could not verify passkey sign-in.", code: "AUTH_INVALID" });
       return;
     }
     await prisma.passkey.update({

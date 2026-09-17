@@ -19,6 +19,13 @@ export interface ListLocalTransactionsParams {
   pageSize: number;
   search?: string;
   type?: "" | EntryType;
+  categoryId?: string;
+  accountId?: string;
+  paymentMethodTypeId?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  sortBy?: "date" | "amount" | "description";
+  sortDir?: "asc" | "desc";
 }
 
 export async function listLocalTransactions(params: ListLocalTransactionsParams): Promise<PaginatedResponse<Transaction>> {
@@ -41,6 +48,11 @@ export async function listLocalTransactions(params: ListLocalTransactionsParams)
   }));
 
   if (params.type) items = items.filter((t) => t.type === params.type);
+  if (params.categoryId) items = items.filter((t) => t.categoryId === params.categoryId);
+  if (params.accountId) items = items.filter((t) => t.accountId === params.accountId);
+  if (params.paymentMethodTypeId) items = items.filter((t) => t.paymentMethodTypeId === params.paymentMethodTypeId);
+  if (params.dateFrom) items = items.filter((t) => t.date >= params.dateFrom!);
+  if (params.dateTo) items = items.filter((t) => t.date <= params.dateTo!);
   if (params.search) {
     const q = params.search.toLowerCase();
     items = items.filter(
@@ -50,7 +62,15 @@ export async function listLocalTransactions(params: ListLocalTransactionsParams)
         (t.notes ?? "").toLowerCase().includes(q)
     );
   }
-  items.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const sortBy = params.sortBy ?? "date";
+  const sortDir = params.sortDir ?? "desc";
+  items.sort((a, b) => {
+    let cmp: number;
+    if (sortBy === "amount") cmp = Number(a.amount) - Number(b.amount);
+    else if (sortBy === "description") cmp = a.description.localeCompare(b.description);
+    else cmp = new Date(a.date).getTime() - new Date(b.date).getTime();
+    return sortDir === "asc" ? cmp : -cmp;
+  });
 
   const total = items.length;
   const totalPages = Math.max(1, Math.ceil(total / params.pageSize));

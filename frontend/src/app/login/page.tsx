@@ -93,9 +93,17 @@ export default function LoginPage() {
     if (registeredEmail) {
       setInfo("Your account has been created. Sign in below to get started.");
     }
-    if (sessionStorage.getItem(SESSION_EXPIRED_REASON_KEY) === "inactivity") {
+    const expiredReason = sessionStorage.getItem(SESSION_EXPIRED_REASON_KEY);
+    if (expiredReason === "inactivity") {
       sessionStorage.removeItem(SESSION_EXPIRED_REASON_KEY);
       setError("Your session expired due to inactivity.");
+    } else if (expiredReason === "cookie-not-persisted") {
+      sessionStorage.removeItem(SESSION_EXPIRED_REASON_KEY);
+      setError(
+        "You signed in, but your browser didn't keep you signed in. This usually happens when a browser blocks " +
+        "cross-site cookies (e.g. Safari's \"Prevent Cross-Site Tracking\", or a private/incognito window). " +
+        "Try again, or use a different browser if this keeps happening."
+      );
     }
   }, []);
 

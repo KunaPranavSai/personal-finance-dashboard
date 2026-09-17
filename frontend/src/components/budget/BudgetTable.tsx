@@ -2,6 +2,8 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { getStorageMode } from "@/lib/storage";
+import { listLocalBudgets, deleteLocalBudget } from "@/lib/services/budgetsService";
 import { Budget } from "@/types";
 import { formatCurrency as fmtCurr, formatPercent } from "@/lib/format";
 import { useSettingsContext } from "@/lib/SettingsContext";
@@ -41,11 +43,14 @@ export function BudgetTable({ periodKey }: { periodKey: string }) {
 
   const { data, isLoading } = useQuery({
     queryKey: ["budgets", periodKey],
-    queryFn: () => api.get<{ items: Budget[] }>(`/api/budgets?period=MONTHLY&periodKey=${periodKey}`),
+    queryFn: () =>
+      getStorageMode() === "local"
+        ? listLocalBudgets({ period: "MONTHLY", periodKey })
+        : api.get<{ items: Budget[] }>(`/api/budgets?period=MONTHLY&periodKey=${periodKey}`),
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => api.delete(`/api/budgets/${id}`),
+    mutationFn: (id: string) => (getStorageMode() === "local" ? deleteLocalBudget(id) : api.delete(`/api/budgets/${id}`)),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["budgets"], refetchType: "all" });
       queryClient.invalidateQueries({ queryKey: ["dashboard-summary"], refetchType: "all" });

@@ -5,6 +5,8 @@ import { useSearchParams } from "next/navigation";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { getStorageMode } from "@/lib/storage";
+import { listLocalTransactions, deleteLocalTransaction } from "@/lib/services/transactionsService";
 import { Transaction, PaginatedResponse } from "@/types";
 import { formatCurrency as fmtCurr, formatDateIN } from "@/lib/format";
 import { useSettingsContext } from "@/lib/SettingsContext";
@@ -34,13 +36,15 @@ export function TransactionsTable({
   const { data, isLoading } = useQuery({
     queryKey: ["transactions", { page, search, type }],
     queryFn: () =>
-      api.get<PaginatedResponse<Transaction>>(
-        `/api/transactions?page=${page}&pageSize=20${search ? `&search=${encodeURIComponent(search)}` : ""}${type ? `&type=${type}` : ""}`
-      ),
+      getStorageMode() === "local"
+        ? listLocalTransactions({ page, pageSize: 20, search, type })
+        : api.get<PaginatedResponse<Transaction>>(
+            `/api/transactions?page=${page}&pageSize=20${search ? `&search=${encodeURIComponent(search)}` : ""}${type ? `&type=${type}` : ""}`
+          ),
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => api.delete(`/api/transactions/${id}`),
+    mutationFn: (id: string) => (getStorageMode() === "local" ? deleteLocalTransaction(id) : api.delete(`/api/transactions/${id}`)),
     onSuccess: () => {
       // See TransactionFormModal.tsx for why refetchType: "all" is needed here.
       queryClient.invalidateQueries({ queryKey: ["transactions"], refetchType: "all" });

@@ -56,6 +56,25 @@ const withPWA = withPWAInit({
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // Master Plan §51 — baseline security headers with essentially zero
+  // compatibility risk (unlike a CSP, none of these can break rendering).
+  // A full Content-Security-Policy is intentionally NOT added here: this app
+  // relies on inline styles from Tailwind/Framer Motion, and a CSP strict
+  // enough to matter would need to be verified live against every page
+  // before shipping, which is out of scope for this pass.
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+        ],
+      },
+    ];
+  },
 };
 
 export default withPWA(nextConfig);

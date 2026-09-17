@@ -4,8 +4,8 @@
 // (frontend/src/app/terms/page.tsx, frontend/src/app/privacy-policy/page.tsx)
 // — bump both the version and this comment's reference date together if the
 // legal text is materially revised.
-export const TERMS_VERSION = "1.0";
-export const TERMS_LAST_UPDATED = "September 11, 2026";
+export const TERMS_VERSION = "1.1";
+export const TERMS_LAST_UPDATED = "September 15, 2026";
 
-export const PRIVACY_VERSION = "1.0";
-export const PRIVACY_LAST_UPDATED = "September 11, 2026";
+export const PRIVACY_VERSION = "1.1";
+export const PRIVACY_LAST_UPDATED = "September 15, 2026";

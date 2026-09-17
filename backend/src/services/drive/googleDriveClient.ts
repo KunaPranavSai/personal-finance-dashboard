@@ -1,5 +1,6 @@
 import { google } from "googleapis";
 import { Readable } from "stream";
+import { mapGoogleDriveError } from "../../lib/driveErrors";
 
 // drive.file — the app can only see/manage files and folders IT creates in the
 // connected user's own Drive. This intentionally cannot see or touch anything
@@ -128,27 +129,39 @@ export async function findFile(accessToken: string, folderId: string, filename: 
 
 export async function createFile(accessToken: string, folderId: string, filename: string, content: string): Promise<string> {
   const drive = driveClient(accessToken);
-  const created = await drive.files.create({
-    requestBody: { name: filename, parents: [folderId] },
-    media: { mimeType: "application/json", body: Readable.from([content]) },
-    fields: "id",
-  });
-  return created.data.id!;
+  try {
+    const created = await drive.files.create({
+      requestBody: { name: filename, parents: [folderId] },
+      media: { mimeType: "application/json", body: Readable.from([content]) },
+      fields: "id",
+    });
+    return created.data.id!;
+  } catch (err) {
+    throw mapGoogleDriveError(err, "write");
+  }
 }
 
 /** Overwrites a file's content. Drive automatically keeps this as a new revision, which is what backs the restore "safe pre-restore state" requirement. */
 export async function updateFileContent(accessToken: string, fileId: string, content: string): Promise<void> {
   const drive = driveClient(accessToken);
-  await drive.files.update({
-    fileId,
-    media: { mimeType: "application/json", body: Readable.from([content]) },
-  });
+  try {
+    await drive.files.update({
+      fileId,
+      media: { mimeType: "application/json", body: Readable.from([content]) },
+    });
+  } catch (err) {
+    throw mapGoogleDriveError(err, "write");
+  }
 }
 
 export async function readFileContent(accessToken: string, fileId: string): Promise<string> {
   const drive = driveClient(accessToken);
-  const res = await drive.files.get({ fileId, alt: "media" }, { responseType: "text" });
-  return res.data as unknown as string;
+  try {
+    const res = await drive.files.get({ fileId, alt: "media" }, { responseType: "text" });
+    return res.data as unknown as string;
+  } catch (err) {
+    throw mapGoogleDriveError(err, "read");
+  }
 }
 
 /** Create-if-missing, update-if-present. Returns the file id either way. */

@@ -38,13 +38,18 @@ export const TERMS_SECTIONS: LegalSection[] = [
     ],
   },
   {
-    heading: "2. Google Drive Dependency",
+    heading: "2. Choice of Storage: Google Drive or This Device Only",
     paragraphs: [
-      "Penny Pilot uses your own Google Drive as the primary storage location for your financial data. After registering, you are required to connect a Google account via Google OAuth so the App can create and manage a dedicated data workspace inside your Drive, as described in the Privacy Policy.",
-      "Core features of the App (recording transactions, budgets, investments, bills, goals, and related data) require an active Google Drive connection and will not function without one.",
+      `Penny Pilot lets you choose how your financial data is stored: in your own Google Drive (recommended), or locally on this device/browser only ("This Device Only" mode). You choose a storage mode when setting up your account and can switch it later from Settings — switching does not automatically move existing data between modes.`,
+      "Google Drive mode. After choosing this mode, you are required to connect a Google account via Google OAuth so the App can create and manage a dedicated data workspace inside your Drive, as described in the Privacy Policy.",
+      "Core features of the App (recording transactions, budgets, investments, bills, goals, and related data) require an active Google Drive connection in this mode and will not function without one.",
       "You are responsible for maintaining your own Google account in good standing, including sufficient Google Drive storage space. If your Google Drive runs out of storage, is suspended, or access is revoked, Penny Pilot may be unable to read or save your data until the issue is resolved.",
       "If you revoke Penny Pilot's access to your Google account, or disconnect Google Drive from within the App, the App will lose the ability to read or write your financial data until you reconnect.",
       "Penny Pilot depends on the availability and correct functioning of Google's own services (Google Sign-In and Google Drive APIs). We are not responsible for outages, changes, or limitations imposed by Google that affect the App.",
+      "This Device Only mode. Your financial data is stored only in this browser/device's local storage and is never sent to or stored by Penny Pilot's servers, database, or any Google account. No Google account connection is used for your financial data in this mode.",
+      "You are solely responsible for backing up This Device Only data, using the App's export feature. Penny Pilot keeps no copy of this data anywhere else.",
+      "If this browser's site data is cleared, the device is lost, the browser profile is reset, or you switch devices or browsers without first exporting a backup, this data may be permanently and unrecoverably lost.",
+      "Penny Pilot is not liable for data loss arising from your choice of This Device Only mode, except to the extent such liability cannot be excluded by applicable law.",
     ],
   },
   {
@@ -62,7 +67,7 @@ export const TERMS_SECTIONS: LegalSection[] = [
     heading: "4. Your Responsibility for Your Data",
     paragraphs: [
       `You are solely responsible for the accuracy of the financial information you enter into Penny Pilot. Penny Pilot is a personal record-keeping and planning tool — it does not provide financial, investment, tax, or legal advice, and any summaries, charts, budgets, or "insights" it generates are derived purely from the data you provide and should not be relied upon as professional advice.`,
-      "Because your financial data is stored in your own Google Drive, you are also responsible for the security of your Google account and for any actions you or others take directly within your Google Drive (such as manually editing, moving, or deleting Penny Pilot's data files), which are outside Penny Pilot's control.",
+      "In Google Drive mode, you are also responsible for the security of your Google account and for any actions you or others take directly within your Google Drive (such as manually editing, moving, or deleting Penny Pilot's data files), which are outside Penny Pilot's control. In This Device Only mode, you are responsible for the security of this device/browser and for maintaining your own backups.",
     ],
   },
   {
@@ -80,9 +85,9 @@ export const TERMS_SECTIONS: LegalSection[] = [
   {
     heading: "7. Termination",
     paragraphs: [
-      "You may stop using Penny Pilot at any time, and may disconnect Google Drive or request account deletion as described in the Privacy Policy.",
+      "You may stop using Penny Pilot at any time, and may disconnect Google Drive, clear your local browser data, or request account deletion as described in the Privacy Policy.",
       "We may suspend or terminate your account if we reasonably believe you have violated these Terms, engaged in fraudulent or abusive behavior, or where required by law.",
-      "Terminating your Penny Pilot account does not delete data already stored in your own Google Drive — that data remains yours and under your control, separate from your Penny Pilot account.",
+      "Terminating your Penny Pilot account does not delete data already stored in your own Google Drive — that data remains yours and under your control, separate from your Penny Pilot account. This Device Only data is likewise unaffected by account termination unless you clear it yourself.",
     ],
   },
   {
@@ -125,7 +130,7 @@ export const PRIVACY_SECTIONS: LegalSection[] = [
       "1.1 Account & Authentication Information",
       "When you register for Penny Pilot, we collect and store your name, email address, and optionally a phone number, together with a securely hashed password (Penny Pilot never stores your password in plain text). If you enable two-factor authentication or a passkey, we store the associated security metadata (e.g. a TOTP secret, hashed backup codes, or passkey credential data) needed to verify future sign-ins. New accounts go through an admin-approval step, so we also record basic account status and approval history.",
       "1.2 Financial Data",
-      `Penny Pilot lets you record and manage income, expenses, transactions, budgets, savings, investments, bills/EMIs, and financial goals. This financial data is not stored in Penny Pilot's own central database. Instead, it is stored as structured data files inside a "Penny Pilot" folder created in your own Google Drive, under your own Google account — see Section 2 below for details.`,
+      `Penny Pilot lets you record and manage income, expenses, transactions, budgets, savings, investments, bills/EMIs, and financial goals. This financial data is not stored in Penny Pilot's own central database. You choose where it is stored instead: Google Drive mode (recommended) stores it as structured data files inside a "Penny Pilot" folder created in your own Google Drive, under your own Google account — see Section 2 below for details. This Device Only mode stores it only in this browser/device's local storage (IndexedDB), never transmitted to or held by Penny Pilot's servers, database, or any Google account.`,
       "1.3 Activity & Security Logs",
       "We keep a limited activity log tied to your account (e.g. login events, password/2FA changes, Google Drive connect/disconnect events) so that you and, where applicable, an administrator can review recent account activity for security purposes.",
     ],
@@ -133,7 +138,8 @@ export const PRIVACY_SECTIONS: LegalSection[] = [
   {
     heading: "2. Google OAuth & Google Drive Access",
     paragraphs: [
-      `Penny Pilot uses Google Drive as your primary personal data store. After you register, you are required to connect a Google account so the App can create and manage your financial workspace. Connecting uses Google's standard OAuth 2.0 sign-in flow, which asks you to explicitly grant Penny Pilot permission before any access is given.`,
+      "This section applies only if you choose Google Drive mode. If you choose This Device Only mode instead, Penny Pilot does not request Google OAuth access or use Google Drive at all for your financial data.",
+      `In Google Drive mode, after you register (or later switch modes) you connect a Google account so the App can create and manage your financial workspace. Connecting uses Google's standard OAuth 2.0 sign-in flow, which asks you to explicitly grant Penny Pilot permission before any access is given.`,
       `The Google OAuth permissions ("scopes") Penny Pilot requests are:`,
       "drive.file — a restricted Google Drive scope that only allows Penny Pilot to see, create, and modify files and folders that Penny Pilot itself creates in your Drive. Penny Pilot cannot browse, read, or modify any other file already in your Google Drive.",
       "userinfo.email — lets Penny Pilot read the email address of the connected Google account, so it can show you which account is connected and detect if you later connect a different one.",
@@ -145,6 +151,7 @@ export const PRIVACY_SECTIONS: LegalSection[] = [
     paragraphs: [
       `Your financial records (transactions, budgets, investments, bills, goals, accounts, and categories) are written to versioned JSON data files inside your own Google Drive folder, which acts as the source of truth for that data. When a data file is updated, Google Drive automatically retains prior revisions of that file, which powers Penny Pilot's built-in "restore a previous version" feature — no separate backup copy of your financial data is kept by Penny Pilot outside of your own Drive.`,
       "Because this data lives in your Google Drive, it is subject to your own Google account's storage quota, access controls, and Google's own data-handling practices for files stored in Drive, in addition to this Privacy Policy.",
+      "In This Device Only mode, your financial records are instead written directly to this browser's local IndexedDB storage, with no equivalent Drive-style automatic version history — you are responsible for exporting your own backups using the App's export feature.",
     ],
   },
   {
@@ -162,6 +169,7 @@ export const PRIVACY_SECTIONS: LegalSection[] = [
     heading: "5. Data Retention & Deletion",
     paragraphs: [
       "Financial data in Google Drive remains in your own Google Drive for as long as you keep it there. You can delete individual files, the entire \"Penny Pilot\" folder, or revoke Penny Pilot's access at any time directly from Google Drive or your Google Account permissions page — Penny Pilot does not control or retain a separate copy of that data.",
+      "Financial data in This Device Only mode remains only in this browser's local storage for as long as you keep it there. Clearing this browser's site data, uninstalling the browser, or resetting the device deletes it permanently — Penny Pilot holds no copy anywhere else.",
       "Account data in Penny Pilot's database (your name, email, password hash, security settings, and activity log) is retained for as long as your account remains active.",
       `Account deletion: self-service account deletion is not currently available in the App. To request deletion of your Penny Pilot account and associated account data, please contact us using the details in Section 10. ${PLACEHOLDER_EMAIL}`,
     ],
@@ -173,7 +181,7 @@ export const PRIVACY_SECTIONS: LegalSection[] = [
       "Immediately deletes the stored OAuth tokens for that connection from Penny Pilot's database.",
       "Does not delete, modify, or move any files already saved in your Google Drive — your financial data remains exactly as it was, under your control.",
       "Means the App can no longer read or write your financial data until you reconnect, since Google Drive is required for that functionality.",
-      "You can also revoke Penny Pilot's access entirely from your Google Account's third-party app permissions page, which has the same effect from Google's side.",
+      "You can also revoke Penny Pilot's access entirely from your Google Account's third-party app permissions page, which has the same effect from Google's side. If you are in This Device Only mode, none of this section applies — there is no Google Drive connection to disconnect.",
     ],
   },
   {

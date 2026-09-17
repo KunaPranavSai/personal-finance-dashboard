@@ -48,25 +48,30 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
     (req.headers["authorization"]?.replace("Bearer ", "") ?? "");
 
   if (!token) {
-    res.status(401).json({ error: "Authentication required" });
+    res.status(401).json({ error: "Authentication required", code: "AUTH_REQUIRED" });
     return;
   }
 
   let payload: AuthPayload;
   try {
     payload = jwt.verify(token, ACCESS_SECRET) as AuthPayload;
-  } catch {
-    res.status(401).json({ error: "Invalid or expired token" });
+  } catch (err) {
+    // Distinguish "this token has a valid shape but its clock ran out" from
+    // "this token is malformed/tampered/signed with a different secret" —
+    // the former is an expected, everyday occurrence (AUTH_EXPIRED) while the
+    // latter is a genuinely invalid credential (AUTH_INVALID).
+    const code = err instanceof jwt.TokenExpiredError ? "AUTH_EXPIRED" : "AUTH_INVALID";
+    res.status(401).json({ error: "Invalid or expired token", code });
     return;
   }
 
   if (payload.sv !== getSessionVersion(payload.userId)) {
-    res.status(401).json({ error: "Session ended: you were signed in elsewhere" });
+    res.status(401).json({ error: "Session ended: you were signed in elsewhere", code: "AUTH_EXPIRED" });
     return;
   }
   // undefined sessionExpiresAt means the account's inactivity timeout is "Never".
   if (payload.sessionExpiresAt !== undefined && Date.now() > payload.sessionExpiresAt) {
-    res.status(401).json({ error: "Session expired due to inactivity", code: "SESSION_EXPIRED" });
+    res.status(401).json({ error: "Session expired due to inactivity", code: "AUTH_EXPIRED" });
     return;
   }
   req.auth = payload;
@@ -129,7 +134,7 @@ export function requireRecent2FA(req: Request, res: Response, next: NextFunction
 export async function requireDriveConnected(req: Request, res: Response, next: NextFunction): Promise<void> {
   const userId = req.auth?.userId;
   if (!userId) {
-    res.status(401).json({ error: "Authentication required" });
+    res.status(401).json({ error: "Authentication required", code: "AUTH_REQUIRED" });
     return;
   }
   // Admins manage the platform, not a personal finance workspace — their own account
@@ -154,7 +159,7 @@ export async function requireDriveConnected(req: Request, res: Response, next: N
 export function requireRole(...roles: AuthPayload["role"][]) {
   return (req: Request, res: Response, next: NextFunction): void => {
     if (!req.auth || !roles.includes(req.auth.role)) {
-      res.status(403).json({ error: "You do not have permission to perform this action" });
+      res.status(403).json({ error: "You do not have permission to perform this action", code: "AUTH_FORBIDDEN" });
       return;
     }
     next();

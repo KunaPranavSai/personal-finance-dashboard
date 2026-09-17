@@ -2,8 +2,16 @@ import jwt from "jsonwebtoken";
 import type { Response } from "express";
 import type { User } from "@prisma/client";
 
-export const ACCESS_SECRET = process.env.JWT_ACCESS_SECRET ?? "pfd-access-secret";
-export const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET ?? "pfd-refresh-secret";
+function requireSecret(name: string): string {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(`${name} is not set — refusing to start with a default JWT secret.`);
+  }
+  return value;
+}
+
+export const ACCESS_SECRET = requireSecret("JWT_ACCESS_SECRET");
+export const REFRESH_SECRET = requireSecret("JWT_REFRESH_SECRET");
 const IS_PROD = process.env.NODE_ENV === "production";
 
 export const ACCESS_TOKEN_TTL = 60 * 60; // 1 hour

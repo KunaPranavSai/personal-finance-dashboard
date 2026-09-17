@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   description: "The terms governing your use of the Penny Pilot personal finance web application.",
 };
 
-const LAST_UPDATED = "September 11, 2026";
+const LAST_UPDATED = "September 15, 2026";
 const PLACEHOLDER_EMAIL = "superadminpennypilot@gmail.com";
 const PLACEHOLDER_ENTITY = "Pranav Sai Kuna";
 const GOVERNING_JURISDICTION = "India";
@@ -32,17 +32,29 @@ export default function TermsOfServicePage() {
         <li>You must notify us promptly of any unauthorized use of your account that you become aware of.</li>
       </ul>
 
-      <h2>2. Google Drive Dependency</h2>
+      <h2>2. Choice of Storage: Google Drive or This Device Only</h2>
       <p>
-        Penny Pilot uses your own Google Drive as the primary storage location for your financial data. After
-        registering, you are required to connect a Google account via Google OAuth so the App can create and manage a
-        dedicated data workspace inside your Drive, as described in the Privacy Policy.
+        Penny Pilot lets you choose how your financial data is stored: in your own Google Drive (recommended), or
+        locally on this device/browser only (&quot;This Device Only&quot; mode). You choose a storage mode when setting up
+        your account and can switch it later from Settings — switching does not automatically move existing data
+        between modes.
       </p>
+      <p><strong>Google Drive mode.</strong> After choosing this mode, you are required to connect a Google account via
+        Google OAuth so the App can create and manage a dedicated data workspace inside your Drive, as described in
+        the Privacy Policy.</p>
       <ul>
-        <li>Core features of the App (recording transactions, budgets, investments, bills, goals, and related data) require an active Google Drive connection and will not function without one.</li>
+        <li>Core features of the App (recording transactions, budgets, investments, bills, goals, and related data) require an active Google Drive connection in this mode and will not function without one.</li>
         <li>You are responsible for maintaining your own Google account in good standing, including sufficient Google Drive storage space. If your Google Drive runs out of storage, is suspended, or access is revoked, Penny Pilot may be unable to read or save your data until the issue is resolved.</li>
         <li>If you revoke Penny Pilot&apos;s access to your Google account, or disconnect Google Drive from within the App, the App will lose the ability to read or write your financial data until you reconnect.</li>
         <li>Penny Pilot depends on the availability and correct functioning of Google&apos;s own services (Google Sign-In and Google Drive APIs). We are not responsible for outages, changes, or limitations imposed by Google that affect the App.</li>
+      </ul>
+      <p><strong>This Device Only mode.</strong> Your financial data is stored only in this browser/device&apos;s local
+        storage and is never sent to or stored by Penny Pilot&apos;s servers, database, or any Google account. No Google
+        account connection is used for your financial data in this mode.</p>
+      <ul>
+        <li>You are solely responsible for backing up This Device Only data, using the App&apos;s export feature. Penny Pilot keeps no copy of this data anywhere else.</li>
+        <li>If this browser&apos;s site data is cleared, the device is lost, the browser profile is reset, or you switch devices or browsers without first exporting a backup, this data may be permanently and unrecoverably lost.</li>
+        <li>Penny Pilot is not liable for data loss arising from your choice of This Device Only mode, except to the extent such liability cannot be excluded by applicable law.</li>
       </ul>
 
       <h2>3. Acceptable Use</h2>
@@ -63,9 +75,10 @@ export default function TermsOfServicePage() {
         provide and should not be relied upon as professional advice.
       </p>
       <p>
-        Because your financial data is stored in your own Google Drive, you are also responsible for the security of
-        your Google account and for any actions you or others take directly within your Google Drive (such as
-        manually editing, moving, or deleting Penny Pilot&apos;s data files), which are outside Penny Pilot&apos;s control.
+        In Google Drive mode, you are also responsible for the security of your Google account and for any actions
+        you or others take directly within your Google Drive (such as manually editing, moving, or deleting Penny
+        Pilot&apos;s data files), which are outside Penny Pilot&apos;s control. In This Device Only mode, you are
+        responsible for the security of this device/browser and for maintaining your own backups.
       </p>
 
       <h2>5. Service Availability</h2>
@@ -87,9 +100,9 @@ export default function TermsOfServicePage() {
 
       <h2>7. Termination</h2>
       <ul>
-        <li>You may stop using Penny Pilot at any time, and may disconnect Google Drive or request account deletion as described in the Privacy Policy.</li>
+        <li>You may stop using Penny Pilot at any time, and may disconnect Google Drive, clear your local browser data, or request account deletion as described in the Privacy Policy.</li>
         <li>We may suspend or terminate your account if we reasonably believe you have violated these Terms, engaged in fraudulent or abusive behavior, or where required by law.</li>
-        <li>Terminating your Penny Pilot account does not delete data already stored in your own Google Drive — that data remains yours and under your control, separate from your Penny Pilot account.</li>
+        <li>Terminating your Penny Pilot account does not delete data already stored in your own Google Drive — that data remains yours and under your control, separate from your Penny Pilot account. This Device Only data is likewise unaffected by account termination unless you clear it yourself.</li>
       </ul>
 
       <h2>8. Disclaimers</h2>
