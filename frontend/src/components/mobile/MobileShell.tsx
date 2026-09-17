@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { ReactNode, useState } from "react";
 import { useNotifications } from "@/lib/reference";
@@ -21,6 +22,10 @@ const NAV_ITEMS = [
 
 interface MobileShellProps {
   title: string;
+  /** Optional second line under the brand title — only Home passes this
+   * (the "Smart Money Management" tagline); every other screen keeps its
+   * existing single-line title untouched. */
+  subtitle?: string;
   children: ReactNode;
 }
 
@@ -39,7 +44,7 @@ interface MobileShellProps {
  * QuickActions is mounted once here too, giving mobile the same FAB the
  * desktop Topbar already has — no duplicate implementation, same component.
  */
-export function MobileShell({ title, children }: MobileShellProps) {
+export function MobileShell({ title, subtitle, children }: MobileShellProps) {
   const pathname = usePathname();
   const { data: notifications } = useNotifications();
   const unreadCount = (notifications?.items ?? []).filter((n) => !n.read).length;
@@ -54,8 +59,17 @@ export function MobileShell({ title, children }: MobileShellProps) {
     <div className="ppm-shell">
       <header className="ppm-appbar">
         <div className="ppm-brand">
-          <span className="mark">PP</span>
-          <span>{title}</span>
+          {/* Same /logo.png already used by the desktop Sidebar/AdminSidebar
+              brand mark — reused here instead of the placeholder "PP" text. */}
+          <Image src="/logo.png" alt="Penny Pilot" width={36} height={36} className="mark" style={{ objectFit: "cover" }} />
+          {subtitle ? (
+            <span style={{ display: "flex", flexDirection: "column", lineHeight: 1.15 }}>
+              <span>{title}</span>
+              <span style={{ fontSize: 10, fontWeight: 600, color: "var(--ppm-text-dim)", letterSpacing: ".01em" }}>{subtitle}</span>
+            </span>
+          ) : (
+            <span>{title}</span>
+          )}
         </div>
         <div className="ppm-actions">
           <button type="button" className="ppm-iconbtn" aria-label="Search" onClick={() => setSearchOpen(true)}>

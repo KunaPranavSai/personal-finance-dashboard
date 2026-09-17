@@ -84,5 +84,5 @@ export function buildHomeInsights(summary: DashboardSummary, cur: (v: number) =>
     insights.push({ id: "steady", icon: "👍", text: "No notable deviations detected yet — keep logging transactions for deeper analysis.", tone: "neutral" });
   }
 
-  return insights.slice(0, 3);
+  return insights.slice(0, 6);
 }

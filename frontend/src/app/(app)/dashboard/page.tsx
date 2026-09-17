@@ -18,17 +18,18 @@ import { MobileShell } from "@/components/mobile/MobileShell";
 import { LoadingCard, ErrorCard } from "@/components/mobile/MobileStates";
 import { MiniFinancialChart } from "@/components/dashboard/MiniFinancialChart";
 import { buildHomeInsights } from "@/components/dashboard/HomeInsights";
+import { InsightCarousel } from "@/components/dashboard/InsightCarousel";
 import { useAuth } from "@/lib/AuthContext";
 import { useIsMobile } from "@/lib/DeviceContext";
 import { api } from "@/lib/api";
-import { getStorageMode } from "@/lib/storage";
+import { getStorageMode, getStorageProvider } from "@/lib/storage";
 import { getLocalDashboardSummary, getLocalIncomeExpenseTrend, getLocalCategoryBreakdown } from "@/lib/services/dashboardService";
 import { listLocalTransactions } from "@/lib/services/transactionsService";
 import { formatCurrency, formatCompactCurrency, formatPercent, formatDateIN } from "@/lib/format";
 import { useSettingsContext } from "@/lib/SettingsContext";
 import { useProfile } from "@/lib/reference";
 import { getHomeGreeting } from "@/lib/greeting";
-import { DashboardSummary, Transaction, PaginatedResponse } from "@/types";
+import { DashboardSummary, Transaction, PaginatedResponse, Investment, Goal } from "@/types";
 import {
   Wallet, TrendingDown, PiggyBank, Activity, Landmark, Gauge,
   HeartPulse, ShieldCheck, TrendingUp, ArrowLeftRight, Receipt, BarChart3,
@@ -95,6 +96,27 @@ function DashboardContent() {
         : api.get<{ items: { category: string; total: number }[] }>(
       "/api/dashboard/breakdown/category"
     ),
+  });
+
+  // Real Investments/Goals data for the Annual Cash Flow allocation bar —
+  // same list endpoints/local collections the Investments and Goals pages
+  // already use, just read-only here. Only fetched on mobile (this data
+  // only feeds the mobile Home layout).
+  const { data: investmentsData } = useQuery({
+    queryKey: ["investments"],
+    queryFn: () =>
+      getStorageMode() === "local"
+        ? getStorageProvider().list<Investment & { createdAt: string; updatedAt: string; [k: string]: unknown }>("investments").then((items) => ({ items }))
+        : api.get<{ items: Investment[] }>("/api/investments"),
+    enabled: isMobile,
+  });
+  const { data: goalsData } = useQuery({
+    queryKey: ["goals"],
+    queryFn: () =>
+      getStorageMode() === "local"
+        ? getStorageProvider().list<Goal & { createdAt: string; updatedAt: string; [k: string]: unknown }>("goals").then((items) => ({ items }))
+        : api.get<{ items: Goal[] }>("/api/goals"),
+    enabled: isMobile,
   });
 
   const trendByMonth = new Map<string, { month: string; income: number; expense: number }>();
@@ -189,34 +211,63 @@ function DashboardContent() {
 
     const insights = buildHomeInsights(summary, f);
 
+    // Annual Cash Flow as a real income-allocation bar: where this year's
+    // real income actually went, using only genuinely available data —
+    // Bills (summary.upcomingBills, already fetched), Investments and
+    // Goals (their own real monthlyContribution × 12, from the same
+    // list endpoints/local collections the Investments/Goals pages use),
+    // Emergency Fund (the Goal category the app already defines for this —
+    // see GOAL_CATEGORIES in lib/reference.ts — filtered out of the
+    // general Goals segment so it isn't double-counted), Other Expenses
+    // (the real annual expense total minus whatever's already counted as
+    // Bills), and Net Savings (whatever real income is left over). Any
+    // segment with no real data behind it (no investments logged, no
+    // goals, no upcoming bills) is simply omitted, never shown as zero or
+    // guessed.
+    const billsAnnual = summary.upcomingBills.reduce((s, b) => s + Math.max(0, b.amount - b.paidAmount), 0);
+    const investmentsAnnual = (investmentsData?.items ?? []).reduce((s, inv) => s + Math.max(0, inv.monthlyContribution) * 12, 0);
+    const emergencyFundGoals = (goalsData?.items ?? []).filter((g) => g.category === "Emergency Fund");
+    const otherGoals = (goalsData?.items ?? []).filter((g) => g.category !== "Emergency Fund");
+    const emergencyFundAnnual = emergencyFundGoals.reduce((s, g) => s + Math.max(0, g.monthlyContribution) * 12, 0);
+    const goalsAnnual = otherGoals.reduce((s, g) => s + Math.max(0, g.monthlyContribution) * 12, 0);
+    const otherExpensesAnnual = Math.max(0, annual.expense - billsAnnual);
+    const allocated = billsAnnual + investmentsAnnual + emergencyFundAnnual + goalsAnnual + otherExpensesAnnual;
+    const netSavingsRemainder = Math.max(0, annual.income - allocated);
+    const allocationBase = Math.max(annual.income, allocated, 1);
+
+    const allocationSegments = [
+      { label: "Other Expenses", value: otherExpensesAnnual, color: "var(--ppm-warning)" },
+      { label: "Bills", value: billsAnnual, color: "var(--ppm-turmeric)" },
+      { label: "Investments", value: investmentsAnnual, color: "var(--ppm-accent)" },
+      { label: "Emergency Fund", value: emergencyFundAnnual, color: "var(--ppm-mantis)" },
+      { label: "Goals", value: goalsAnnual, color: "var(--ppm-vulcanico)" },
+      { label: "Unallocated", value: netSavingsRemainder, color: "var(--ppm-positive)" },
+    ]
+      .filter((seg) => seg.value > 0)
+      .map((seg) => ({ ...seg, pct: (seg.value / allocationBase) * 100 }));
+
     return (
-      <MobileShell title={homeGreeting}>
-        <div className="ppm-card" style={{ display: "flex", gap: 14 }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div className="ppm-section-label">Total Net Worth</div>
-            <div className="ppm-figure" style={{ fontSize: "1.5rem" }}>
-              {f(k.netWorth)}
-            </div>
-            <span className={`ppm-delta${netWorthUp ? "" : " down"}`} style={{ display: "inline-block", marginTop: 6 }}>{netWorthUp ? "+" : ""}{formatPercent(incomeChange)} {netWorthUp ? "↗" : "↘"}</span>
-            <div style={{ marginTop: 10, fontSize: 11, fontWeight: 600, color: "var(--ppm-text-dim)", lineHeight: 1.6 }}>
-              <div>Inc: <span style={{ color: "var(--ppm-accent)", fontWeight: 700 }}>{fCompact(k.currentMonth.income)}</span> · Exp: <span style={{ color: "var(--ppm-warning)", fontWeight: 700 }}>{fCompact(k.currentMonth.expense)}</span></div>
-              <div>Savings: <span style={{ color: "var(--ppm-accent)", fontWeight: 700 }}>{fCompact(monthNet)}</span></div>
-            </div>
-          </div>
-          <div style={{ borderLeft: "1px dashed var(--ppm-border)" }} />
-          <MiniFinancialChart income={k.currentMonth.income} expense={k.currentMonth.expense} savings={monthNet} format={f} formatCompact={fCompact} />
+      <MobileShell title="Penny Pilot" subtitle="Smart Money Management">
+        <div style={{ fontSize: "1.15rem", fontWeight: 800, color: "var(--ppm-text)", marginBottom: 12 }}>
+          {homeGreeting}
         </div>
 
         <div className="ppm-card">
-          <div className="ppm-section-label">Financial Intelligence</div>
-          <div className="ppm-stack" style={{ marginTop: 0, gap: 10 }}>
-            {insights.map((ins) => (
-              <div key={ins.id} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-                <span aria-hidden="true" style={{ fontSize: 16, lineHeight: 1.3 }}>{ins.icon}</span>
-                <p style={{ fontSize: 13, lineHeight: 1.4, color: "var(--ppm-text)", margin: 0 }}>{ins.text}</p>
+          <div style={{ display: "flex", gap: 10 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div className="ppm-section-label">Total Net Worth</div>
+              <div className="ppm-figure" style={{ fontSize: "1.5rem" }}>
+                {f(k.netWorth)}
               </div>
-            ))}
+              <span className={`ppm-delta${netWorthUp ? "" : " down"}`} style={{ display: "inline-block", marginTop: 6 }}>{netWorthUp ? "+" : ""}{formatPercent(incomeChange)} {netWorthUp ? "↗" : "↘"}</span>
+            </div>
+            <MiniFinancialChart income={k.currentMonth.income} expense={k.currentMonth.expense} savings={monthNet} format={f} formatCompact={fCompact} />
           </div>
+
+          <div style={{ borderTop: "1px dashed var(--ppm-border)", margin: "14px 0" }} />
+
+          <div className="ppm-section-label">Financial Intelligence</div>
+          <InsightCarousel insights={insights} />
         </div>
 
         <div className="ppm-stack">
@@ -242,10 +293,29 @@ function DashboardContent() {
               <span className="out">Expenses {f(annual.expense)}</span>
             </div>
             <div className="ppm-bar-track">
-              <div className="ppm-bar-fill" style={{ width: `${annualIncomePct}%`, background: "var(--ppm-positive)" }} />
-              <div className="ppm-bar-fill" style={{ width: `${annualExpensePct}%`, background: "var(--ppm-warning)" }} />
+              {allocationSegments.length > 0
+                ? allocationSegments.map((seg) => (
+                    <div key={seg.label} className="ppm-bar-fill" style={{ width: `${seg.pct}%`, background: seg.color }} />
+                  ))
+                : (
+                  <>
+                    <div className="ppm-bar-fill" style={{ width: `${annualIncomePct}%`, background: "var(--ppm-positive)" }} />
+                    <div className="ppm-bar-fill" style={{ width: `${annualExpensePct}%`, background: "var(--ppm-warning)" }} />
+                  </>
+                )}
             </div>
-            <div className="ppm-cf-row" style={{ marginTop: 8, marginBottom: 0 }}>
+            {allocationSegments.length > 0 && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 12px", marginTop: 10 }}>
+                {allocationSegments.map((seg) => (
+                  <div key={seg.label} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 10.5 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: "50%", background: seg.color, flexShrink: 0 }} aria-hidden="true" />
+                    <span style={{ color: "var(--ppm-text-dim)", fontWeight: 600 }}>{seg.label}</span>
+                    <span style={{ fontWeight: 700 }}>{f(seg.value)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="ppm-cf-row" style={{ marginTop: 10, marginBottom: 0 }}>
               <span style={{ fontSize: 12, color: "var(--ppm-text-dim)" }}>Net Savings</span>
               <span style={{ fontWeight: 700, color: annualNet >= 0 ? "var(--ppm-positive)" : "var(--ppm-critical)" }}>{f(annualNet)}</span>
             </div>
