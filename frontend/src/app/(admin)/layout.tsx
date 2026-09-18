@@ -1,47 +1,15 @@
-"use client";
+import type { Metadata } from "next";
+import { AdminShellLayoutClient } from "./AdminShellLayoutClient";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { AdminSidebar } from "@/components/layout/AdminSidebar";
-import { SwipeSidebarHandler } from "@/components/layout/SwipeSidebarHandler";
-import { Footer } from "@/components/layout/Footer";
-import { TwoFactorReverifyDialog } from "@/components/ui/TwoFactorReverifyDialog";
-import { useAuth } from "@/lib/AuthContext";
+// Admin routes require an authenticated ADMIN/SUPER_ADMIN session and expose
+// operational tooling — never appropriate for search engines to index.
+export const metadata: Metadata = {
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
 
 export default function AdminShellLayout({ children }: { children: React.ReactNode }) {
-  const { user, isAuthenticated, isLoading } = useAuth();
-  const router = useRouter();
-
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      router.replace("/admin-login");
-    } else if (!isLoading && user && user.role === "USER") {
-      router.replace("/dashboard");
-    }
-  }, [isAuthenticated, isLoading, user, router]);
-
-  if (isLoading || (user && user.role === "USER")) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-surface dark:bg-navy-dark">
-        <div className="flex flex-col items-center gap-4">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-teal/30 border-t-teal" />
-          <p className="text-sm text-navy/50 dark:text-white/50">Loading…</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) return null;
-
-  return (
-    <div className="flex min-h-screen bg-surface dark:bg-navy-dark">
-      <SwipeSidebarHandler />
-      <AdminSidebar />
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        {children}
-        <Footer />
-      </div>
-      <TwoFactorReverifyDialog />
-    </div>
-  );
+  return <AdminShellLayoutClient>{children}</AdminShellLayoutClient>;
 }

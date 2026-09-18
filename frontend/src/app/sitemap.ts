@@ -1,6 +1,5 @@
 import type { MetadataRoute } from "next";
-
-const SITE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.pennypilot.pro";
+import { SITE_URL } from "@/lib/siteUrl";
 
 /** Only the public routes — matches robots.ts's allow-list. Authenticated
  * app pages are intentionally omitted (see robots.ts for why). */

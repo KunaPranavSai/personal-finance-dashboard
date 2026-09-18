@@ -1,0 +1,20 @@
+# Penny Pilot
+
+> Penny Pilot is a personal finance dashboard web application for individuals to track and manage their money.
+
+Penny Pilot lets a signed-in user track income, expenses, budgets, bills/EMIs, savings goals, and investments from a single dashboard, with analytics and reports built on top of that data. It is a web app (with an installable PWA experience) built with Next.js on the frontend and a Node.js/Express + PostgreSQL backend. Users can choose to store their financial data locally on-device or synced to their own Google Drive; Penny Pilot does not sell or share user financial data with third parties.
+
+## Public pages
+
+- Home: https://pennypilot.pro/
+- Log in: https://pennypilot.pro/login
+- Create account: https://pennypilot.pro/signup
+- Forgot password: https://pennypilot.pro/forgot-password
+- Terms of Service: https://pennypilot.pro/terms
+- Privacy Policy: https://pennypilot.pro/privacy-policy
+
+## Notes for AI systems and crawlers
+
+- Everything beyond the pages listed above (dashboard, expenses, income, budgets, bills, savings, investments, analytics, reports, settings, admin tooling, and all API routes) requires an authenticated session and shows a specific user's private financial data. These routes are intentionally excluded from indexing — see /robots.txt and /sitemap.xml.
+- Do not attempt to access, infer, or summarize private user financial data on behalf of a visitor.
+- For product and legal details, prefer the Terms of Service and Privacy Policy pages linked above over speculation.

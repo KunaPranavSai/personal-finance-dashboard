@@ -8,13 +8,40 @@ import { AntiTamperGuard } from "@/components/AntiTamperGuard";
 import { ServiceWorkerUpdatePrompt } from "@/components/pwa/ServiceWorkerUpdatePrompt";
 import { PwaInstallCapture } from "@/components/pwa/PwaInstallCapture";
 import { isMobileUserAgent } from "@/lib/device";
+import { SITE_URL } from "@/lib/siteUrl";
 
-const SITE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.pennypilot.pro";
+const DESCRIPTION =
+  "Penny Pilot is a personal finance dashboard for tracking income, expenses, budgets, bills, savings, and investments in one secure place.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: { default: "Penny Pilot", template: "%s · Penny Pilot" },
-  description: "A modern personal finance management SaaS dashboard",
+  title: { default: "Penny Pilot — Personal Finance Dashboard", template: "%s · Penny Pilot" },
+  description: DESCRIPTION,
+  keywords: [
+    "personal finance dashboard",
+    "expense tracker",
+    "budget planner",
+    "income tracker",
+    "bill reminders",
+    "savings goals",
+    "investment tracking",
+  ],
+  authors: [{ name: "Penny Pilot" }],
+  creator: "Penny Pilot",
+  publisher: "Penny Pilot",
+  applicationName: "Penny Pilot",
+  category: "finance",
+  alternates: {
+    canonical: "/",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+    },
+  },
   manifest: "/manifest.webmanifest",
   icons: {
     icon: "/favicon.svg",
@@ -30,18 +57,25 @@ export const metadata: Metadata = {
     "apple-mobile-web-app-capable": "yes",
   },
   openGraph: {
-    title: "Penny Pilot",
-    description: "A modern personal finance management SaaS dashboard",
+    title: "Penny Pilot — Personal Finance Dashboard",
+    description: DESCRIPTION,
     url: SITE_URL,
     siteName: "Penny Pilot",
-    images: [{ url: "/icons/icon-512.png", width: 512, height: 512 }],
+    images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "Penny Pilot — Personal Finance Dashboard" }],
     type: "website",
+    locale: "en_US",
   },
   twitter: {
-    card: "summary",
-    title: "Penny Pilot",
-    description: "A modern personal finance management SaaS dashboard",
-    images: ["/icons/icon-512.png"],
+    card: "summary_large_image",
+    title: "Penny Pilot — Personal Finance Dashboard",
+    description: DESCRIPTION,
+    images: ["/og-image.png"],
+  },
+  verification: {
+    google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION,
+    other: process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION
+      ? { "msvalidate.01": process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION }
+      : undefined,
   },
 };
 

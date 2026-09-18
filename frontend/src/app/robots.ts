@@ -1,6 +1,5 @@
 import type { MetadataRoute } from "next";
-
-const SITE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.pennypilot.pro";
+import { SITE_URL } from "@/lib/siteUrl";
 
 /** Master Plan §33 — "Do not unnecessarily expose authenticated financial
  * pages to search engines." Only the public marketing/auth/legal routes are
