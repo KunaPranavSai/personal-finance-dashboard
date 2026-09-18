@@ -1,6 +1,16 @@
 # SEO, Discovery & AI-Discovery Setup — Penny Pilot
 
-Production domain: **https://pennypilot.pro**
+Production domain: **https://www.pennypilot.pro**
+
+> **Deployment history note:** Vercel's Domains config redirects the apex
+> `pennypilot.pro` → `www.pennypilot.pro` (confirmed via `curl -I`, a `308
+> Permanent Redirect`), so `www` is the real canonical domain — not the
+> apex. All references below were corrected to `www.pennypilot.pro` to
+> match. Separately, the first pass of this SEO work (og-image.png,
+> llms.txt, the split `(app)`/`(admin)` layouts, etc.) caused live 404s
+> because those files were created locally but never `git commit`+`push`ed
+> — Vercel deploys from the GitHub commit, so it never saw them. That has
+> been fixed: everything is now committed and pushed to `origin/main`.
 
 ## Architecture
 
@@ -40,11 +50,11 @@ Dynamic `MetadataRoute.Sitemap` at `/sitemap.xml`, listing only the public route
 
 ## robots.txt (`frontend/src/app/robots.ts`)
 
-Dynamic `MetadataRoute.Robots` at `/robots.txt`. Allows the public routes, disallows every authenticated/admin/internal route, and points `Sitemap:` at `https://pennypilot.pro/sitemap.xml`. Pre-existing file — only the hardcoded domain fallback was corrected (see Environment variables).
+Dynamic `MetadataRoute.Robots` at `/robots.txt`. Allows the public routes, disallows every authenticated/admin/internal route, and points `Sitemap:` at `https://www.pennypilot.pro/sitemap.xml`. Pre-existing file — only the hardcoded domain fallback was corrected (see Environment variables).
 
 ## Open Graph / Twitter image
 
-`frontend/public/og-image.png` — 1200×630 PNG generated from the app's real branding (the existing `public/logo.png` composited onto a dark navy/teal panel with the product name and a one-line description, matching the app's actual dark theme colors). No stock imagery. Served at `https://pennypilot.pro/og-image.png` once deployed; verified locally returns `200 image/png`.
+`frontend/public/og-image.png` — 1200×630 PNG generated from the app's real branding (the existing `public/logo.png` composited onto a dark navy/teal panel with the product name and a one-line description, matching the app's actual dark theme colors). No stock imagery. Served at `https://www.pennypilot.pro/og-image.png` once deployed; verified locally returns `200 image/png`.
 
 Twitter card uses `summary_large_image` with the same image (no separate asset needed).
 
@@ -62,39 +72,39 @@ Added to `frontend/.env.example`:
 
 | Variable | Purpose | Required |
 |---|---|---|
-| `NEXT_PUBLIC_APP_URL` | Canonical site URL for metadata/canonical/sitemap/robots/OG/JSON-LD. Defaults to `https://pennypilot.pro` if unset. Override for local/staging. | No (has a safe default) |
+| `NEXT_PUBLIC_APP_URL` | Canonical site URL for metadata/canonical/sitemap/robots/OG/JSON-LD. Defaults to `https://www.pennypilot.pro` if unset. Override for local/staging. | No (has a safe default) |
 | `NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION` | Google Search Console HTML-tag verification token. Only emits the meta tag when set. | No |
 | `NEXT_PUBLIC_BING_SITE_VERIFICATION` | Bing Webmaster Tools verification token. Only emits the meta tag when set. | No |
 
-**Production must set `NEXT_PUBLIC_APP_URL=https://pennypilot.pro`** (or leave it unset, since that's now the default) — do not let it resolve to a Vercel preview URL or `localhost`.
+**Production must set `NEXT_PUBLIC_APP_URL=https://www.pennypilot.pro`** (or leave it unset, since that's now the default) — do not let it resolve to a Vercel preview URL or `localhost`.
 
 ## Google Search Console — manual steps (not yet performed)
 
-1. Open Google Search Console → Add property → `https://pennypilot.pro`.
+1. Open Google Search Console → Add property → `https://www.pennypilot.pro`.
 2. Prefer **Domain property** verification (covers `http`/`https` and any subdomain) via a DNS TXT record at your domain registrar — no code changes needed.
 3. Alternatively, use **HTML tag** verification: Search Console gives you a `content` value; set `NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION` to that value in the production environment and redeploy, then click "Verify".
-4. Once verified, submit `https://pennypilot.pro/sitemap.xml` under Sitemaps.
-5. Use URL Inspection on `https://pennypilot.pro/` (and `/login`) and request indexing if needed.
+4. Once verified, submit `https://www.pennypilot.pro/sitemap.xml` under Sitemaps.
+5. Use URL Inspection on `https://www.pennypilot.pro/` (and `/login`) and request indexing if needed.
 
 *Verification has not been performed as part of this change — no token exists yet, and none was invented.*
 
 ## Bing Webmaster Tools — manual steps (not yet performed)
 
-1. Add `https://pennypilot.pro` at https://www.bing.com/webmasters.
+1. Add `https://www.pennypilot.pro` at https://www.bing.com/webmasters.
 2. Verify via the XML/meta-tag method: set `NEXT_PUBLIC_BING_SITE_VERIFICATION` to the token Bing provides and redeploy — or import verified ownership directly from Google Search Console if offered.
-3. Submit `https://pennypilot.pro/sitemap.xml` under Sitemaps.
+3. Submit `https://www.pennypilot.pro/sitemap.xml` under Sitemaps.
 4. Check crawl/index status under Site Explorer / Search Performance.
 
 *Verification has not been performed as part of this change — no token exists yet, and none was invented.*
 
 ## Production verification checklist
 
-- [ ] `NEXT_PUBLIC_APP_URL` is unset or explicitly `https://pennypilot.pro` in the production environment (not a Vercel preview URL).
-- [x] `https://pennypilot.pro/robots.txt` allows public routes, disallows authenticated/admin routes, references the sitemap. *(verified locally against the built output; re-verify against the live domain after deploy.)*
-- [x] `https://pennypilot.pro/sitemap.xml` is valid XML with only public routes. *(verified locally; re-verify against the live domain after deploy.)*
-- [x] `https://pennypilot.pro/llms.txt` is reachable and contains no private information. *(verified locally.)*
-- [x] `https://pennypilot.pro/og-image.png` returns `200` with `image/png`. *(verified locally.)*
-- [ ] View source / inspect element on `https://pennypilot.pro/login` in production and confirm `og:title`, `og:description`, `og:image`, `twitter:card`, and canonical all resolve to the `pennypilot.pro` domain (not `www.` or a preview URL).
+- [ ] `NEXT_PUBLIC_APP_URL` is unset or explicitly `https://www.pennypilot.pro` in the production environment (not a Vercel preview URL).
+- [x] `https://www.pennypilot.pro/robots.txt` allows public routes, disallows authenticated/admin routes, references the sitemap. *(verified locally against the built output; re-verify against the live domain after deploy.)*
+- [x] `https://www.pennypilot.pro/sitemap.xml` is valid XML with only public routes. *(verified locally; re-verify against the live domain after deploy.)*
+- [x] `https://www.pennypilot.pro/llms.txt` is reachable and contains no private information. *(verified locally.)*
+- [x] `https://www.pennypilot.pro/og-image.png` returns `200` with `image/png`. *(verified locally.)*
+- [ ] View source / inspect element on `https://www.pennypilot.pro/login` in production and confirm `og:title`, `og:description`, `og:image`, `twitter:card`, and canonical all resolve to the `pennypilot.pro` domain (not `www.` or a preview URL).
 - [x] `/dashboard` (and other authenticated routes) render `<meta name="robots" content="noindex, nofollow">`. *(verified locally via `curl`.)*
 - [x] Authentication/authorization behavior unchanged — no middleware, guard, or route-protection logic was modified.
 - [x] `npx tsc --noEmit`, `npm run lint`, and `npm run build` all pass with no new errors introduced by this change.
@@ -125,4 +135,4 @@ Added to `frontend/.env.example`:
 
 - Actually performing Google Search Console and Bing Webmaster Tools verification (see steps above) — needs access to DNS or the live deployed environment variables, which this change does not have.
 - Setting `NEXT_PUBLIC_APP_URL` (or confirming its default) in the real Vercel production environment.
-- Optionally building a dedicated public marketing/landing page at `/` instead of an immediate redirect to `/dashboard` — out of scope here as a feature change, but worth knowing: today, a bare fetch of `https://pennypilot.pro/` returns an HTTP redirect with no rendered body, so social-media unfurlers/crawlers that don't follow redirects will see nothing at the bare domain. Crawlers that do follow redirects land on `/login`, which has full metadata.
+- Optionally building a dedicated public marketing/landing page at `/` instead of an immediate redirect to `/dashboard` — out of scope here as a feature change, but worth knowing: today, a bare fetch of `https://www.pennypilot.pro/` returns an HTTP redirect with no rendered body, so social-media unfurlers/crawlers that don't follow redirects will see nothing at the bare domain. Crawlers that do follow redirects land on `/login`, which has full metadata.

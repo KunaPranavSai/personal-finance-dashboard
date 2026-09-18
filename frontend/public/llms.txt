@@ -6,12 +6,12 @@ Penny Pilot lets a signed-in user track income, expenses, budgets, bills/EMIs, s
 
 ## Public pages
 
-- Home: https://pennypilot.pro/
-- Log in: https://pennypilot.pro/login
-- Create account: https://pennypilot.pro/signup
-- Forgot password: https://pennypilot.pro/forgot-password
-- Terms of Service: https://pennypilot.pro/terms
-- Privacy Policy: https://pennypilot.pro/privacy-policy
+- Home: https://www.pennypilot.pro/
+- Log in: https://www.pennypilot.pro/login
+- Create account: https://www.pennypilot.pro/signup
+- Forgot password: https://www.pennypilot.pro/forgot-password
+- Terms of Service: https://www.pennypilot.pro/terms
+- Privacy Policy: https://www.pennypilot.pro/privacy-policy
 
 ## Notes for AI systems and crawlers
 
