@@ -46,9 +46,9 @@ export function Hero() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
-            className="mt-6 text-balance text-4xl font-bold tracking-tight text-navy dark:text-white sm:text-5xl lg:text-6xl"
+            className="mt-6 text-balance text-4xl tracking-tight text-navy dark:text-white sm:text-5xl lg:text-6xl [font-family:var(--font-landing-display,inherit)]"
           >
-            Your money, finally in focus.
+            Your money, <em className="text-teal not-italic">finally in focus.</em>
           </motion.h1>
 
           <motion.p
@@ -57,8 +57,7 @@ export function Hero() {
             transition={{ duration: 0.5, delay: 0.2 }}
             className="mx-auto mt-6 max-w-2xl text-lg text-navy/60 dark:text-white/60 sm:text-xl"
           >
-            Penny Pilot brings your income, expenses, budgets, and goals together in one clear
-            dashboard — so you always know exactly where your money stands.
+            Track spending, understand your financial habits, and plan ahead with Penny Pilot.
           </motion.p>
 
           <motion.div
@@ -84,7 +83,7 @@ export function Hero() {
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-navy focus-visible:ring-offset-2 dark:focus-visible:ring-offset-navy-dark"
               )}
             >
-              Explore
+              Explore Penny Pilot
             </Link>
           </motion.div>
 

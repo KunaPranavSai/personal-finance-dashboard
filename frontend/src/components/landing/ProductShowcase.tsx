@@ -55,7 +55,7 @@ export function ProductShowcase() {
     <section id="showcase" className="py-16 sm:py-24 lg:py-28">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mb-12 text-center sm:mb-16">
-          <h2 className="text-3xl font-bold tracking-tight text-navy dark:text-white sm:text-4xl">
+          <h2 className="text-3xl font-normal tracking-tight text-navy dark:text-white sm:text-4xl [font-family:var(--font-landing-display,inherit)]">
             Financial intelligence, built in
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-lg text-navy/60 dark:text-white/60">

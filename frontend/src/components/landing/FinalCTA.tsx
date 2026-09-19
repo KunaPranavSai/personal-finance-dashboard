@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/format";
+import { InstallAppButton } from "./InstallAppButton";
 
 export function FinalCTA() {
   return (
@@ -21,8 +22,8 @@ export function FinalCTA() {
           className="mb-8"
         >
           <div className="inline-flex items-center gap-2 rounded-full bg-teal/10 px-4 py-1.5 text-sm font-semibold text-teal dark:bg-teal/20 mb-6">
-            <span className="relative h-1.5 w-1.5 rounded-full bg-teal animate-pulse" aria-hidden="true" />
-            Ready to get started?
+            <span className="relative h-1.5 w-1.5 rounded-full bg-teal" aria-hidden="true" />
+            A clearer next step
           </div>
         </motion.div>
 
@@ -31,9 +32,9 @@ export function FinalCTA() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ delay: 0.1 }}
-          className="text-3xl font-bold tracking-tight text-navy dark:text-white sm:text-4xl lg:text-5xl text-balance mb-6"
+          className="text-3xl tracking-tight text-navy dark:text-white sm:text-4xl lg:text-5xl text-balance mb-6 [font-family:var(--font-landing-display,inherit)]"
         >
-          Your money deserves a clearer picture.
+          Take control <em className="text-teal not-italic">of your money.</em>
         </motion.h2>
 
         <motion.p
@@ -43,7 +44,7 @@ export function FinalCTA() {
           transition={{ delay: 0.2 }}
           className="mx-auto max-w-2xl text-lg text-navy/60 dark:text-white/60 mb-10"
         >
-          Bring your income, expenses, budgets, goals and financial progress together with Penny Pilot.
+          Build a clearer picture of your finances with Penny Pilot.
         </motion.p>
 
         <motion.div
@@ -60,9 +61,10 @@ export function FinalCTA() {
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-2 dark:focus-visible:ring-offset-navy-dark"
             )}
           >
-            Get Started Free
+            Get Started
             <ArrowRight className="h-5 w-5" aria-hidden="true" />
           </Link>
+          <InstallAppButton variant="hero" className="py-3.5" />
           <Link
             href="/login"
             className={cn(
@@ -70,7 +72,7 @@ export function FinalCTA() {
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-navy focus-visible:ring-offset-2 dark:focus-visible:ring-offset-navy-dark"
             )}
           >
-            Log In
+            Sign In
           </Link>
         </motion.div>
 

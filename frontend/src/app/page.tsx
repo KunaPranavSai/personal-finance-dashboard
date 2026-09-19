@@ -1,4 +1,5 @@
 import { MotionConfig } from "framer-motion";
+import { displayFont } from "@/components/landing/fonts";
 import { Header } from "@/components/landing/Header";
 import { Hero } from "@/components/landing/Hero";
 import { TrackUnderstandPlan } from "@/components/landing/TrackUnderstandPlan";
@@ -19,7 +20,7 @@ import { LandingFooter } from "@/components/landing/Footer";
 export default function HomePage() {
   return (
     <MotionConfig reducedMotion="user">
-      <div className="flex min-h-screen flex-col bg-surface dark:bg-navy-dark">
+      <div className={`flex min-h-screen flex-col bg-surface dark:bg-navy-dark ${displayFont.variable}`}>
         <Header />
         <main className="flex-1">
           <Hero />

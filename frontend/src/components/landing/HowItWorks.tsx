@@ -9,24 +9,24 @@ const STEPS = [
   {
     number: "01",
     icon: UserPlus,
-    title: "Create your account",
-    description: "Sign up securely with your name, email, and password. Enable 2FA or passkeys for extra protection. Your account is active immediately — no admin approval required.",
+    title: "Set Up",
+    description: "Create your Penny Pilot account. It's active immediately — no admin approval required — and you can enable 2FA or passkeys for extra protection.",
     link: "/signup",
     linkText: "Create account",
   },
   {
     number: "02",
     icon: Database,
-    title: "Organize your finances",
-    description: "Add income, expenses, budgets, bills, savings goals, and investments. Choose Google Drive mode for cloud backup or This Device Only for local storage. Set up categories, accounts, and payment methods.",
+    title: "Track",
+    description: "Record income and expenses as they happen. Choose Google Drive mode for cloud backup or This Device Only for local storage, and set up categories, accounts, and payment methods.",
     link: "/dashboard",
     linkText: "Explore dashboard",
   },
   {
     number: "03",
     icon: TrendingUp,
-    title: "Understand your money",
-    description: "Use the dashboard, analytics, and reports to see your financial health score, track spending patterns, monitor budget progress, and watch your savings and investments grow over time.",
+    title: "Understand",
+    description: "Use analytics, budgets, and insights to understand your finances — spending patterns, budget progress, and savings growth over time.",
     link: "/signup",
     linkText: "Get started",
   },
@@ -51,7 +51,7 @@ export function HowItWorks() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: 0.1 }}
-            className="mt-4 text-3xl font-bold tracking-tight text-navy dark:text-white sm:text-4xl"
+            className="mt-4 text-3xl font-normal tracking-tight text-navy dark:text-white sm:text-4xl [font-family:var(--font-landing-display,inherit)]"
           >
             Three steps to financial clarity
           </motion.h2>

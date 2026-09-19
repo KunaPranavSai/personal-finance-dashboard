@@ -47,7 +47,7 @@ export function PrivacySecurity() {
             <span className="relative h-1.5 w-1.5 rounded-full bg-teal" />
             PRIVACY &amp; SECURITY
           </span>
-          <h2 className="mt-4 text-3xl font-bold tracking-tight text-navy dark:text-white sm:text-4xl">
+          <h2 className="mt-4 text-3xl font-normal tracking-tight text-navy dark:text-white sm:text-4xl [font-family:var(--font-landing-display,inherit)]">
             Your financial data, on your terms
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-lg text-navy/60 dark:text-white/60">

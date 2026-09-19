@@ -54,6 +54,10 @@ const FAQ_ITEMS = [
     question: "Can I use Penny Pilot offline?",
     answer: "Yes. Penny Pilot is a Progressive Web App (PWA). Once installed, it works offline for viewing and editing your data (in This Device Only mode, or with cached data in Google Drive mode). Changes sync when you're back online.",
   },
+  {
+    question: "Can I install Penny Pilot as an app?",
+    answer: "Yes. Use the \"Install App\" button in the header or on this page. On browsers that support it, this triggers your browser's native install prompt. On browsers without that support (including iOS Safari), you'll see instructions for adding Penny Pilot to your home screen manually.",
+  },
 ];
 
 export function FAQ() {
@@ -77,7 +81,7 @@ export function FAQ() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: 0.1 }}
-            className="mt-4 text-3xl font-bold tracking-tight text-navy dark:text-white sm:text-4xl"
+            className="mt-4 text-3xl font-normal tracking-tight text-navy dark:text-white sm:text-4xl [font-family:var(--font-landing-display,inherit)]"
           >
             Common questions
           </motion.h2>
