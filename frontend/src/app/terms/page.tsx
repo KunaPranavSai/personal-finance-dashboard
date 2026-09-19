@@ -5,6 +5,7 @@ import { TERMS_VERSION } from "@/lib/legalVersions";
 export const metadata: Metadata = {
   title: "Terms of Service · Penny Pilot",
   description: "The terms governing your use of the Penny Pilot personal finance web application.",
+  alternates: { canonical: "/terms" },
 };
 
 const LAST_UPDATED = "September 15, 2026";

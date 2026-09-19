@@ -6,6 +6,7 @@ export const metadata: Metadata = {
   title: "Log In",
   description: "Log in to your Penny Pilot account to view your income, expenses, budgets, bills, savings, and investments.",
   alternates: { canonical: "/login" },
+  robots: { index: false, follow: false },
 };
 
 export default function LoginPage() {

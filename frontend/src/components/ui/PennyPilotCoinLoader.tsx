@@ -88,7 +88,7 @@ export function PennyPilotCoinLoader({ className, style }: PennyPilotCoinLoaderP
     // Deliberately no `uppercase` text-transform: browsers render the CSS
     // uppercase transform of "ı" as a dotted "I", which would defeat the
     // whole point of using the dotless glyph here.
-    <h1 className={`select-none whitespace-nowrap font-extrabold tracking-wide ${className ?? ""}`} style={style}>
+    <span className={`select-none whitespace-nowrap font-extrabold tracking-wide ${className ?? ""}`} style={style}>
       <span>Penny P</span>
       <motion.span
         className="relative inline-block"
@@ -102,6 +102,6 @@ export function PennyPilotCoinLoader({ className, style }: PennyPilotCoinLoaderP
         <Coin />
       </motion.span>
       <span>lot</span>
-    </h1>
+    </span>
   );
 }

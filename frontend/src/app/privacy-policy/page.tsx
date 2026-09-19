@@ -5,6 +5,7 @@ import { PRIVACY_VERSION } from "@/lib/legalVersions";
 export const metadata: Metadata = {
   title: "Privacy Policy · Penny Pilot",
   description: "How Penny Pilot collects, stores, and protects your account and financial data, including its use of Google Drive and Google OAuth.",
+  alternates: { canonical: "/privacy-policy" },
 };
 
 const LAST_UPDATED = "September 15, 2026";
