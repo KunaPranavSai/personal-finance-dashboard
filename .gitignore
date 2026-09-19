@@ -18,3 +18,10 @@ frontend/public/swe-worker*.js.map
 frontend/public/workbox-*.js
 frontend/public/worker-*.js
 frontend/public/fallback-*.js
+# Local development documentation, prompts and reports
+*.md
+!README.md
+# Generated/local files
+*.tsbuildinfo
+*.err
+Penny Pilot FOnt.txt
