@@ -4,7 +4,7 @@ import { useState, useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { MoreVertical, Pencil, RotateCcw, IdCard, HardDrive, Trash2, Search, ShieldCheck, ShieldOff, LogOut, Users } from "lucide-react";
+import { MoreVertical, Pencil, RotateCcw, IdCard, HardDrive, Trash2, Search, ShieldCheck, ShieldOff, LogOut, Users, Eye } from "lucide-react";
 import { Topbar } from "@/components/layout/Topbar";
 import { Card, CardContent } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -13,6 +13,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/format";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { AdminActionConfirm } from "@/components/admin/AdminActionConfirm";
 import {
   ManagedUser, STATUS_STYLES, EditUserModal, ResetPasswordModal, ResetUidModal, UsageModal, DeleteUserModal,
 } from "@/components/admin/UserManagementShared";
@@ -52,6 +53,7 @@ type ModalState =
   | { type: "reset-uid"; user: ManagedUser }
   | { type: "usage"; user: ManagedUser }
   | { type: "delete"; user: ManagedUser }
+  | { type: "force-logout"; user: ManagedUser }
   | null;
 
 const selectCls = "rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white";
@@ -107,19 +109,6 @@ export default function AdminUsersPage() {
   const pageItems = filtered.slice((page - 1) * pageSize, page * pageSize);
   const superAdminCount = (allUsers?.items ?? []).filter((u) => u.role === "SUPER_ADMIN").length;
 
-  const forceLogout = useCallback(async (u: ManagedUser) => {
-    setBusy(true);
-    try {
-      const data = await api.post<{ ok: boolean; message: string }>(`/api/admin/users/${u.id}/force-logout`);
-      toast(data.message, "success");
-    } catch (err) {
-      toast(err instanceof Error ? err.message : "Failed to force logout", "error");
-    } finally {
-      setBusy(false);
-      setOpenMenuId(null);
-    }
-  }, [toast]);
-
   return (
     <>
       <Topbar title="All Users" />
@@ -174,10 +163,10 @@ export default function AdminUsersPage() {
               <EmptyState icon={Search} title="No users match these filters" description="Try adjusting your search, role, or status filters." />
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full min-w-[900px] text-sm">
                   <thead>
                     <tr className="border-b border-black/5 dark:border-white/10 text-left text-navy/50 dark:text-white/50">
-                      <th className="pb-2 pr-3 font-medium">Name</th>
+                      <th className="sticky left-0 bg-white pb-2 pr-3 font-medium dark:bg-navy-dark">Name</th>
                       <th className="pb-2 pr-3 font-medium">Email</th>
                       <th className="pb-2 pr-3 font-medium">Mobile</th>
                       <th className="pb-2 pr-3 font-medium">Role</th>
@@ -195,7 +184,7 @@ export default function AdminUsersPage() {
                       const isLastSuperAdmin = u.role === "SUPER_ADMIN" && superAdminCount <= 1;
                       return (
                         <tr key={u.id} className="border-b border-black/5 transition-colors hover:bg-black/[0.02] dark:border-white/5 dark:hover:bg-white/[0.03]">
-                          <td className="py-2 pr-3">
+                          <td className="sticky left-0 bg-white py-2 pr-3 dark:bg-navy-dark">
                             <div className="flex items-center gap-2.5">
                               <div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold", avatarColor(u.id))}>
                                 {initials(u.name)}
@@ -239,7 +228,7 @@ export default function AdminUsersPage() {
                                 setMenuPos({ top: rect.bottom + 4, left: rect.right - 192 });
                                 setOpenMenuId(u.id);
                               }}
-                              className="rounded-lg p-1.5 text-navy/50 hover:bg-black/5 dark:text-white/50 dark:hover:bg-white/10"
+                              className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-navy/50 hover:bg-black/5 dark:text-white/50 dark:hover:bg-white/10 sm:min-h-0 sm:min-w-0 sm:p-1.5"
                               aria-label="Row actions"
                             >
                               <MoreVertical className="h-4 w-4" />
@@ -251,6 +240,9 @@ export default function AdminUsersPage() {
                                   className="fixed z-50 w-48 overflow-hidden rounded-xl border border-black/5 bg-white shadow-lg dark:border-white/10 dark:bg-navy-dark"
                                   style={{ top: menuPos.top, left: menuPos.left }}
                                 >
+                                  <Link href={`/admin/users/${u.id}`} onClick={() => setOpenMenuId(null)} className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-navy/70 hover:bg-black/5 dark:text-white/70 dark:hover:bg-white/5">
+                                    <Eye className="h-3.5 w-3.5" /> View 360° profile
+                                  </Link>
                                   <button type="button" onClick={() => { setModal({ type: "edit", user: u }); setOpenMenuId(null); }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-navy/70 hover:bg-black/5 dark:text-white/70 dark:hover:bg-white/5">
                                     <Pencil className="h-3.5 w-3.5" /> Edit details
                                   </button>
@@ -263,7 +255,7 @@ export default function AdminUsersPage() {
                                   <button type="button" onClick={() => { setModal({ type: "usage", user: u }); setOpenMenuId(null); }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-navy/70 hover:bg-black/5 dark:text-white/70 dark:hover:bg-white/5">
                                     <HardDrive className="h-3.5 w-3.5" /> View storage used
                                   </button>
-                                  <button type="button" disabled={isSelf || busy} onClick={() => forceLogout(u)} className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-navy/70 hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-40 dark:text-white/70 dark:hover:bg-white/5">
+                                  <button type="button" disabled={isSelf || busy} onClick={() => { setModal({ type: "force-logout", user: u }); setOpenMenuId(null); }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-navy/70 hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-40 dark:text-white/70 dark:hover:bg-white/5">
                                     <LogOut className="h-3.5 w-3.5" /> Force logout
                                   </button>
                                   <button
@@ -302,6 +294,17 @@ export default function AdminUsersPage() {
       {modal?.type === "reset-uid" && <ResetUidModal user={modal.user} busy={busy} setBusy={setBusy} onClose={closeModal} onDone={refetch} toast={toast} />}
       {modal?.type === "usage" && <UsageModal user={modal.user} onClose={closeModal} />}
       {modal?.type === "delete" && <DeleteUserModal user={modal.user} busy={busy} setBusy={setBusy} onClose={closeModal} onDone={refetch} toast={toast} />}
+      {modal?.type === "force-logout" && (
+        <AdminActionConfirm
+          title={`Force logout ${modal.user.name}`}
+          targetLabel={`${modal.user.name} (${modal.user.email})`}
+          explanation="Immediately signs this account out of every active session and revokes all their tracked devices. They'll need to log in again everywhere."
+          confirmLabel="Force logout"
+          onClose={closeModal}
+          toast={toast}
+          onConfirm={() => api.post<{ ok: boolean; message: string }>(`/api/admin/users/${modal.user.id}/force-logout`)}
+        />
+      )}
     </>
   );
 }

@@ -105,7 +105,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   twoFactorEnabled: boolean;
   sessionTimeoutMinutes: number;
-  login: (email: string, password: string) => Promise<LoginResult>;
+  login: (email: string, password: string, portal?: "admin") => Promise<LoginResult>;
   loginWithPasskey: () => Promise<{ isFirstLogin: boolean }>;
   signup: (input: SignupInput) => Promise<SignupResult>;
   verifyLogin2FA: (challengeToken: string, code: string) => Promise<{ isFirstLogin: boolean }>;
@@ -226,10 +226,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [user]);
 
-  const login = useCallback(async (email: string, password: string): Promise<LoginResult> => {
+  const login = useCallback(async (email: string, password: string, portal?: "admin"): Promise<LoginResult> => {
     const res = await apiFetch("/api/auth/login", {
       method: "POST",
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password, portal }),
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
@@ -263,9 +263,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       challengeToken: string;
     };
     const response = await startAuthentication({ optionsJSON: options });
+    // /admin-login has no passkey UI (only the regular /login page offers biometric sign-in), so
+    // this always represents a normal-user-portal attempt — send the same portal marker
+    // password login uses, so an ADMIN/SUPER_ADMIN account's passkey can't slip through here.
     const verifyRes = await apiFetch("/api/auth/passkey/login/verify", {
       method: "POST",
-      body: JSON.stringify({ response, challengeToken }),
+      body: JSON.stringify({ response, challengeToken, portal: "user" }),
     });
     if (!verifyRes.ok) {
       const data = await verifyRes.json().catch(() => ({}));

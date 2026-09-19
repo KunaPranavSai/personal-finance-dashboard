@@ -6,8 +6,10 @@ import { useQuery } from "@tanstack/react-query";
 import { CheckCircle, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { PasswordInput } from "@/components/ui/PasswordInput";
+import { AdminActionConfirm } from "@/components/admin/AdminActionConfirm";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/format";
+import { useAuth } from "@/lib/AuthContext";
 
 export interface ManagedUser {
   id: string;
@@ -76,16 +78,30 @@ export interface UserModalProps {
 }
 
 export function EditUserModal({ user, busy, setBusy, onClose, onDone, toast }: UserModalProps & { onDone: () => void }) {
+  const { user: currentAdmin } = useAuth();
   const [name, setName] = useState(user.name);
   const [email, setEmail] = useState(user.email);
   const [phone, setPhone] = useState(user.phone ?? "");
   const [role, setRole] = useState(user.role);
   const [status, setStatus] = useState(user.status);
+  const [confirmStep, setConfirmStep] = useState<null | "suspend" | "role">(null);
+
+  const isSelf = currentAdmin?.uid === user.uid;
+  // Mirror the backend's own rules (auth.routes.ts PATCH /users/:id) in the UI, so an admin never
+  // submits a change the server will reject anyway: only a Super Admin may grant/modify Super
+  // Admin, and nobody can escalate their own role from this screen.
+  const canManageSuperAdmin = currentAdmin?.role === "SUPER_ADMIN";
+  const roleLocked = isSelf || (user.role === "SUPER_ADMIN" && !canManageSuperAdmin);
+
+  const patchUser = useCallback(async () => {
+    const data = await api.patch<{ ok: boolean; message: string }>(`/api/auth/users/${user.id}`, { name, email, phone, role, status });
+    return data;
+  }, [user.id, name, email, phone, role, status]);
 
   const submit = useCallback(async () => {
     setBusy(true);
     try {
-      const data = await api.patch<{ ok: boolean; message: string }>(`/api/auth/users/${user.id}`, { name, email, phone, role, status });
+      const data = await patchUser();
       toast(data.message, "success");
       onDone();
       onClose();
@@ -94,7 +110,54 @@ export function EditUserModal({ user, busy, setBusy, onClose, onDone, toast }: U
     } finally {
       setBusy(false);
     }
-  }, [user.id, name, email, phone, role, status, setBusy, toast, onDone, onClose]);
+  }, [patchUser, setBusy, toast, onDone, onClose]);
+
+  // Suspending and role changes both have real, immediate consequences — gate them behind the
+  // same Action Center confirmation used for force-logout/session-revoke/delete, instead of a
+  // plain Save. Role wins if both changed in the same edit (the more consequential of the two).
+  const handleSaveClick = useCallback(() => {
+    if (role !== user.role) {
+      setConfirmStep("role");
+      return;
+    }
+    if (status === "SUSPENDED" && user.status !== "SUSPENDED") {
+      setConfirmStep("suspend");
+      return;
+    }
+    void submit();
+  }, [role, user.role, status, user.status, submit]);
+
+  if (confirmStep === "suspend") {
+    return (
+      <AdminActionConfirm
+        title={`Suspend ${user.name}`}
+        targetLabel={`${user.name} (${user.email})`}
+        explanation="Suspending immediately blocks this account from signing in or making any authenticated request, and signs out its active sessions. They can be reactivated later from this same menu."
+        danger
+        confirmLabel="Suspend account"
+        onClose={() => setConfirmStep(null)}
+        toast={toast}
+        onDone={() => { onDone(); onClose(); }}
+        onConfirm={patchUser}
+      />
+    );
+  }
+
+  if (confirmStep === "role") {
+    return (
+      <AdminActionConfirm
+        title={`Change role for ${user.name}`}
+        targetLabel={`${user.name} (${user.email})`}
+        explanation={`Changes this account's role from ${user.role.replace("_", " ")} to ${role.replace("_", " ")}. This immediately changes what they can access.`}
+        danger={role === "SUPER_ADMIN" || user.role === "SUPER_ADMIN"}
+        confirmLabel="Change role"
+        onClose={() => setConfirmStep(null)}
+        toast={toast}
+        onDone={() => { onDone(); onClose(); }}
+        onConfirm={patchUser}
+      />
+    );
+  }
 
   return (
     <ModalShell onClose={onClose}>
@@ -115,11 +178,20 @@ export function EditUserModal({ user, busy, setBusy, onClose, onDone, toast }: U
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Role</label>
-            <select value={role} onChange={(e) => setRole(e.target.value as ManagedUser["role"])} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
+            <select
+              value={role}
+              onChange={(e) => setRole(e.target.value as ManagedUser["role"])}
+              disabled={roleLocked}
+              className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm disabled:opacity-50 dark:border-white/10 dark:bg-navy-dark dark:text-white"
+            >
               <option value="USER">User</option>
               <option value="ADMIN">Admin</option>
-              <option value="SUPER_ADMIN">Super Admin</option>
+              {canManageSuperAdmin && <option value="SUPER_ADMIN">Super Admin</option>}
             </select>
+            {isSelf && <p className="mt-1 text-[11px] text-navy/40 dark:text-white/40">You can&apos;t change your own role.</p>}
+            {!isSelf && user.role === "SUPER_ADMIN" && !canManageSuperAdmin && (
+              <p className="mt-1 text-[11px] text-navy/40 dark:text-white/40">Only a Super Admin can modify a Super Admin.</p>
+            )}
           </div>
           <div>
             <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Status</label>
@@ -132,7 +204,7 @@ export function EditUserModal({ user, busy, setBusy, onClose, onDone, toast }: U
       </div>
       <div className="mt-5 flex justify-end gap-2">
         <Button type="button" size="sm" variant="secondary" onClick={onClose}>Cancel</Button>
-        <Button type="button" size="sm" onClick={submit} disabled={busy || !name || !email}>{busy ? "Saving…" : "Save changes"}</Button>
+        <Button type="button" size="sm" onClick={handleSaveClick} disabled={busy || !name || !email}>{busy ? "Saving…" : "Save changes"}</Button>
       </div>
     </ModalShell>
   );
@@ -156,18 +228,16 @@ export function ResetPasswordModal({ user, busy, setBusy, onClose, toast }: User
     }
   }, [toast]);
 
-  const submit = useCallback(async () => {
+  const doReset = useCallback(async () => {
     setBusy(true);
     try {
       const data = await api.post<{ ok: boolean; emailSent: boolean; password?: string }>(`/api/auth/users/${user.id}/reset-password`, { password: password || undefined, sendEmail });
       setResult(data);
-      toast(data.emailSent ? "Password reset and emailed" : "Password reset", data.emailSent ? "success" : "error");
-    } catch (err) {
-      toast(err instanceof Error ? err.message : "Failed to reset password", "error");
+      return { message: data.emailSent ? "Password reset and emailed" : "Password reset" };
     } finally {
       setBusy(false);
     }
-  }, [user.id, password, sendEmail, setBusy, toast]);
+  }, [user.id, password, sendEmail, setBusy]);
 
   if (result) {
     return (
@@ -187,26 +257,29 @@ export function ResetPasswordModal({ user, busy, setBusy, onClose, toast }: User
   }
 
   return (
-    <ModalShell onClose={onClose}>
-      <p className="text-sm font-semibold text-navy dark:text-white">Reset password for {user.name}</p>
-      <div className="mt-4 space-y-3">
+    <AdminActionConfirm
+      title={`Reset password for ${user.name}`}
+      targetLabel={`${user.name} (${user.email})`}
+      explanation="Immediately replaces this account's password. They'll need the new password (or the emailed one) to sign in again — any active sessions are unaffected by this alone."
+      confirmLabel={busy ? "Resetting…" : "Reset password"}
+      onClose={onClose}
+      toast={toast}
+      onConfirm={doReset}
+    >
+      <div className="space-y-3">
         <div>
-          <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">New Password</label>
-          <div className="flex gap-2">
-            <PasswordInput autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Leave blank to auto-generate" className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" />
+          <label className="cc-mono block text-[10px] uppercase tracking-wider" style={{ color: "var(--cc-text-faint)" }}>New Password</label>
+          <div className="mt-1 flex gap-2">
+            <PasswordInput autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Leave blank to auto-generate" className="w-full rounded border border-white/10 bg-transparent px-3 py-2 text-sm text-white" />
             <Button type="button" size="sm" variant="secondary" onClick={generate} disabled={generating}>{generating ? "…" : "Generate"}</Button>
           </div>
         </div>
-        <label className="flex items-center gap-2 text-sm text-navy dark:text-white">
-          <input type="checkbox" checked={sendEmail} onChange={(e) => setSendEmail(e.target.checked)} className="h-4 w-4 rounded border-black/20 text-teal dark:border-white/20" />
+        <label className="flex items-center gap-2 text-xs" style={{ color: "var(--cc-text-dim)" }}>
+          <input type="checkbox" checked={sendEmail} onChange={(e) => setSendEmail(e.target.checked)} className="h-4 w-4 rounded" />
           Send new password to {user.email}
         </label>
       </div>
-      <div className="mt-5 flex justify-end gap-2">
-        <Button type="button" size="sm" variant="secondary" onClick={onClose}>Cancel</Button>
-        <Button type="button" size="sm" onClick={submit} disabled={busy}>{busy ? "Resetting…" : "Reset password"}</Button>
-      </div>
-    </ModalShell>
+    </AdminActionConfirm>
   );
 }
 
@@ -214,38 +287,38 @@ export function ResetUidModal({ user, busy, setBusy, onClose, onDone, toast }: U
   const [uid, setUid] = useState(user.uid);
   const [sendEmail, setSendEmail] = useState(true);
 
-  const submit = useCallback(async () => {
+  const doReset = useCallback(async () => {
     setBusy(true);
     try {
       await api.post(`/api/auth/users/${user.id}/reset-uid`, { uid, sendEmail });
-      toast("UID updated", "success");
-      onDone();
-      onClose();
-    } catch (err) {
-      toast(err instanceof Error ? err.message : "Failed to reset UID", "error");
+      return { message: "UID updated" };
     } finally {
       setBusy(false);
     }
-  }, [user.id, uid, sendEmail, setBusy, toast, onDone, onClose]);
+  }, [user.id, uid, sendEmail, setBusy]);
 
   return (
-    <ModalShell onClose={onClose}>
-      <p className="text-sm font-semibold text-navy dark:text-white">Reset UID for {user.name}</p>
-      <div className="mt-4 space-y-3">
+    <AdminActionConfirm
+      title={`Reset UID for ${user.name}`}
+      targetLabel={`${user.name} (${user.email})`}
+      explanation="Changes the User ID this account signs in with. Their password is unaffected. Make sure they know the new ID before closing this."
+      confirmLabel={busy ? "Saving…" : "Reset UID"}
+      onClose={onClose}
+      toast={toast}
+      onDone={onDone}
+      onConfirm={doReset}
+    >
+      <div className="space-y-3">
         <div>
-          <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">New User ID</label>
-          <input value={uid} onChange={(e) => setUid(e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" />
+          <label className="cc-mono block text-[10px] uppercase tracking-wider" style={{ color: "var(--cc-text-faint)" }}>New User ID</label>
+          <input value={uid} onChange={(e) => setUid(e.target.value)} className="mt-1 w-full rounded border bg-transparent px-3 py-2 text-sm" style={{ borderColor: "var(--cc-border)", color: "var(--cc-text)" }} />
         </div>
-        <label className="flex items-center gap-2 text-sm text-navy dark:text-white">
-          <input type="checkbox" checked={sendEmail} onChange={(e) => setSendEmail(e.target.checked)} className="h-4 w-4 rounded border-black/20 text-teal dark:border-white/20" />
+        <label className="flex items-center gap-2 text-xs" style={{ color: "var(--cc-text-dim)" }}>
+          <input type="checkbox" checked={sendEmail} onChange={(e) => setSendEmail(e.target.checked)} className="h-4 w-4 rounded" />
           Notify {user.email} of the change
         </label>
       </div>
-      <div className="mt-5 flex justify-end gap-2">
-        <Button type="button" size="sm" variant="secondary" onClick={onClose}>Cancel</Button>
-        <Button type="button" size="sm" onClick={submit} disabled={busy || !uid}>{busy ? "Saving…" : "Reset UID"}</Button>
-      </div>
-    </ModalShell>
+    </AdminActionConfirm>
   );
 }
 
@@ -277,6 +350,7 @@ export function UsageModal({ user, onClose }: { user: ManagedUser; onClose: () =
 }
 
 export function DeleteUserModal({ user, busy, setBusy, onClose, onDone, toast }: UserModalProps & { onDone: () => void }) {
+  const [typed, setTyped] = useState("");
   const submit = useCallback(async () => {
     setBusy(true);
     try {
@@ -302,9 +376,20 @@ export function DeleteUserModal({ user, busy, setBusy, onClose, onDone, toast }:
           <p className="mt-1 text-xs text-navy/50 dark:text-white/50">This removes their account and all associated data (transactions, budgets, etc.) immediately. This cannot be undone.</p>
         </div>
       </div>
+      <div className="mt-4">
+        <label className="mb-1 block text-xs font-medium text-navy/50 dark:text-white/50">
+          Type <span className="font-semibold">{user.email}</span> to confirm
+        </label>
+        <input
+          value={typed}
+          onChange={(e) => setTyped(e.target.value)}
+          className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10"
+          autoFocus
+        />
+      </div>
       <div className="mt-5 flex justify-end gap-2">
         <Button type="button" size="sm" variant="secondary" onClick={onClose}>Cancel</Button>
-        <Button type="button" size="sm" variant="danger" onClick={submit} disabled={busy}>{busy ? "Deleting…" : "Delete permanently"}</Button>
+        <Button type="button" size="sm" variant="danger" onClick={submit} disabled={busy || typed !== user.email}>{busy ? "Deleting…" : "Delete permanently"}</Button>
       </div>
     </ModalShell>
   );

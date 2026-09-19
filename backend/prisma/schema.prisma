@@ -94,8 +94,114 @@ model User {
   consent        ConsentRecord?
   recoverySessions  RecoverySession[]
   securityQuestions SecurityQuestion[]
+  sessions          Session[]
+  entitlement       UserEntitlement?
 
   @@index([status])
+}
+
+/// Extensible, non-billing per-user feature/limit config — explicitly NOT a subscription/billing
+/// system. `planLabel` is free text (room for FREE/PRO/BUSINESS/ENTERPRISE later without an enum
+/// migration), `features`/`limits` are open JSON maps (same "typed-JSON-blob" house style as
+/// AppSettings.data/AppProfile.data) so new keys never need a schema change.
+model UserEntitlement {
+  id             String   @id @default(cuid())
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId         String   @unique
+  planLabel      String   @default("FREE")
+  features       Json     @default("{}")
+  limits         Json     @default("{}")
+  restricted     Boolean  @default(false)
+  notifyEligible Boolean  @default(true)
+  emailEligible  Boolean  @default(true)
+  updatedById    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Session {
+  id         String    @id @default(cuid())
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     String
+  ip         String?
+  userAgent  String?
+  browser    String?
+  os         String?
+  device     String?
+  createdAt  DateTime  @default(now())
+  lastSeenAt DateTime  @default(now())
+  revokedAt  DateTime?
+
+  @@index([userId])
+  @@index([revokedAt])
+}
+
+enum AnnouncementStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHED
+  EXPIRED
+}
+
+enum AnnouncementType {
+  INFO
+  UPDATE
+  MAINTENANCE
+  SECURITY
+  FEATURE
+  IMPORTANT
+}
+
+enum AnnouncementPriority {
+  NORMAL
+  IMPORTANT
+  URGENT
+}
+
+model Announcement {
+  id          String               @id @default(cuid())
+  title       String
+  body        String
+  type        AnnouncementType     @default(INFO)
+  priority    AnnouncementPriority @default(NORMAL)
+  status      AnnouncementStatus   @default(DRAFT)
+  audience    String               @default("ALL")
+  publishAt   DateTime?
+  expireAt    DateTime?
+  createdById String
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  @@index([status])
+  @@index([publishAt])
+}
+
+/// Persisted override for a code-defined transactional template in lib/emailTemplates.ts
+/// (EMAIL_TEMPLATES registry). The registry stays the DEFAULT/fallback content; a row here
+/// overrides subject/html for that templateKey when `enabled`. Deleting the row (or never
+/// creating one) means "use the code default" — this is the mechanism behind Restore Default.
+model EmailTemplateOverride {
+  id          String   @id @default(cuid())
+  templateKey String   @unique
+  subject     String?
+  html        String?
+  enabled     Boolean  @default(true)
+  updatedById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+/// Per-trigger config for an existing automated send call site (identified by triggerKey, e.g.
+/// "welcome_email", "password_reset_by_admin") — lets an admin disable a specific automated
+/// email or point it at a different registry template, without touching code. Only created for
+/// triggers that genuinely exist as sendEmail(...) call sites — see notify.ts/auth.routes.ts.
+model EmailAutomationConfig {
+  id          String   @id @default(cuid())
+  triggerKey  String   @unique
+  templateKey String?
+  enabled     Boolean  @default(true)
+  updatedById String?
+  updatedAt   DateTime @updatedAt
 }
 
 enum RecoveryState {

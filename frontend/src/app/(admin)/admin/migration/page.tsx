@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { HardDrive, Search, Mail, CheckCircle2, AlertTriangle, RefreshCw, UserPlus, ShieldQuestion } from "lucide-react";
 import { Topbar } from "@/components/layout/Topbar";
-import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useToast } from "@/components/ui/Toast";
@@ -108,94 +107,92 @@ export default function AdminMigrationPage() {
           description="Google Drive connection and legacy-data migration status per account. Derived from account records only — this view never accesses any user's Drive contents."
         />
 
-        <Card className="mb-4">
-          <CardContent className="flex flex-wrap items-end gap-3 pt-5">
-            <div className="min-w-[220px] flex-1">
-              <label className="mb-1 block text-xs font-medium text-navy/50 dark:text-white/50">Search</label>
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-navy/30 dark:text-white/30" />
-                <input
-                  type="text"
-                  value={search}
-                  onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-                  placeholder="Name, email, or UID"
-                  className="w-full rounded-lg border border-black/10 bg-transparent py-2 pl-9 pr-3 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white"
-                />
-              </div>
+        <div className="cc-panel mb-4 flex flex-wrap items-end gap-3 p-4">
+          <div className="min-w-[220px] flex-1">
+            <label className="cc-mono mb-1 block text-[10px] uppercase tracking-wider" style={{ color: "var(--cc-text-faint)" }}>Search</label>
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" style={{ color: "var(--cc-text-faint)" }} />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                placeholder="Name, email, or UID"
+                className="w-full rounded border bg-transparent py-2 pl-9 pr-3 text-sm"
+                style={{ borderColor: "var(--cc-border)", color: "var(--cc-text)" }}
+              />
             </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-navy/50 dark:text-white/50">State</label>
-              <select
-                value={state}
-                onChange={(e) => { setState(e.target.value as MigrationState | ""); setPage(1); }}
-                className="rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white"
-              >
-                {STATE_FILTERS.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
-              </select>
-            </div>
-          </CardContent>
-        </Card>
+          </div>
+          <div>
+            <label className="cc-mono mb-1 block text-[10px] uppercase tracking-wider" style={{ color: "var(--cc-text-faint)" }}>State</label>
+            <select
+              value={state}
+              onChange={(e) => { setState(e.target.value as MigrationState | ""); setPage(1); }}
+              className="rounded border bg-transparent px-3 py-2 text-sm"
+              style={{ borderColor: "var(--cc-border)", color: "var(--cc-text)" }}
+            >
+              {STATE_FILTERS.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
+            </select>
+          </div>
+        </div>
 
-        <Card>
-          <CardContent className="pt-5">
-            {isLoading ? (
-              <div className="space-y-2">{Array.from({ length: 8 }).map((_, i) => <div key={i} className="h-14 animate-pulse rounded-lg bg-black/5 dark:bg-white/5" />)}</div>
-            ) : items.length === 0 ? (
-              <EmptyState icon={ShieldQuestion} title="No accounts found" description="Try a different search or state filter." />
-            ) : (
-              <>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-black/5 dark:border-white/10 text-left text-navy/50 dark:text-white/50">
-                        <th className="pb-2 pr-3 font-medium">Account</th>
-                        <th className="pb-2 pr-3 font-medium">State</th>
-                        <th className="pb-2 pr-3 font-medium">Drive Account</th>
-                        <th className="pb-2 pr-3 font-medium">Last Attempt</th>
-                        <th className="pb-2 pr-3 font-medium">Error</th>
-                        <th className="pb-2 font-medium">Action</th>
+        <div className="cc-panel p-4">
+          {isLoading ? (
+            <div className="space-y-2">{Array.from({ length: 8 }).map((_, i) => <div key={i} className="h-14 animate-pulse rounded bg-white/[0.03]" />)}</div>
+          ) : items.length === 0 ? (
+            <EmptyState icon={ShieldQuestion} title="No accounts found" description="Try a different search or state filter." />
+          ) : (
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[720px] text-sm">
+                  <thead>
+                    <tr className="border-b text-left" style={{ borderColor: "var(--cc-border)", color: "var(--cc-text-faint)" }}>
+                      <th className="sticky left-0 bg-[var(--cc-panel)] pb-2 pr-3 font-medium">Account</th>
+                      <th className="pb-2 pr-3 font-medium">State</th>
+                      <th className="pb-2 pr-3 font-medium">Drive Account</th>
+                      <th className="pb-2 pr-3 font-medium">Last Attempt</th>
+                      <th className="pb-2 pr-3 font-medium">Error</th>
+                      <th className="pb-2 font-medium">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {items.map((row) => (
+                      <tr key={row.userId} className="border-b align-top transition-colors hover:bg-white/[0.03]" style={{ borderColor: "var(--cc-border)" }}>
+                        <td className="sticky left-0 bg-[var(--cc-panel)] py-3 pr-3">
+                          <p className="font-medium" style={{ color: "var(--cc-text)" }}>{row.name}</p>
+                          <p className="text-xs" style={{ color: "var(--cc-text-faint)" }}>{row.email}</p>
+                        </td>
+                        <td className="py-3 pr-3"><StateBadge state={row.state} /></td>
+                        <td className="py-3 pr-3" style={{ color: "var(--cc-text-dim)" }}>{row.accountEmail ?? "—"}</td>
+                        <td className="py-3 pr-3 whitespace-nowrap" style={{ color: "var(--cc-text-dim)" }}>
+                          {row.lastConnectAttemptAt ? new Date(row.lastConnectAttemptAt).toLocaleString() : "—"}
+                        </td>
+                        <td className="max-w-[240px] truncate py-3 pr-3 text-xs" style={{ color: "var(--cc-red)" }} title={row.lastConnectError ?? undefined}>
+                          {row.lastConnectError ?? "—"}
+                        </td>
+                        <td className="py-3">
+                          {NOTIFIABLE.includes(row.state) ? (
+                            <Button type="button" size="sm" variant="secondary" onClick={() => handleNotify(row)} disabled={notifying === row.userId} className="min-h-[44px] sm:min-h-0">
+                              <Mail className="h-3.5 w-3.5" /> {notifying === row.userId ? "Sending…" : "Notify User"}
+                            </Button>
+                          ) : (
+                            <span className="text-xs" style={{ color: "var(--cc-text-faint)" }}>—</span>
+                          )}
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {items.map((row) => (
-                        <tr key={row.userId} className="border-b border-black/5 align-top transition-colors hover:bg-black/[0.02] dark:border-white/5 dark:hover:bg-white/[0.03]">
-                          <td className="py-3 pr-3">
-                            <p className="font-medium text-navy dark:text-white">{row.name}</p>
-                            <p className="text-xs text-navy/50 dark:text-white/50">{row.email}</p>
-                          </td>
-                          <td className="py-3 pr-3"><StateBadge state={row.state} /></td>
-                          <td className="py-3 pr-3 text-navy/70 dark:text-white/70">{row.accountEmail ?? "—"}</td>
-                          <td className="py-3 pr-3 whitespace-nowrap text-navy/70 dark:text-white/70">
-                            {row.lastConnectAttemptAt ? new Date(row.lastConnectAttemptAt).toLocaleString() : "—"}
-                          </td>
-                          <td className="max-w-[240px] py-3 pr-3 truncate text-xs text-red-500" title={row.lastConnectError ?? undefined}>
-                            {row.lastConnectError ?? "—"}
-                          </td>
-                          <td className="py-3">
-                            {NOTIFIABLE.includes(row.state) ? (
-                              <Button type="button" size="sm" variant="secondary" onClick={() => handleNotify(row)} disabled={notifying === row.userId}>
-                                <Mail className="h-3.5 w-3.5" /> {notifying === row.userId ? "Sending…" : "Notify User"}
-                              </Button>
-                            ) : (
-                              <span className="text-xs text-navy/30 dark:text-white/30">—</span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {totalPages > 1 && (
+                <div className="mt-4 flex items-center justify-between text-sm">
+                  <button type="button" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1} className="min-h-[44px] rounded px-3 py-1.5 disabled:opacity-40" style={{ color: "var(--cc-text-dim)" }}>Previous</button>
+                  <span style={{ color: "var(--cc-text-faint)" }}>Page {page} of {totalPages}</span>
+                  <button type="button" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="min-h-[44px] rounded px-3 py-1.5 disabled:opacity-40" style={{ color: "var(--cc-text-dim)" }}>Next</button>
                 </div>
-                {totalPages > 1 && (
-                  <div className="mt-4 flex items-center justify-between text-sm">
-                    <button type="button" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1} className="rounded-lg px-3 py-1.5 text-navy/60 hover:bg-black/5 disabled:opacity-40 dark:text-white/60 dark:hover:bg-white/5">Previous</button>
-                    <span className="text-navy/50 dark:text-white/50">Page {page} of {totalPages}</span>
-                    <button type="button" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="rounded-lg px-3 py-1.5 text-navy/60 hover:bg-black/5 disabled:opacity-40 dark:text-white/60 dark:hover:bg-white/5">Next</button>
-                  </div>
-                )}
-              </>
-            )}
-          </CardContent>
-        </Card>
+              )}
+            </>
+          )}
+        </div>
       </main>
     </>
   );

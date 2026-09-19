@@ -16,6 +16,29 @@ router.get(
   })
 );
 
+// ─── GET /api/notifications/announcements ────────────────────────────────────
+// Platform-wide content (separate from this user's personal `Notification` rows) — currently
+// PUBLISHED, non-expired announcements only. Never touches financial data.
+router.get(
+  "/announcements",
+  asyncHandler(async (_req, res) => {
+    const now = new Date();
+    const items = await prisma.announcement.findMany({
+      where: {
+        status: "PUBLISHED",
+        OR: [{ expireAt: null }, { expireAt: { gt: now } }],
+        AND: [{ OR: [{ publishAt: null }, { publishAt: { lte: now } }] }],
+      },
+      orderBy: { publishAt: "desc" },
+      select: {
+        id: true, title: true, body: true, type: true, priority: true,
+        publishAt: true, expireAt: true, createdAt: true,
+      },
+    });
+    res.json({ items });
+  })
+);
+
 router.get(
   "/unread-count",
   asyncHandler(async (req, res) => {

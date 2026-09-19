@@ -153,16 +153,22 @@ export function MobileSettingsView() {
 
       <div className="ppm-card" style={{ marginTop: 14 }}>
         <div className="ppm-section-label">Storage</div>
-        <div className="ppm-list-item" style={{ cursor: "default" }}>
-          <div className="ppm-ic" aria-hidden="true">{isLocalOnly ? "💾" : "🗄️"}</div>
-          <div className="ppm-info">
-            <div className="ppm-name">{isLocalOnly ? "This Device Only" : "Google Drive"}</div>
-            {!isLocalOnly && driveStatus?.accountEmail && <div className="ppm-meta">{driveStatus.accountEmail}</div>}
+        {isLocalOnly ? (
+          <div className="ppm-list-item" style={{ cursor: "default" }}>
+            <div className="ppm-ic" aria-hidden="true">💾</div>
+            <div className="ppm-info"><div className="ppm-name">This Device Only</div></div>
           </div>
-          {!isLocalOnly && !driveStatusLoading && driveState && (
-            <span className={`ppm-status ${driveState.tone}`}>{driveState.label}</span>
-          )}
-        </div>
+        ) : (
+          <Link href="/settings/storage" className="ppm-list-item">
+            <div className="ppm-ic" aria-hidden="true">🗄️</div>
+            <div className="ppm-info">
+              <div className="ppm-name">Google Drive</div>
+              {driveStatus?.accountEmail && <div className="ppm-meta">{driveStatus.accountEmail}</div>}
+            </div>
+            {!driveStatusLoading && driveState && <span className={`ppm-status ${driveState.tone}`}>{driveState.label}</span>}
+            <span className="ppm-chev">›</span>
+          </Link>
+        )}
         <Link href="/settings/storage" className="ppm-list-item">
           <div className="ppm-ic" aria-hidden="true">⚙️</div>
           <div className="ppm-info">

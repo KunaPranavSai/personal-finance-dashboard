@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Settings as SettingsIcon, Save, Info, Download, CheckCircle, Database } from "lucide-react";
 import { Topbar } from "@/components/layout/Topbar";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -18,7 +17,10 @@ interface PlatformSettings {
   require2FAForAdmins: boolean;
 }
 
-const inputCls = "w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10";
+const inputCls = "cc-mono w-full rounded border bg-transparent px-3 py-2 text-sm";
+const inputStyle = { borderColor: "var(--cc-border)", color: "var(--cc-text)" };
+const sectionLabelCls = "cc-mono mb-3 text-[10px] font-semibold uppercase tracking-widest";
+const fieldLabelCls = "mb-1 block text-[10px] font-medium uppercase tracking-wider";
 
 export default function AdminSystemSettingsPage() {
   const { toast } = useToast();
@@ -82,81 +84,79 @@ export default function AdminSystemSettingsPage() {
 
         {isLoading || !form ? (
           <div className="space-y-4">
-            <div className="h-40 animate-pulse rounded-xl2 bg-black/5 dark:bg-white/5" />
-            <div className="h-52 animate-pulse rounded-xl2 bg-black/5 dark:bg-white/5" />
+            <div className="cc-panel h-40 animate-pulse" />
+            <div className="cc-panel h-52 animate-pulse" />
           </div>
         ) : (
           <div className="space-y-6">
-            <Card>
-              <CardHeader><CardTitle>Site Identity</CardTitle></CardHeader>
-              <CardContent className="space-y-4">
+            <div className="cc-panel p-4">
+              <p className={sectionLabelCls} style={{ color: "var(--cc-text-faint)" }}>Site Identity</p>
+              <div className="space-y-4">
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-navy/50 dark:text-white/50">Site Name</label>
-                  <input value={form.siteName} onChange={(e) => setForm({ ...form, siteName: e.target.value })} className={inputCls} />
+                  <label className={fieldLabelCls} style={{ color: "var(--cc-text-faint)" }}>Site Name</label>
+                  <input value={form.siteName} onChange={(e) => setForm({ ...form, siteName: e.target.value })} className={inputCls} style={inputStyle} />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-navy/50 dark:text-white/50">Support Email</label>
-                  <input type="email" value={form.supportEmail ?? ""} onChange={(e) => setForm({ ...form, supportEmail: e.target.value })} placeholder="support@yourdomain.com" className={inputCls} />
+                  <label className={fieldLabelCls} style={{ color: "var(--cc-text-faint)" }}>Support Email</label>
+                  <input type="email" value={form.supportEmail ?? ""} onChange={(e) => setForm({ ...form, supportEmail: e.target.value })} placeholder="support@yourdomain.com" className={inputCls} style={inputStyle} />
                 </div>
-                <div className="flex items-start gap-2 rounded-lg bg-black/5 p-3 text-xs text-navy/50 dark:bg-white/5 dark:text-white/50">
+                <div className="flex items-start gap-2 rounded p-3 text-xs" style={{ background: "var(--cc-panel-alt)", color: "var(--cc-text-faint)" }}>
                   <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                   Stored for future use — not yet wired into outgoing email templates or branding.
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
 
-            <Card>
-              <CardHeader><CardTitle>Security Policy</CardTitle></CardHeader>
-              <CardContent className="space-y-4">
+            <div className="cc-panel p-4">
+              <p className={sectionLabelCls} style={{ color: "var(--cc-text-faint)" }}>Security Policy</p>
+              <div className="space-y-4">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-navy/50 dark:text-white/50">Default Session Timeout (minutes)</label>
-                    <input type="number" min={1} value={form.defaultSessionTimeoutMinutes} onChange={(e) => setForm({ ...form, defaultSessionTimeoutMinutes: Number(e.target.value) })} className={inputCls} />
+                    <label className={fieldLabelCls} style={{ color: "var(--cc-text-faint)" }}>Default Session Timeout (minutes)</label>
+                    <input type="number" min={1} value={form.defaultSessionTimeoutMinutes} onChange={(e) => setForm({ ...form, defaultSessionTimeoutMinutes: Number(e.target.value) })} className={inputCls} style={inputStyle} />
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-navy/50 dark:text-white/50">Minimum Password Length</label>
-                    <input type="number" min={6} max={64} value={form.minPasswordLength} onChange={(e) => setForm({ ...form, minPasswordLength: Number(e.target.value) })} className={inputCls} />
+                    <label className={fieldLabelCls} style={{ color: "var(--cc-text-faint)" }}>Minimum Password Length</label>
+                    <input type="number" min={6} max={64} value={form.minPasswordLength} onChange={(e) => setForm({ ...form, minPasswordLength: Number(e.target.value) })} className={inputCls} style={inputStyle} />
                   </div>
                 </div>
                 <label className="flex items-center gap-3 cursor-pointer">
-                  <input type="checkbox" checked={form.require2FAForAdmins} onChange={(e) => setForm({ ...form, require2FAForAdmins: e.target.checked })} className="h-4 w-4 rounded border-black/20 text-teal dark:border-white/20" />
-                  <span className="text-sm text-navy dark:text-white">Require Two-Factor Authentication for Admins</span>
+                  <input type="checkbox" checked={form.require2FAForAdmins} onChange={(e) => setForm({ ...form, require2FAForAdmins: e.target.checked })} className="h-4 w-4 rounded" />
+                  <span className="text-sm" style={{ color: "var(--cc-text)" }}>Require Two-Factor Authentication for Admins</span>
                 </label>
-                <div className="flex items-start gap-2 rounded-lg bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-400">
+                <div className="flex items-start gap-2 rounded p-3 text-xs" style={{ background: "rgba(251,191,36,0.08)", color: "var(--cc-amber)" }}>
                   <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                   Saved here, but not yet enforced by login or password-change flows — enforcement wiring is a follow-up.
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
 
             <Button onClick={handleSave} disabled={saving}>
               <Save className="h-4 w-4" /> {saving ? "Saving…" : "Save Settings"}
             </Button>
 
-            <Card>
-              <CardHeader><CardTitle>Account Backup</CardTitle></CardHeader>
-              <CardContent>
-                <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p className="text-sm font-semibold text-navy dark:text-white">Download Account Backup</p>
-                    <p className="mt-1 text-sm text-navy/60 dark:text-white/60">
-                      Every account&apos;s role, status, and timestamps — as JSON.
-                    </p>
-                  </div>
-                  <Button onClick={handleDownloadBackup} disabled={downloading}>
-                    {justDownloaded ? <CheckCircle className="h-4 w-4" /> : <Download className="h-4 w-4" />}
-                    {downloading ? "Preparing…" : justDownloaded ? "Downloaded" : "Download Backup"}
-                  </Button>
+            <div className="cc-panel p-4">
+              <p className={sectionLabelCls} style={{ color: "var(--cc-text-faint)" }}>Account Backup</p>
+              <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm font-semibold" style={{ color: "var(--cc-text)" }}>Download Account Backup</p>
+                  <p className="mt-1 text-sm" style={{ color: "var(--cc-text-dim)" }}>
+                    Every account&apos;s role, status, and timestamps — as JSON.
+                  </p>
                 </div>
-                <div className="mt-4 flex items-start gap-2 rounded-lg bg-black/5 p-3 text-xs text-navy/50 dark:bg-white/5 dark:text-white/50">
-                  <Database className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                  Never includes financial data (transactions, budgets, investments, bills, goals, categories,
-                  accounts) — that lives solely in each user&apos;s own Google Drive, which the platform has no
-                  access to. Only account metadata (role, status, timestamps) is included. Restore-from-file is
-                  intentionally not available.
-                </div>
-              </CardContent>
-            </Card>
+                <Button onClick={handleDownloadBackup} disabled={downloading} className="min-h-[44px]">
+                  {justDownloaded ? <CheckCircle className="h-4 w-4" /> : <Download className="h-4 w-4" />}
+                  {downloading ? "Preparing…" : justDownloaded ? "Downloaded" : "Download Backup"}
+                </Button>
+              </div>
+              <div className="mt-4 flex items-start gap-2 rounded p-3 text-xs" style={{ background: "var(--cc-panel-alt)", color: "var(--cc-text-faint)" }}>
+                <Database className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                Never includes financial data (transactions, budgets, investments, bills, goals, categories,
+                accounts) — that lives solely in each user&apos;s own Google Drive, which the platform has no
+                access to. Only account metadata (role, status, timestamps) is included. Restore-from-file is
+                intentionally not available.
+              </div>
+            </div>
           </div>
         )}
       </main>

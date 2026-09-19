@@ -57,7 +57,7 @@ export default function AdminLoginPage() {
     setError("");
     setIsPending(true);
     try {
-      const result = await login(email.trim().toLowerCase(), password);
+      const result = await login(email.trim().toLowerCase(), password, "admin");
       if (result.requiresPasswordChange && result.passwordChangeToken) {
         setPasswordChangeToken(result.passwordChangeToken);
       } else if (result.requires2FA && result.challengeToken) {

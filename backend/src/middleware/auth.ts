@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { getSessionVersion } from "../lib/sessionVersion";
+import { isSessionRevoked } from "../lib/sessionRevocation";
 import { ACCESS_SECRET, signAccess, signRefresh, setTokenCookies } from "../lib/tokens";
 import { computeSessionExpiryForUser } from "../lib/sessionExpiry";
 import { prisma } from "../lib/prisma";
@@ -21,6 +22,8 @@ export interface AuthPayload {
    * page reload or PWA relaunch can never silently mint a fresh session window.
    */
   sessionExpiresAt?: number;
+  /** The Session row this token was issued for, when created at login (see lib/tokens.ts). */
+  sessionId?: string;
   iat?: number;
   exp?: number;
 }
@@ -69,6 +72,13 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
     res.status(401).json({ error: "Session ended: you were signed in elsewhere", code: "AUTH_EXPIRED" });
     return;
   }
+  // Per-device revoke: only enforced for tokens that carry a sessionId claim (every login since
+  // Session tracking was added) — an admin revoking one Session row now actually signs out only
+  // that device, without needing a full sessionVersion bump.
+  if (payload.sessionId && isSessionRevoked(payload.sessionId)) {
+    res.status(401).json({ error: "This session was signed out by an administrator", code: "AUTH_EXPIRED" });
+    return;
+  }
   // undefined sessionExpiresAt means the account's inactivity timeout is "Never".
   if (payload.sessionExpiresAt !== undefined && Date.now() > payload.sessionExpiresAt) {
     res.status(401).json({ error: "Session expired due to inactivity", code: "AUTH_EXPIRED" });
@@ -86,7 +96,7 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
     try {
       const sessionExpiresAt = await computeSessionExpiryForUser(payload.userId);
       if (sessionExpiresAt !== undefined) {
-        const tfa = { tfaEnabled: payload.tfaEnabled, tfaVerifiedAt: payload.tfaVerifiedAt, sessionExpiresAt };
+        const tfa = { tfaEnabled: payload.tfaEnabled, tfaVerifiedAt: payload.tfaVerifiedAt, sessionExpiresAt, sessionId: payload.sessionId };
         const user = { id: payload.userId, uid: payload.uid, role: payload.role };
         setTokenCookies(res, signAccess(user, payload.sv, tfa), signRefresh(user, payload.sv, tfa));
         req.auth = { ...payload, sessionExpiresAt };

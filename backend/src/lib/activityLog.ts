@@ -54,3 +54,30 @@ export async function logActivity(req: Request, event: string, detail?: string, 
     console.error("Failed to write activity log:", err);
   }
 }
+
+/**
+ * Create a Session row for a successful login (password, 2FA-completed, or passkey).
+ * Fire-and-forget/best-effort like logActivity — a failure here must never block sign-in.
+ * Powers the admin Sessions tab / per-device listing (see admin.routes.ts).
+ */
+export async function createSessionRecord(req: Request, userId: string): Promise<string | null> {
+  try {
+    const ua = String(req.headers["user-agent"] ?? "");
+    const { browser, os, device } = parseUserAgent(ua);
+    const session = await prisma.session.create({
+      data: {
+        userId,
+        ip: getClientIp(req),
+        userAgent: ua.slice(0, 500),
+        browser,
+        os,
+        device,
+      },
+      select: { id: true },
+    });
+    return session.id;
+  } catch (err) {
+    console.error("Failed to create session record:", err);
+    return null;
+  }
+}

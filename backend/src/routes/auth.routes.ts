@@ -9,7 +9,11 @@ import { asyncHandler } from "../utils/asyncHandler";
 import { prisma } from "../lib/prisma";
 import { authenticate, requireRole, requireRecent2FA, AuthPayload } from "../middleware/auth";
 import { getSessionVersion, bumpSessionVersion } from "../lib/sessionVersion";
-import { logActivity } from "../lib/activityLog";
+import { logActivity, createSessionRecord } from "../lib/activityLog";
+import { isSessionRevoked } from "../lib/sessionRevocation";
+import { enforcePortalOrReject } from "../lib/portal";
+import { isRestricted } from "../services/entitlements";
+import { sendAutomatedEmail } from "../services/email/automation";
 import { notifySecurityEvent, sendEmail, createNotification } from "../lib/notify";
 import { RP_ID, RP_NAME, RP_ORIGINS } from "../lib/webauthn";
 import { computeSessionExpiryForUser } from "../lib/sessionExpiry";
@@ -347,7 +351,7 @@ router.post(
   "/login",
   loginLimiter,
   asyncHandler(async (req: Request, res: Response) => {
-    const { email, password } = req.body as { email?: string; password?: string };
+    const { email, password, portal } = req.body as { email?: string; password?: string; portal?: string };
     if (!email || !password) {
       res.status(400).json({ error: "Email and password are required" });
       return;
@@ -359,6 +363,15 @@ router.post(
     }
     if (user.status === "SUSPENDED") {
       res.status(403).json({ error: "Your account has been suspended. Contact support.", code: "AUTH_FORBIDDEN" });
+      return;
+    }
+    // Portal separation (backend-enforced, not just hidden nav) — shared with passkey login,
+    // see lib/portal.ts.
+    if (enforcePortalOrReject(req, res, user, portal)) return;
+    // Entitlement-level restriction (Access & Entitlements) — a real backend gate, separate
+    // from account status. See services/entitlements.
+    if (await isRestricted(user.id)) {
+      res.status(403).json({ error: "Your account access has been restricted. Contact support.", code: "AUTH_FORBIDDEN" });
       return;
     }
     if (user.lockedUntil && user.lockedUntil > new Date()) {
@@ -407,7 +420,8 @@ router.post(
 
     const sv = bumpSessionVersion(user.id);
     const sessionExpiresAt = await computeSessionExpiryForUser(user.id);
-    setTokenCookies(res, signAccess(user, sv, { sessionExpiresAt }), signRefresh(user, sv, { sessionExpiresAt }));
+    const sessionId = (await createSessionRecord(req, user.id)) ?? undefined;
+    setTokenCookies(res, signAccess(user, sv, { sessionExpiresAt, sessionId }), signRefresh(user, sv, { sessionExpiresAt, sessionId }));
     // Captured before the update fires, so this reflects the account's real
     // login history — a null value here means this is genuinely the first
     // successful login ever (no existing field/flag was added for this; it
@@ -523,7 +537,8 @@ router.post(
     }
     const sv = bumpSessionVersion(user.id);
     const sessionExpiresAt = await computeSessionExpiryForUser(user.id);
-    const tfa = { tfaEnabled: true, tfaVerifiedAt: Date.now(), sessionExpiresAt };
+    const sessionId = (await createSessionRecord(req, user.id)) ?? undefined;
+    const tfa = { tfaEnabled: true, tfaVerifiedAt: Date.now(), sessionExpiresAt, sessionId };
     const isFirstLogin = user.lastLoginAt === null;
     setTokenCookies(res, signAccess(user, sv, tfa), signRefresh(user, sv, tfa));
     void prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
@@ -876,7 +891,12 @@ router.post(
         otpHash, otpExpiresAt, otpAttempts: 0, otpResendCount: 0, otpLastSentAt: new Date(),
       },
     });
-    void sendEmail(user.email, "Your Penny Pilot password reset code", RECOVERY_OTP_EMAIL_HTML(user.name, otp));
+    void sendAutomatedEmail({
+      req, triggerKey: "recovery_otp", userId: user.id, to: user.email,
+      defaultSubject: "Your Penny Pilot password reset code",
+      defaultHtml: RECOVERY_OTP_EMAIL_HTML(user.name, otp),
+      vars: { name: user.name, code: otp },
+    });
     void logActivity(req, "password_reset_requested", "Email OTP requested", user.id);
     res.json({ ok: true, method: "email_otp" });
   })
@@ -913,7 +933,12 @@ router.post(
       where: { id: session.id },
       data: { otpHash, otpExpiresAt, otpAttempts: 0, otpResendCount: { increment: 1 }, otpLastSentAt: new Date() },
     });
-    void sendEmail(user.email, "Your Penny Pilot password reset code", RECOVERY_OTP_EMAIL_HTML(user.name, otp));
+    void sendAutomatedEmail({
+      req, triggerKey: "recovery_otp", userId: user.id, to: user.email,
+      defaultSubject: "Your Penny Pilot password reset code",
+      defaultHtml: RECOVERY_OTP_EMAIL_HTML(user.name, otp),
+      vars: { name: user.name, code: otp },
+    });
     void logActivity(req, "password_reset_otp_resent", "Recovery OTP resent", user.id);
     res.json({ ok: true, message: "A new code has been sent." });
   })
@@ -1064,7 +1089,12 @@ router.post(
     clearRecoveryCookie(res);
     void logActivity(req, "password_reset", `Password reset via account recovery (${session.method ?? "unknown"})`, user.id);
     void notifySecurityEvent(user.id, "security", "Password reset", "Your password was reset via account recovery.");
-    void sendEmail(user.email, "Your Penny Pilot password was changed", PASSWORD_CHANGED_NOTIFICATION_EMAIL_HTML(user.name));
+    void sendAutomatedEmail({
+      req, triggerKey: "password_changed", userId: user.id, to: user.email,
+      defaultSubject: "Your Penny Pilot password was changed",
+      defaultHtml: PASSWORD_CHANGED_NOTIFICATION_EMAIL_HTML(user.name),
+      vars: { name: user.name },
+    });
     res.json({ ok: true, message: "Password reset successfully" });
   })
 );
@@ -1204,6 +1234,12 @@ router.post(
         res.status(401).json({ error: "Session ended: you were signed in elsewhere", code: "AUTH_EXPIRED" });
         return;
       }
+      if (payload.sessionId && isSessionRevoked(payload.sessionId)) {
+        res.clearCookie("access_token", { path: "/" });
+        res.clearCookie("refresh_token", { path: "/api/auth" });
+        res.status(401).json({ error: "This session was signed out by an administrator", code: "AUTH_EXPIRED" });
+        return;
+      }
       // Inactivity deadline, enforced independently of token cryptographic
       // validity — see lib/sessionExpiry.ts. undefined means the user's
       // configured timeout is "Never".
@@ -1227,7 +1263,7 @@ router.post(
       const sessionExpiresAt = await computeSessionExpiryForUser(user.id);
       // Re-derive tfaEnabled from the DB for freshness, but carry forward
       // tfaVerifiedAt from the old token so refreshing never resets the 12h clock.
-      const tfa: TfaClaims = { tfaEnabled: user.twoFactorEnabled, tfaVerifiedAt: payload.tfaVerifiedAt, sessionExpiresAt };
+      const tfa: TfaClaims = { tfaEnabled: user.twoFactorEnabled, tfaVerifiedAt: payload.tfaVerifiedAt, sessionExpiresAt, sessionId: payload.sessionId };
       setTokenCookies(res, signAccess(user, payload.sv, tfa), signRefresh(user, payload.sv, tfa));
       res.json({ user: toUserJson(user), sessionExpiresAt });
     } catch (err) {
@@ -1401,7 +1437,12 @@ router.patch(
     const updated = await prisma.user.update({ where: { id }, data });
     if (typeof data.sessionVersion === "object") bumpSessionVersion(updated.id);
     void logActivity(req, "user_updated", `${changes.join(", ")} for ${updated.email}`, req.auth!.userId);
-    void sendEmail(updated.email, "Your Penny Pilot account was updated", ACCOUNT_UPDATED_BY_ADMIN_EMAIL_HTML(updated.name, changes));
+    void sendAutomatedEmail({
+      req, triggerKey: "account_updated", userId: updated.id, to: updated.email,
+      defaultSubject: "Your Penny Pilot account was updated",
+      defaultHtml: ACCOUNT_UPDATED_BY_ADMIN_EMAIL_HTML(updated.name, changes),
+      vars: { name: updated.name, changes: changes.join("; ") },
+    });
     res.json({ ok: true, message: "User updated successfully." });
   })
 );
@@ -1438,7 +1479,12 @@ router.post(
 
     let emailSent = false;
     if (shouldSendEmail !== false) {
-      emailSent = await sendEmail(updated.email, "Your Penny Pilot password was reset", PASSWORD_RESET_BY_ADMIN_EMAIL_HTML(updated.name, updated.uid, finalPassword));
+      emailSent = await sendAutomatedEmail({
+        req, triggerKey: "password_reset_by_admin", userId: updated.id, to: updated.email,
+        defaultSubject: "Your Penny Pilot password was reset",
+        defaultHtml: PASSWORD_RESET_BY_ADMIN_EMAIL_HTML(updated.name, updated.uid, finalPassword),
+        vars: { name: updated.name, uid: updated.uid, tempPassword: finalPassword },
+      });
     }
     res.json({ ok: true, emailSent, password: emailSent ? undefined : finalPassword });
   })
@@ -1479,7 +1525,12 @@ router.post(
 
     let emailSent = false;
     if (shouldSendEmail !== false) {
-      emailSent = await sendEmail(updated.email, "Your Penny Pilot User ID was changed", UID_RESET_BY_ADMIN_EMAIL_HTML(updated.name, trimmed));
+      emailSent = await sendAutomatedEmail({
+        req, triggerKey: "uid_reset_by_admin", userId: updated.id, to: updated.email,
+        defaultSubject: "Your Penny Pilot User ID was changed",
+        defaultHtml: UID_RESET_BY_ADMIN_EMAIL_HTML(updated.name, trimmed),
+        vars: { name: updated.name, uid: trimmed },
+      });
     }
     res.json({ ok: true, emailSent, uid: trimmed });
   })
@@ -1760,7 +1811,7 @@ router.post(
   "/passkey/login/verify",
   loginLimiter,
   asyncHandler(async (req: Request, res: Response) => {
-    const { response, challengeToken } = req.body as { response?: AuthenticationResponseJSON; challengeToken?: string };
+    const { response, challengeToken, portal } = req.body as { response?: AuthenticationResponseJSON; challengeToken?: string; portal?: string };
     if (!response || !challengeToken) {
       res.status(400).json({ error: "Missing authentication response" });
       return;
@@ -1784,6 +1835,13 @@ router.post(
     const user = await prisma.user.findUnique({ where: { id: passkey.userId } });
     if (!user || user.status !== "ACTIVE") {
       res.status(403).json({ error: "This account is not available for sign-in.", code: "AUTH_FORBIDDEN" });
+      return;
+    }
+    // Portal separation (backend-enforced) — same gate and same shared helper as password
+    // /login, checked before any WebAuthn verification or token issuance. See lib/portal.ts.
+    if (enforcePortalOrReject(req, res, user, portal)) return;
+    if (await isRestricted(user.id)) {
+      res.status(403).json({ error: "Your account access has been restricted. Contact support.", code: "AUTH_FORBIDDEN" });
       return;
     }
     let verification;
@@ -1814,12 +1872,13 @@ router.post(
     });
     const sv = bumpSessionVersion(user.id);
     const sessionExpiresAt = await computeSessionExpiryForUser(user.id);
+    const sessionId = (await createSessionRecord(req, user.id)) ?? undefined;
     // A successful WebAuthn assertion is itself strong, device-bound, user-verified proof
     // of identity — for accounts with 2FA enabled we treat it as satisfying the recent-2FA
     // window too (same trust level as a fresh TOTP check), so it starts its own 12h clock.
     const tfa: TfaClaims = user.twoFactorEnabled
-      ? { tfaEnabled: true, tfaVerifiedAt: Date.now(), sessionExpiresAt }
-      : { tfaEnabled: false, sessionExpiresAt };
+      ? { tfaEnabled: true, tfaVerifiedAt: Date.now(), sessionExpiresAt, sessionId }
+      : { tfaEnabled: false, sessionExpiresAt, sessionId };
     const isFirstLogin = user.lastLoginAt === null;
     setTokenCookies(res, signAccess(user, sv, tfa), signRefresh(user, sv, tfa));
     void prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });

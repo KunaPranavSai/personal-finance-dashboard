@@ -39,12 +39,12 @@ const EVENT_META: Record<string, { label: string; icon: LucideIcon; tone: string
   platform_backup_downloaded: { label: "Backup downloaded", icon: Database, tone: "navy" },
 };
 
-const TONE_CLASSES: Record<string, string> = {
-  teal: "bg-teal/10 text-teal",
-  amber: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
-  red: "bg-red-500/10 text-red-500",
-  emerald: "bg-emerald-500/10 text-emerald-600",
-  navy: "bg-navy/10 text-navy/70 dark:bg-white/10 dark:text-white/70",
+const TONE_COLOR: Record<string, string> = {
+  teal: "var(--cc-accent)",
+  amber: "var(--cc-amber)",
+  red: "var(--cc-red)",
+  emerald: "var(--cc-green)",
+  navy: "var(--cc-text-dim)",
 };
 
 export function Timeline({ items }: { items: TimelineEvent[] }) {
@@ -52,23 +52,24 @@ export function Timeline({ items }: { items: TimelineEvent[] }) {
     <div className="space-y-1">
       {items.map((item, i) => {
         const meta = EVENT_META[item.event] ?? { label: item.event, icon: ActivityIcon, tone: "navy" };
+        const color = TONE_COLOR[meta.tone];
         return (
           <motion.div
             key={item.id}
             initial={{ opacity: 0, x: -8 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.2, delay: Math.min(i, 8) * 0.03 }}
-            className="flex items-start gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-black/[0.03] dark:hover:bg-white/[0.03]"
+            className="flex items-start gap-3 rounded px-2 py-2 transition-colors hover:bg-white/[0.04]"
           >
-            <div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-full", TONE_CLASSES[meta.tone])}>
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full" style={{ background: `color-mix(in srgb, ${color} 14%, transparent)`, color }}>
               <meta.icon className="h-4 w-4" />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-navy dark:text-white">{meta.label}</p>
-              {item.actorLabel && <p className="text-xs text-navy/50 dark:text-white/50">{item.actorLabel}</p>}
-              {item.detail && <p className="truncate text-xs text-navy/40 dark:text-white/40">{item.detail}</p>}
+              <p className="text-sm font-medium" style={{ color: "var(--cc-text)" }}>{meta.label}</p>
+              {item.actorLabel && <p className="cc-mono text-xs" style={{ color: "var(--cc-text-faint)" }}>{item.actorLabel}</p>}
+              {item.detail && <p className="truncate text-xs" style={{ color: "var(--cc-text-faint)" }}>{item.detail}</p>}
             </div>
-            <p className="shrink-0 text-[11px] text-navy/30 dark:text-white/30">{new Date(item.createdAt).toLocaleString()}</p>
+            <p className="cc-mono shrink-0 text-[11px]" style={{ color: "var(--cc-text-faint)" }}>{new Date(item.createdAt).toLocaleString()}</p>
           </motion.div>
         );
       })}
@@ -76,4 +77,4 @@ export function Timeline({ items }: { items: TimelineEvent[] }) {
   );
 }
 
-export { EVENT_META, TONE_CLASSES };
+export { EVENT_META, TONE_COLOR };

@@ -27,6 +27,10 @@ export interface TfaClaims {
    * inactivity timeout is set to "Never".
    */
   sessionExpiresAt?: number;
+  /** The Session row (lib/activityLog.ts createSessionRecord) this token belongs to, when one
+   * was created at login — lets authenticate() enforce a single revoked device instead of only
+   * the whole-account sessionVersion bump. Absent on tokens issued before this existed. */
+  sessionId?: string;
 }
 
 export function signAccess(user: Pick<User, "id" | "uid" | "role">, sv: number, tfa?: TfaClaims) {

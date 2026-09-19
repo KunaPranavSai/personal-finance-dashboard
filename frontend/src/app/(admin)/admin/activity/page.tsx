@@ -11,8 +11,8 @@ import { api } from "@/lib/api";
 import { cn } from "@/lib/format";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { StatCard, StatCardSkeleton } from "@/components/admin/StatCard";
-import { EVENT_META, TONE_CLASSES } from "@/components/admin/Timeline";
-import { Activity as ActivityIcon } from "lucide-react";
+import { EVENT_META, TONE_COLOR } from "@/components/admin/Timeline";
+import { Activity as ActivityIcon, X } from "lucide-react";
 
 interface AdminActivityItem {
   id: string;
@@ -20,7 +20,15 @@ interface AdminActivityItem {
   detail?: string | null;
   createdAt: string;
   ip?: string | null;
+  userAgent?: string | null;
+  browser?: string | null;
+  os?: string | null;
+  device?: string | null;
   user: { name: string; email: string; uid: string } | null;
+}
+
+function severityOf(event: string): "high" | "normal" {
+  return /failed|locked|suspend/i.test(event) ? "high" : "normal";
 }
 
 interface SecuritySummary {
@@ -54,15 +62,18 @@ export default function AdminActivityPage() {
   const [event, setEvent] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
+  const [severity, setSeverity] = useState<"" | "high" | "normal">("");
   const [page, setPage] = useState(1);
+  const [selected, setSelected] = useState<AdminActivityItem | null>(null);
 
   const params = new URLSearchParams({ page: String(page), pageSize: "25" });
   if (event) params.set("event", event);
   if (from) params.set("from", from);
   if (to) params.set("to", to);
+  if (severity) params.set("severity", severity);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["admin-activity", event, from, to, page],
+    queryKey: ["admin-activity", event, from, to, severity, page],
     queryFn: () => api.get<{ items: AdminActivityItem[]; pagination: { page: number; totalPages: number; total: number } }>(`/api/admin/activity?${params.toString()}`),
   });
 
@@ -71,6 +82,8 @@ export default function AdminActivityPage() {
     queryFn: () => api.get<SecuritySummary>("/api/admin/security/summary"),
   });
 
+  // Severity filtering is applied server-side (GET /api/admin/activity `severity` param) so
+  // pagination stays correct — severityOf() below is only used for the row badge, not filtering.
   const items = data?.items ?? [];
   const totalPages = data?.pagination.totalPages ?? 1;
   const securityTrend = securityData ? pivotTrend(securityData.trend) : [];
@@ -136,6 +149,14 @@ export default function AdminActivityPage() {
                 <label className="mb-1 block text-xs font-medium text-navy/50 dark:text-white/50">To</label>
                 <input type="date" value={to} onChange={(e) => { setTo(e.target.value); setPage(1); }} className={selectCls} />
               </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-navy/50 dark:text-white/50">Severity</label>
+                <select value={severity} onChange={(e) => { setSeverity(e.target.value as typeof severity); setPage(1); }} className={selectCls}>
+                  <option value="">All Severities</option>
+                  <option value="high">High</option>
+                  <option value="normal">Normal</option>
+                </select>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -149,10 +170,10 @@ export default function AdminActivityPage() {
             ) : (
               <>
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                  <table className="w-full min-w-[700px] text-sm">
                     <thead>
                       <tr className="border-b border-black/5 dark:border-white/10 text-left text-navy/50 dark:text-white/50">
-                        <th className="pb-2 pr-3 font-medium">Event</th>
+                        <th className="sticky left-0 bg-white pb-2 pr-3 font-medium dark:bg-navy-dark">Event</th>
                         <th className="pb-2 pr-3 font-medium">User</th>
                         <th className="pb-2 pr-3 font-medium">Time</th>
                         <th className="pb-2 font-medium">IP</th>
@@ -161,15 +182,22 @@ export default function AdminActivityPage() {
                     <tbody>
                       {items.map((a) => {
                         const meta = EVENT_META[a.event] ?? { label: a.event, icon: ActivityIcon, tone: "navy" };
+                        const color = TONE_COLOR[meta.tone];
+                        const sev = severityOf(a.event);
                         return (
-                          <tr key={a.id} className="border-b border-black/5 transition-colors hover:bg-black/[0.02] dark:border-white/5 dark:hover:bg-white/[0.03]">
-                            <td className="py-2 pr-3">
+                          <tr
+                            key={a.id}
+                            onClick={() => setSelected(a)}
+                            className="cursor-pointer border-b border-black/5 transition-colors hover:bg-black/[0.02] dark:border-white/5 dark:hover:bg-white/[0.03]"
+                          >
+                            <td className="sticky left-0 bg-white py-2 pr-3 dark:bg-navy-dark">
                               <div className="flex items-center gap-2">
-                                <div className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-full", TONE_CLASSES[meta.tone])}>
+                                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full" style={{ background: `color-mix(in srgb, ${color} 14%, transparent)`, color }}>
                                   <meta.icon className="h-3.5 w-3.5" />
                                 </div>
                                 <div>
                                   <span className="font-medium text-navy dark:text-white">{meta.label}</span>
+                                  {sev === "high" && <span className="ml-1.5 rounded-full bg-red-500/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-red-500">High</span>}
                                   {a.detail && <span className="block text-xs text-navy/40 dark:text-white/40">{a.detail}</span>}
                                 </div>
                               </div>
@@ -195,6 +223,41 @@ export default function AdminActivityPage() {
           </CardContent>
         </Card>
       </main>
+
+      {selected && (
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/50 backdrop-blur-sm" onClick={() => setSelected(null)}>
+          <div
+            className="h-full w-full max-w-sm overflow-y-auto border-l border-black/10 bg-white p-5 dark:border-white/10 dark:bg-navy-dark"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <p className="text-sm font-semibold text-navy dark:text-white">Event Detail</p>
+              <button onClick={() => setSelected(null)} className="rounded-lg p-1.5 hover:bg-black/5 dark:hover:bg-white/10" aria-label="Close">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="space-y-3 text-sm">
+              {[
+                ["Event", EVENT_META[selected.event]?.label ?? selected.event],
+                ["Severity", severityOf(selected.event)],
+                ["Detail", selected.detail ?? "—"],
+                ["Actor / Target", selected.user ? `${selected.user.name} (${selected.user.email}) · UID ${selected.user.uid}` : "—"],
+                ["Timestamp", new Date(selected.createdAt).toLocaleString()],
+                ["IP Address", selected.ip ?? "—"],
+                ["Browser", selected.browser ?? "—"],
+                ["OS", selected.os ?? "—"],
+                ["Device", selected.device ?? "—"],
+                ["User Agent", selected.userAgent ?? "—"],
+              ].map(([label, value]) => (
+                <div key={label}>
+                  <p className="text-xs font-medium uppercase tracking-wider text-navy/40 dark:text-white/40">{label}</p>
+                  <p className="break-words text-navy/80 dark:text-white/80">{value}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

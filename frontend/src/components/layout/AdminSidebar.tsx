@@ -5,7 +5,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, Users, HardDrive, Activity, Settings as SettingsIcon,
-  User, ShieldCheck, LogOut, X, ChevronDown,
+  User, ShieldCheck, LogOut, X, ChevronDown, Megaphone, Mail, Plug, Zap, Send,
 } from "lucide-react";
 import { cn } from "@/lib/format";
 import { useUiStore } from "@/store/uiStore";
@@ -24,35 +24,49 @@ interface NavGroup {
   items: NavItem[];
 }
 
-// Only sections that map to a real, working admin page — no placeholder links. Structured
-// around platform operations (users, Drive migration, system health, audit) rather than the
-// old Postgres-financial-data-era admin surface.
+// Only sections that map to a real, working admin page — no placeholder links. A few labels the
+// spec asks for (Sessions as a standalone page, Notifications as an admin-managed resource,
+// Backups as its own page) don't have a genuinely separate page yet — per-user Sessions live on
+// each account's User 360 tab, Notifications are user-owned records with no admin CRUD surface,
+// and the account-backup download lives on Application Settings — so they're intentionally
+// omitted here rather than added as dead links.
 const ADMIN_NAV_GROUPS: NavGroup[] = [
   {
-    id: "overview",
-    label: "Overview",
-    items: [{ href: "/admin", label: "Dashboard", icon: LayoutDashboard }],
+    id: "command",
+    label: "Command",
+    items: [{ href: "/admin", label: "Overview", icon: LayoutDashboard }],
   },
   {
-    id: "users",
-    label: "Users",
-    items: [
-      { href: "/admin/users", label: "Users", icon: Users },
-      { href: "/admin/migration", label: "Migration Status", icon: HardDrive },
-    ],
+    id: "people",
+    label: "People",
+    items: [{ href: "/admin/users", label: "Users", icon: Users }],
   },
   {
     id: "operations",
     label: "Operations",
     items: [
       { href: "/admin/system-health", label: "System Health", icon: Activity },
-      { href: "/admin/activity", label: "Activity / Audit Logs", icon: ShieldCheck },
+      { href: "/admin/migration", label: "Migration Status", icon: HardDrive },
+      { href: "/admin/activity", label: "Audit / Activity Logs", icon: ShieldCheck },
+    ],
+  },
+  {
+    id: "communication",
+    label: "Communication",
+    items: [
+      { href: "/admin/announcements", label: "Announcements", icon: Megaphone },
+      { href: "/admin/email-templates", label: "Email Templates", icon: Mail },
+      { href: "/admin/automated-emails", label: "Automated Emails", icon: Zap },
+      { href: "/admin/email", label: "Send Email", icon: Send },
     ],
   },
   {
     id: "configuration",
     label: "Configuration",
-    items: [{ href: "/admin/settings", label: "Application Settings", icon: SettingsIcon }],
+    items: [
+      { href: "/admin/settings", label: "Application Settings", icon: SettingsIcon },
+      { href: "/admin/integrations", label: "Integrations", icon: Plug },
+    ],
   },
 ];
 
@@ -79,8 +93,15 @@ export function AdminSidebar() {
 
   const isItemActive = (href: string) => pathname === href || pathname?.startsWith(href + "/");
 
+  const navLinkClass = (active: boolean) =>
+    cn(
+      "cc-mono flex items-center gap-3 rounded px-3 py-2 text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cc-accent)]/50",
+      active ? "bg-[var(--cc-accent-dim)]" : "hover:bg-white/[0.04]"
+    );
+  const navLinkStyle = (active: boolean) => ({ color: active ? "var(--cc-accent)" : "var(--cc-text-dim)" });
+
   const sidebarContent = (
-    <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-2 scrollbar-thin" aria-label="Admin navigation">
+    <nav className="cc-scrollbar flex flex-1 flex-col gap-1 overflow-y-auto px-2" aria-label="Admin navigation">
       {ADMIN_NAV_GROUPS.map((group) => {
         const groupActive = group.items.some((item) => isItemActive(item.href));
         const isCollapsed = Boolean(collapsedNavGroups[`admin-${group.id}`]) && !groupActive;
@@ -90,7 +111,8 @@ export function AdminSidebar() {
             <button
               type="button"
               onClick={() => toggleNavGroup(`admin-${group.id}`)}
-              className="flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-navy/40 hover:text-navy/60 dark:text-white/30 dark:hover:text-white/50"
+              className="cc-mono flex w-full items-center justify-between rounded px-3 py-1.5 text-[10px] font-semibold uppercase tracking-widest"
+              style={{ color: "var(--cc-text-faint)" }}
               aria-expanded={!isCollapsed}
             >
               <span>{group.label}</span>
@@ -105,14 +127,11 @@ export function AdminSidebar() {
                       key={href}
                       href={href}
                       onClick={closeSidebar}
-                      className={cn(
-                        "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal/50",
-                        active
-                          ? "bg-teal/10 text-teal"
-                          : "text-navy/60 hover:bg-black/5 dark:text-white/60 dark:hover:bg-white/5"
-                      )}
+                      className={navLinkClass(active)}
+                      style={navLinkStyle(active)}
                       aria-current={active ? "page" : undefined}
                     >
+                      <span className={cn("cc-status-dot", active ? "online" : "")} style={!active ? { background: "var(--cc-text-faint)" } : undefined} />
                       <Icon className="h-4 w-4 shrink-0" />
                       <span className="truncate">{label}</span>
                     </Link>
@@ -128,7 +147,8 @@ export function AdminSidebar() {
         <button
           type="button"
           onClick={() => toggleNavGroup("admin-account")}
-          className="flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-navy/40 hover:text-navy/60 dark:text-white/30 dark:hover:text-white/50"
+          className="cc-mono flex w-full items-center justify-between rounded px-3 py-1.5 text-[10px] font-semibold uppercase tracking-widest"
+          style={{ color: "var(--cc-text-faint)" }}
           aria-expanded={!collapsedNavGroups["admin-account"]}
         >
           <span>Account</span>
@@ -137,30 +157,19 @@ export function AdminSidebar() {
         {!collapsedNavGroups["admin-account"] && (
           <div className="flex flex-col gap-1">
             <Link
-              href="/settings"
+              href="/admin/account"
               onClick={closeSidebar}
-              className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal/50",
-                pathname === "/settings" ? "bg-teal/10 text-teal" : "text-navy/60 hover:bg-black/5 dark:text-white/60 dark:hover:bg-white/5"
-              )}
+              className={navLinkClass(pathname === "/admin/account")}
+              style={navLinkStyle(pathname === "/admin/account")}
             >
               <User className="h-4 w-4 shrink-0" /> Account Settings
-            </Link>
-            <Link
-              href="/settings?tab=security"
-              onClick={closeSidebar}
-              className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal/50",
-                pathname === "/settings" ? "bg-teal/10 text-teal" : "text-navy/60 hover:bg-black/5 dark:text-white/60 dark:hover:bg-white/5"
-              )}
-            >
-              <ShieldCheck className="h-4 w-4 shrink-0" /> Security / 2FA
             </Link>
             <button
               type="button"
               onClick={handleLogout}
               disabled={loggingOut}
-              className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm font-medium text-red-500 transition-colors hover:bg-red-500/10 disabled:opacity-50"
+              className="cc-mono flex w-full items-center gap-3 rounded px-3 py-2 text-left text-[13px] font-medium transition-colors hover:bg-[var(--cc-red)]/10 disabled:opacity-50"
+              style={{ color: "var(--cc-red)" }}
             >
               <LogOut className="h-4 w-4 shrink-0" /> {loggingOut ? "Signing out…" : "Logout"}
             </button>
@@ -173,7 +182,8 @@ export function AdminSidebar() {
   const sidebarToggle = (
     <button
       onClick={closeSidebar}
-      className="flex h-8 w-8 items-center justify-center rounded-lg text-navy/50 hover:bg-black/5 dark:text-white/50 dark:hover:bg-white/5 lg:hidden"
+      className="flex h-8 w-8 items-center justify-center rounded lg:hidden"
+      style={{ color: "var(--cc-text-dim)" }}
       aria-label="Close sidebar"
     >
       <X className="h-4 w-4" />
@@ -192,19 +202,22 @@ export function AdminSidebar() {
 
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-black/5 bg-white px-3 py-5 shadow-xl transition-transform duration-300 ease-in-out dark:border-white/10 dark:bg-navy-dark lg:static lg:z-auto lg:block lg:translate-x-0 lg:shadow-none",
+          "cc-scrollbar fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r px-3 py-5 shadow-xl transition-transform duration-300 ease-in-out lg:static lg:z-auto lg:block lg:translate-x-0 lg:shadow-none",
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         )}
+        style={{ borderColor: "var(--cc-border)", background: "var(--cc-bg-alt)" }}
         role="navigation"
         aria-label="Admin navigation"
       >
         <div className="mb-6 flex items-center justify-between px-3">
           <Link href="/admin" className="flex items-center gap-2" onClick={closeSidebar}>
-            <Image src="/logo.png" alt="Penny Pilot" width={32} height={32} className="h-8 w-8 shrink-0 rounded-lg object-cover" />
+            <Image src="/logo.png" alt="Penny Pilot" width={32} height={32} className="h-8 w-8 shrink-0 rounded object-cover" />
             <div className="min-w-0">
-              <p className="truncate text-sm font-bold leading-tight text-navy dark:text-white">Penny Pilot</p>
-              <p className="flex items-center gap-1 truncate text-[10px] font-semibold uppercase tracking-wider text-teal">
-                <ShieldCheck className="h-3 w-3" /> Admin
+              <p className="cc-mono truncate text-[11px] font-bold uppercase leading-tight tracking-wider" style={{ color: "var(--cc-text)" }}>
+                Penny Pilot
+              </p>
+              <p className="cc-mono flex items-center gap-1 truncate text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--cc-accent)" }}>
+                <ShieldCheck className="h-3 w-3" /> Command Center
               </p>
             </div>
           </Link>
