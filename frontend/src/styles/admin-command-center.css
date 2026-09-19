@@ -1,0 +1,83 @@
+/*
+ * Penny Pilot // Command Center — scoped admin design tokens.
+ * Only active inside `.cc-root` (applied by the (admin) layout), so nothing
+ * leaks into the regular user-facing app.
+ */
+
+.cc-root {
+  --cc-bg: #05070d;
+  --cc-bg-alt: #070b14;
+  --cc-panel: #0b111f;
+  --cc-panel-alt: #0e1526;
+  --cc-border: rgba(56, 224, 224, 0.14);
+  --cc-border-strong: rgba(56, 224, 224, 0.32);
+  --cc-accent: #2fe6e0;
+  --cc-accent-dim: rgba(47, 230, 224, 0.14);
+  --cc-text: #d9f6f4;
+  --cc-text-dim: rgba(217, 246, 244, 0.55);
+  --cc-text-faint: rgba(217, 246, 244, 0.32);
+  --cc-green: #34d399;
+  --cc-amber: #fbbf24;
+  --cc-red: #f87171;
+
+  background-color: var(--cc-bg);
+  color: var(--cc-text);
+  min-height: 100vh;
+  position: relative;
+  font-feature-settings: "tnum" 1;
+}
+
+/* Subtle scanline / grid backdrop */
+.cc-root::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    linear-gradient(rgba(47, 230, 224, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(47, 230, 224, 0.045) 1px, transparent 1px);
+  background-size: 42px 42px;
+  mask-image: radial-gradient(ellipse at top, black 0%, transparent 75%);
+}
+
+.cc-root > * {
+  position: relative;
+  z-index: 1;
+}
+
+.cc-mono {
+  font-family: ui-monospace, "SFMono-Regular", "Menlo", "Consolas", monospace;
+  letter-spacing: 0.02em;
+}
+
+.cc-panel {
+  background: var(--cc-panel);
+  border: 1px solid var(--cc-border);
+  border-radius: 0.5rem;
+}
+
+.cc-panel-alt {
+  background: var(--cc-panel-alt);
+  border: 1px solid var(--cc-border);
+  border-radius: 0.5rem;
+}
+
+.cc-glow {
+  box-shadow: 0 0 0 1px var(--cc-border-strong), 0 0 18px -6px rgba(47, 230, 224, 0.45);
+}
+
+.cc-status-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+}
+.cc-status-dot.online { background: var(--cc-green); box-shadow: 0 0 6px 1px rgba(52, 211, 153, 0.7); }
+.cc-status-dot.warn { background: var(--cc-amber); box-shadow: 0 0 6px 1px rgba(251, 191, 36, 0.7); }
+.cc-status-dot.offline { background: var(--cc-red); box-shadow: 0 0 6px 1px rgba(248, 113, 113, 0.7); }
+
+.cc-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--cc-border-strong) transparent;
+}
