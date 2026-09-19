@@ -1,83 +1,80 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Wallet, PiggyBank, TrendingUp, Receipt, Target, Shield, Smartphone, Cloud } from "lucide-react";
+import { Wallet, TrendingUp, Receipt, PiggyBank, BarChart3, Target } from "lucide-react";
 import { cn } from "@/lib/format";
 
 const FEATURES = [
   {
     icon: Wallet,
-    title: "Income & Expenses",
-    description: "Track every transaction with categories, subcategories, tags, and notes. See where your money comes from and where it goes.",
-  },
-  {
-    icon: Receipt,
-    title: "Budgets & Bills",
-    description: "Set monthly, quarterly, or yearly budgets per category. Track recurring bills with due dates, auto-pay, and reminders.",
-  },
-  {
-    icon: PiggyBank,
-    title: "Savings & Goals",
-    description: "Create savings goals with target amounts and monthly contributions. Track progress visually with category-based goals.",
+    title: "Expenses",
+    description: "Log every expense with categories, tags, and notes — see exactly where your money goes.",
+    span: "lg:col-span-3",
   },
   {
     icon: TrendingUp,
-    title: "Investments",
-    description: "Monitor your investment portfolio with current values, returns, monthly contributions, and platform tracking.",
+    title: "Income",
+    description: "Track every source of income and how it compares to your spending, month over month.",
+    span: "lg:col-span-3",
+  },
+  {
+    icon: Receipt,
+    title: "Budgets",
+    description: "Set monthly, quarterly, or yearly budgets per category and see utilization at a glance.",
+    span: "lg:col-span-2",
+  },
+  {
+    icon: BarChart3,
+    title: "Analytics",
+    description: "Interactive charts turn raw transactions into patterns you can actually act on.",
+    span: "lg:col-span-2",
+  },
+  {
+    icon: PiggyBank,
+    title: "Savings",
+    description: "Build savings with target amounts and monthly contributions you can track visually.",
+    span: "lg:col-span-2",
   },
   {
     icon: Target,
-    title: "Analytics & Reports",
-    description: "Understand spending patterns with category breakdowns, monthly trends, payment method analysis, and custom reports.",
-  },
-  {
-    icon: Shield,
-    title: "Privacy-Focused",
-    description: "Your financial data stays in your Google Drive or local browser storage. No third-party trackers, no data selling.",
-  },
-  {
-    icon: Cloud,
-    title: "Google Drive Backup",
-    description: "Optional encrypted backup to your own Google Drive using restricted drive.file scope. You own and control your data.",
-  },
-  {
-    icon: Smartphone,
-    title: "Installable PWA",
-    description: "Install Penny Pilot as a native app on any device. Works offline, gets automatic updates, no app store required.",
+    title: "Goals",
+    description: "Set goals for what matters — emergency funds, big purchases, or future plans.",
+    span: "lg:col-span-6",
   },
 ];
 
 export function Features() {
   return (
-    <section id="features" className="py-16 sm:py-24 lg:py-32 bg-white/30 dark:bg-white/5">
+    <section id="features" className="py-16 sm:py-24 lg:py-28">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-12 sm:mb-16">
+        <div className="mb-12 text-center sm:mb-16">
           <h2 className="text-3xl font-bold tracking-tight text-navy dark:text-white sm:text-4xl">
-            Everything you need to master your finances
+            Everything you need, in one place
           </h2>
-          <p className="mt-4 mx-auto max-w-2xl text-lg text-navy/60 dark:text-white/60">
-            Penny Pilot brings all your financial tools together in one secure, privacy-focused dashboard.
+          <p className="mx-auto mt-4 max-w-2xl text-lg text-navy/60 dark:text-white/60">
+            No more spreadsheets and scattered notes — Penny Pilot keeps your whole financial
+            picture organized and easy to understand.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {FEATURES.map(({ icon: Icon, title, description }, i) => (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-6">
+          {FEATURES.map(({ icon: Icon, title, description, span }, i) => (
             <motion.div
               key={title}
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-50px" }}
-              transition={{ duration: 0.5, delay: i * 0.08 }}
+              transition={{ duration: 0.5, delay: i * 0.06 }}
               className={cn(
-                "group relative rounded-2xl border border-black/5 bg-white/60 p-6 transition-all hover:border-teal/30 hover:shadow-xl hover:shadow-teal/10 dark:border-white/10 dark:bg-white/5 dark:hover:border-teal/40 dark:hover:shadow-teal/10"
+                "group relative rounded-2xl border border-black/5 bg-white/60 p-6 transition-all hover:border-teal/30 hover:shadow-xl hover:shadow-teal/10 dark:border-white/10 dark:bg-white/5 dark:hover:border-teal/40 dark:hover:shadow-teal/10",
+                span
               )}
             >
-              <div className="mb-4 inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-teal/10 text-teal dark:bg-teal/20">
-                <Icon className="h-6 w-6" aria-hidden="true" />
+              <div className="mb-4 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-teal/10 text-teal dark:bg-teal/20">
+                <Icon className="h-5 w-5" aria-hidden="true" />
               </div>
               <h3 className="text-lg font-semibold text-navy dark:text-white">{title}</h3>
               <p className="mt-2 text-sm text-navy/60 dark:text-white/60">{description}</p>
-              <div className="mt-4 h-0.5 w-full bg-teal/20 dark:bg-teal/40" aria-hidden="true" />
             </motion.div>
           ))}
         </div>

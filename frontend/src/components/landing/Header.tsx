@@ -1,45 +1,22 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import Image from "next/image";
-import { Menu, X, Download } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { cn } from "@/lib/format";
-import { isPwaInstalled, canPromptInstall, triggerInstallPrompt, subscribeToInstallAvailability } from "@/lib/pwaInstall";
+import { InstallAppButton } from "./InstallAppButton";
 
 const NAV_LINKS = [
   { label: "Features", href: "#features" },
   { label: "How It Works", href: "#how-it-works" },
   { label: "Privacy & Security", href: "#privacy-security" },
-  { label: "Google Drive", href: "#google-drive" },
   { label: "FAQ", href: "#faq" },
 ];
 
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [canInstall, setCanInstall] = useState(false);
-  const [isInstalled, setIsInstalled] = useState(false);
-
-  useEffect(() => {
-    const checkInstall = () => {
-      setIsInstalled(isPwaInstalled());
-      setCanInstall(canPromptInstall());
-    };
-    checkInstall();
-
-    const unsubscribe = subscribeToInstallAvailability(checkInstall);
-    return unsubscribe;
-  }, []);
-
-  const handleInstallClick = async () => {
-    if (!canInstall) return;
-    const result = await triggerInstallPrompt();
-    if (result === "accepted") {
-      setIsInstalled(true);
-      setCanInstall(false);
-    }
-  };
 
   const scrollToSection = (href: string) => {
     if (href.startsWith("#")) {
@@ -81,21 +58,7 @@ export function Header() {
               ))}
             </div>
             <div className="flex items-center gap-3 ml-4 border-l border-black/10 dark:border-white/10 pl-4">
-              {/* Install App Button */}
-              {(canInstall && !isInstalled) && (
-                <button
-                  type="button"
-                  onClick={handleInstallClick}
-                  className={cn(
-                    "inline-flex items-center gap-2 rounded-lg bg-navy px-4 py-2 text-sm font-medium text-white transition-all hover:bg-navy-dark",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-navy focus-visible:ring-offset-2 dark:focus-visible:ring-offset-navy-dark"
-                  )}
-                  aria-label="Install Penny Pilot as an app"
-                >
-                  <Download className="h-4 w-4" aria-hidden="true" />
-                  <span className="hidden sm:inline">Install App</span>
-                </button>
-              )}
+              <InstallAppButton variant="header" />
               <Link
                 href="/login"
                 className="rounded-lg px-3 py-1.5 text-sm font-medium text-navy/70 transition-colors hover:bg-black/5 dark:text-white/70 dark:hover:bg-white/5 hidden sm:block"
@@ -149,20 +112,7 @@ export function Header() {
               </Link>
             ))}
             <div className="pt-2 border-t border-black/5 dark:border-white/10 flex flex-col gap-2">
-              {(canInstall && !isInstalled) && (
-                <button
-                  type="button"
-                  onClick={handleInstallClick}
-                  className={cn(
-                    "w-full inline-flex items-center justify-center gap-2 rounded-lg bg-navy px-4 py-2.5 text-sm font-medium text-white transition-all hover:bg-navy-dark",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-navy focus-visible:ring-offset-2 dark:focus-visible:ring-offset-navy-dark"
-                  )}
-                  aria-label="Install Penny Pilot as an app"
-                >
-                  <Download className="h-4 w-4" aria-hidden="true" />
-                  Install App
-                </button>
-              )}
+              <InstallAppButton variant="header-mobile" />
               <Link
                 href="/login"
                 className="w-full rounded-lg border border-navy/15 bg-white/60 px-4 py-2.5 text-sm font-semibold text-navy text-center transition-colors hover:bg-black/5 dark:border-white/15 dark:bg-white/5 dark:text-white dark:hover:bg-white/10"

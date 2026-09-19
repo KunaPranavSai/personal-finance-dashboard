@@ -8,11 +8,9 @@ import { cn } from "@/lib/format";
 export function FinalCTA() {
   return (
     <section id="cta" className="py-16 sm:py-24 lg:py-32 relative overflow-hidden">
-      {/* Background */}
+      {/* Single restrained glow, not stacked with the section's own background. */}
       <div className="pointer-events-none absolute inset-0 -z-10" aria-hidden="true">
-        <div className="absolute -top-40 -right-40 h-[28rem] w-[28rem] rounded-full bg-teal/10 blur-[120px]" />
-        <div className="absolute -bottom-40 -left-40 h-[28rem] w-[28rem] rounded-full bg-indigo/10 blur-[120px]" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[32rem] w-[32rem] rounded-full bg-teal/5 blur-[150px]" />
+        <div className="absolute -top-40 left-1/2 h-[28rem] w-[28rem] -translate-x-1/2 rounded-full bg-teal/8 blur-[130px]" />
       </div>
 
       <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 text-center relative">
@@ -83,7 +81,7 @@ export function FinalCTA() {
           transition={{ delay: 0.5 }}
           className="mt-8 text-sm text-navy/40 dark:text-white/40"
         >
-          No credit card required · Cancel anytime · Your data stays yours
+          Free to use · No credit card required · Your data stays yours
         </motion.p>
       </div>
     </section>

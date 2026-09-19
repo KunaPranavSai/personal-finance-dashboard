@@ -5,18 +5,12 @@ import { cn } from "@/lib/format";
 const FOOTER_LINKS = {
   product: [
     { label: "Features", href: "#features" },
-    { label: "How It Works", href: "#how-it-works" },
+    { label: "Financial Intelligence", href: "#showcase" },
     { label: "Privacy & Security", href: "#privacy-security" },
-    { label: "Google Drive Backup", href: "#google-drive" },
+    { label: "How It Works", href: "#how-it-works" },
     { label: "FAQ", href: "#faq" },
   ],
-  company: [
-    { label: "About", href: "#" },
-    { label: "Blog", href: "#" },
-    { label: "Careers", href: "#" },
-    { label: "Press", href: "#" },
-    { label: "Contact", href: "mailto:superadminpennypilot@gmail.com" },
-  ],
+  company: [{ label: "Contact", href: "mailto:superadminpennypilot@gmail.com" }],
   legal: [
     { label: "Privacy Policy", href: "/privacy-policy" },
     { label: "Terms of Service", href: "/terms" },
