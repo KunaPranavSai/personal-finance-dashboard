@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/privacy-policy" },
 };
 
-const LAST_UPDATED = "September 15, 2026";
+const LAST_UPDATED = "September 19, 2026";
 const PLACEHOLDER_EMAIL = "superadminpennypilot@gmail.com";
 const PLACEHOLDER_ENTITY = "Pranav Sai Kuna. No physical mailing address provided.";
 
@@ -18,9 +18,7 @@ export default function PrivacyPolicyPage() {
       <p>
         This Privacy Policy explains how Penny Pilot (&quot;Penny Pilot&quot;, &quot;the App&quot;, &quot;we&quot;, &quot;us&quot;) collects, uses,
         stores, and protects information when you use the Penny Pilot personal finance web application. It is written to
-        accurately reflect how the application is actually built and operated today. Placeholders below marked in{" "}
-        <strong>brackets</strong> must be filled in by the application owner before this policy is relied upon for a live,
-        public deployment.
+        accurately reflect how the application is actually built and operated today.
       </p>
       <p>
         By creating an account and using Penny Pilot, you agree to the collection and use of information as described in
@@ -33,8 +31,8 @@ export default function PrivacyPolicyPage() {
         When you register for Penny Pilot, we collect and store your name, email address, and optionally a phone number,
         together with a securely hashed password (Penny Pilot never stores your password in plain text). If you enable
         two-factor authentication or a passkey, we store the associated security metadata (e.g. a TOTP secret, hashed
-        backup codes, or passkey credential data) needed to verify future sign-ins. New accounts go through an
-        admin-approval step, so we also record basic account status and approval history.
+        backup codes, or passkey credential data) needed to verify future sign-ins. Your account is active as soon as
+        you complete signup; there is no admin-approval step that delays account activation.
       </p>
       <h3>1.2 Financial Data</h3>
       <p>
@@ -138,13 +136,30 @@ export default function PrivacyPolicyPage() {
           settings, and activity log) is retained for as long as your account remains active.
         </li>
         <li>
-          <strong>Account deletion</strong>: self-service account deletion is not currently available in the App. To
-          request deletion of your Penny Pilot account and associated account data, please contact us using the details
-          in Section 10. {PLACEHOLDER_EMAIL}
+          <strong>Account deletion</strong>: see the dedicated Account Deletion section (Section 6) below for how to
+          request deletion of your account.
         </li>
       </ul>
 
-      <h2>6. Disconnecting Google Drive</h2>
+      <h2>6. Account Deletion</h2>
+      <p>
+        You can currently request deletion of your Penny Pilot account and its associated account data (name, email,
+        password hash, security settings, and activity log) by contacting Penny Pilot support at the email address
+        listed in Section 11 (Contact). Self-service account deletion is not yet available within the App itself and
+        is planned for a future update.
+      </p>
+      <p>
+        When we receive a deletion request, we will verify the request and process the deletion in accordance with
+        applicable data-retention requirements and the data-retention practices described in Section 5 above. We do
+        not commit to a fixed deletion timeline.
+      </p>
+      <p>
+        Account deletion removes your Penny Pilot account and account data from our database. It does not delete
+        financial data already stored in your own Google Drive, or data kept in This Device Only mode on your
+        browser/device — you control that data separately, as described in Sections 3 and 5.
+      </p>
+
+      <h2>7. Disconnecting Google Drive</h2>
       <p>
         You can disconnect Google Drive from Penny Pilot at any time from within the App&apos;s Settings. Disconnecting:
       </p>
@@ -159,7 +174,7 @@ export default function PrivacyPolicyPage() {
         section applies — there is no Google Drive connection to disconnect.
       </p>
 
-      <h2>7. Third-Party Services</h2>
+      <h2>8. Third-Party Services</h2>
       <p>Penny Pilot relies on the following third-party services to operate:</p>
       <ul>
         <li><strong>Google (OAuth &amp; Google Drive)</strong> — used to authenticate your Drive connection and to store your financial data, as described above. See Google&apos;s own Privacy Policy for how Google handles data within your Google account.</li>
@@ -171,22 +186,22 @@ export default function PrivacyPolicyPage() {
         trackers.
       </p>
 
-      <h2>8. Cookies</h2>
+      <h2>9. Cookies</h2>
       <p>
         Penny Pilot uses strictly necessary, first-party cookies to keep you signed in (signed, HTTP-only session
         cookies) and to remember basic preferences such as your light/dark theme. These cookies are not used for
         advertising or cross-site tracking.
       </p>
 
-      <h2>9. Your Rights</h2>
+      <h2>10. Your Rights</h2>
       <ul>
         <li><strong>Access &amp; export</strong>: you can view your financial data at any time within the App, and export it using the App&apos;s built-in reporting/export features. Your primary financial data also remains directly accessible to you in your own Google Drive.</li>
         <li><strong>Correction</strong>: you can edit or delete individual financial records directly within the App.</li>
-        <li><strong>Disconnection</strong>: you can disconnect Google Drive at any time, as described in Section 6.</li>
-        <li><strong>Account data requests</strong>: to request access to, correction of, or deletion of the account data Penny Pilot stores about you, contact us using the details in Section 10.</li>
+        <li><strong>Disconnection</strong>: you can disconnect Google Drive at any time, as described in Section 7.</li>
+        <li><strong>Account data requests</strong>: to request access to, correction of, or deletion of the account data Penny Pilot stores about you, contact us using the details in Section 11.</li>
       </ul>
 
-      <h2>10. Contact</h2>
+      <h2>11. Contact</h2>
       <p>
         If you have questions about this Privacy Policy or how your data is handled, please contact:
       </p>
@@ -195,7 +210,7 @@ export default function PrivacyPolicyPage() {
         <li>Entity: {PLACEHOLDER_ENTITY}</li>
       </ul>
 
-      <h2>11. Changes to This Policy</h2>
+      <h2>12. Changes to This Policy</h2>
       <p>
         We may update this Privacy Policy from time to time as the App evolves. Material changes will be reflected by
         updating the &quot;Last updated&quot; date at the top of this page.

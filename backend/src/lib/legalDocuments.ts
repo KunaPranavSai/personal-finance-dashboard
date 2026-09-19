@@ -23,7 +23,7 @@ const PLACEHOLDER_ENTITY_PRIVACY = "Pranav Sai Kuna. No physical mailing address
 const GOVERNING_JURISDICTION = "India";
 
 export const TERMS_INTRO: string[] = [
-  `These Terms of Service ("Terms") govern your access to and use of Penny Pilot ("Penny Pilot", "the App", "we", "us"), a personal finance web application for managing income, expenses, budgets, savings, investments, bills/EMIs, and financial goals. Placeholders below marked in brackets must be filled in by the application owner before these Terms are relied upon for a live, public deployment.`,
+  `These Terms of Service ("Terms") govern your access to and use of Penny Pilot ("Penny Pilot", "the App", "we", "us"), a personal finance web application for managing income, expenses, budgets, savings, investments, bills/EMIs, and financial goals.`,
   `By creating an account or otherwise using Penny Pilot, you agree to be bound by these Terms.`,
 ];
 
@@ -32,7 +32,7 @@ export const TERMS_SECTIONS: LegalSection[] = [
     heading: "1. Eligibility & Accounts",
     paragraphs: [
       "You must provide accurate registration information (name, email, and optionally phone number) when creating an account.",
-      "New accounts may require approval before becoming active, at Penny Pilot's discretion.",
+      "Your account is active as soon as you complete signup — there is no separate admin-approval step required before you can use the App.",
       "You are responsible for maintaining the confidentiality of your password and any two-factor authentication or passkey credentials associated with your account, and for all activity that occurs under your account.",
       "You must notify us promptly of any unauthorized use of your account that you become aware of.",
     ],
@@ -85,41 +85,48 @@ export const TERMS_SECTIONS: LegalSection[] = [
   {
     heading: "7. Termination",
     paragraphs: [
-      "You may stop using Penny Pilot at any time, and may disconnect Google Drive, clear your local browser data, or request account deletion as described in the Privacy Policy.",
+      "You may stop using Penny Pilot at any time, and may disconnect Google Drive, clear your local browser data, or request account deletion as described in Section 8 below.",
       "We may suspend or terminate your account if we reasonably believe you have violated these Terms, engaged in fraudulent or abusive behavior, or where required by law.",
       "Terminating your Penny Pilot account does not delete data already stored in your own Google Drive — that data remains yours and under your control, separate from your Penny Pilot account. This Device Only data is likewise unaffected by account termination unless you clear it yourself.",
     ],
   },
   {
-    heading: "8. Disclaimers",
+    heading: "8. Account Deletion",
+    paragraphs: [
+      "You can currently request deletion of your Penny Pilot account by contacting Penny Pilot support at the email address listed in Section 13 (Contact). Self-service account deletion is not yet available within the App itself and is planned for a future update.",
+      "When we receive an account deletion request, we will verify the request and process the deletion in accordance with the data-retention practices described in the Privacy Policy. We do not commit to a fixed deletion timeline. Deleting your Penny Pilot account does not delete data already stored in your own Google Drive, or data you have kept in This Device Only mode — see the Privacy Policy for details on what account deletion does and does not remove.",
+    ],
+  },
+  {
+    heading: "9. Disclaimers",
     paragraphs: [
       `THE APP IS PROVIDED "AS IS" AND "AS AVAILABLE", WITHOUT WARRANTIES OF ANY KIND, WHETHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT. WE DO NOT WARRANT THAT THE APP WILL BE ERROR-FREE, SECURE, OR UNINTERRUPTED, OR THAT ANY FINANCIAL CALCULATIONS, INSIGHTS, OR PROJECTIONS IT GENERATES ARE ACCURATE OR SUITABLE FOR YOUR CIRCUMSTANCES.`,
     ],
   },
   {
-    heading: "9. Limitation of Liability",
+    heading: "10. Limitation of Liability",
     paragraphs: [
       "TO THE FULLEST EXTENT PERMITTED BY APPLICABLE LAW, PENNY PILOT AND ITS DEVELOPER(S) SHALL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, OR ANY LOSS OF DATA, PROFITS, OR REVENUE, ARISING OUT OF OR RELATED TO YOUR USE OF (OR INABILITY TO USE) THE APP, INCLUDING LOSS OF DATA RESULTING FROM ISSUES WITH YOUR GOOGLE ACCOUNT OR GOOGLE DRIVE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.",
     ],
   },
   {
-    heading: "10. Governing Law",
+    heading: "11. Governing Law",
     paragraphs: [`These Terms are governed by the laws of ${GOVERNING_JURISDICTION}, without regard to conflict-of-law principles.`],
   },
   {
-    heading: "11. Changes to These Terms",
+    heading: "12. Changes to These Terms",
     paragraphs: [
       `We may update these Terms from time to time as the App evolves. Material changes will be reflected by updating the "Last updated" date at the top of this page. Continued use of the App after changes take effect constitutes acceptance of the revised Terms.`,
     ],
   },
   {
-    heading: "12. Contact",
+    heading: "13. Contact",
     paragraphs: [`Email: ${PLACEHOLDER_EMAIL}`, `Entity: ${PLACEHOLDER_ENTITY_TERMS}`],
   },
 ];
 
 export const PRIVACY_INTRO: string[] = [
-  `This Privacy Policy explains how Penny Pilot ("Penny Pilot", "the App", "we", "us") collects, uses, stores, and protects information when you use the Penny Pilot personal finance web application. It is written to accurately reflect how the application is actually built and operated today. Placeholders below marked in brackets must be filled in by the application owner before this policy is relied upon for a live, public deployment.`,
+  `This Privacy Policy explains how Penny Pilot ("Penny Pilot", "the App", "we", "us") collects, uses, stores, and protects information when you use the Penny Pilot personal finance web application. It is written to accurately reflect how the application is actually built and operated today.`,
   "By creating an account and using Penny Pilot, you agree to the collection and use of information as described in this policy.",
 ];
 
@@ -128,7 +135,7 @@ export const PRIVACY_SECTIONS: LegalSection[] = [
     heading: "1. Information We Collect",
     paragraphs: [
       "1.1 Account & Authentication Information",
-      "When you register for Penny Pilot, we collect and store your name, email address, and optionally a phone number, together with a securely hashed password (Penny Pilot never stores your password in plain text). If you enable two-factor authentication or a passkey, we store the associated security metadata (e.g. a TOTP secret, hashed backup codes, or passkey credential data) needed to verify future sign-ins. New accounts go through an admin-approval step, so we also record basic account status and approval history.",
+      "When you register for Penny Pilot, we collect and store your name, email address, and optionally a phone number, together with a securely hashed password (Penny Pilot never stores your password in plain text). If you enable two-factor authentication or a passkey, we store the associated security metadata (e.g. a TOTP secret, hashed backup codes, or passkey credential data) needed to verify future sign-ins. Your account is active as soon as you complete signup; there is no admin-approval step that delays account activation.",
       "1.2 Financial Data",
       `Penny Pilot lets you record and manage income, expenses, transactions, budgets, savings, investments, bills/EMIs, and financial goals. This financial data is not stored in Penny Pilot's own central database. You choose where it is stored instead: Google Drive mode (recommended) stores it as structured data files inside a "Penny Pilot" folder created in your own Google Drive, under your own Google account — see Section 2 below for details. This Device Only mode stores it only in this browser/device's local storage (IndexedDB), never transmitted to or held by Penny Pilot's servers, database, or any Google account.`,
       "1.3 Activity & Security Logs",
@@ -171,11 +178,19 @@ export const PRIVACY_SECTIONS: LegalSection[] = [
       "Financial data in Google Drive remains in your own Google Drive for as long as you keep it there. You can delete individual files, the entire \"Penny Pilot\" folder, or revoke Penny Pilot's access at any time directly from Google Drive or your Google Account permissions page — Penny Pilot does not control or retain a separate copy of that data.",
       "Financial data in This Device Only mode remains only in this browser's local storage for as long as you keep it there. Clearing this browser's site data, uninstalling the browser, or resetting the device deletes it permanently — Penny Pilot holds no copy anywhere else.",
       "Account data in Penny Pilot's database (your name, email, password hash, security settings, and activity log) is retained for as long as your account remains active.",
-      `Account deletion: self-service account deletion is not currently available in the App. To request deletion of your Penny Pilot account and associated account data, please contact us using the details in Section 10. ${PLACEHOLDER_EMAIL}`,
+      "Account deletion: see the dedicated Account Deletion section (Section 6) below for how to request deletion of your account.",
     ],
   },
   {
-    heading: "6. Disconnecting Google Drive",
+    heading: "6. Account Deletion",
+    paragraphs: [
+      `You can currently request deletion of your Penny Pilot account and its associated account data (name, email, password hash, security settings, and activity log) by contacting Penny Pilot support at the email address listed in Section 11 (Contact). Self-service account deletion is not yet available within the App itself and is planned for a future update.`,
+      "When we receive a deletion request, we will verify the request and process the deletion in accordance with applicable data-retention requirements and the data-retention practices described in Section 5 above. We do not commit to a fixed deletion timeline.",
+      "Account deletion removes your Penny Pilot account and account data from our database. It does not delete financial data already stored in your own Google Drive, or data kept in This Device Only mode on your browser/device — you control that data separately, as described in Sections 3 and 5.",
+    ],
+  },
+  {
+    heading: "7. Disconnecting Google Drive",
     paragraphs: [
       "You can disconnect Google Drive from Penny Pilot at any time from within the App's Settings. Disconnecting:",
       "Immediately deletes the stored OAuth tokens for that connection from Penny Pilot's database.",
@@ -185,7 +200,7 @@ export const PRIVACY_SECTIONS: LegalSection[] = [
     ],
   },
   {
-    heading: "7. Third-Party Services",
+    heading: "8. Third-Party Services",
     paragraphs: [
       "Penny Pilot relies on the following third-party services to operate:",
       "Google (OAuth & Google Drive) — used to authenticate your Drive connection and to store your financial data, as described above. See Google's own Privacy Policy for how Google handles data within your Google account.",
@@ -195,22 +210,22 @@ export const PRIVACY_SECTIONS: LegalSection[] = [
     ],
   },
   {
-    heading: "8. Cookies",
+    heading: "9. Cookies",
     paragraphs: [
       "Penny Pilot uses strictly necessary, first-party cookies to keep you signed in (signed, HTTP-only session cookies) and to remember basic preferences such as your light/dark theme. These cookies are not used for advertising or cross-site tracking.",
     ],
   },
   {
-    heading: "9. Your Rights",
+    heading: "10. Your Rights",
     paragraphs: [
       "Access & export: you can view your financial data at any time within the App, and export it using the App's built-in reporting/export features. Your primary financial data also remains directly accessible to you in your own Google Drive.",
       "Correction: you can edit or delete individual financial records directly within the App.",
-      "Disconnection: you can disconnect Google Drive at any time, as described in Section 6.",
-      "Account data requests: to request access to, correction of, or deletion of the account data Penny Pilot stores about you, contact us using the details in Section 10.",
+      "Disconnection: you can disconnect Google Drive at any time, as described in Section 7.",
+      "Account data requests: to request access to, correction of, or deletion of the account data Penny Pilot stores about you, contact us using the details in Section 11.",
     ],
   },
   {
-    heading: "10. Contact",
+    heading: "11. Contact",
     paragraphs: [
       "If you have questions about this Privacy Policy or how your data is handled, please contact:",
       `Email: ${PLACEHOLDER_EMAIL}`,
@@ -218,7 +233,7 @@ export const PRIVACY_SECTIONS: LegalSection[] = [
     ],
   },
   {
-    heading: "11. Changes to This Policy",
+    heading: "12. Changes to This Policy",
     paragraphs: [
       `We may update this Privacy Policy from time to time as the App evolves. Material changes will be reflected by updating the "Last updated" date at the top of this page.`,
     ],

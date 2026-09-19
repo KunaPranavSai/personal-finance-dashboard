@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/terms" },
 };
 
-const LAST_UPDATED = "September 15, 2026";
+const LAST_UPDATED = "September 19, 2026";
 const PLACEHOLDER_EMAIL = "superadminpennypilot@gmail.com";
 const PLACEHOLDER_ENTITY = "Pranav Sai Kuna";
 const GOVERNING_JURISDICTION = "India";
@@ -19,16 +19,14 @@ export default function TermsOfServicePage() {
       <p>
         These Terms of Service (&quot;Terms&quot;) govern your access to and use of Penny Pilot (&quot;Penny Pilot&quot;,
         &quot;the App&quot;, &quot;we&quot;, &quot;us&quot;), a personal finance web application for managing income, expenses,
-        budgets, savings, investments, bills/EMIs, and financial goals. Placeholders below marked in{" "}
-        <strong>brackets</strong> must be filled in by the application owner before these Terms are relied upon for a
-        live, public deployment.
+        budgets, savings, investments, bills/EMIs, and financial goals.
       </p>
       <p>By creating an account or otherwise using Penny Pilot, you agree to be bound by these Terms.</p>
 
       <h2>1. Eligibility &amp; Accounts</h2>
       <ul>
         <li>You must provide accurate registration information (name, email, and optionally phone number) when creating an account.</li>
-        <li>New accounts may require approval before becoming active, at Penny Pilot&apos;s discretion.</li>
+        <li>Your account is active as soon as you complete signup — there is no separate admin-approval step required before you can use the App.</li>
         <li>You are responsible for maintaining the confidentiality of your password and any two-factor authentication or passkey credentials associated with your account, and for all activity that occurs under your account.</li>
         <li>You must notify us promptly of any unauthorized use of your account that you become aware of.</li>
       </ul>
@@ -101,12 +99,26 @@ export default function TermsOfServicePage() {
 
       <h2>7. Termination</h2>
       <ul>
-        <li>You may stop using Penny Pilot at any time, and may disconnect Google Drive, clear your local browser data, or request account deletion as described in the Privacy Policy.</li>
+        <li>You may stop using Penny Pilot at any time, and may disconnect Google Drive, clear your local browser data, or request account deletion as described in Section 8 below.</li>
         <li>We may suspend or terminate your account if we reasonably believe you have violated these Terms, engaged in fraudulent or abusive behavior, or where required by law.</li>
         <li>Terminating your Penny Pilot account does not delete data already stored in your own Google Drive — that data remains yours and under your control, separate from your Penny Pilot account. This Device Only data is likewise unaffected by account termination unless you clear it yourself.</li>
       </ul>
 
-      <h2>8. Disclaimers</h2>
+      <h2>8. Account Deletion</h2>
+      <p>
+        You can currently request deletion of your Penny Pilot account by contacting Penny Pilot support at the
+        email address listed in Section 13 (Contact). Self-service account deletion is not yet available within the
+        App itself and is planned for a future update.
+      </p>
+      <p>
+        When we receive an account deletion request, we will verify the request and process the deletion in
+        accordance with the data-retention practices described in the Privacy Policy. We do not commit to a fixed
+        deletion timeline. Deleting your Penny Pilot account does not delete data already stored in your own Google
+        Drive, or data you have kept in This Device Only mode — see the Privacy Policy for details on what account
+        deletion does and does not remove.
+      </p>
+
+      <h2>9. Disclaimers</h2>
       <p>
         THE APP IS PROVIDED &quot;AS IS&quot; AND &quot;AS AVAILABLE&quot;, WITHOUT WARRANTIES OF ANY KIND, WHETHER EXPRESS OR
         IMPLIED, INCLUDING BUT NOT LIMITED TO IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE,
@@ -115,7 +127,7 @@ export default function TermsOfServicePage() {
         CIRCUMSTANCES.
       </p>
 
-      <h2>9. Limitation of Liability</h2>
+      <h2>10. Limitation of Liability</h2>
       <p>
         TO THE FULLEST EXTENT PERMITTED BY APPLICABLE LAW, PENNY PILOT AND ITS DEVELOPER(S) SHALL NOT BE LIABLE FOR
         ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, OR ANY LOSS OF DATA, PROFITS, OR
@@ -124,17 +136,17 @@ export default function TermsOfServicePage() {
         DAMAGES.
       </p>
 
-      <h2>10. Governing Law</h2>
+      <h2>11. Governing Law</h2>
       <p>These Terms are governed by the laws of {GOVERNING_JURISDICTION}, without regard to conflict-of-law principles.</p>
 
-      <h2>11. Changes to These Terms</h2>
+      <h2>12. Changes to These Terms</h2>
       <p>
         We may update these Terms from time to time as the App evolves. Material changes will be reflected by updating
         the &quot;Last updated&quot; date at the top of this page. Continued use of the App after changes take effect
         constitutes acceptance of the revised Terms.
       </p>
 
-      <h2>12. Contact</h2>
+      <h2>13. Contact</h2>
       <ul>
         <li>Email: {PLACEHOLDER_EMAIL}</li>
         <li>Entity: {PLACEHOLDER_ENTITY}</li>
