@@ -1,3 +1,5 @@
+"use client";
+
 import { motion } from "framer-motion";
 import { Wallet, PiggyBank, TrendingUp, Receipt, Target, Shield, Smartphone, Cloud } from "lucide-react";
 import { cn } from "@/lib/format";
