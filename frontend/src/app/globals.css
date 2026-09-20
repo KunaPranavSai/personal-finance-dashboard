@@ -69,6 +69,17 @@ body {
   background: transparent;
 }
 
+/* Scrolls (for cursor/wheel interaction and programmatic scrollIntoView) but
+   never shows a scrollbar — used by the manual's left Contents panel, which
+   must look like plain sticky text, not a boxed-in scroll widget. */
+.manual-toc-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.manual-toc-scroll::-webkit-scrollbar {
+  display: none;
+}
+
 @layer base {
   * {
     -webkit-tap-highlight-color: transparent;

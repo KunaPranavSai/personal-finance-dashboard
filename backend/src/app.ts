@@ -22,6 +22,7 @@ import authRoutes from "./routes/auth.routes";
 import voiceGreetingRoutes from "./routes/voiceGreeting.routes";
 import activityRoutes from "./routes/activity.routes";
 import adminRoutes from "./routes/admin.routes";
+import publicRoutes from "./routes/public.routes";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler";
 import { authenticate, requireRole, requireDriveConnected } from "./middleware/auth";
 
@@ -139,6 +140,11 @@ export function createApp() {
   // session exists). Only ever synthesizes one of a small fixed set of
   // known messages server-side; see routes/voiceGreeting.routes.ts.
   app.use("/api/voice-greeting", voiceGreetingRoutes);
+
+  // Public settings (public — the landing page needs the Super
+  // Admin-configured support email before any session exists). Exposes only
+  // an explicit, hand-picked field; see routes/public.routes.ts.
+  app.use("/api/public", publicRoutes);
 
   // Google Drive connection itself — must be reachable before a user is "connected", so this
   // is authenticated but NOT gated behind requireDriveConnected (that would be circular).

@@ -17,7 +17,7 @@ import { GoogleDriveBackupCard } from "@/components/settings/GoogleDriveBackupCa
 import { getStorageMode } from "@/lib/storage";
 import { useSettingsContext } from "@/lib/SettingsContext";
 import { useToast } from "@/components/ui/Toast";
-import { Palette, Bell, Shield, Download, Database, Eye, Save, Copy, Check, KeyRound, CheckCircle, Sun, Moon, Monitor, Smartphone } from "lucide-react";
+import { Palette, Bell, Shield, Download, Database, Eye, Save, Copy, Check, KeyRound, CheckCircle, Sun, Moon, Monitor, Smartphone, BookOpen } from "lucide-react";
 import { cn } from "@/lib/format";
 import { CURRENCIES, DATE_FORMATS, LANGUAGES, TIMEZONES } from "@/lib/reference";
 import { SECURITY_QUESTIONS } from "@/lib/securityQuestions";
@@ -1224,6 +1224,7 @@ function SettingsContent() {
         );
       case "privacy":
         return (
+          <>
           <Card>
             <CardHeader><CardTitle>Privacy Settings</CardTitle></CardHeader>
             <CardContent className="space-y-4">
@@ -1252,6 +1253,25 @@ function SettingsContent() {
               </div>
             </CardContent>
           </Card>
+
+          <Card className="mt-6">
+            <CardHeader><CardTitle>Help &amp; Documentation</CardTitle></CardHeader>
+            <CardContent>
+              <Link
+                href="/manual"
+                className="flex items-center gap-3 rounded-lg border border-black/10 px-4 py-3 transition-colors hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/5"
+              >
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-teal/10">
+                  <BookOpen className="h-4 w-4 text-teal" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-navy dark:text-white">User Manual</p>
+                  <p className="text-xs text-navy/50 dark:text-white/50">Learn how Penny Pilot works</p>
+                </div>
+              </Link>
+            </CardContent>
+          </Card>
+          </>
         );
       default:
         return null;

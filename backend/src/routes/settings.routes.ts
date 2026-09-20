@@ -125,7 +125,10 @@ router.get(
 router.patch(
   "/",
   asyncHandler(async (req, res) => {
-    const data = updateSettingsSchema.parse(req.body);
+    // stripInternal only hides "__"-prefixed keys on the way out — without also
+    // rejecting them on the way in, a client could smuggle one into storage
+    // (e.g. to shadow a future internal field) even though it can never read it back.
+    const data = stripInternal(updateSettingsSchema.parse(req.body));
     const updated = await updateSettings(req.auth!.userId, req.auth!.role !== "USER", data);
     res.json(stripInternal(updated));
   })

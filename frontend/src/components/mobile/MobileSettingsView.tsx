@@ -211,6 +211,18 @@ export function MobileSettingsView() {
       </div>
 
       <div className="ppm-card" style={{ marginTop: 14 }}>
+        <div className="ppm-section-label">Help &amp; Documentation</div>
+        <Link href="/manual" className="ppm-list-item">
+          <div className="ppm-ic" aria-hidden="true">📖</div>
+          <div className="ppm-info">
+            <div className="ppm-name">User Manual</div>
+            <div className="ppm-meta">Learn how Penny Pilot works</div>
+          </div>
+          <span className="ppm-chev">›</span>
+        </Link>
+      </div>
+
+      <div className="ppm-card" style={{ marginTop: 14 }}>
         <div className="ppm-section-label">Legal</div>
         <Link href="/privacy-policy" className="ppm-list-item">
           <div className="ppm-ic" aria-hidden="true">📜</div>
