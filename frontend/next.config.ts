@@ -1,3 +1,4 @@
+import path from "node:path";
 import type { NextConfig } from "next";
 import withPWAInit, { runtimeCaching as defaultCache } from "@ducanh2912/next-pwa";
 
@@ -56,6 +57,22 @@ const withPWA = withPWAInit({
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // /manual reads PENNY_PILOT_USER_MANUAL.md from the monorepo root at
+  // request time (frontend/src/lib/manual.ts) via a dynamic fs.readFileSync
+  // path, so it's kept as the single master document instead of a second
+  // hand-maintained copy inside frontend/. That dynamic path is invisible to
+  // Next's static import tracing, so on Vercel (whose Root Directory for
+  // this project is `frontend/`) the file was silently excluded from the
+  // deployed serverless function, throwing ENOENT at render time — a real
+  // production 500 that never reproduces in local dev, where cwd's parent
+  // genuinely has the file on disk. These two options are the documented
+  // fix: widen the tracing root to the monorepo root so a file outside
+  // `frontend/` is even eligible to be included, then explicitly include it
+  // for the one route that needs it.
+  outputFileTracingRoot: path.join(__dirname, ".."),
+  outputFileTracingIncludes: {
+    "/manual": ["../PENNY_PILOT_USER_MANUAL.md"],
+  },
   // Master Plan §51 — baseline security headers with essentially zero
   // compatibility risk (unlike a CSP, none of these can break rendering).
   // A full Content-Security-Policy is intentionally NOT added here: this app
