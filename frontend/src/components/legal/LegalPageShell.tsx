@@ -11,7 +11,7 @@ interface LegalPageShellProps {
   title: string;
   lastUpdated: string;
   version?: string;
-  active: "privacy" | "terms";
+  active: "privacy" | "terms" | "cookies";
   children: React.ReactNode;
 }
 
@@ -38,6 +38,9 @@ export function LegalPageShell({ title, lastUpdated, version, active, children }
             <Link href="/terms" className={cn(navLink, active === "terms" && navLinkActive)}>
               Terms of Service
             </Link>
+            <Link href="/cookie-notice" className={cn(navLink, active === "cookies" && navLinkActive)}>
+              Cookie Notice
+            </Link>
           </nav>
         </div>
       </header>
@@ -59,24 +62,26 @@ export function LegalPageShell({ title, lastUpdated, version, active, children }
         >
           {children}
 
-          <div className="mt-10 border-t border-black/5 pt-6 dark:border-white/10">
-            <h2>Acceptance &amp; Electronic Authorization</h2>
-            <p>
-              Acceptance of this document is recorded during account creation, through the required Terms of
-              Service and Privacy Policy consent checkboxes and a typed electronic signature/authorization on the
-              signup page — not by viewing this page on its own. If you have not yet created an account, you can{" "}
-              <Link href="/signup" className="font-medium text-teal underline underline-offset-2 hover:opacity-80">
-                return to signup
-              </Link>{" "}
-              to review and accept.
-            </p>
-          </div>
+          {active !== "cookies" && (
+            <div className="mt-10 border-t border-black/5 pt-6 dark:border-white/10">
+              <h2>Acceptance &amp; Electronic Authorization</h2>
+              <p>
+                Acceptance of this document is recorded during account creation, through the required Terms of
+                Service and Privacy Policy consent checkboxes and a typed electronic signature/authorization on the
+                signup page — not by viewing this page on its own. If you have not yet created an account, you can{" "}
+                <Link href="/signup" className="font-medium text-teal underline underline-offset-2 hover:opacity-80">
+                  return to signup
+                </Link>{" "}
+                to review and accept.
+              </p>
+            </div>
+          )}
         </div>
 
         <p className="mt-8 text-center text-sm text-navy/50 dark:text-white/40">
-          Questions about {active === "privacy" ? "this Privacy Policy" : "these Terms"}? See{" "}
-          <Link href={active === "privacy" ? "/terms" : "/privacy-policy"} className="font-medium text-teal underline underline-offset-2 hover:opacity-80">
-            {active === "privacy" ? "our Terms of Service" : "our Privacy Policy"}
+          Questions about {active === "privacy" ? "this Privacy Policy" : active === "terms" ? "these Terms" : "this Cookie Notice"}? See{" "}
+          <Link href="/privacy-policy" className="font-medium text-teal underline underline-offset-2 hover:opacity-80">
+            our Privacy Policy
           </Link>{" "}
           or the contact details below.
         </p>

@@ -190,7 +190,12 @@ export default function PrivacyPolicyPage() {
       <p>
         Penny Pilot uses strictly necessary, first-party cookies to keep you signed in (signed, HTTP-only session
         cookies) and to remember basic preferences such as your light/dark theme. These cookies are not used for
-        advertising or cross-site tracking.
+        advertising or cross-site tracking. See the{" "}
+        <a href="/cookie-notice" className="font-medium text-pp-accent underline underline-offset-2 hover:opacity-80">
+          Cookie Notice
+        </a>{" "}
+        for a full list of what&apos;s stored and why, and use the Cookie Preferences link in the footer at any time
+        to change your choice for optional (non-essential) storage.
       </p>
 
       <h2>10. Your Rights</h2>

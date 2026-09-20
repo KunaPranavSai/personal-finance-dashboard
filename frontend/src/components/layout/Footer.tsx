@@ -16,6 +16,10 @@ export function Footer({ variant = "app" }: { variant?: "app" | "dark" }) {
         <Link href="/terms" className={cn("underline-offset-2 hover:underline", linkClass)}>
           Terms of Service
         </Link>
+        <span aria-hidden="true">·</span>
+        <Link href="/cookie-notice" className={cn("underline-offset-2 hover:underline", linkClass)}>
+          Cookie Notice
+        </Link>
       </p>
     </footer>
   );

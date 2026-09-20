@@ -7,11 +7,11 @@ import { SITE_URL } from "@/lib/siteUrl";
  * intentionally excluded here since a sitemap should only list indexable
  * URLs. Authenticated app pages are omitted too (see robots.ts for why). */
 export default function sitemap(): MetadataRoute.Sitemap {
-  const routes = ["/", "/terms", "/privacy-policy"];
+  const routes = ["/", "/terms", "/privacy-policy", "/cookie-notice", "/manual"];
   return routes.map((route) => ({
     url: `${SITE_URL}${route}`,
     lastModified: new Date(),
-    changeFrequency: route === "/terms" || route === "/privacy-policy" ? "monthly" : "yearly",
-    priority: route === "/" ? 1 : 0.5,
+    changeFrequency: route === "/" ? "yearly" : "monthly",
+    priority: route === "/" ? 1 : route === "/manual" ? 0.7 : 0.5,
   }));
 }

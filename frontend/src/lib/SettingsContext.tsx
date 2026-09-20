@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useCallback, useMemo, useState, ReactNode } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "./api";
+import { hasFunctionalConsent } from "./cookieConsent";
 
 export interface AppSettingsData {
   theme: string;
@@ -92,8 +93,15 @@ function applyTheme(theme: string): boolean {
   if (typeof document !== "undefined") {
     document.documentElement.classList.toggle("dark", isDark);
   }
+  // Remembering the theme across visits is a "Functional" (non-essential)
+  // preference under the cookie consent system — see lib/cookieConsent.ts and
+  // /cookie-notice. Without consent, the theme still applies for this
+  // page view (via the class toggle above), it just won't be written to
+  // localStorage for the anti-flash script to read on the next load.
   try {
-    localStorage.setItem(THEME_STORAGE_KEY, isDark ? "dark" : "light");
+    if (hasFunctionalConsent()) {
+      localStorage.setItem(THEME_STORAGE_KEY, isDark ? "dark" : "light");
+    }
   } catch {
     // ignore (private browsing, storage disabled, etc.)
   }

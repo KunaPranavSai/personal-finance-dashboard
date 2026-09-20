@@ -17,6 +17,7 @@ import { ShieldCheck, Lock, Fingerprint, Mail, AlertCircle } from "lucide-react"
 import { browserSupportsWebAuthn } from "@simplewebauthn/browser";
 import { PREFER_BIOMETRIC_KEY } from "@/lib/passkeyPrefs";
 import { cn } from "@/lib/format";
+import { hasFunctionalConsent } from "@/lib/cookieConsent";
 
 const REMEMBERED_EMAIL_KEY = "pfd-remembered-email";
 
@@ -179,7 +180,9 @@ export function LoginPageClient({ embedded = false }: LoginPageClientProps = {})
     try {
       const result = await login(email.trim().toLowerCase(), password);
       try {
-        if (rememberMe) localStorage.setItem(REMEMBERED_EMAIL_KEY, email.trim().toLowerCase());
+        // Remembering a sign-in email is a "Functional" (non-essential)
+        // cookie-consent category — see lib/cookieConsent.ts and /cookie-notice.
+        if (rememberMe && hasFunctionalConsent()) localStorage.setItem(REMEMBERED_EMAIL_KEY, email.trim().toLowerCase());
         else localStorage.removeItem(REMEMBERED_EMAIL_KEY);
       } catch {
         // ignore storage failures (private browsing, etc.)

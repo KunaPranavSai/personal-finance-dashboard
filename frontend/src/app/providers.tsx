@@ -8,6 +8,8 @@ import { AuthProvider } from "@/lib/AuthContext";
 import { SessionManagerProvider } from "@/lib/SessionManager";
 import { DeviceProvider } from "@/lib/DeviceContext";
 import { initClientDataLifecycle } from "@/lib/clientDataCleanup";
+import { CookieConsentProvider } from "@/components/consent/CookieConsentContext";
+import { CookieConsentGate } from "@/components/consent/CookieConsentGate";
 
 export function Providers({ children, isMobile }: { children: React.ReactNode; isMobile: boolean }) {
   const [client] = useState(
@@ -34,7 +36,10 @@ export function Providers({ children, isMobile }: { children: React.ReactNode; i
           <SettingsProvider>
             <ToastProvider>
               <SessionManagerProvider>
-                {children}
+                <CookieConsentProvider>
+                  {children}
+                  <CookieConsentGate />
+                </CookieConsentProvider>
               </SessionManagerProvider>
             </ToastProvider>
           </SettingsProvider>

@@ -1,28 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
-
-/**
- * Reads the ONE safe field (`supportEmail`) off the public settings endpoint
- * (backend/src/routes/public.routes.ts), which itself reads the Super
- * Admin-configured value from `PlatformSettings` — the same row the Admin
- * Console's Settings page edits via PATCH /api/admin/platform-settings.
- * Never falls back to a hardcoded address: a fetch failure or an
- * unconfigured value both resolve to `null`, and the footer renders a
- * non-actionable label instead of a real link. Cached briefly since this is
- * public, admin-controlled, rarely-changing configuration, not per-user data.
- */
-async function getSupportEmail(): Promise<string | null> {
-  try {
-    const res = await fetch(`${API_BASE_URL}/api/public/settings`, { next: { revalidate: 60 } });
-    if (!res.ok) return null;
-    const data = (await res.json()) as { supportEmail: string | null };
-    return data.supportEmail || null;
-  } catch {
-    return null;
-  }
-}
+import { getSupportEmail } from "@/lib/publicSettings";
+import { CookiePreferencesLink } from "@/components/consent/CookiePreferencesLink";
 
 export async function LandingFooter() {
   const supportEmail = await getSupportEmail();
@@ -38,6 +17,8 @@ export async function LandingFooter() {
           <Link href="/manual" className="hover:text-pp-accent hover:underline">User Manual</Link>
           <Link href="/privacy-policy" className="hover:text-pp-accent hover:underline">Privacy Policy</Link>
           <Link href="/terms" className="hover:text-pp-accent hover:underline">Terms of Service</Link>
+          <Link href="/cookie-notice" className="hover:text-pp-accent hover:underline">Cookie Notice</Link>
+          <CookiePreferencesLink className="hover:text-pp-accent hover:underline" />
           {supportEmail ? (
             <a href={`mailto:${supportEmail}`} className="hover:text-pp-accent hover:underline">Contact Support</a>
           ) : (
