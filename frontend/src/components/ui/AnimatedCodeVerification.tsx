@@ -153,14 +153,14 @@ export function AnimatedCodeVerification({
           >
             <div className="mb-6 flex flex-col items-center gap-3 text-center">
               <div className="relative flex h-14 w-14 items-center justify-center">
-                <div className="absolute inset-0 rounded-full bg-purple-500/30 blur-xl" />
-                <div className="relative flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-purple-500/20 to-teal/20 border border-white/10">
-                  <ShieldCheck className="h-6 w-6 text-purple-300" />
+                <div className="absolute inset-0 rounded-full bg-pp-accent/30 blur-xl" />
+                <div className="relative flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-pp-accent/20 to-pp-accent/20 border border-white/10">
+                  <ShieldCheck className="h-6 w-6 text-pp-accent/40" />
                 </div>
               </div>
               <div>
                 <h2 className="text-lg font-bold text-white">{title}</h2>
-                <p className="mt-1 text-sm text-[#94A3B8]">{subtitle}</p>
+                <p className="mt-1 text-sm text-white/60">{subtitle}</p>
               </div>
             </div>
 
@@ -180,8 +180,8 @@ export function AnimatedCodeVerification({
                     onKeyDown={(e) => handleKeyDown(i, e)}
                     className={`h-14 w-11 rounded-xl border bg-white/5 text-center text-xl font-semibold text-white outline-none transition-all focus:ring-2 ${
                       d
-                        ? "border-purple-400/60 shadow-[0_0_16px_rgba(168,85,247,0.35)]"
-                        : "border-white/10 focus:border-purple-400/60 focus:shadow-[0_0_16px_rgba(168,85,247,0.35)] focus:ring-purple-400/20"
+                        ? "border-pp-accent/60 shadow-[0_0_16px_rgba(33,241,168,0.35)]"
+                        : "border-white/10 focus:border-pp-accent/60 focus:shadow-[0_0_16px_rgba(33,241,168,0.35)] focus:ring-pp-accent/20"
                     }`}
                   />
                 ))}
@@ -195,12 +195,12 @@ export function AnimatedCodeVerification({
                   value={backupCode}
                   onChange={(e) => setBackupCode(e.target.value)}
                   placeholder="Backup code"
-                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-center text-sm tracking-wide text-white placeholder:text-white/30 outline-none transition-all focus:border-purple-400/60 focus:ring-2 focus:ring-purple-400/20"
+                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-center text-sm tracking-wide text-white placeholder:text-white/30 outline-none transition-all focus:border-pp-accent/60 focus:ring-2 focus:ring-pp-accent/20"
                 />
                 <button
                   type="submit"
                   disabled={!backupCode.trim()}
-                  className="w-full rounded-xl bg-gradient-to-r from-teal to-teal/80 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-teal/25 transition-all hover:from-teal/90 hover:to-teal/70 disabled:opacity-50"
+                  className="w-full rounded-xl bg-gradient-to-r from-pp-accent to-pp-accent/80 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-pp-accent/25 transition-all hover:from-pp-accent/90 hover:to-pp-accent/70 disabled:opacity-50"
                 >
                   Verify
                 </button>
@@ -208,11 +208,11 @@ export function AnimatedCodeVerification({
             )}
 
             {phase === "error" && (
-              <p className="mt-4 text-center text-xs text-red-400">{errorMessage}</p>
+              <p className="mt-4 text-center text-xs text-vulcanico">{errorMessage}</p>
             )}
 
-            <div className="mt-6 flex items-center justify-center gap-1.5 text-xs text-[#94A3B8]">
-              <Lightbulb className="h-3.5 w-3.5 shrink-0 text-amber-300/70" />
+            <div className="mt-6 flex items-center justify-center gap-1.5 text-xs text-white/60">
+              <Lightbulb className="h-3.5 w-3.5 shrink-0 text-turmeric/70" />
               <span>{backupMode ? "Enter one of your saved backup codes" : tip}</span>
             </div>
 
@@ -261,7 +261,7 @@ export function AnimatedCodeVerification({
                     return (
                       <motion.div
                         key={i}
-                        className="absolute left-1/2 top-1/2 flex h-9 w-9 items-center justify-center rounded-lg border border-purple-400/40 bg-white/10 text-sm font-semibold text-white shadow-[0_0_14px_rgba(168,85,247,0.4)]"
+                        className="absolute left-1/2 top-1/2 flex h-9 w-9 items-center justify-center rounded-lg border border-pp-accent/40 bg-white/10 text-sm font-semibold text-white shadow-[0_0_14px_rgba(33,241,168,0.4)]"
                         style={{ x: x - 18, y: y - 18 }}
                         animate={{ rotate: -360 }}
                         transition={{ duration: 5, repeat: Infinity, ease: "linear" }}
@@ -276,16 +276,16 @@ export function AnimatedCodeVerification({
               {phase === "verifying" && (
                 <>
                   <motion.div
-                    className="absolute h-28 w-28 rounded-full border-2 border-purple-400/50"
+                    className="absolute h-28 w-28 rounded-full border-2 border-pp-accent/50"
                     animate={{ scale: [1, 1.15, 1], opacity: [0.8, 0.3, 0.8] }}
                     transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
                   />
                   <motion.div
-                    className="absolute h-20 w-20 rounded-full border-2 border-teal/50"
+                    className="absolute h-20 w-20 rounded-full border-2 border-pp-accent/50"
                     animate={{ scale: [1, 1.25, 1], opacity: [0.9, 0.2, 0.9] }}
                     transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut", delay: 0.3 }}
                   />
-                  <div className="absolute h-12 w-12 rounded-full bg-purple-400/30 blur-lg" />
+                  <div className="absolute h-12 w-12 rounded-full bg-pp-accent/30 blur-lg" />
                 </>
               )}
 
@@ -297,11 +297,11 @@ export function AnimatedCodeVerification({
                   className="relative flex h-20 w-20 items-center justify-center"
                 >
                   <motion.div
-                    className="absolute inset-0 rounded-full bg-emerald-400/30 blur-xl"
+                    className="absolute inset-0 rounded-full bg-mantis/30 blur-xl"
                     animate={{ scale: [1, 1.3, 1], opacity: [0.6, 0.2, 0.6] }}
                     transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
                   />
-                  <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500 shadow-[0_0_24px_rgba(16,185,129,0.5)]">
+                  <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-mantis shadow-[0_0_24px_rgba(16,185,129,0.5)]">
                     <Check className="h-8 w-8 text-white" strokeWidth={3} />
                   </div>
                 </motion.div>
@@ -323,7 +323,7 @@ export function AnimatedCodeVerification({
                   {phase === "success" && successTitle}
                 </motion.h2>
               </AnimatePresence>
-              <p className="mt-1 text-sm text-[#94A3B8]">
+              <p className="mt-1 text-sm text-white/60">
                 {phase === "success" ? successSubtitle : "Just a moment"}
               </p>
             </div>

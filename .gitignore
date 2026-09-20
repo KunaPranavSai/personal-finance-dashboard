@@ -21,6 +21,11 @@ frontend/public/fallback-*.js
 # Local development documentation, prompts and reports
 *.md
 !README.md
+# The public User Manual page (frontend/src/app/manual) reads this file at
+# request time — it must be tracked and shipped with the frontend deployment,
+# not treated as local-only scratch documentation like the rest of this
+# repo's *.md notes.
+!frontend/content/PENNY_PILOT_USER_MANUAL.md
 # Generated/local files
 *.tsbuildinfo
 *.err

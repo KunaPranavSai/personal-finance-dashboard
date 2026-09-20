@@ -15,29 +15,67 @@ html {
 :root {
   /* "Midnight Cockpit" — light mode: Lavender-Slate Mesh Canvas. Base
      #F1F5F9 with two fixed ambient glows: indigo-tinted #EEF2FF top-left,
-     warm gold #FEF3C7 bottom-right. */
+     warm gold #FEF3C7 bottom-right. Still used by the Admin/Super Admin
+     panel, which keeps its own separate visual identity — see the --pp-*
+     tokens below for the user-facing app instead. */
   --background: #f1f5f9;
   --foreground: #0f172a;
   --canvas-gradient: radial-gradient(circle at 10% 8%, rgba(238, 242, 255, 0.9), transparent 42%),
     radial-gradient(circle at 90% 90%, rgba(254, 243, 199, 0.75), transparent 45%),
     linear-gradient(160deg, #f1f5f9 0%, #eef2ff 100%);
   color-scheme: light;
+
+  /* Approved Penny Pilot design system — the single source of truth for
+     every USER-FACING page (desktop and mobile). Values mirror
+     src/styles/mobile.css's --ppm-* tokens exactly, so a rebuilt desktop
+     component and its mobile counterpart are always pixel-identical in
+     color. Prefixed --pp- (not --ppm-) since these apply app-wide, not just
+     inside .pp-mobile. Never used by the Admin/Super Admin panel. */
+  --pp-bg: #F0EDE4;
+  --pp-surface: #FFFDF1;
+  --pp-surface-2: #E7E2D4;
+  --pp-accent: #004741;
+  --pp-accent-ink: #ffffff;
+  --pp-text: #17231F;
+  --pp-text-dim: #5B6B62;
+  --pp-border: rgba(0, 71, 65, 0.14);
+  --pp-shadow: 0 10px 28px -14px rgba(0, 71, 65, .35);
+  --pp-positive: #2E8B3E;
+  --pp-warning: #B87700;
+  --pp-critical: #C23200;
+  --pp-chip-bg: rgba(0, 71, 65, .08);
 }
 
 .dark {
   /* "Midnight Cockpit" — dark mode: Deep Obsidian Midnight, #070A12 base
-     blending into #0F172A. */
+     blending into #0F172A. Admin-only — see note above. */
   --background: #070a12;
   --foreground: #f8fafc;
   --canvas-gradient: linear-gradient(160deg, #070a12 0%, #0f172a 100%);
   color-scheme: dark;
+
+  --pp-bg: #001621;
+  --pp-surface: #171717;
+  --pp-surface-2: #1F1F1F;
+  --pp-accent: #21F1A8;
+  --pp-accent-ink: #00201A;
+  --pp-text: #FFFDF1;
+  --pp-text-dim: #9FB0AA;
+  --pp-border: rgba(255, 255, 255, .08);
+  --pp-shadow: 0 10px 30px -14px rgba(0, 0, 0, .6);
+  --pp-positive: #59C749;
+  --pp-warning: #FFBE0B;
+  --pp-critical: #FF4103;
+  --pp-chip-bg: rgba(33, 241, 168, .12);
 }
 
+/* Flat Sand/Noturno base — the approved Penny Pilot canvas, replacing the
+   old "Midnight Cockpit" gradient+glow background for the user-facing app.
+   The Admin/Super Admin panel is unaffected: its .cc-root wrapper paints
+   its own opaque background over this on every admin route. */
 body {
-  background-color: var(--background);
-  background-image: var(--canvas-gradient);
-  background-attachment: fixed;
-  color: var(--foreground);
+  background-color: var(--pp-bg);
+  color: var(--pp-text);
   font-family: "Segoe UI", ui-sans-serif, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;

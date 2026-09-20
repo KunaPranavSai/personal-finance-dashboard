@@ -16,14 +16,15 @@ import { AnimatedCodeVerification } from "@/components/ui/AnimatedCodeVerificati
 import { ShieldCheck, Lock, Fingerprint, Mail, AlertCircle } from "lucide-react";
 import { browserSupportsWebAuthn } from "@simplewebauthn/browser";
 import { PREFER_BIOMETRIC_KEY } from "@/lib/passkeyPrefs";
+import { cn } from "@/lib/format";
 
 const REMEMBERED_EMAIL_KEY = "pfd-remembered-email";
 
 const inputBase =
-  "w-full rounded-xl border border-white/10 bg-white/5 py-3 pl-10 pr-4 text-sm text-white placeholder:text-white/30 outline-none transition-all focus:border-purple-400/60 focus:ring-2 focus:ring-purple-400/20 focus:shadow-[0_0_16px_rgba(168,85,247,0.25)]";
+  "w-full rounded-xl border border-white/10 bg-white/5 py-3 pl-10 pr-4 text-sm text-white placeholder:text-white/30 outline-none transition-all focus:border-tiffany/60 focus:ring-2 focus:ring-tiffany/20 focus:shadow-[0_0_16px_rgba(33,241,168,0.25)]";
 
 const primaryButton =
-  "flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-purple-500/25 transition-all hover:shadow-purple-500/40 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100";
+  "flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cypress to-tiffany px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-cypress/25 transition-all hover:shadow-cypress/40 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100";
 
 function ErrorMessage({ children }: { children: React.ReactNode }) {
   return (
@@ -34,7 +35,7 @@ function ErrorMessage({ children }: { children: React.ReactNode }) {
         animate={{ opacity: 1, height: "auto", x: [0, -6, 6, -4, 4, 0] }}
         exit={{ opacity: 0, height: 0 }}
         transition={{ duration: 0.35 }}
-        className="flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-300"
+        className="flex items-center gap-2 rounded-lg border border-vulcanico/20 bg-vulcanico/10 px-3 py-2 text-sm text-vulcanico/40"
       >
         <AlertCircle className="h-4 w-4 shrink-0" />
         {children}
@@ -50,7 +51,7 @@ function SuccessMessage({ children }: { children: React.ReactNode }) {
       animate={{ opacity: 1, height: "auto" }}
       exit={{ opacity: 0, height: 0 }}
       transition={{ duration: 0.35 }}
-      className="flex items-center gap-2 rounded-lg border border-teal-500/20 bg-teal-500/10 px-3 py-2 text-sm text-teal-300"
+      className="flex items-center gap-2 rounded-lg border border-pp-accent/20 bg-pp-accent/10 px-3 py-2 text-sm text-pp-accent/40"
     >
       <ShieldCheck className="h-4 w-4 shrink-0" />
       {children}
@@ -58,7 +59,14 @@ function SuccessMessage({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function LoginPageClient() {
+interface LoginPageClientProps {
+  /** True when rendered inside LoginModal on the landing page instead of the
+   * standalone /login route — swaps full-viewport chrome for a self-sized
+   * panel. No auth/logic differences. */
+  embedded?: boolean;
+}
+
+export function LoginPageClient({ embedded = false }: LoginPageClientProps = {}) {
   const { user, login, loginWithPasskey, verifyLogin2FA, forceChangePassword, isAuthenticated, isLoading } = useAuth();
   const { settings } = useSettingsContext();
   const { toast } = useToast();
@@ -225,18 +233,18 @@ export function LoginPageClient() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#0B0F19]">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-purple-400/30 border-t-purple-400" />
+      <div className={cn("flex items-center justify-center bg-noturno", embedded ? "p-16" : "min-h-screen")}>
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-tiffany/30 border-t-tiffany" />
       </div>
     );
   }
 
   if (challengeToken) {
     return (
-      <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#0B0F19] p-4">
+      <div className={cn("relative flex items-center justify-center overflow-hidden bg-noturno p-4", embedded ? "" : "min-h-screen")}>
         <div className="pointer-events-none absolute inset-0">
-          <div className="absolute -top-32 -left-32 h-[28rem] w-[28rem] rounded-full bg-indigo-600/20 blur-[100px]" />
-          <div className="absolute -bottom-32 -right-32 h-[28rem] w-[28rem] rounded-full bg-purple-600/20 blur-[100px]" />
+          <div className="absolute -top-32 -left-32 h-[28rem] w-[28rem] rounded-full bg-cypress/25 blur-[100px]" />
+          <div className="absolute -bottom-32 -right-32 h-[28rem] w-[28rem] rounded-full bg-tiffany/20 blur-[100px]" />
         </div>
         <AnimatedCodeVerification
           length={6}
@@ -258,7 +266,7 @@ export function LoginPageClient() {
 
   if (passwordChangeToken) {
     return (
-      <AuthPageShell icon={Lock} title="Create a new password" subtitle="You're using a temporary password — set a permanent one to continue">
+      <AuthPageShell embedded={embedded} icon={Lock} title="Create a new password" subtitle="You're using a temporary password — set a permanent one to continue">
         <form onSubmit={handleForceChangePassword} className="space-y-5">
           <div className="relative">
             <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
@@ -299,19 +307,20 @@ export function LoginPageClient() {
 
   return (
     <AuthPageShell
+      embedded={embedded}
       icon={ShieldCheck}
       title="Welcome Back"
       subtitle="Access your account to continue"
-      footer={<Footer variant="dark" />}
+      footer={embedded ? undefined : <Footer variant="dark" />}
     >
       <AnimatePresence mode="wait">
         {mode === "biometric" ? (
           <motion.div key="biometric" initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -12 }} transition={{ duration: 0.25 }} className="space-y-5">
             <div className="flex flex-col items-center gap-3 py-4 text-center">
               <div className="relative flex h-14 w-14 items-center justify-center">
-                <div className="absolute inset-0 rounded-full bg-purple-500/20 blur-lg" />
+                <div className="absolute inset-0 rounded-full bg-tiffany/20 blur-lg" />
                 <div className="relative flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-white/5">
-                  <Fingerprint className="h-7 w-7 text-purple-300" />
+                  <Fingerprint className="h-7 w-7 text-tiffany" />
                 </div>
               </div>
               <div>
@@ -341,7 +350,7 @@ export function LoginPageClient() {
                 onClick={() => { setMode("biometric"); setError(""); }}
                 className="mb-1 flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-medium text-white/80 backdrop-blur-sm transition-all hover:-translate-y-0.5 hover:bg-white/10"
               >
-                <Fingerprint className="h-4 w-4 text-purple-300" />
+                <Fingerprint className="h-4 w-4 text-tiffany" />
                 Continue with Biometrics
               </button>
             )}
@@ -384,7 +393,7 @@ export function LoginPageClient() {
               </div>
               <div className="mt-3 flex items-center justify-between">
                 <AnimatedCheckbox id="remember-me" checked={rememberMe} onChange={setRememberMe} label="Remember me" />
-                <Link href="/forgot-password" className="text-xs text-purple-300 transition-colors hover:text-purple-200 hover:underline">
+                <Link href="/forgot-password" className="text-xs text-tiffany transition-colors hover:text-tiffany/80 hover:underline">
                   Forgot password?
                 </Link>
               </div>
@@ -407,7 +416,7 @@ export function LoginPageClient() {
 
       <p className="mt-4 text-center text-xs text-white/40">
         New here?{" "}
-        <Link href="/signup" className="font-medium text-purple-300 transition-colors hover:text-purple-200">
+        <Link href="/signup" className="font-medium text-tiffany transition-colors hover:text-tiffany/80">
           Create an account
         </Link>
       </p>

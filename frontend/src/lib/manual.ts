@@ -1,17 +1,16 @@
 import fs from "node:fs";
 import path from "node:path";
 
-// PENNY_PILOT_USER_MANUAL.md is the single master document (kept at the
-// project root, alongside both `frontend/` and `backend/`), so the public
+// PENNY_PILOT_USER_MANUAL.md is the single master document, so the public
 // /manual page always reflects the same file a developer edits directly,
-// never a second hand-maintained copy.
+// never a second hand-maintained copy. It lives inside frontend/content
+// (tracked in git despite the repo's blanket `*.md` gitignore rule — see
+// .gitignore) rather than at the monorepo root: Vercel's Root Directory for
+// this project is `frontend/`, and a file outside that boundary is not part
+// of the deployed source at all, which previously caused a production-only
+// ENOENT on every request to this page.
 function resolveManualPath(): string {
-  const candidates = [
-    path.join(process.cwd(), "..", "PENNY_PILOT_USER_MANUAL.md"),
-    path.join(process.cwd(), "PENNY_PILOT_USER_MANUAL.md"),
-  ];
-  const found = candidates.find((p) => fs.existsSync(p));
-  return found ?? candidates[0];
+  return path.join(process.cwd(), "content", "PENNY_PILOT_USER_MANUAL.md");
 }
 
 export function getManualMarkdown(): string {
