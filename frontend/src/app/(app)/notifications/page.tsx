@@ -2,12 +2,11 @@
 
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Topbar } from "@/components/layout/AppTopbar";
+import { Topbar } from "@/components/layout/Topbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/PpCard";
-import { Button } from "@/components/ui/PpButton";
-import { Badge } from "@/components/ui/PpBadge";
+import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { usePpConfirm } from "@/components/ui/PpConfirm";
 import { api } from "@/lib/api";
 import { formatDateIN } from "@/lib/format";
 import { useNotifications } from "@/lib/reference";
@@ -84,7 +83,6 @@ const typeLabels: Record<string, string> = {
 
 export default function NotificationsPage() {
   const queryClient = useQueryClient();
-  const confirmDialog = usePpConfirm();
   const isMobile = useIsMobile();
   const [tab, setTab] = useState<"personal" | "announcements">("personal");
 
@@ -159,7 +157,7 @@ export default function NotificationsPage() {
               </Button>
             )}
             {items.length > 0 && (
-              <Button size="sm" variant="ghost" onClick={async () => { if (await confirmDialog({ message: "Clear all notifications?", danger: false, confirmLabel: "Clear all" })) clearAllMutation.mutate(); }}>
+              <Button size="sm" variant="ghost" onClick={() => { if (window.confirm("Clear all notifications?")) clearAllMutation.mutate(); }}>
                 <Trash2 className="h-4 w-4" /> Clear all
               </Button>
             )}
