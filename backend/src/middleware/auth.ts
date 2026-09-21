@@ -34,8 +34,21 @@ declare global {
   namespace Express {
     interface Request {
       auth?: AuthPayload;
+      /** Set when the current request is an admin "Access as User" impersonation session —
+       * the acting admin's own userId, so mutations can audit both actor and target. */
+      impersonatedBy?: string;
     }
   }
+}
+
+/** Claims for the separate, short-lived impersonation cookie — never replaces access_token. */
+export interface ImpersonationPayload {
+  imp: true;
+  adminId: string;
+  targetUserId: string;
+  requestId: string;
+  iat?: number;
+  exp?: number;
 }
 
 // How often (at most) a valid request re-signs and re-sets the session
@@ -85,6 +98,29 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
     return;
   }
   req.auth = payload;
+
+  // "Access as User" overlay: a separate, short-lived cookie that never replaces the admin's own
+  // access_token. Only takes effect when it matches the admin identity we just validated above,
+  // and only while its backing ImpersonationRequest row is neither revoked nor still un-consumed
+  // (so POST /api/admin/access/exit works immediately — checked fresh on every request, not just
+  // at token-mint time).
+  const impToken = (req.signedCookies as Record<string, string | undefined>)["impersonation_token"];
+  if (impToken) {
+    try {
+      const impPayload = jwt.verify(impToken, ACCESS_SECRET) as ImpersonationPayload;
+      if (impPayload.imp && impPayload.adminId === payload.userId) {
+        const request = await prisma.impersonationRequest.findUnique({ where: { id: impPayload.requestId } });
+        const target = request ? await prisma.user.findUnique({ where: { id: impPayload.targetUserId } }) : null;
+        if (request && target && !request.revokedAt && request.consumedAt) {
+          req.auth = { userId: target.id, uid: target.uid, role: target.role, sv: getSessionVersion(target.id) };
+          req.impersonatedBy = impPayload.adminId;
+        }
+      }
+    } catch {
+      // Invalid/expired impersonation token — silently fall back to the admin's own identity,
+      // same as an ordinary expired token would just stop applying.
+    }
+  }
 
   // This is the core of the inactivity-based session: every authenticated
   // request is user activity, so (throttled) it slides the deadline forward

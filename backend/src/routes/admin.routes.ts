@@ -11,6 +11,10 @@ import { AUTOMATED_EMAIL_TRIGGERS } from "../services/email/automation";
 import { listMigrationStatuses, getMigrationSummary, deriveMigrationState, MigrationState } from "../services/admin/migrationStatus";
 import { hasLegacyPostgresData } from "../services/drive/init";
 import { getSystemHealth } from "../services/admin/systemHealth";
+import { lookupGeo } from "../lib/geoip";
+import bcrypt from "bcryptjs";
+import crypto from "crypto";
+import { signImpersonation, setImpersonationCookie } from "../lib/tokens";
 
 const router = Router();
 
@@ -209,7 +213,7 @@ router.post(
       markSessionsRevoked(rows.map((r) => r.id));
       void prisma.session.updateMany({ where: { userId: id, revokedAt: null }, data: { revokedAt: new Date() } });
     }).catch(() => {});
-    void logActivity(req, "force_logout_by_admin", `Forced logout for ${target.email}`, req.auth!.userId);
+    void logActivity(req, "force_logout_by_admin", `Forced logout for ${target.email}`, req.auth!.userId, target.id);
     res.json({ ok: true, message: `${target.name} has been signed out of all sessions.` });
   })
 );
@@ -689,6 +693,10 @@ router.get(
       return;
     }
 
+    // Admin-initiated events about this user set the real targetUserId column (see
+    // logActivity/activityLog.ts) — no text/email matching, exact FK match only.
+    const targetActivityWhere = { OR: [{ userId: id }, { targetUserId: id }] };
+
     const [backupConnection, passkeys, sessions, notifications, unreadCount, activity, appSettings, appProfile, hasLegacyData] = await Promise.all([
       prisma.backupConnection.findUnique({
         where: { userId_provider: { userId: id, provider: "google_drive" } },
@@ -705,7 +713,7 @@ router.get(
       prisma.session.findMany({ where: { userId: id }, orderBy: { lastSeenAt: "desc" }, take: 50 }),
       prisma.notification.findMany({ where: { userId: id }, orderBy: { createdAt: "desc" }, take: 20, select: { id: true, type: true, title: true, read: true, createdAt: true } }),
       prisma.notification.count({ where: { userId: id, read: false } }),
-      prisma.activityLog.findMany({ where: { userId: id }, orderBy: { createdAt: "desc" }, take: 50 }),
+      prisma.activityLog.findMany({ where: targetActivityWhere, orderBy: { createdAt: "desc" }, take: 10 }),
       // Preferences (theme/currency/date format/etc.) are UI prefs, not financial data — shown
       // for every role, including USER, per explicit direction (documented judgment call).
       prisma.appSettings.findUnique({ where: { userId: id }, select: { data: true } }),
@@ -720,8 +728,21 @@ router.get(
       hasError: Boolean(backupConnection?.lastConnectError),
     });
 
+    const sessionsWithGeo = sessions.map((s) => ({ ...s, geo: lookupGeo(s.ip) }));
+    const lastSession = sessionsWithGeo[0] ?? null;
+
     res.json({
       user,
+      overview: {
+        registeredAt: user.createdAt,
+        registeredIp: "Not recorded", // signup does not capture IP — see report
+        lastLogin: user.lastLoginAt,
+        lastLoginIp: lastSession?.ip ?? null,
+        lastLoginGeo: lastSession?.geo ?? null,
+        lastLoginDevice: lastSession ? `${lastSession.browser ?? "Unknown"} · ${lastSession.os ?? "Unknown"} · ${lastSession.device ?? "Unknown"}` : "Not recorded",
+        activeSessionCount: sessions.filter((s) => !s.revokedAt).length,
+        macAddress: "N/A — no HTTP/infrastructure signal can provide a client's MAC address",
+      },
       storage: {
         connected: Boolean(backupConnection),
         accountEmail: backupConnection?.accountEmail ?? null,
@@ -738,11 +759,67 @@ router.get(
         failedLoginAttempts: user.failedLoginAttempts,
         lockedUntil: user.lockedUntil,
       },
-      sessions,
+      sessions: sessionsWithGeo,
       notifications: { items: notifications, unreadCount },
       preferences: { settings: appSettings?.data ?? null, profile: appProfile?.data ?? null },
-      activity,
+      activity, // recent-10 preview only; full paginated/filtered list is GET /users/:id/activity
     });
+  })
+);
+
+// ─── GET /api/admin/users/:id/activity — User 360 Activity tab, paginated ───────
+// Server-side filtered by the validated :id route param (never a client-supplied userId query
+// param) — same event/date-range filter pattern as the global GET /admin/activity, scoped with
+// the same OR(userId=target, detail mentions target email) match used in /detail above so
+// admin-initiated events about this user are included, not just their own self-actions. Actor
+// name is joined via the event's own `user` relation (that user IS the actor for admin-initiated
+// events, per how logActivity is called throughout the app).
+router.get(
+  "/users/:id/activity",
+  asyncHandler(async (req: Request, res: Response) => {
+    const id = String(req.params.id);
+    const target = await prisma.user.findUnique({ where: { id }, select: { id: true, email: true } });
+    if (!target) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const pageSize = Math.min(100, Math.max(1, Number(req.query.pageSize) || 25));
+    const { event, from, to } = req.query as { event?: string; from?: string; to?: string };
+
+    // Real FK match only — no text/email matching. userId covers self-actions (and, for
+    // historical rows predating targetUserId, whatever they already captured); targetUserId
+    // covers every admin→this-user action logged since this column was added.
+    const where: Record<string, unknown> = { OR: [{ userId: id }, { targetUserId: id }] };
+    if (event) where.event = event;
+    const fromDate = from ? new Date(from) : undefined;
+    const toDate = to ? new Date(to) : undefined;
+    if ((fromDate && !isNaN(fromDate.getTime())) || (toDate && !isNaN(toDate.getTime()))) {
+      where.createdAt = {
+        ...(fromDate && !isNaN(fromDate.getTime()) && { gte: fromDate }),
+        ...(toDate && !isNaN(toDate.getTime()) && { lte: toDate }),
+      };
+    }
+
+    const [items, total] = await Promise.all([
+      prisma.activityLog.findMany({
+        where, orderBy: { createdAt: "desc" }, skip: (page - 1) * pageSize, take: pageSize,
+        include: { user: { select: { id: true, name: true, email: true } } },
+      }),
+      prisma.activityLog.count({ where }),
+    ]);
+
+    const formatted = items.map((a) => ({
+      id: a.id, event: a.event, detail: a.detail, createdAt: a.createdAt,
+      ip: a.ip, browser: a.browser, os: a.os, device: a.device,
+      geo: lookupGeo(a.ip),
+      // targetUserId set = an admin action on this user; a.user (via userId) is the actor.
+      // No targetUserId = a self-action; a.user is the target themself (no Actor/Target split).
+      actor: a.targetUserId === id && a.user ? { name: a.user.name, email: a.user.email } : null,
+      isSelfAction: a.user?.id === id,
+    }));
+
+    res.json({ items: formatted, pagination: { page, pageSize, total, totalPages: Math.ceil(total / pageSize) } });
   })
 );
 
@@ -804,7 +881,7 @@ router.patch(
       update: data,
       create: { userId, ...data },
     });
-    void logActivity(req, "entitlements_updated", `Updated entitlements for ${target.email}`, req.auth!.userId);
+    void logActivity(req, "entitlements_updated", `Updated entitlements for ${target.email}`, req.auth!.userId, target.id);
     res.json(updated);
   })
 );
@@ -846,7 +923,7 @@ router.post(
     }
     await prisma.session.update({ where: { id: sessionId }, data: { revokedAt: new Date() } });
     markSessionRevoked(sessionId);
-    void logActivity(req, "session_revoked_by_admin", `Revoked one session for ${target.email}`, req.auth!.userId);
+    void logActivity(req, "session_revoked_by_admin", `Revoked one session for ${target.email}`, req.auth!.userId, target.id);
     res.json({
       ok: true,
       message: `That device's session has been revoked. ${target.name}'s other sessions are unaffected.`,
@@ -970,6 +1047,92 @@ router.delete(
     await prisma.announcement.delete({ where: { id } });
     void logActivity(req, "announcement_deleted", `Deleted announcement "${existing.title}"`, req.auth!.userId);
     res.json({ ok: true });
+  })
+);
+
+// ─── Access as User (impersonation) — break-glass, SUPER_ADMIN only ─────────
+// OTP pattern copied from the existing recovery-OTP flow (auth.routes.ts): crypto-random
+// 6-digit code, bcrypt-hashed at rest, 5-minute expiry, 5-attempt cap. The OTP goes to the
+// TARGET user's email (never the admin's) — this is a user-consent code, not a login code, so
+// an admin can't grant themself access without the account owner seeing it. Always sent
+// regardless of emailEligible — security-critical by definition, same bypass rule as password
+// reset.
+const IMPERSONATION_OTP_TTL_MS = 5 * 60 * 1000;
+const MAX_IMPERSONATION_OTP_ATTEMPTS = 5;
+function generateImpersonationOtp(): string {
+  return String(crypto.randomInt(100000, 1000000));
+}
+
+router.post(
+  "/users/:id/access-request",
+  asyncHandler(async (req: Request, res: Response) => {
+    if (req.auth!.role !== "SUPER_ADMIN") {
+      res.status(403).json({ error: "Only a Super Admin can access a user's account" });
+      return;
+    }
+    const targetUserId = String(req.params.id);
+    const target = await prisma.user.findUnique({ where: { id: targetUserId } });
+    if (!target) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+    if (target.role !== "USER") {
+      res.status(400).json({ error: "Access as User only applies to regular user accounts" });
+      return;
+    }
+    const otp = generateImpersonationOtp();
+    const otpHash = await bcrypt.hash(otp, 10);
+    const request = await prisma.impersonationRequest.create({
+      data: { adminId: req.auth!.userId, targetUserId, otpHash, otpExpiresAt: new Date(Date.now() + IMPERSONATION_OTP_TTL_MS) },
+    });
+    await sendEmail(
+      target.email,
+      "Penny Pilot — Admin access verification code",
+      `<p>An administrator (${req.auth!.uid}) has requested access to your account for support purposes.</p><p>Verification code: <strong>${otp}</strong></p><p>If you did not expect this, contact support immediately.</p>`
+    );
+    void logActivity(req, "ADMIN_USER_ACCESS_REQUESTED", `Requested access to ${target.email}`, req.auth!.userId, targetUserId);
+    res.json({ requestId: request.id, expiresAt: request.otpExpiresAt });
+  })
+);
+
+router.post(
+  "/users/:id/access-verify",
+  asyncHandler(async (req: Request, res: Response) => {
+    if (req.auth!.role !== "SUPER_ADMIN") {
+      res.status(403).json({ error: "Only a Super Admin can access a user's account" });
+      return;
+    }
+    const targetUserId = String(req.params.id);
+    const { requestId, code } = req.body as { requestId?: string; code?: string };
+    const request = await prisma.impersonationRequest.findUnique({ where: { id: String(requestId) } });
+    if (
+      !request || request.adminId !== req.auth!.userId || request.targetUserId !== targetUserId ||
+      request.revokedAt || request.consumedAt || Date.now() > request.otpExpiresAt.getTime()
+    ) {
+      void logActivity(req, "ADMIN_USER_ACCESS_DENIED", `Invalid/expired access request for user ${targetUserId}`, req.auth!.userId, targetUserId);
+      res.status(401).json({ error: "This verification code has expired. Request a new one.", code: "AUTH_EXPIRED" });
+      return;
+    }
+    if (request.attempts >= MAX_IMPERSONATION_OTP_ATTEMPTS) {
+      res.status(429).json({ error: "Too many attempts. Request a new code." });
+      return;
+    }
+    const ok = await bcrypt.compare(String(code ?? ""), request.otpHash);
+    if (!ok) {
+      await prisma.impersonationRequest.update({ where: { id: request.id }, data: { attempts: { increment: 1 } } });
+      void logActivity(req, "ADMIN_USER_ACCESS_DENIED", `Wrong code for access request ${request.id}`, req.auth!.userId, targetUserId);
+      res.status(401).json({ error: "Incorrect code", code: "AUTH_INVALID" });
+      return;
+    }
+    await prisma.impersonationRequest.update({ where: { id: request.id }, data: { consumedAt: new Date() } });
+    const target = await prisma.user.findUnique({ where: { id: targetUserId } });
+    if (!target) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+    setImpersonationCookie(res, signImpersonation(req.auth!.userId, targetUserId, request.id));
+    void logActivity(req, "ADMIN_USER_ACCESS_GRANTED", `Granted access to ${target.email}`, req.auth!.userId, targetUserId);
+    res.json({ ok: true, target: { id: target.id, name: target.name, email: target.email, uid: target.uid }, expiresAt: Date.now() + 20 * 60 * 1000 });
   })
 );
 

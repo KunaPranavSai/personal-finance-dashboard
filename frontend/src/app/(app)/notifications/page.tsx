@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Topbar } from "@/components/layout/Topbar";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
-import { Badge } from "@/components/ui/Badge";
+import { Topbar } from "@/components/layout/AppTopbar";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/PpCard";
+import { Button } from "@/components/ui/PpButton";
+import { Badge } from "@/components/ui/PpBadge";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { usePpConfirm } from "@/components/ui/PpConfirm";
 import { api } from "@/lib/api";
 import { formatDateIN } from "@/lib/format";
 import { useNotifications } from "@/lib/reference";
@@ -26,12 +27,12 @@ interface AnnouncementItem {
 }
 
 const announcementIcons: Record<AnnouncementItem["type"], React.ReactNode> = {
-  INFO: <Info className="h-4 w-4 text-blue-500" />,
-  UPDATE: <Sparkles className="h-4 w-4 text-teal" />,
-  MAINTENANCE: <Wrench className="h-4 w-4 text-yellow-500" />,
-  SECURITY: <ShieldAlert className="h-4 w-4 text-red-500" />,
-  FEATURE: <Sparkles className="h-4 w-4 text-purple-500" />,
-  IMPORTANT: <AlertTriangle className="h-4 w-4 text-orange-500" />,
+  INFO: <Info className="h-4 w-4 text-pp-accent" />,
+  UPDATE: <Sparkles className="h-4 w-4 text-pp-accent" />,
+  MAINTENANCE: <Wrench className="h-4 w-4 text-turmeric" />,
+  SECURITY: <ShieldAlert className="h-4 w-4 text-vulcanico" />,
+  FEATURE: <Sparkles className="h-4 w-4 text-pp-accent" />,
+  IMPORTANT: <AlertTriangle className="h-4 w-4 text-turmeric" />,
 };
 
 function AnnouncementsList() {
@@ -42,7 +43,7 @@ function AnnouncementsList() {
   const items = data?.items ?? [];
 
   if (isLoading) {
-    return <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-16 animate-pulse rounded-lg bg-black/5 dark:bg-white/5" />)}</div>;
+    return <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-16 animate-pulse rounded-lg bg-pp-surface-2" />)}</div>;
   }
   if (items.length === 0) {
     return <EmptyState icon={Megaphone} title="No announcements" description="Platform updates and announcements will show up here." />;
@@ -54,12 +55,12 @@ function AnnouncementsList() {
           <div className="mt-0.5">{announcementIcons[a.type]}</div>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-navy/50 dark:text-white/50">{a.type}</span>
+              <span className="text-xs font-medium text-pp-text-dim">{a.type}</span>
               {a.priority !== "NORMAL" && <Badge tone={a.priority === "URGENT" ? "red" : "yellow"}>{a.priority}</Badge>}
             </div>
-            <p className="text-sm font-medium text-navy dark:text-white">{a.title}</p>
-            <p className="text-xs text-navy/50 dark:text-white/50">{a.body}</p>
-            <p className="mt-1 text-xs text-navy/30 dark:text-white/30">{formatDateIN(a.publishAt ?? a.createdAt)}</p>
+            <p className="text-sm font-medium text-pp-text">{a.title}</p>
+            <p className="text-xs text-pp-text-dim">{a.body}</p>
+            <p className="mt-1 text-xs text-pp-text-dim">{formatDateIN(a.publishAt ?? a.createdAt)}</p>
           </div>
         </div>
       ))}
@@ -68,10 +69,10 @@ function AnnouncementsList() {
 }
 
 const typeIcons: Record<string, React.ReactNode> = {
-  budget_alert: <AlertTriangle className="h-4 w-4 text-orange-500" />,
-  bill_due: <Receipt className="h-4 w-4 text-red-500" />,
-  goal_progress: <TrendingUp className="h-4 w-4 text-teal" />,
-  insight: <Lightbulb className="h-4 w-4 text-yellow-500" />,
+  budget_alert: <AlertTriangle className="h-4 w-4 text-turmeric" />,
+  bill_due: <Receipt className="h-4 w-4 text-vulcanico" />,
+  goal_progress: <TrendingUp className="h-4 w-4 text-pp-accent" />,
+  insight: <Lightbulb className="h-4 w-4 text-turmeric" />,
 };
 
 const typeLabels: Record<string, string> = {
@@ -83,6 +84,7 @@ const typeLabels: Record<string, string> = {
 
 export default function NotificationsPage() {
   const queryClient = useQueryClient();
+  const confirmDialog = usePpConfirm();
   const isMobile = useIsMobile();
   const [tab, setTab] = useState<"personal" | "announcements">("personal");
 
@@ -116,17 +118,24 @@ export default function NotificationsPage() {
   return (
     <>
       <Topbar title="Notifications" />
-      <main className="flex-1 overflow-y-auto p-4 lg:p-6">
-        <div className="mb-4 flex gap-2">
+      <main className="flex-1 overflow-y-auto p-4 lg:p-6 2xl:px-10">
+        <div className="mx-auto max-w-3xl">
+        <div className="mb-4 flex gap-2" role="tablist" aria-label="Notification sections">
           <button
+            type="button"
+            role="tab"
+            aria-selected={tab === "personal"}
             onClick={() => setTab("personal")}
-            className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${tab === "personal" ? "bg-teal/10 text-teal" : "text-navy/50 hover:bg-black/5 dark:text-white/50 dark:hover:bg-white/5"}`}
+            className={`min-h-[40px] rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${tab === "personal" ? "bg-pp-accent/10 text-pp-accent" : "text-pp-text-dim hover:bg-pp-surface-2"}`}
           >
             Personal
           </button>
           <button
+            type="button"
+            role="tab"
+            aria-selected={tab === "announcements"}
             onClick={() => setTab("announcements")}
-            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${tab === "announcements" ? "bg-teal/10 text-teal" : "text-navy/50 hover:bg-black/5 dark:text-white/50 dark:hover:bg-white/5"}`}
+            className={`flex min-h-[40px] items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${tab === "announcements" ? "bg-pp-accent/10 text-pp-accent" : "text-pp-text-dim hover:bg-pp-surface-2"}`}
           >
             <Megaphone className="h-3.5 w-3.5" /> Announcements
           </button>
@@ -140,7 +149,7 @@ export default function NotificationsPage() {
         ) : (
         <>
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-          <p className="text-sm text-navy/50 dark:text-white/50">
+          <p className="text-sm text-pp-text-dim">
             {unreadCount > 0 ? `You have ${unreadCount} unread notification${unreadCount > 1 ? "s" : ""}.` : "No unread notifications."}
           </p>
           <div className="flex gap-2">
@@ -150,7 +159,7 @@ export default function NotificationsPage() {
               </Button>
             )}
             {items.length > 0 && (
-              <Button size="sm" variant="ghost" onClick={() => { if (confirm("Clear all notifications?")) clearAllMutation.mutate(); }}>
+              <Button size="sm" variant="ghost" onClick={async () => { if (await confirmDialog({ message: "Clear all notifications?", danger: false, confirmLabel: "Clear all" })) clearAllMutation.mutate(); }}>
                 <Trash2 className="h-4 w-4" /> Clear all
               </Button>
             )}
@@ -161,31 +170,31 @@ export default function NotificationsPage() {
           <CardHeader><CardTitle>All Notifications</CardTitle></CardHeader>
           <CardContent>
             {isLoading ? (
-              <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-16 animate-pulse rounded-lg bg-black/5 dark:bg-white/5" />)}</div>
+              <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-16 animate-pulse rounded-lg bg-pp-surface-2" />)}</div>
             ) : items.length === 0 ? (
               <EmptyState icon={Bell} title="No notifications yet" description="You'll see notifications here for budget alerts, bill reminders, and insights." />
             ) : (
               <div className="space-y-2">
                 {items.map((n) => (
-                  <div key={n.id} className={`flex items-start gap-3 rounded-lg p-3 transition-colors ${n.read ? "" : "bg-teal/5"}`}>
+                  <div key={n.id} className={`flex items-start gap-3 rounded-lg p-3 transition-colors ${n.read ? "" : "bg-pp-accent/5"}`}>
                     <div className="mt-0.5">{typeIcons[n.type]}</div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-medium text-navy/50 dark:text-white/50">{typeLabels[n.type]}</span>
+                        <span className="text-xs font-medium text-pp-text-dim">{typeLabels[n.type]}</span>
                         {!n.read && <Badge tone="teal">New</Badge>}
                       </div>
-                      <p className="text-sm font-medium text-navy dark:text-white">{n.title}</p>
-                      <p className="text-xs text-navy/50 dark:text-white/50">{n.message}</p>
-                      <p className="text-xs text-navy/30 dark:text-white/30 mt-1">{formatDateIN(n.createdAt)}</p>
+                      <p className="text-sm font-medium text-pp-text">{n.title}</p>
+                      <p className="text-xs text-pp-text-dim">{n.message}</p>
+                      <p className="text-xs text-pp-text-dim mt-1">{formatDateIN(n.createdAt)}</p>
                     </div>
                     <div className="flex gap-1">
                       {!n.read && (
-                        <button onClick={() => markReadMutation.mutate(n.id)} className="rounded-lg p-1.5 hover:bg-black/5 dark:hover:bg-white/10" aria-label="Mark as read">
-                          <CheckCheck className="h-4 w-4 text-navy/40 dark:text-white/40" />
+                        <button onClick={() => markReadMutation.mutate(n.id)} className="rounded-lg p-1.5 hover:bg-pp-surface-2" aria-label="Mark as read">
+                          <CheckCheck className="h-4 w-4 text-pp-text-dim" />
                         </button>
                       )}
-                      <button onClick={() => deleteMutation.mutate(n.id)} className="rounded-lg p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20" aria-label="Delete notification">
-                        <Trash2 className="h-4 w-4 text-red-400" />
+                      <button onClick={() => deleteMutation.mutate(n.id)} className="rounded-lg p-1.5 hover:bg-vulcanico/10 dark:hover:bg-vulcanico/20" aria-label="Delete notification">
+                        <Trash2 className="h-4 w-4 text-vulcanico" />
                       </button>
                     </div>
                   </div>
@@ -196,6 +205,7 @@ export default function NotificationsPage() {
         </Card>
         </>
         )}
+        </div>
       </main>
     </>
   );

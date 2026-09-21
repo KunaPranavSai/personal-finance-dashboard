@@ -14,6 +14,10 @@ import { api } from "@/lib/api";
 import { formatDateIN } from "@/lib/format";
 import { AdminActionConfirm } from "@/components/admin/AdminActionConfirm";
 import { EditUserModal, ManagedUser } from "@/components/admin/UserManagementShared";
+import { useAuth } from "@/lib/AuthContext";
+import { ApiClientError } from "@/lib/api";
+
+interface GeoLocation { city: string | null; region: string | null; country: string | null; countryCode: string; ll: [number, number]; timezone: string }
 
 interface UserDetail {
   user: {
@@ -23,6 +27,10 @@ interface UserDetail {
     failedLoginAttempts: number; lockedUntil: string | null;
     onboardedAt: string | null; approvedAt: string | null; rejectedAt: string | null; rejectionReason: string | null;
     lastLoginAt: string | null; createdAt: string; updatedAt: string;
+  };
+  overview: {
+    registeredAt: string; registeredIp: string; lastLogin: string | null; lastLoginIp: string | null;
+    lastLoginGeo: GeoLocation | null; lastLoginDevice: string; activeSessionCount: number; macAddress: string;
   };
   storage: {
     connected: boolean; accountEmail: string | null; migrationState: string;
@@ -34,10 +42,15 @@ interface UserDetail {
     passkeys: { id: string; name: string; deviceType: string; backedUp: boolean; transports: string[]; lastUsedAt: string | null; createdAt: string }[];
     failedLoginAttempts: number; lockedUntil: string | null;
   };
-  sessions: { id: string; ip: string | null; browser: string | null; os: string | null; device: string | null; createdAt: string; lastSeenAt: string; revokedAt: string | null }[];
+  sessions: { id: string; ip: string | null; browser: string | null; os: string | null; device: string | null; createdAt: string; lastSeenAt: string; revokedAt: string | null; geo: GeoLocation | null }[];
   notifications: { items: { id: string; type: string; title: string; read: boolean; createdAt: string }[]; unreadCount: number };
   preferences: { settings: Record<string, unknown> | null; profile: Record<string, unknown> | null };
   activity: { id: string; event: string; detail: string | null; ip: string | null; browser: string | null; os: string | null; device: string | null; createdAt: string }[];
+}
+
+function geoLabel(geo: GeoLocation | null): string {
+  if (!geo) return "Location: Unavailable";
+  return [geo.city, geo.region, geo.country].filter(Boolean).join(", ") || "Location: Unavailable";
 }
 
 const TABS = ["Overview", "Authentication", "Sessions", "Storage", "Security", "Access", "Notifications", "Preferences", "Activity"] as const;
@@ -216,10 +229,131 @@ function EntitlementsPanel({ userId, toast }: { userId: string; toast: (msg: str
   );
 }
 
+function AccessAsUserPanel({ userId, userName, toast }: { userId: string; userName: string; toast: (msg: string, type: "success" | "error") => void }) {
+  const [requestId, setRequestId] = useState<string | null>(null);
+  const [code, setCode] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const request = async () => {
+    setBusy(true);
+    try {
+      const res = await api.post<{ requestId: string }>(`/api/admin/users/${userId}/access-request`);
+      setRequestId(res.requestId);
+      toast(`Verification code sent to ${userName}`, "success");
+    } catch (err) {
+      toast(err instanceof ApiClientError ? err.message : "Failed to request access", "error");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const verify = async () => {
+    if (!requestId) return;
+    setBusy(true);
+    try {
+      await api.post(`/api/admin/users/${userId}/access-verify`, { requestId, code });
+      toast(`Now viewing as ${userName}`, "success");
+      window.location.href = "/dashboard";
+    } catch (err) {
+      toast(err instanceof ApiClientError ? err.message : "Invalid code", "error");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="cc-panel p-4" style={{ borderColor: "var(--cc-amber)" }}>
+      <p className="cc-mono mb-2 flex items-center gap-1.5 text-[10px] uppercase tracking-wider" style={{ color: "var(--cc-amber)" }}>
+        Access as User — break glass
+      </p>
+      <p className="mb-3 text-xs" style={{ color: "var(--cc-text-faint)" }}>
+        Sends a one-time code to {userName}&apos;s own email. They must give it to you before you can view their account. Logged and time-limited (20 min).
+      </p>
+      {!requestId ? (
+        <button onClick={request} disabled={busy} className="cc-mono flex min-h-[44px] items-center gap-1.5 rounded border px-3 py-1.5 text-xs disabled:opacity-50" style={{ borderColor: "var(--cc-amber)", color: "var(--cc-amber)" }}>
+          Request Access
+        </button>
+      ) : (
+        <div className="flex gap-2">
+          <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="6-digit code" className="cc-mono w-32 rounded border bg-transparent px-3 py-2 text-sm" style={{ borderColor: "var(--cc-border)", color: "var(--cc-text)" }} />
+          <button onClick={verify} disabled={busy || code.length !== 6} className="cc-mono flex min-h-[44px] items-center gap-1.5 rounded border px-3 py-1.5 text-xs disabled:opacity-50" style={{ borderColor: "var(--cc-amber)", color: "var(--cc-amber)" }}>
+            Verify &amp; Access
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface ActivityItem {
+  id: string; event: string; detail: string | null; createdAt: string;
+  ip: string | null; browser: string | null; os: string | null; device: string | null;
+  geo: GeoLocation | null;
+  actor: { name: string; email: string } | null;
+  isSelfAction: boolean;
+}
+
+function UserActivityPanel({ userId, userName }: { userId: string; userName: string }) {
+  const [page, setPage] = useState(1);
+  const [event, setEvent] = useState("");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const params = new URLSearchParams({ page: String(page), pageSize: "20" });
+  if (event) params.set("event", event);
+  if (from) params.set("from", from);
+  if (to) params.set("to", to);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["admin-user-activity", userId, event, from, to, page],
+    queryFn: () => api.get<{ items: ActivityItem[]; pagination: { page: number; totalPages: number } }>(`/api/admin/users/${userId}/activity?${params.toString()}`),
+  });
+  const items = data?.items ?? [];
+  const totalPages = data?.pagination.totalPages ?? 1;
+
+  return (
+    <div>
+      <div className="mb-3 flex flex-wrap gap-2">
+        <input value={event} onChange={(e) => { setEvent(e.target.value); setPage(1); }} placeholder="Event type" className="cc-mono rounded border bg-transparent px-2 py-1.5 text-xs" style={{ borderColor: "var(--cc-border)", color: "var(--cc-text)" }} />
+        <input type="date" value={from} onChange={(e) => { setFrom(e.target.value); setPage(1); }} className="cc-mono rounded border bg-transparent px-2 py-1.5 text-xs" style={{ borderColor: "var(--cc-border)", color: "var(--cc-text)" }} />
+        <input type="date" value={to} onChange={(e) => { setTo(e.target.value); setPage(1); }} className="cc-mono rounded border bg-transparent px-2 py-1.5 text-xs" style={{ borderColor: "var(--cc-border)", color: "var(--cc-text)" }} />
+      </div>
+      <div className="space-y-1">
+        {isLoading ? (
+          <div className="cc-panel h-24 animate-pulse" />
+        ) : items.length === 0 ? (
+          <div className="cc-panel p-6 text-center text-xs cc-mono" style={{ color: "var(--cc-text-faint)" }}>No activity recorded.</div>
+        ) : (
+          items.map((a) => (
+            <div key={a.id} className="cc-panel flex items-center gap-3 p-3">
+              <Activity className="h-4 w-4" style={{ color: "var(--cc-accent)" }} />
+              <div className="min-w-0 flex-1">
+                <p className="cc-mono text-xs" style={{ color: "var(--cc-text)" }}>{a.event}</p>
+                {a.detail && <p className="text-xs" style={{ color: "var(--cc-text-dim)" }}>{a.detail}</p>}
+                {a.actor && <p className="cc-mono text-[10px]" style={{ color: "var(--cc-amber)" }}>Actor: {a.actor.name} ({a.actor.email}) · Target: {userName}</p>}
+                <p className="cc-mono text-[10px]" style={{ color: "var(--cc-text-faint)" }}>
+                  {formatDateIN(a.createdAt)}{a.ip ? ` · ${a.ip}` : ""} · {geoLabel(a.geo)}{a.browser ? ` · ${a.browser}/${a.os}` : ""}
+                </p>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+      {totalPages > 1 && (
+        <div className="mt-3 flex items-center justify-between text-xs cc-mono" style={{ color: "var(--cc-text-faint)" }}>
+          <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1} className="disabled:opacity-40">Previous</button>
+          <span>Page {page} of {totalPages}</span>
+          <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="disabled:opacity-40">Next</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function UserDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const { toast } = useToast();
+  const { user: currentAdmin } = useAuth();
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<Tab>("Overview");
   const [confirmAction, setConfirmAction] = useState<
@@ -241,7 +375,7 @@ export default function UserDetailPage() {
     );
   }
 
-  const { user, storage, security, sessions, notifications, preferences, activity } = data;
+  const { user, overview, storage, security, sessions, notifications, preferences, activity } = data;
 
   return (
     <>
@@ -329,17 +463,35 @@ export default function UserDetailPage() {
         </div>
 
         {tab === "Overview" && (
-          <div className="cc-panel p-4">
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
-              <Field label="Phone" value={user.phone} />
-              <Field label="Approved At" value={user.approvedAt ? formatDateIN(user.approvedAt) : null} />
-              <Field label="Rejected At" value={user.rejectedAt ? formatDateIN(user.rejectedAt) : null} />
-              <Field label="Rejection Reason" value={user.rejectionReason} />
-              <Field label="Must Change Password" value={user.mustChangePassword ? "Yes" : "No"} />
-              <Field label="Failed Login Attempts" value={user.failedLoginAttempts} />
-              <Field label="Locked Until" value={user.lockedUntil ? formatDateIN(user.lockedUntil) : "Not locked"} />
-              <Field label="Unread Notifications" value={notifications.unreadCount} />
-              <Field label="Updated At" value={formatDateIN(user.updatedAt)} />
+          <div className="space-y-4">
+            <div className="cc-panel p-4">
+              <p className="cc-mono mb-2 text-[10px] uppercase tracking-wider" style={{ color: "var(--cc-text-faint)" }}>Registration &amp; Access</p>
+              <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
+                <Field label="Registered" value={formatDateIN(overview.registeredAt)} />
+                <Field label="Registration IP" value={overview.registeredIp} />
+                <Field label="Last Login" value={overview.lastLogin ? formatDateIN(overview.lastLogin) : "Never"} />
+                <Field label="Last Login IP" value={overview.lastLoginIp ?? "Not recorded"} />
+                <Field label="Approximate location based on IP" value={geoLabel(overview.lastLoginGeo)} />
+                <Field label="Last Device" value={overview.lastLoginDevice} />
+                <Field label="MAC Address" value={overview.macAddress} />
+                <Field label="Active Sessions" value={overview.activeSessionCount} />
+                <Field label="2FA" value={user.twoFactorEnabled ? "Enabled" : "Disabled"} />
+                <Field label="Passkeys" value={security.passkeyCount} />
+                <Field label="Drive Connected" value={storage.connected ? "Yes" : "No"} />
+              </div>
+            </div>
+            <div className="cc-panel p-4">
+              <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
+                <Field label="Phone" value={user.phone} />
+                <Field label="Approved At" value={user.approvedAt ? formatDateIN(user.approvedAt) : null} />
+                <Field label="Rejected At" value={user.rejectedAt ? formatDateIN(user.rejectedAt) : null} />
+                <Field label="Rejection Reason" value={user.rejectionReason} />
+                <Field label="Must Change Password" value={user.mustChangePassword ? "Yes" : "No"} />
+                <Field label="Failed Login Attempts" value={user.failedLoginAttempts} />
+                <Field label="Locked Until" value={user.lockedUntil ? formatDateIN(user.lockedUntil) : "Not locked"} />
+                <Field label="Unread Notifications" value={notifications.unreadCount} />
+                <Field label="Updated At" value={formatDateIN(user.updatedAt)} />
+              </div>
             </div>
           </div>
         )}
@@ -386,7 +538,7 @@ export default function UserDetailPage() {
                     <div>
                       <p className="text-sm" style={{ color: "var(--cc-text)" }}>{s.browser ?? "Unknown"} · {s.os ?? "Unknown"} · {s.device ?? "Unknown"}</p>
                       <p className="cc-mono text-[10px]" style={{ color: "var(--cc-text-faint)" }}>
-                        {s.ip ?? "unknown IP"} · Last seen {formatDateIN(s.lastSeenAt)}{s.revokedAt ? " · Revoked" : ""}
+                        {s.ip ?? "unknown IP"} · {geoLabel(s.geo)} · Last seen {formatDateIN(s.lastSeenAt)}{s.revokedAt ? " · Revoked" : ""}
                       </p>
                     </div>
                   </div>
@@ -458,6 +610,9 @@ export default function UserDetailPage() {
                 <KeyRound className="h-3.5 w-3.5" /> Force Logout (all devices)
               </button>
             </div>
+            {currentAdmin?.role === "SUPER_ADMIN" && user.role === "USER" && (
+              <AccessAsUserPanel userId={user.id} userName={user.name} toast={toast} />
+            )}
           </div>
         )}
 
@@ -492,26 +647,7 @@ export default function UserDetailPage() {
           </div>
         )}
 
-        {tab === "Activity" && (
-          <div className="space-y-1">
-            {activity.length === 0 ? (
-              <div className="cc-panel p-6 text-center text-xs cc-mono" style={{ color: "var(--cc-text-faint)" }}>No activity recorded.</div>
-            ) : (
-              activity.map((a) => (
-                <div key={a.id} className="cc-panel flex items-center gap-3 p-3">
-                  <Activity className="h-4 w-4" style={{ color: "var(--cc-accent)" }} />
-                  <div className="min-w-0 flex-1">
-                    <p className="cc-mono text-xs" style={{ color: "var(--cc-text)" }}>{a.event}</p>
-                    {a.detail && <p className="text-xs" style={{ color: "var(--cc-text-dim)" }}>{a.detail}</p>}
-                    <p className="cc-mono text-[10px]" style={{ color: "var(--cc-text-faint)" }}>
-                      {formatDateIN(a.createdAt)}{a.ip ? ` · ${a.ip}` : ""}{a.browser ? ` · ${a.browser}/${a.os}` : ""}
-                    </p>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        )}
+        {tab === "Activity" && <UserActivityPanel userId={user.id} userName={user.name} />}
       </main>
 
       {confirmAction?.kind === "force-logout" && (

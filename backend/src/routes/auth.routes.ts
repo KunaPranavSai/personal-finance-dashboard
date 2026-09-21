@@ -7,7 +7,7 @@ import { generateSecret, generateURI, verify as verifyTotp } from "otplib";
 import QRCode from "qrcode";
 import { asyncHandler } from "../utils/asyncHandler";
 import { prisma } from "../lib/prisma";
-import { authenticate, requireRole, requireRecent2FA, AuthPayload } from "../middleware/auth";
+import { authenticate, requireRole, requireRecent2FA, AuthPayload, ImpersonationPayload } from "../middleware/auth";
 import { getSessionVersion, bumpSessionVersion } from "../lib/sessionVersion";
 import { logActivity, createSessionRecord } from "../lib/activityLog";
 import { isSessionRevoked } from "../lib/sessionRevocation";
@@ -17,7 +17,7 @@ import { sendAutomatedEmail } from "../services/email/automation";
 import { notifySecurityEvent, sendEmail, createNotification } from "../lib/notify";
 import { RP_ID, RP_NAME, RP_ORIGINS } from "../lib/webauthn";
 import { computeSessionExpiryForUser } from "../lib/sessionExpiry";
-import { ACCESS_SECRET, REFRESH_SECRET, signAccess, signRefresh, setTokenCookies, TfaClaims } from "../lib/tokens";
+import { ACCESS_SECRET, REFRESH_SECRET, signAccess, signRefresh, setTokenCookies, TfaClaims, clearImpersonationCookie } from "../lib/tokens";
 import {
   generateRegistrationOptions,
   verifyRegistrationResponse,
@@ -1217,6 +1217,27 @@ router.post("/logout", (req: Request, res: Response) => {
   res.json({ ok: true });
 });
 
+// ─── POST /api/auth/access/exit — end an "Access as User" impersonation session ─────
+// Deliberately NOT behind requireRole: while impersonating, req.auth is overlaid to the target
+// user's identity (see middleware/auth.ts), so a role gate here would lock the admin out of
+// exiting. Reads the impersonation cookie directly instead.
+router.post("/access/exit", (req: Request, res: Response) => {
+  const impToken = (req.signedCookies as Record<string, string | undefined>)["impersonation_token"];
+  if (!impToken) {
+    res.json({ ok: true, message: "Not currently accessing another user's account." });
+    return;
+  }
+  try {
+    const payload = jwt.verify(impToken, ACCESS_SECRET) as ImpersonationPayload;
+    void prisma.impersonationRequest.update({ where: { id: payload.requestId }, data: { revokedAt: new Date() } });
+    void logActivity(req, "ADMIN_USER_ACCESS_EXITED", `Exited access session for user ${payload.targetUserId}`, payload.adminId, payload.targetUserId);
+  } catch {
+    // Already invalid/expired — nothing to revoke.
+  }
+  clearImpersonationCookie(res);
+  res.json({ ok: true });
+});
+
 // ─── POST /api/auth/refresh ──────────────────────────────────────────────────
 router.post(
   "/refresh",
@@ -1285,7 +1306,12 @@ router.get(
       res.status(401).json({ error: "Account not found", code: "AUTH_EXPIRED" });
       return;
     }
-    res.json({ user: toUserJson(user), sessionExpiresAt: req.auth!.sessionExpiresAt });
+    let impersonating: { adminName: string; targetUser: { id: string; name: string; email: string } } | null = null;
+    if (req.impersonatedBy) {
+      const admin = await prisma.user.findUnique({ where: { id: req.impersonatedBy }, select: { name: true } });
+      if (admin) impersonating = { adminName: admin.name, targetUser: { id: user.id, name: user.name, email: user.email } };
+    }
+    res.json({ user: toUserJson(user), sessionExpiresAt: req.auth!.sessionExpiresAt, impersonating });
   })
 );
 
@@ -1436,7 +1462,7 @@ router.patch(
 
     const updated = await prisma.user.update({ where: { id }, data });
     if (typeof data.sessionVersion === "object") bumpSessionVersion(updated.id);
-    void logActivity(req, "user_updated", `${changes.join(", ")} for ${updated.email}`, req.auth!.userId);
+    void logActivity(req, "user_updated", `${changes.join(", ")} for ${updated.email}`, req.auth!.userId, updated.id);
     void sendAutomatedEmail({
       req, triggerKey: "account_updated", userId: updated.id, to: updated.email,
       defaultSubject: "Your Penny Pilot account was updated",
@@ -1475,7 +1501,7 @@ router.post(
       data: { passwordHash: hash, mustChangePassword: true },
     });
     bumpSessionVersion(updated.id);
-    void logActivity(req, "password_reset_by_admin", `Password reset for ${updated.email}`, req.auth!.userId);
+    void logActivity(req, "password_reset_by_admin", `Password reset for ${updated.email}`, req.auth!.userId, updated.id);
 
     let emailSent = false;
     if (shouldSendEmail !== false) {
@@ -1521,7 +1547,7 @@ router.post(
     }
     const updated = await prisma.user.update({ where: { id }, data: { uid: trimmed } });
     bumpSessionVersion(updated.id);
-    void logActivity(req, "uid_reset_by_admin", `UID reset to ${trimmed} for ${updated.email}`, req.auth!.userId);
+    void logActivity(req, "uid_reset_by_admin", `UID reset to ${trimmed} for ${updated.email}`, req.auth!.userId, updated.id);
 
     let emailSent = false;
     if (shouldSendEmail !== false) {

@@ -51,3 +51,22 @@ export function setTokenCookies(res: Response, accessToken: string, refreshToken
   res.cookie("access_token", accessToken, { ...cookieOptions, maxAge: ACCESS_TOKEN_TTL * 1000, path: "/" });
   res.cookie("refresh_token", refreshToken, { ...cookieOptions, maxAge: REFRESH_TOKEN_TTL * 1000, path: "/api/auth" });
 }
+
+// "Access as User" — separate, short-lived, never overwrites access_token/refresh_token.
+export const IMPERSONATION_TTL = 20 * 60; // 20 minutes
+
+export function signImpersonation(adminId: string, targetUserId: string, requestId: string) {
+  return jwt.sign({ imp: true, adminId, targetUserId, requestId }, ACCESS_SECRET, { expiresIn: IMPERSONATION_TTL });
+}
+
+export function setImpersonationCookie(res: Response, token: string) {
+  res.cookie("impersonation_token", token, {
+    httpOnly: true, signed: true, secure: IS_PROD,
+    sameSite: (IS_PROD ? "none" : "lax") as "none" | "lax",
+    maxAge: IMPERSONATION_TTL * 1000, path: "/",
+  });
+}
+
+export function clearImpersonationCookie(res: Response) {
+  res.clearCookie("impersonation_token", { path: "/" });
+}

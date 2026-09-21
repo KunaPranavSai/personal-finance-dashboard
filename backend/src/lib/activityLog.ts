@@ -34,13 +34,20 @@ export function getClientIp(req: Request): string {
 
 /** Record a security/audit event. Fire-and-forget safe: failures never break the request. `userId` is
  * omitted for events with no resolvable account (e.g. a login attempt with an unknown UID). */
-export async function logActivity(req: Request, event: string, detail?: string, userId?: string): Promise<void> {
+/**
+ * `targetUserId`: optional, additive — set only for an admin action performed ON another
+ * account (force-logout, role/status change, password/UID reset, entitlement change,
+ * impersonation events, etc.). Leave unset for self-actions (userId === the actor themselves);
+ * existing callers that don't pass it are unaffected — the column defaults to null.
+ */
+export async function logActivity(req: Request, event: string, detail?: string, userId?: string, targetUserId?: string): Promise<void> {
   try {
     const ua = String(req.headers["user-agent"] ?? "");
     const { browser, os, device } = parseUserAgent(ua);
     await prisma.activityLog.create({
       data: {
         userId: userId ?? null,
+        targetUserId: targetUserId ?? null,
         event,
         detail: detail ?? null,
         ip: getClientIp(req),

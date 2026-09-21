@@ -10,6 +10,21 @@ import { DeviceProvider } from "@/lib/DeviceContext";
 import { initClientDataLifecycle } from "@/lib/clientDataCleanup";
 import { CookieConsentProvider } from "@/components/consent/CookieConsentContext";
 import { CookieConsentGate } from "@/components/consent/CookieConsentGate";
+import { useAuth } from "@/lib/AuthContext";
+
+/** Persistent banner while an admin's "Access as User" session is active. */
+function ImpersonationBanner() {
+  const { impersonating, exitImpersonation } = useAuth();
+  if (!impersonating) return null;
+  return (
+    <div className="fixed inset-x-0 top-0 z-[9999] flex items-center justify-center gap-3 bg-amber-500 px-4 py-2 text-sm font-medium text-black">
+      Viewing as {impersonating.targetUser.name} ({impersonating.targetUser.email}) — accessed by {impersonating.adminName}
+      <button onClick={() => void exitImpersonation()} className="rounded bg-black/20 px-2 py-0.5 text-xs font-semibold hover:bg-black/30">
+        Exit
+      </button>
+    </div>
+  );
+}
 
 export function Providers({ children, isMobile }: { children: React.ReactNode; isMobile: boolean }) {
   const [client] = useState(
@@ -37,6 +52,7 @@ export function Providers({ children, isMobile }: { children: React.ReactNode; i
             <ToastProvider>
               <SessionManagerProvider>
                 <CookieConsentProvider>
+                  <ImpersonationBanner />
                   {children}
                   <CookieConsentGate />
                 </CookieConsentProvider>

@@ -87,6 +87,7 @@ model User {
   goals          Goal[]
   notifications  Notification[]
   activityLogs   ActivityLog[]
+  activityLogsAsTarget ActivityLog[] @relation("ActivityLogTarget")
   settings       AppSettings?
   profile        AppProfile?
   backupConnections BackupConnection[]
@@ -96,8 +97,29 @@ model User {
   securityQuestions SecurityQuestion[]
   sessions          Session[]
   entitlement       UserEntitlement?
+  impersonationRequestsMade    ImpersonationRequest[] @relation("ImpersonationAdmin")
+  impersonationRequestsAgainst ImpersonationRequest[] @relation("ImpersonationTarget")
 
   @@index([status])
+}
+
+/// "Access as User" break-glass flow — scoped OTP for this one flow only, not a generic OTP
+/// system. Same shape as the existing recovery OTP fields on User (otpHash/otpExpiresAt/attempts).
+model ImpersonationRequest {
+  id           String    @id @default(cuid())
+  admin        User      @relation("ImpersonationAdmin", fields: [adminId], references: [id], onDelete: Cascade)
+  adminId      String
+  target       User      @relation("ImpersonationTarget", fields: [targetUserId], references: [id], onDelete: Cascade)
+  targetUserId String
+  otpHash      String
+  otpExpiresAt DateTime
+  attempts     Int       @default(0)
+  consumedAt   DateTime?
+  revokedAt    DateTime?
+  createdAt    DateTime  @default(now())
+
+  @@index([adminId])
+  @@index([targetUserId])
 }
 
 /// Extensible, non-billing per-user feature/limit config — explicitly NOT a subscription/billing
@@ -454,6 +476,13 @@ model ActivityLog {
   id        String   @id @default(cuid())
   user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId    String?
+  // Explicit target of an admin→user action (force-logout, role change, password/UID reset,
+  // entitlement change, impersonation events, etc.) — null for self-actions and for every
+  // historical row predating this column. `userId` keeps meaning exactly what it always has
+  // (the actor); this is purely additive. onDelete: SetNull (not Cascade, unlike userId above)
+  // — deleting the target account must not delete the audit history of what was done to it.
+  target      User?    @relation("ActivityLogTarget", fields: [targetUserId], references: [id], onDelete: SetNull)
+  targetUserId String?
   event     String
   detail    String?
   ip        String?
@@ -464,6 +493,7 @@ model ActivityLog {
   createdAt DateTime @default(now())
 
   @@index([userId])
+  @@index([targetUserId])
   @@index([createdAt])
 }
 

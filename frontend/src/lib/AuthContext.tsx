@@ -103,6 +103,8 @@ interface AuthContextType {
   user: AuthUser | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  impersonating: { adminName: string; targetUser: { id: string; name: string; email: string } } | null;
+  exitImpersonation: () => Promise<void>;
   twoFactorEnabled: boolean;
   sessionTimeoutMinutes: number;
   login: (email: string, password: string, portal?: "admin") => Promise<LoginResult>;
@@ -157,6 +159,7 @@ async function apiFetch(path: string, options?: RequestInit) {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [impersonating, setImpersonating] = useState<{ adminName: string; targetUser: { id: string; name: string; email: string } } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [sessionTimeout, setSessionTimeout] = useState(30); // minutes; server-enforced session window, surfaced for display only
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
@@ -179,6 +182,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (res.ok) {
         const data = await res.json();
         setUser(data.user);
+        setImpersonating(data.impersonating ?? null);
         clearRecentLoginMarker(); // session independently confirmed durable
         refreshTwoFactorStatus();
       } else if (res.status === 401) {
@@ -505,11 +509,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser((u) => (u ? { ...u, name: trimmed } : u));
   }, []);
 
+  const exitImpersonation = useCallback(async () => {
+    await apiFetch("/api/auth/access/exit", { method: "POST" });
+    setImpersonating(null);
+    window.location.href = "/admin";
+  }, []);
+
   return (
     <AuthContext.Provider value={{
       user,
       isLoading,
       isAuthenticated: !!user,
+      impersonating,
+      exitImpersonation,
       twoFactorEnabled,
       sessionTimeoutMinutes: sessionTimeout,
       login,
