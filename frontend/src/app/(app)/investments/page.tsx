@@ -326,7 +326,7 @@ export default function InvestmentsPage() {
                       className="ppm-row-action"
                       onClick={(e) => { e.stopPropagation(); setMobileDeleteTarget(inv); }}
                     >
-                      🗑
+                      <Trash2 size={15} />
                     </button>
                   </div>
                 );

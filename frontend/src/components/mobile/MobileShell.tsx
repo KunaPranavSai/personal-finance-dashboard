@@ -4,6 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { ReactNode, useState } from "react";
+import { Search, Bell } from "lucide-react";
 import { useNotifications } from "@/lib/reference";
 import { useKeyboardInset } from "./useKeyboardInset";
 import { GlobalSearchSheet } from "./GlobalSearchSheet";
@@ -73,7 +74,7 @@ export function MobileShell({ title, subtitle, children }: MobileShellProps) {
         </div>
         <div className="ppm-actions">
           <button type="button" className="ppm-iconbtn" aria-label="Search" onClick={() => setSearchOpen(true)}>
-            ⌕
+            <Search size={18} aria-hidden="true" />
           </button>
           <Link href="/settings/storage" className="ppm-iconbtn" aria-label="Sync" title="Sync">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -84,7 +85,7 @@ export function MobileShell({ title, subtitle, children }: MobileShellProps) {
             </svg>
           </Link>
           <Link href="/notifications" className="ppm-iconbtn" aria-label={`Notifications${unreadCount ? `, ${unreadCount} unread` : ""}`}>
-            🔔
+            <Bell size={18} aria-hidden="true" />
             {unreadCount > 0 && <span className="ppm-dot" />}
           </Link>
         </div>
@@ -92,7 +93,12 @@ export function MobileShell({ title, subtitle, children }: MobileShellProps) {
 
       <main className="ppm-main">{children}</main>
 
-      <nav className="ppm-bottomnav" aria-label="Primary" style={keyboardInset > 0 ? { display: "none" } : undefined}>
+      {/* Threshold (not >0): iOS Safari also reports a small, transient
+          visualViewport shrink from its own chrome collapsing/expanding
+          during route changes (e.g. switching tabs) — treating that as
+          "keyboard open" made the nav flicker/shrink on every tab switch.
+          A real keyboard covers 200px+, so only hide above that. */}
+      <nav className="ppm-bottomnav" aria-label="Primary" style={keyboardInset > 150 ? { display: "none" } : undefined}>
         {NAV_ITEMS.map((item) => {
           const active = pathname === item.href;
           return (

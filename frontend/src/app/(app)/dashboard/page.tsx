@@ -33,9 +33,10 @@ import { DashboardSummary, Transaction, PaginatedResponse, Investment, Goal } fr
 import {
   Wallet, TrendingDown, PiggyBank, Activity, Landmark, Gauge,
   HeartPulse, ShieldCheck, TrendingUp, ArrowLeftRight, Receipt, BarChart3,
+  Target, UtensilsCrossed, Car, Home, Film, ShoppingCart,
 } from "lucide-react";
 
-const CATEGORY_ICONS = ["📊", "🧾", "🎯", "🍔", "🚗", "🏠", "🎬", "🛒"];
+const CATEGORY_ICONS = [BarChart3, Receipt, Target, UtensilsCrossed, Car, Home, Film, ShoppingCart];
 
 function DashboardContent() {
   const router = useRouter();
@@ -331,7 +332,7 @@ function DashboardContent() {
             ) : (
               (breakdown?.items ?? []).slice(0, 4).map((item, i) => (
                 <div className="ppm-cat-row" key={item.category}>
-                  <div className="ppm-ic" aria-hidden="true">{CATEGORY_ICONS[i % CATEGORY_ICONS.length]}</div>
+                  <div className="ppm-ic" aria-hidden="true">{(() => { const Ic = CATEGORY_ICONS[i % CATEGORY_ICONS.length]; return <Ic size={18} />; })()}</div>
                   <div className="ppm-info">
                     <div className="ppm-name">{item.category}</div>
                   </div>
@@ -354,7 +355,7 @@ function DashboardContent() {
             ) : (
               (recentTxns?.items ?? []).map((t) => (
                 <div className="ppm-txn-row" key={t.id}>
-                  <div className="ppm-ic" aria-hidden="true">{t.type === "INCOME" ? "💰" : "🧾"}</div>
+                  <div className="ppm-ic" aria-hidden="true">{t.type === "INCOME" ? <Wallet size={18} /> : <Receipt size={18} />}</div>
                   <div className="ppm-info">
                     <div className="ppm-name">{t.description}</div>
                     <div className="ppm-meta">{formatDateIN(t.date)} · {t.category?.name ?? "Uncategorized"}</div>

@@ -40,24 +40,24 @@ export default function SavingsPage() {
         {(error) && !isLoading && <ErrorCard onRetry={() => refetch()} />}
 
         {!isLoading && !error && data && data.totalIncome === 0 && data.totalExpenses === 0 && (
-          <EmptyCard icon="🐷" title="No transaction data yet" subtitle="Add some income and expense transactions to see your savings breakdown." />
+          <EmptyCard icon={<PiggyBank size={22} />} title="No transaction data yet" subtitle="Add some income and expense transactions to see your savings breakdown." />
         )}
 
         {!isLoading && !error && data && (data.totalIncome > 0 || data.totalExpenses > 0) && (
           <>
             <div className="ppm-card">
               <div className="ppm-cat-row">
-                <div className="ppm-ic" aria-hidden="true">💰</div>
+                <div className="ppm-ic" aria-hidden="true"><Wallet size={18} /></div>
                 <div className="ppm-info"><div className="ppm-name">Total Income</div></div>
                 <div className="ppm-amt pos">{formatCurrency(data.totalIncome, cur)}</div>
               </div>
               <div className="ppm-cat-row">
-                <div className="ppm-ic" aria-hidden="true">📉</div>
+                <div className="ppm-ic" aria-hidden="true"><TrendingDown size={18} /></div>
                 <div className="ppm-info"><div className="ppm-name">Total Expenses</div></div>
                 <div className="ppm-amt neg">{formatCurrency(data.totalExpenses, cur)}</div>
               </div>
               <div className="ppm-cat-row">
-                <div className="ppm-ic" aria-hidden="true">🐷</div>
+                <div className="ppm-ic" aria-hidden="true"><PiggyBank size={18} /></div>
                 <div className="ppm-info">
                   <div className="ppm-name">Total Savings</div>
                   <div className="ppm-meta">Rate: {formatPercent(data.savingsRate)}</div>

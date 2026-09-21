@@ -10,6 +10,7 @@ import { useToast } from "@/components/ui/Toast";
 import { api } from "@/lib/api";
 import { useDriveStatus, isDriveReady, DRIVE_STATUS_QUERY_KEY } from "@/lib/driveStatus";
 import { getStorageMode, setStorageMode } from "@/lib/storage";
+import { HardDrive, AlertTriangle, Link2, CheckCircle2, Shield, Clock, Unlock } from "lucide-react";
 import { formatDateIN } from "@/lib/format";
 
 const COLLECTION_LABELS: Record<string, string> = {
@@ -130,7 +131,7 @@ export function MobileStorageView() {
         <>
           <div className="ppm-card">
             <div className="ppm-list-item" style={{ cursor: "default" }}>
-              <div className="ppm-ic" aria-hidden="true">💾</div>
+              <div className="ppm-ic" aria-hidden="true"><HardDrive size={18} /></div>
               <div className="ppm-info">
                 <div className="ppm-name">This Device Only</div>
                 <div className="ppm-meta">Your financial data is stored only in this browser.</div>
@@ -139,12 +140,12 @@ export function MobileStorageView() {
           </div>
 
           <div className="ppm-card" style={{ marginTop: 14, background: "var(--ppm-warning-bg, rgba(255,190,11,0.12))" }}>
-            <p style={{ fontSize: 12, color: "var(--ppm-text-dim)" }}>⚠️ Local-only data isn&apos;t backed up automatically. Export a backup regularly.</p>
+            <p style={{ fontSize: 12, color: "var(--ppm-text-dim)" }}><AlertTriangle size={13} style={{display:"inline",verticalAlign:"-2px"}} /> Local-only data isn&apos;t backed up automatically. Export a backup regularly.</p>
           </div>
 
           <div className="ppm-card" style={{ marginTop: 14 }}>
             <button type="button" className="ppm-list-item" onClick={() => setSwitchConfirmOpen(true)}>
-              <div className="ppm-ic" aria-hidden="true">🔗</div>
+              <div className="ppm-ic" aria-hidden="true"><Link2 size={18} /></div>
               <div className="ppm-info"><div className="ppm-name">Switch to Google Drive</div></div>
               <span className="ppm-chev">›</span>
             </button>
@@ -158,7 +159,7 @@ export function MobileStorageView() {
         <>
           <div className="ppm-card">
             <div className="ppm-list-item" style={{ cursor: "default" }}>
-              <div className="ppm-ic" aria-hidden="true">✅</div>
+              <div className="ppm-ic" aria-hidden="true"><CheckCircle2 size={18} /></div>
               <div className="ppm-info">
                 <div className="ppm-name">Connected as {status.accountEmail}</div>
                 <div className="ppm-meta">Stored in your Google Drive, in a &quot;Penny Pilot&quot; folder.</div>
@@ -168,17 +169,17 @@ export function MobileStorageView() {
 
           <div className="ppm-card" style={{ marginTop: 14 }}>
             <button type="button" className="ppm-list-item" onClick={() => verifyMutation.mutate()} disabled={verifyMutation.isPending}>
-              <div className="ppm-ic" aria-hidden="true">🛡️</div>
+              <div className="ppm-ic" aria-hidden="true"><Shield size={18} /></div>
               <div className="ppm-info"><div className="ppm-name">{verifyMutation.isPending ? "Checking…" : "Verify Data"}</div></div>
               <span className="ppm-chev">›</span>
             </button>
             <button type="button" className="ppm-list-item" onClick={() => setRestoreOpen(true)}>
-              <div className="ppm-ic" aria-hidden="true">🕓</div>
+              <div className="ppm-ic" aria-hidden="true"><Clock size={18} /></div>
               <div className="ppm-info"><div className="ppm-name">Restore Data</div></div>
               <span className="ppm-chev">›</span>
             </button>
             <button type="button" className="ppm-list-item" onClick={() => setDisconnectConfirmOpen(true)}>
-              <div className="ppm-ic" aria-hidden="true">🔓</div>
+              <div className="ppm-ic" aria-hidden="true"><Unlock size={18} /></div>
               <div className="ppm-info"><div className="ppm-name" style={{ color: "var(--ppm-critical)" }}>Disconnect</div></div>
               <span className="ppm-chev">›</span>
             </button>
@@ -203,7 +204,7 @@ export function MobileStorageView() {
         <div className="ppm-card">
           <p style={{ fontSize: 13, color: "var(--ppm-text-dim)", marginBottom: 12 }}>Google Drive is disconnected. Reconnect to access your Penny Pilot data.</p>
           <button type="button" className="ppm-qa-btn primary" style={{ width: "100%" }} onClick={() => connectMutation.mutate()} disabled={connectMutation.isPending}>
-            {connectMutation.isPending ? "Connecting…" : "🔗 Reconnect Google Drive"}
+            {connectMutation.isPending ? "Connecting…" : "Reconnect Google Drive"}
           </button>
         </div>
       )}

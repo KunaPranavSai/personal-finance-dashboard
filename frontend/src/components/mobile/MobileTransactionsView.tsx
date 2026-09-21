@@ -13,6 +13,7 @@ import { getStorageMode } from "@/lib/storage";
 import { listLocalTransactions, deleteLocalTransaction } from "@/lib/services/transactionsService";
 import { useCategories, useAccounts, usePaymentMethods } from "@/lib/reference";
 import { useSettingsContext } from "@/lib/SettingsContext";
+import { Receipt, Wallet, SlidersHorizontal, Trash2 } from "lucide-react";
 import { formatCurrency, formatDateIN } from "@/lib/format";
 import type { Transaction, PaginatedResponse, EntryType } from "@/types";
 
@@ -138,7 +139,7 @@ export function MobileTransactionsView({ initialType = "" }: { initialType?: "" 
           className={`ppm-chip${activeFilterCount > 0 ? " on" : ""}`}
           onClick={() => { setDraftFilters(filters); setFilterSheetOpen(true); }}
         >
-          ⚙ Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
+          <SlidersHorizontal size={13} style={{display:"inline",verticalAlign:"-2px",marginRight:4}} />Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
         </button>
       </div>
 
@@ -151,14 +152,14 @@ export function MobileTransactionsView({ initialType = "" }: { initialType?: "" 
       {isError && !isLoading && <ErrorCard onRetry={() => refetch()} />}
 
       {!isLoading && !isError && items.length === 0 && (
-        <EmptyCard icon="🧾" title="No transactions found" subtitle={search || type ? "Try a different search or filter." : "Tap the ＋ Add button on Home to log your first transaction."} />
+        <EmptyCard icon={<Receipt size={22} />} title="No transactions found" subtitle={search || type ? "Try a different search or filter." : "Tap the ＋ Add button on Home to log your first transaction."} />
       )}
 
       {!isLoading && !isError && items.length > 0 && (
         <div className="ppm-card">
           {items.map((t) => (
             <div className="ppm-txn-row" key={t.id} onClick={() => { setEditing(t); setSheetOpen(true); }}>
-              <div className="ppm-ic" aria-hidden="true">{t.type === "INCOME" ? "💰" : "🧾"}</div>
+              <div className="ppm-ic" aria-hidden="true">{t.type === "INCOME" ? <Wallet size={18} /> : <Receipt size={18} />}</div>
               <div className="ppm-info">
                 <div className="ppm-name">{t.description}</div>
                 <div className="ppm-meta">{formatDateIN(t.date)} · {t.category?.name ?? "Uncategorized"}</div>
@@ -172,7 +173,7 @@ export function MobileTransactionsView({ initialType = "" }: { initialType?: "" 
                 className="ppm-row-action"
                 onClick={(e) => { e.stopPropagation(); setDeleteTarget(t); }}
               >
-                🗑
+                <Trash2 size={15} />
               </button>
             </div>
           ))}
@@ -186,16 +187,6 @@ export function MobileTransactionsView({ initialType = "" }: { initialType?: "" 
           <button type="button" className="ppm-link-btn" disabled={page >= data.pagination.totalPages} style={page >= data.pagination.totalPages ? { opacity: .4 } : undefined} onClick={() => setPage((p) => p + 1)}>Next →</button>
         </div>
       )}
-
-      <button
-        type="button"
-        className="ppm-qa-btn primary"
-        style={{ position: "fixed", right: 16, bottom: "calc(76px + env(safe-area-inset-bottom, 0px))", width: 56, height: 56, borderRadius: "50%", padding: 0, fontSize: "1.4rem", boxShadow: "var(--ppm-shadow)", zIndex: 15 }}
-        aria-label="Add transaction"
-        onClick={() => { setEditing(null); setSheetOpen(true); }}
-      >
-        ＋
-      </button>
 
       <MobileSheet open={filterSheetOpen} onClose={() => setFilterSheetOpen(false)} title="Filter Activity">
         <div className="ppm-field-row">

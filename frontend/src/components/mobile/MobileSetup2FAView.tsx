@@ -3,6 +3,7 @@
 import { Suspense, useState, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/AuthContext";
+import { CheckCircle2, Shield } from "lucide-react";
 
 /**
  * Mobile "Set up 2FA" onboarding screen — a faithful port of the desktop
@@ -86,7 +87,7 @@ function MobileSetupTwoFactorContent() {
     <div className="pp-mobile" style={{ minHeight: "100dvh", display: "flex", flexDirection: "column" }}>
       <div style={{ flex: 1, padding: "16px 16px calc(24px + env(safe-area-inset-bottom, 0px))", maxWidth: 480, margin: "0 auto", width: "100%" }}>
         <div style={{ textAlign: "center", marginBottom: 20 }}>
-          <div style={{ fontSize: "2.2rem" }} aria-hidden="true">🛡️</div>
+          <div aria-hidden="true"><Shield size={35} /></div>
           <h1 style={{ fontFamily: "'Manrope', system-ui, sans-serif", fontSize: "1.3rem", fontWeight: 800, margin: "8px 0 0" }}>Secure your account</h1>
           <p style={{ fontSize: 13, color: "var(--ppm-text-dim)", marginTop: 6 }}>
             {step === "qr" && "Add an extra layer of protection to your account (optional, recommended)."}
@@ -119,7 +120,7 @@ function MobileSetupTwoFactorContent() {
 
         {step === "backup" && (
           <div className="ppm-card">
-            <div style={{ textAlign: "center", fontSize: "1.8rem", marginBottom: 8 }} aria-hidden="true">✅</div>
+            <div style={{ textAlign: "center", marginBottom: 8 }} aria-hidden="true"><CheckCircle2 size={28} style={{margin:"0 auto"}} /></div>
             <p style={{ fontSize: 13, color: "var(--ppm-text-dim)", textAlign: "center", marginBottom: 14 }}>
               Two-factor authentication is enabled. Save these one-time backup codes somewhere safe — each can be used once if you lose access to your authenticator app. They won&apos;t be shown again.
             </p>

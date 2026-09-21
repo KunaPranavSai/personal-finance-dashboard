@@ -7,7 +7,7 @@ import { BudgetTable } from "@/components/budget/BudgetTable";
 import { BudgetFormModal } from "@/components/budget/BudgetFormModal";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent } from "@/components/ui/Card";
-import { Plus } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { MobileShell } from "@/components/mobile/MobileShell";
 import { LoadingCard, ErrorCard, EmptyCard } from "@/components/mobile/MobileStates";
 import { BudgetFormSheet } from "@/components/mobile/BudgetFormSheet";
@@ -96,7 +96,7 @@ export default function BudgetPage() {
                 <span className="name">{b.category?.name ?? "Uncategorized"}</span>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <span className={`ppm-status ${STATUS_CLASS[b.status]}`}>{STATUS_LABEL[b.status]}</span>
-                  <button type="button" className="ppm-row-action" aria-label={`Delete ${b.category?.name ?? "budget"}`} onClick={() => setDeleteTarget(b)}>🗑</button>
+                  <button type="button" className="ppm-row-action" aria-label={`Delete ${b.category?.name ?? "budget"}`} onClick={() => setDeleteTarget(b)}><Trash2 size={15} /></button>
                 </div>
               </div>
               <div className="ppm-bar-track">

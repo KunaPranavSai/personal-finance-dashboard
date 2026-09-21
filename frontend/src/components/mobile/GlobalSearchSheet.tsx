@@ -13,17 +13,18 @@ import {
 } from "@/lib/search";
 import { useSettingsContext } from "@/lib/SettingsContext";
 import { formatCurrency } from "@/lib/format";
+import { Receipt, BarChart3, TrendingUp, Target, Landmark, CreditCard, Tag, Search, Lock } from "lucide-react";
 
-const RESULT_ICON: Record<SearchResult["kind"], string> = {
+const RESULT_ICON: Record<SearchResult["kind"], React.ReactNode> = {
   page: "→",
-  transaction: "🧾",
-  budget: "📊",
-  investment: "📈",
-  bill: "🧾",
-  goal: "🎯",
-  account: "🏦",
-  paymentMethod: "💳",
-  category: "🏷️",
+  transaction: <Receipt size={16} aria-hidden="true" />,
+  budget: <BarChart3 size={16} aria-hidden="true" />,
+  investment: <TrendingUp size={16} aria-hidden="true" />,
+  bill: <Receipt size={16} aria-hidden="true" />,
+  goal: <Target size={16} aria-hidden="true" />,
+  account: <Landmark size={16} aria-hidden="true" />,
+  paymentMethod: <CreditCard size={16} aria-hidden="true" />,
+  category: <Tag size={16} aria-hidden="true" />,
 };
 
 // A handful of common destinations shown before the user types anything —
@@ -192,8 +193,8 @@ export function GlobalSearchSheet({ open, onClose }: { open: boolean; onClose: (
                     href === "/transactions" ? "≡" :
                     href === "/budget" ? "◧" :
                     href === "/investments" ? "↗" :
-                    href === "/bills" ? "🧾" :
-                    "🔐";
+                    href === "/bills" ? <Receipt size={16} aria-hidden="true" /> :
+                    <Lock size={16} aria-hidden="true" />;
                   return (
                     <button
                       key={href}
@@ -217,7 +218,7 @@ export function GlobalSearchSheet({ open, onClose }: { open: boolean; onClose: (
             <>
               {allResults.length === 0 && !isLoading && (
                 <div className="ppm-empty">
-                  <div className="ic" aria-hidden="true">🔍</div>
+                  <div className="ic" aria-hidden="true"><Search size={20} /></div>
                   <div className="t">No matches for &ldquo;{query}&rdquo;</div>
                   <div className="s">Try a different keyword, like a page name or a transaction description.</div>
                 </div>

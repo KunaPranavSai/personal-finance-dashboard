@@ -11,6 +11,7 @@ import { CURRENCIES, DATE_FORMATS, LANGUAGES, TIMEZONES } from "@/lib/reference"
 import { downloadExport } from "@/lib/export";
 import { useToast } from "@/components/ui/Toast";
 import { isVoiceGreetingsEnabled } from "@/lib/voiceGreeting";
+import { Bell, Settings as SettingsIcon, BookOpen, HardDrive, Database, Link2, Download, Lock, Key, EyeOff, Moon, Palette, Volume2, FileText, ScrollText } from "lucide-react";
 
 const FIRST_DAY_OPTIONS = [
   { value: "sunday", label: "Sunday" },
@@ -112,12 +113,12 @@ export function MobileSettingsView() {
       <div className="ppm-card">
         <div className="ppm-section-label">Appearance</div>
         <div className="ppm-list-item" style={{ cursor: "default" }}>
-          <div className="ppm-ic" aria-hidden="true">🌙</div>
+          <div className="ppm-ic" aria-hidden="true"><Moon size={18} /></div>
           <div className="ppm-info"><div className="ppm-name">Dark Mode</div></div>
           <button type="button" className={`ppm-toggle${resolvedTheme === "dark" ? " on" : ""}`} role="switch" aria-checked={resolvedTheme === "dark"} aria-label="Toggle dark mode" onClick={toggleDarkMode} />
         </div>
         <button type="button" className="ppm-list-item" onClick={() => setPrefsOpen(true)}>
-          <div className="ppm-ic" aria-hidden="true">🎨</div>
+          <div className="ppm-ic" aria-hidden="true"><Palette size={18} /></div>
           <div className="ppm-info"><div className="ppm-name">Currency, Date &amp; Language</div></div>
           <span className="ppm-chev">›</span>
         </button>
@@ -126,7 +127,7 @@ export function MobileSettingsView() {
       <div className="ppm-card" style={{ marginTop: 14 }}>
         <div className="ppm-section-label">Preferences</div>
         <div className="ppm-list-item" style={{ cursor: "default" }}>
-          <div className="ppm-ic" aria-hidden="true">🔊</div>
+          <div className="ppm-ic" aria-hidden="true"><Volume2 size={18} /></div>
           <div className="ppm-info">
             <div className="ppm-name">Voice Greetings</div>
             <div className="ppm-meta">Hear a short spoken greeting when you sign in, sign up, or sign out.</div>
@@ -145,7 +146,7 @@ export function MobileSettingsView() {
       <div className="ppm-card" style={{ marginTop: 14 }}>
         <div className="ppm-section-label">Notifications</div>
         <button type="button" className="ppm-list-item" onClick={() => setNotifsOpen(true)}>
-          <div className="ppm-ic" aria-hidden="true">🔔</div>
+          <div className="ppm-ic" aria-hidden="true"><Bell size={18} /></div>
           <div className="ppm-info"><div className="ppm-name">Notification Preferences</div></div>
           <span className="ppm-chev">›</span>
         </button>
@@ -155,12 +156,12 @@ export function MobileSettingsView() {
         <div className="ppm-section-label">Storage</div>
         {isLocalOnly ? (
           <div className="ppm-list-item" style={{ cursor: "default" }}>
-            <div className="ppm-ic" aria-hidden="true">💾</div>
+            <div className="ppm-ic" aria-hidden="true"><HardDrive size={18} /></div>
             <div className="ppm-info"><div className="ppm-name">This Device Only</div></div>
           </div>
         ) : (
           <Link href="/settings/storage" className="ppm-list-item">
-            <div className="ppm-ic" aria-hidden="true">🗄️</div>
+            <div className="ppm-ic" aria-hidden="true"><Database size={18} /></div>
             <div className="ppm-info">
               <div className="ppm-name">Google Drive</div>
               {driveStatus?.accountEmail && <div className="ppm-meta">{driveStatus.accountEmail}</div>}
@@ -170,7 +171,7 @@ export function MobileSettingsView() {
           </Link>
         )}
         <Link href="/settings/storage" className="ppm-list-item">
-          <div className="ppm-ic" aria-hidden="true">⚙️</div>
+          <div className="ppm-ic" aria-hidden="true"><SettingsIcon size={18} /></div>
           <div className="ppm-info">
             <div className="ppm-name">Manage Storage</div>
             <div className="ppm-meta">Disconnect, restore, switch mode, encrypted backup</div>
@@ -179,13 +180,13 @@ export function MobileSettingsView() {
         </Link>
         {!isDriveReady(driveStatus) && !isLocalOnly && (
           <Link href="/connect-drive" className="ppm-list-item">
-            <div className="ppm-ic" aria-hidden="true">🔗</div>
+            <div className="ppm-ic" aria-hidden="true"><Link2 size={18} /></div>
             <div className="ppm-info"><div className="ppm-name">Connect Google Drive</div></div>
             <span className="ppm-chev">›</span>
           </Link>
         )}
         <button type="button" className="ppm-list-item" onClick={() => setExportOpen(true)}>
-          <div className="ppm-ic" aria-hidden="true">⬇️</div>
+          <div className="ppm-ic" aria-hidden="true"><Download size={18} /></div>
           <div className="ppm-info"><div className="ppm-name">Export Data</div></div>
           <span className="ppm-chev">›</span>
         </button>
@@ -194,17 +195,17 @@ export function MobileSettingsView() {
       <div className="ppm-card" style={{ marginTop: 14 }}>
         <div className="ppm-section-label">Security &amp; Account</div>
         <Link href="/settings/security" className="ppm-list-item">
-          <div className="ppm-ic" aria-hidden="true">🔐</div>
+          <div className="ppm-ic" aria-hidden="true"><Lock size={18} /></div>
           <div className="ppm-info"><div className="ppm-name">2FA, Passkeys &amp; Password</div></div>
           <span className="ppm-chev">›</span>
         </Link>
         <Link href="/forgot-password" className="ppm-list-item">
-          <div className="ppm-ic" aria-hidden="true">🔑</div>
+          <div className="ppm-ic" aria-hidden="true"><Key size={18} /></div>
           <div className="ppm-info"><div className="ppm-name">Account Recovery</div></div>
           <span className="ppm-chev">›</span>
         </Link>
         <button type="button" className="ppm-list-item" onClick={() => setPrivacyOpen(true)}>
-          <div className="ppm-ic" aria-hidden="true">🕶️</div>
+          <div className="ppm-ic" aria-hidden="true"><EyeOff size={18} /></div>
           <div className="ppm-info"><div className="ppm-name">Privacy</div></div>
           <span className="ppm-chev">›</span>
         </button>
@@ -213,7 +214,7 @@ export function MobileSettingsView() {
       <div className="ppm-card" style={{ marginTop: 14 }}>
         <div className="ppm-section-label">Help &amp; Documentation</div>
         <Link href="/manual" className="ppm-list-item">
-          <div className="ppm-ic" aria-hidden="true">📖</div>
+          <div className="ppm-ic" aria-hidden="true"><BookOpen size={18} /></div>
           <div className="ppm-info">
             <div className="ppm-name">User Manual</div>
             <div className="ppm-meta">Learn how Penny Pilot works</div>
@@ -225,12 +226,12 @@ export function MobileSettingsView() {
       <div className="ppm-card" style={{ marginTop: 14 }}>
         <div className="ppm-section-label">Legal</div>
         <Link href="/privacy-policy" className="ppm-list-item">
-          <div className="ppm-ic" aria-hidden="true">📜</div>
+          <div className="ppm-ic" aria-hidden="true"><ScrollText size={18} /></div>
           <div className="ppm-info"><div className="ppm-name">Privacy Policy</div></div>
           <span className="ppm-chev">›</span>
         </Link>
         <Link href="/terms" className="ppm-list-item">
-          <div className="ppm-ic" aria-hidden="true">📄</div>
+          <div className="ppm-ic" aria-hidden="true"><FileText size={18} /></div>
           <div className="ppm-info"><div className="ppm-name">Terms of Service</div></div>
           <span className="ppm-chev">›</span>
         </Link>
@@ -319,8 +320,8 @@ export function MobileSettingsView() {
           </label>
         ))}
         <div className="ppm-sheet-actions" style={{ flexWrap: "wrap" }}>
-          <button type="button" className="ppm-sheet-submit" disabled={exporting || exportTypes.length === 0} onClick={() => runExport("csv")}>{exporting ? "Exporting…" : "⬇ CSV"}</button>
-          <button type="button" className="ppm-sheet-submit" disabled={exporting || exportTypes.length === 0} onClick={() => runExport("json")}>{exporting ? "Exporting…" : "⬇ JSON"}</button>
+          <button type="button" className="ppm-sheet-submit" disabled={exporting || exportTypes.length === 0} onClick={() => runExport("csv")}>{exporting ? "Exporting…" : "CSV"}</button>
+          <button type="button" className="ppm-sheet-submit" disabled={exporting || exportTypes.length === 0} onClick={() => runExport("json")}>{exporting ? "Exporting…" : "JSON"}</button>
           <button type="button" className="ppm-sheet-cancel" onClick={() => setExportOpen(false)} disabled={exporting}>Cancel</button>
         </div>
       </MobileSheet>

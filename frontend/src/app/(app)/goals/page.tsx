@@ -199,7 +199,7 @@ export default function GoalsPage() {
         {isLoading && <LoadingCard lines={4} />}
         {isError && !isLoading && <ErrorCard onRetry={() => refetch()} />}
         {!isLoading && !isError && items.length === 0 && (
-          <EmptyCard icon="🎯" title="No goals yet" subtitle="Tap + Add to start a savings goal." />
+          <EmptyCard icon={<Target size={22} />} title="No goals yet" subtitle="Tap + Add to start a savings goal." />
         )}
 
         {!isLoading && !isError && items.map((g) => {
@@ -207,7 +207,7 @@ export default function GoalsPage() {
           return (
             <div className="ppm-card ppm-budget-card" key={g.id}>
               <div className="ppm-budget-head">
-                <span className="name">🎯 {g.name}</span>
+                <span className="name" style={{ display: "flex", alignItems: "center", gap: 6 }}><Target size={15} /> {g.name}</span>
                 <div style={{ display: "flex", gap: 6 }}>
                   <button type="button" className="ppm-link-btn" onClick={() => { setMobileEditing(g); setMobileSheetOpen(true); }}>Edit</button>
                   <button type="button" className="ppm-link-btn" style={{ color: "var(--ppm-critical)" }} onClick={() => setMobileDeleteTarget(g)}>Delete</button>

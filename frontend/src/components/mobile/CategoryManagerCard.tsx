@@ -7,6 +7,7 @@ import { getStorageMode } from "@/lib/storage";
 import { useCategories, createLocalCategory, createLocalSubcategory } from "@/lib/reference";
 import { MobileSheet } from "./MobileSheet";
 import { LoadingCard, EmptyCard } from "./MobileStates";
+import { Tag } from "lucide-react";
 import type { Category } from "@/types";
 
 type EntryType = "INCOME" | "EXPENSE";
@@ -65,7 +66,7 @@ export function CategoryManagerCard() {
       </div>
 
       {isLoading && <LoadingCard lines={3} />}
-      {!isLoading && items.length === 0 && <EmptyCard icon="🏷️" title="No categories yet" subtitle="Create categories to organize your transactions." />}
+      {!isLoading && items.length === 0 && <EmptyCard icon={<Tag size={22} />} title="No categories yet" subtitle="Create categories to organize your transactions." />}
       {!isLoading && items.length > 0 && items.map((c) => (
         <div className="ppm-card" key={c.id} style={{ marginBottom: 10 }}>
           <div className="ppm-budget-head">

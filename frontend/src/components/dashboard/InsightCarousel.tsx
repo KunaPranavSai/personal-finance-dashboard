@@ -85,7 +85,7 @@ export function InsightCarousel({ insights }: { insights: Insight[] }) {
           <div key={i} style={{ width: `${100 / pageCount}%`, flexShrink: 0, display: "flex", flexDirection: "column", gap: 10 }}>
             {pageInsights.map((ins) => (
               <div key={ins.id} style={{ display: "flex", gap: 10, alignItems: "flex-start", height: ROW_HEIGHT }}>
-                <span aria-hidden="true" style={{ fontSize: 16, lineHeight: 1.3, flexShrink: 0 }}>{ins.icon}</span>
+                <span aria-hidden="true" style={{ lineHeight: 1.3, flexShrink: 0, color: "var(--ppm-text-dim)" }}><ins.icon size={16} /></span>
                 <p
                   style={{
                     fontSize: 13, lineHeight: 1.4, color: "var(--ppm-text)", margin: 0,

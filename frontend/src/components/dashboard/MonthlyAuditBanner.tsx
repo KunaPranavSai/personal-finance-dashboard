@@ -244,7 +244,7 @@ export function MonthlyAuditBanner() {
         className="mb-4 inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-500 dark:text-emerald-400"
       >
         <CheckCircle2 className="h-4 w-4" />
-        {monthLabel} Audit Complete! 🚀
+        {monthLabel} Audit Complete!
         <button
           onClick={() => setExpanded(true)}
           className="ml-1 inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs font-semibold text-emerald-500 hover:bg-emerald-500/25 dark:text-emerald-400"
@@ -282,7 +282,7 @@ export function MonthlyAuditBanner() {
             <Sparkles className="h-5 w-5" />
           </motion.span>
           <div className="min-w-0">
-            <h2 className="text-sm font-bold text-navy dark:text-white sm:text-base">Monthly Flight Check-In for {monthLabel} ✈️</h2>
+            <h2 className="text-sm font-bold text-navy dark:text-white sm:text-base">Monthly Flight Check-In for {monthLabel}</h2>
             <p className="mt-0.5 text-xs text-navy/60 dark:text-white/60 sm:text-sm">Update your financial deck for the new month to keep your insights accurate.</p>
           </div>
         </div>

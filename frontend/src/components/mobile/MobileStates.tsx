@@ -25,7 +25,7 @@ export function ErrorCard({ message, onRetry }: { message?: string; onRetry?: ()
   );
 }
 
-export function EmptyCard({ icon, title, subtitle }: { icon: string; title: string; subtitle: string }) {
+export function EmptyCard({ icon, title, subtitle }: { icon: React.ReactNode; title: string; subtitle: string }) {
   return (
     <div className="ppm-card ppm-empty">
       <div className="ic" aria-hidden="true">{icon}</div>

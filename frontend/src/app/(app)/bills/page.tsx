@@ -12,7 +12,7 @@ import { getStorageMode, getStorageProvider } from "@/lib/storage";
 import { formatCurrency, formatDateIN } from "@/lib/format";
 import { useSettingsContext } from "@/lib/SettingsContext";
 import { Bill } from "@/types";
-import { Receipt, Plus, Pencil, Trash2, X, Search, ArrowUpDown } from "lucide-react";
+import { Receipt, Repeat, Plus, Pencil, Trash2, X, Search, ArrowUpDown } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -278,7 +278,7 @@ export default function BillsPage() {
         {isLoading && <LoadingCard lines={4} />}
         {isError && !isLoading && <ErrorCard onRetry={() => refetch()} />}
         {!isLoading && !isError && mItems.length === 0 && (
-          <EmptyCard icon="🧾" title="No bills yet" subtitle="Tap + Add to track a bill, EMI, subscription or rent payment." />
+          <EmptyCard icon={<Receipt size={22} />} title="No bills yet" subtitle="Tap + Add to track a bill, EMI, subscription or rent payment." />
         )}
 
         {!isLoading && !isError && mItems.length > 0 && (
@@ -287,7 +287,7 @@ export default function BillsPage() {
               const state = mobileBillState(b);
               return (
                 <div className="ppm-list-item" key={b.id} onClick={() => { setMobileEditing(b); setMobileSheetOpen(true); }}>
-                  <div className="ppm-ic" aria-hidden="true">{b.autoPay ? "🔁" : "🧾"}</div>
+                  <div className="ppm-ic" aria-hidden="true">{b.autoPay ? <Repeat size={18} /> : <Receipt size={18} />}</div>
                   <div className="ppm-info">
                     <div className="ppm-name">{b.name}</div>
                     <div className="ppm-meta">{b.type} · Due {formatDateIN(b.dueDate)}</div>
@@ -302,7 +302,7 @@ export default function BillsPage() {
                     className="ppm-row-action"
                     onClick={(e) => { e.stopPropagation(); setMobileDeleteTarget(b); }}
                   >
-                    🗑
+                    <Trash2 size={15} />
                   </button>
                 </div>
               );

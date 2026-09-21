@@ -6,11 +6,11 @@ import type { DashboardSummary, Transaction, Investment, Bill } from "@/types";
 
 export type HealthTier = "super-sonic" | "smooth-cruising" | "mild-crosswinds" | "turbulence";
 
-export const HEALTH_TIER_META: Record<HealthTier, { label: string; emoji: string }> = {
-  "super-sonic": { label: "Super-Sonic Clear Skies", emoji: "🚀" },
-  "smooth-cruising": { label: "Smooth Cruising", emoji: "🌤️" },
-  "mild-crosswinds": { label: "Mild Crosswinds", emoji: "🌬️" },
-  turbulence: { label: "Approaching Turbulence", emoji: "⚠️" },
+export const HEALTH_TIER_META: Record<HealthTier, { label: string }> = {
+  "super-sonic": { label: "Super-Sonic Clear Skies" },
+  "smooth-cruising": { label: "Smooth Cruising" },
+  "mild-crosswinds": { label: "Mild Crosswinds" },
+  turbulence: { label: "Approaching Turbulence" },
 };
 
 function tierForScore(score: number): HealthTier {
@@ -343,7 +343,7 @@ const RULES: Rule[] = [
     evaluate: (s) =>
       s.overdueBill && {
         ruleId: 29,
-        tagline: `Mayday Alert, ${s.firstName} 🚨 Payment overdue on ${s.overdueBill.name}!`,
+        tagline: `Mayday Alert, ${s.firstName} Payment overdue on ${s.overdueBill.name}!`,
         tips: ["Settle immediately to avoid late fees and credit score impacts.", "Enable auto-pay for peace of mind."],
       },
   },
@@ -353,7 +353,7 @@ const RULES: Rule[] = [
     evaluate: (s) =>
       s.largeTransaction && {
         ruleId: 38,
-        tagline: `Radar Anomaly, ${s.firstName} 🛰️ Large transaction of ${fmtMoney(s.largeTransaction.amount)} logged.`,
+        tagline: `Radar Anomaly, ${s.firstName} Large transaction of ${fmtMoney(s.largeTransaction.amount)} logged.`,
         tips: ["Confirm this transaction was expected.", "Tag this expense correctly to keep report metrics accurate."],
       },
   },
@@ -365,7 +365,7 @@ const RULES: Rule[] = [
     evaluate: (s) =>
       s.cashFlow < 0 && {
         ruleId: 3,
-        tagline: `Altitude Loss Detected, ${s.firstName} 📉 Spending has exceeded income by ${pct((Math.abs(s.cashFlow) / Math.max(s.income, 1)) * 100)}.`,
+        tagline: `Altitude Loss Detected, ${s.firstName} Spending has exceeded income by ${pct((Math.abs(s.cashFlow) / Math.max(s.income, 1)) * 100)}.`,
         tips: ["Pause discretionary purchases for the next 7 days.", "Tap into liquid savings temporarily rather than high-interest credit."],
       },
   },
@@ -375,7 +375,7 @@ const RULES: Rule[] = [
     evaluate: (s) =>
       s.budgetUsagePct >= 100 && {
         ruleId: 11,
-        tagline: `Maximum Ceiling Reached, ${s.firstName} 🛑 Budget limit fully utilized.`,
+        tagline: `Maximum Ceiling Reached, ${s.firstName} Budget limit fully utilized.`,
         tips: ["Switch to essential-only spending mode.", "Review category overshoots to adjust next month's limit."],
       },
   },
@@ -385,7 +385,7 @@ const RULES: Rule[] = [
     evaluate: (s) =>
       s.dtiPct > 40 && {
         ruleId: 26,
-        tagline: `Heavy Payload Warning, ${s.firstName} 🏋️ Debt obligations taking up ${pct(s.dtiPct)} of income.`,
+        tagline: `Heavy Payload Warning, ${s.firstName} Debt obligations taking up ${pct(s.dtiPct)} of income.`,
         tips: ["Focus on the Debt Avalanche method (highest interest first).", "Avoid acquiring new line items."],
       },
   },
@@ -395,7 +395,7 @@ const RULES: Rule[] = [
     evaluate: (s) =>
       s.dayOfMonth <= 7 && s.budgetUsagePct >= 50 && {
         ruleId: 13,
-        tagline: `High Speed Warning, ${s.firstName} ⚡ Half your monthly budget spent in Week 1.`,
+        tagline: `High Speed Warning, ${s.firstName} Half your monthly budget spent in Week 1.`,
         tips: ["Enforce a 48-hour cool-off period for online shopping.", "Spread upcoming bill payments across weeks."],
       },
   },
@@ -405,7 +405,7 @@ const RULES: Rule[] = [
     evaluate: (s) =>
       s.budgetUsagePct >= 80 && s.budgetUsagePct < 100 && {
         ruleId: 10,
-        tagline: `Cautionary Airspace, ${s.firstName} ⚠️ You've utilized ${pct(s.budgetUsagePct)} of your budget.`,
+        tagline: `Cautionary Airspace, ${s.firstName} You've utilized ${pct(s.budgetUsagePct)} of your budget.`,
         tips: [
           `Limit daily spending to ${fmtMoney(((100 - s.budgetUsagePct) / 100) * s.income / Math.max(s.daysInMonth - s.dayOfMonth, 1))} for the remainder of the month.`,
           "Defer non-urgent shopping trips.",
@@ -418,7 +418,7 @@ const RULES: Rule[] = [
     evaluate: (s) =>
       s.emergencyFundProgressPct <= 0 && {
         ruleId: 17,
-        tagline: `Flying Without a Parachute, ${s.firstName} 🪂 Emergency fund is empty.`,
+        tagline: `Flying Without a Parachute, ${s.firstName} Emergency fund is empty.`,
         tips: ["Build a starter buffer of ₹10,000 as priority #1.", "Redirect all secondary savings here first."],
       },
   },
@@ -449,7 +449,7 @@ const RULES: Rule[] = [
     evaluate: (s) =>
       s.savingsRatePct > 50 && {
         ruleId: 1,
-        tagline: `Rocketing Heights, ${s.firstName}! 🚀 You saved ${pct(s.savingsRatePct)} of your income this month.`,
+        tagline: `Rocketing Heights, ${s.firstName}! You saved ${pct(s.savingsRatePct)} of your income this month.`,
         tips: [
           "Your cash surplus is strong. Allocate 20% to high-yield investment options.",
           "Maintain this altitude to hit your annual savings target 3 months early.",
@@ -462,7 +462,7 @@ const RULES: Rule[] = [
     evaluate: (s) =>
       s.earlyGoalDays !== null && {
         ruleId: 4,
-        tagline: `Goal Unlocked Early, ${s.firstName}! 🎯 Monthly savings quota reached in just ${s.earlyGoalDays} days.`,
+        tagline: `Goal Unlocked Early, ${s.firstName}! Monthly savings quota reached in just ${s.earlyGoalDays} days.`,
         tips: ["Great discipline! Lock this surplus in a high-yield vault.", "Feel free to allocate a small percentage for a treat!"],
       },
   },
@@ -472,7 +472,7 @@ const RULES: Rule[] = [
     evaluate: (s) =>
       s.creditCardPaidOff && {
         ruleId: 27,
-        tagline: `Zero Gravity Achieved, ${s.firstName} 🎉 Credit card statement paid in full!`,
+        tagline: `Zero Gravity Achieved, ${s.firstName} Credit card statement paid in full!`,
         tips: ["Great credit habits! Enjoy zero interest charges.", "Maintain statement balance under 10% next month."],
       },
   },
@@ -482,7 +482,7 @@ const RULES: Rule[] = [
     evaluate: (s) =>
       s.netWorthMilestone !== null && {
         ruleId: 33,
-        tagline: `New Altitude Milestone, ${s.firstName} 🏆 Net Worth hit ${fmtMoney(s.netWorthMilestone)}!`,
+        tagline: `New Altitude Milestone, ${s.firstName} Net Worth hit ${fmtMoney(s.netWorthMilestone)}!`,
         tips: ["A major victory! Update your 5-year financial plan.", "Share the win with a low-cost celebration."],
       },
   },
@@ -492,7 +492,7 @@ const RULES: Rule[] = [
     evaluate: (s) =>
       s.savingsGoalStreakMonths >= 3 && {
         ruleId: 6,
-        tagline: `Cruising on Autopilot, ${s.firstName} 🌟 3 consecutive months of hitting your savings target.`,
+        tagline: `Cruising on Autopilot, ${s.firstName} 3 consecutive months of hitting your savings target.`,
         tips: ["Time to re-evaluate your long-term wealth goals.", "Consider automating monthly index fund contributions."],
       },
   },
@@ -502,7 +502,7 @@ const RULES: Rule[] = [
     evaluate: (s) =>
       s.emergencyFundProgressPct >= 100 && {
         ruleId: 19,
-        tagline: `All-Weather Armor Active, ${s.firstName} 🛡️ Fully protected against financial storms.`,
+        tagline: `All-Weather Armor Active, ${s.firstName} Fully protected against financial storms.`,
         tips: ["Excess emergency cash can now be routed toward long-term assets.", "Review coverage annually against inflation."],
       },
   },
@@ -512,7 +512,7 @@ const RULES: Rule[] = [
     evaluate: (s) =>
       s.emergencyFundProgressPct >= 15 && s.emergencyFundProgressPct < 30 && {
         ruleId: 18,
-        tagline: `Safety Net Deployed, ${s.firstName} 🛟 1 month of living expenses secured.`,
+        tagline: `Safety Net Deployed, ${s.firstName} 1 month of living expenses secured.`,
         tips: ["Keep pushing! Next stop: 3 months of basic living costs.", "Keep this fund strictly in a liquid savings account."],
       },
   },
@@ -522,7 +522,7 @@ const RULES: Rule[] = [
     evaluate: (s) =>
       s.creditCardStatement && s.creditCardStatement.amount > 0 && s.creditCardStatement.amount <= s.income * 0.08 && {
         ruleId: 30,
-        tagline: `Optimal Aerodynamics, ${s.firstName} 💎 Credit utilization sitting at a perfect low.`,
+        tagline: `Optimal Aerodynamics, ${s.firstName} Credit utilization sitting at a perfect low.`,
         tips: ["Your credit health is in top form.", "Maintain this balance ratio across all cards."],
       },
   },
@@ -532,7 +532,7 @@ const RULES: Rule[] = [
     evaluate: (s) =>
       s.investRatePct > 20 && {
         ruleId: 32,
-        tagline: `Cruising at Mach Speed, ${s.firstName} 🚀 Investing ${pct(s.investRatePct)} of monthly income.`,
+        tagline: `Cruising at Mach Speed, ${s.firstName} Investing ${pct(s.investRatePct)} of monthly income.`,
         tips: ["Diversify across asset classes to manage market risk.", "Rebalance portfolio bi-annually."],
       },
   },
@@ -542,7 +542,7 @@ const RULES: Rule[] = [
     evaluate: (s) =>
       s.hasAnyInvestments && s.portfolioGainPct >= 5 && {
         ruleId: 34,
-        tagline: `Passive Jet Fuel, ${s.firstName} 💸 Your portfolio is up ${pct(s.portfolioGainPct)}!`,
+        tagline: `Passive Jet Fuel, ${s.firstName} Your portfolio is up ${pct(s.portfolioGainPct)}!`,
         tips: ["Re-invest returns to trigger compounding growth.", "Track long-term annual portfolio yield."],
       },
   },
@@ -552,7 +552,7 @@ const RULES: Rule[] = [
     evaluate: (s) =>
       s.scoreDelta !== null && s.scoreDelta >= 10 && {
         ruleId: 42,
-        tagline: `Upgraded Flight Rating, ${s.firstName} 📈 Your health score just climbed!`,
+        tagline: `Upgraded Flight Rating, ${s.firstName} Your health score just climbed!`,
         tips: ["Your recent savings habit drove this boost.", "Maintain current spending controls to stay on top."],
       },
   },
@@ -562,7 +562,7 @@ const RULES: Rule[] = [
     evaluate: (s) =>
       s.dayOfMonth >= s.daysInMonth - 2 && s.budgetUsagePct < 95 && {
         ruleId: 16,
-        tagline: `Smooth Landing, ${s.firstName} 🛬 Finishing the month under budget!`,
+        tagline: `Smooth Landing, ${s.firstName} Finishing the month under budget!`,
         tips: ["Sweep leftover funds directly into investments.", "Reward yourself with a planned, budget-friendly celebration."],
       },
   },
@@ -572,7 +572,7 @@ const RULES: Rule[] = [
     evaluate: (s) =>
       s.dtiPct > 0 && s.dtiPct < 20 && s.changeVsPrevMonthIncomePct <= 0 && {
         ruleId: 28,
-        tagline: `Payload Shedding, ${s.firstName} ✂️ Your debt load is under control.`,
+        tagline: `Payload Shedding, ${s.firstName} Your debt load is under control.`,
         tips: ["Keep momentum! Re-route freed-up EMI cash into savings.", "Negotiate lower interest rates with lenders."],
       },
   },
@@ -584,7 +584,7 @@ const RULES: Rule[] = [
     evaluate: (s) =>
       s.isPayday && {
         ruleId: 7,
-        tagline: `Refueling Completed, ${s.firstName}! ⛽ Paycheck credited today.`,
+        tagline: `Refueling Completed, ${s.firstName}! Paycheck credited today.`,
         tips: ["Pay yourself first! Transfer your target savings immediately.", "Set aside fixed bill amounts upfront."],
       },
   },
@@ -594,7 +594,7 @@ const RULES: Rule[] = [
     evaluate: (s) =>
       s.incomeBonus && {
         ruleId: 5,
-        tagline: `Favorable Tailwinds, ${s.firstName}! 🌬️ Unexpected deposit of ${fmtMoney(s.incomeBonus.amount)} detected.`,
+        tagline: `Favorable Tailwinds, ${s.firstName}! Unexpected deposit of ${fmtMoney(s.incomeBonus.amount)} detected.`,
         tips: ["Apply the 50/30/20 rule to this windfall.", "Boost your emergency fund before increasing discretionary spending."],
       },
   },
@@ -604,7 +604,7 @@ const RULES: Rule[] = [
     evaluate: (s) =>
       s.unplannedLargeExpense && {
         ruleId: 21,
-        tagline: `Uncharted Turbulence, ${s.firstName} 🏥 Unplanned health/repair expense logged.`,
+        tagline: `Uncharted Turbulence, ${s.firstName} Unplanned health/repair expense logged.`,
         tips: ["Don't panic! This is what your financial buffer was built for.", "Temporarily pause luxury goals to absorb the impact."],
       },
   },
@@ -614,7 +614,7 @@ const RULES: Rule[] = [
     evaluate: (s) =>
       s.emergencyFundProgressPct > 0 && s.emergencyFundProgressPct < 15 && s.cashFlow < 0 && {
         ruleId: 20,
-        tagline: `Shield Activated, ${s.firstName} ⚠️ Reserve funds may be getting tapped.`,
+        tagline: `Shield Activated, ${s.firstName} Reserve funds may be getting tapped.`,
         tips: ["Focus on replenishing your safety buffer over the next 60 days.", "Track the cause to refine future surprise budgets."],
       },
   },
@@ -624,7 +624,7 @@ const RULES: Rule[] = [
     evaluate: (s) =>
       s.impulseBuyCount >= 4 && {
         ruleId: 40,
-        tagline: `Crosswind Hazard, ${s.firstName} 🌬️ ${s.impulseBuyCount} small non-essential purchases today.`,
+        tagline: `Crosswind Hazard, ${s.firstName} ${s.impulseBuyCount} small non-essential purchases today.`,
         tips: ["Small daily purchases compound quickly.", "Try a 24-Hour 'No Spend' Challenge tomorrow."],
       },
   },
@@ -634,7 +634,7 @@ const RULES: Rule[] = [
     evaluate: (s) =>
       s.categorySpike && {
         ruleId: 12,
-        tagline: `Spike in Sector 4, ${s.firstName} 🍔 ${s.categorySpike.category} expenses up ${pct(s.categorySpike.pctUp)} this week.`,
+        tagline: `Spike in Sector 4, ${s.firstName} ${s.categorySpike.category} expenses up ${pct(s.categorySpike.pctUp)} this week.`,
         tips: ["Try meal prepping for the next 3 days to balance out.", "Set a micro-cap limit for weekend dining."],
       },
   },
@@ -644,7 +644,7 @@ const RULES: Rule[] = [
     evaluate: (s) =>
       s.weekendSpendPct !== null && s.weekendSpendPct >= 55 && {
         ruleId: 14,
-        tagline: `Weekend Drift Detected, ${s.firstName} 🛍️ ${pct(s.weekendSpendPct)} of weekly spending occurred on Sat/Sun.`,
+        tagline: `Weekend Drift Detected, ${s.firstName} ${pct(s.weekendSpendPct)} of weekly spending occurred on Sat/Sun.`,
         tips: ["Set a weekend fun allowance card to prevent overshooting.", "Track leisure expenses in real-time."],
       },
   },
@@ -654,7 +654,7 @@ const RULES: Rule[] = [
     evaluate: (s) =>
       s.changeVsPrevMonthIncomePct <= -0.15 && {
         ruleId: 8,
-        tagline: `Variable Winds Detected, ${s.firstName} 📊 Income dropped ${pct(s.changeVsPrevMonthIncomePct * 100)} compared to last month.`,
+        tagline: `Variable Winds Detected, ${s.firstName} Income dropped ${pct(s.changeVsPrevMonthIncomePct * 100)} compared to last month.`,
         tips: ["Base your monthly baseline budget on your lowest income month.", "Maintain a larger liquid buffer (6 months)."],
       },
   },
@@ -664,7 +664,7 @@ const RULES: Rule[] = [
     evaluate: (s) =>
       s.subscriptionCount >= 3 && {
         ruleId: 37,
-        tagline: `Phantom Cargo Detected, ${s.firstName} 👻 ${s.subscriptionCount} active subscriptions logged.`,
+        tagline: `Phantom Cargo Detected, ${s.firstName} ${s.subscriptionCount} active subscriptions logged.`,
         tips: [
           "Audit unused streaming/SaaS memberships.",
           `Cancel 1 unused service to save ${fmtMoney(s.avgSubscriptionAmount * 12)}/yr.`,
@@ -677,7 +677,7 @@ const RULES: Rule[] = [
     evaluate: (s) =>
       s.daysSinceLastTransaction !== null && s.daysSinceLastTransaction >= 7 && {
         ruleId: 39,
-        tagline: `Quiet Skies, ${s.firstName} 🌤️ No expenses logged in 7 days.`,
+        tagline: `Quiet Skies, ${s.firstName} No expenses logged in 7 days.`,
         tips: ["Log recent cash/offline expenses.", "Keep tracking consistent for accurate insights."],
       },
   },
@@ -687,7 +687,7 @@ const RULES: Rule[] = [
     evaluate: (s) =>
       s.dayOfMonth > s.daysInMonth / 2 && s.budgetUsagePct < 30 && {
         ruleId: 9,
-        tagline: `Ultra-Efficient Flight, ${s.firstName} 🛡️ Only ${pct(s.budgetUsagePct)} of budget used past mid-month.`,
+        tagline: `Ultra-Efficient Flight, ${s.firstName} Only ${pct(s.budgetUsagePct)} of budget used past mid-month.`,
         tips: ["You have a comfortable buffer. Rollover savings to next month.", "Consider topping up your holiday/splurge fund."],
       },
   },
@@ -697,7 +697,7 @@ const RULES: Rule[] = [
     evaluate: (s) =>
       s.categorySpike === null && s.budgetUsagePct > 0 && s.budgetUsagePct < 60 && s.dayOfMonth > s.daysInMonth * 0.6 && {
         ruleId: 15,
-        tagline: `Fuel Efficiency Achieved, ${s.firstName} 💡 Spending is well under pace this month.`,
+        tagline: `Fuel Efficiency Achieved, ${s.firstName} Spending is well under pace this month.`,
         tips: ["Reallocate extra funds to your emergency reserves.", "Lower this category's ceiling next month."],
       },
   },
@@ -707,7 +707,7 @@ const RULES: Rule[] = [
     evaluate: (s) =>
       !s.hasAnyInvestments && {
         ruleId: 31,
-        tagline: `Grounded Assets, ${s.firstName} 🏦 No investment contributions logged yet.`,
+        tagline: `Grounded Assets, ${s.firstName} No investment contributions logged yet.`,
         tips: ["Start small: Allocate 5% of monthly income to index funds.", "Automate monthly SIPs to build discipline."],
       },
   },
@@ -717,7 +717,7 @@ const RULES: Rule[] = [
     evaluate: (s) =>
       s.savingsRatePct >= -2 && s.savingsRatePct <= 2 && {
         ruleId: 2,
-        tagline: `Holding Level, ${s.firstName} ✈️ Income equals expenses this cycle.`,
+        tagline: `Holding Level, ${s.firstName} Income equals expenses this cycle.`,
         tips: ["Aim for a modest 5% auto-savings transfer on payday.", "Identify 2 recurring non-essential expenses to cut this week."],
       },
   },

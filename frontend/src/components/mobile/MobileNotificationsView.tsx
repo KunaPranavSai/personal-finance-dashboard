@@ -8,12 +8,13 @@ import { ConfirmSheet } from "@/components/mobile/ConfirmSheet";
 import { api } from "@/lib/api";
 import { useNotifications } from "@/lib/reference";
 import { formatDateIN } from "@/lib/format";
+import { AlertTriangle, Receipt, Target, Lightbulb, Bell, Trash2 } from "lucide-react";
 
-const TYPE_ICON: Record<string, string> = {
-  budget_alert: "⚠️",
-  bill_due: "🧾",
-  goal_progress: "🎯",
-  insight: "💡",
+const TYPE_ICON: Record<string, React.ReactNode> = {
+  budget_alert: <AlertTriangle size={18} />,
+  bill_due: <Receipt size={18} />,
+  goal_progress: <Target size={18} />,
+  insight: <Lightbulb size={18} />,
 };
 const TYPE_LABEL: Record<string, string> = {
   budget_alert: "Budget Alert",
@@ -65,14 +66,14 @@ export function MobileNotificationsView() {
 
       {isLoading && <LoadingCard lines={4} />}
       {!isLoading && items.length === 0 && (
-        <EmptyCard icon="🔔" title="No notifications yet" subtitle="You'll see budget alerts, bill reminders and insights here." />
+        <EmptyCard icon={<Bell size={22} />} title="No notifications yet" subtitle="You'll see budget alerts, bill reminders and insights here." />
       )}
 
       {!isLoading && items.length > 0 && (
         <div className="ppm-card">
           {items.map((n) => (
             <div className="ppm-list-item" key={n.id} style={{ alignItems: "flex-start", background: n.read ? "transparent" : "var(--ppm-chip-bg)", borderRadius: n.read ? 0 : 12, cursor: "default" }}>
-              <div className="ppm-ic" aria-hidden="true">{TYPE_ICON[n.type] ?? "🔔"}</div>
+              <div className="ppm-ic" aria-hidden="true">{TYPE_ICON[n.type] ?? <Bell size={18} />}</div>
               <div className="ppm-info">
                 <div className="ppm-meta" style={{ display: "flex", alignItems: "center", gap: 6 }}>
                   {TYPE_LABEL[n.type] ?? n.type}
@@ -86,7 +87,7 @@ export function MobileNotificationsView() {
                 {!n.read && (
                   <button type="button" className="ppm-row-action" aria-label="Mark as read" onClick={() => markReadMutation.mutate(n.id)}>✓</button>
                 )}
-                <button type="button" className="ppm-row-action" aria-label="Delete" onClick={() => deleteMutation.mutate(n.id)}>🗑</button>
+                <button type="button" className="ppm-row-action" aria-label="Delete" onClick={() => deleteMutation.mutate(n.id)}><Trash2 size={15} /></button>
               </div>
             </div>
           ))}

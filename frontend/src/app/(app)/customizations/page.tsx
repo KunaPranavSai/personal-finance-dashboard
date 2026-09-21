@@ -53,14 +53,14 @@ function CustomizationsContent() {
 
         {tab === "accounts" && (
           <EntityManagerCard
-            queryKey="accounts" apiPath="/api/accounts" localCollection="accounts" itemLabel="wallet" addLabel="Add Wallet" icon="🏦"
+            queryKey="accounts" apiPath="/api/accounts" localCollection="accounts" itemLabel="wallet" addLabel="Add Wallet" icon={<Landmark size={18} />}
             emptyTitle="No wallets yet" emptyDescription="Create your first wallet to start tracking expenses and income against it."
           />
         )}
         {tab === "categories" && <CategoryManagerCard />}
         {tab === "payment-methods" && (
           <EntityManagerCard
-            queryKey="payment-methods" apiPath="/api/payment-methods" localCollection="paymentMethods" itemLabel="money source" addLabel="Add Money Source" icon="💳"
+            queryKey="payment-methods" apiPath="/api/payment-methods" localCollection="paymentMethods" itemLabel="money source" addLabel="Add Money Source" icon={<CreditCard size={18} />}
             emptyTitle="No money sources yet" emptyDescription="Create money sources like Cash, UPI, or Credit Card to tag your expenses and income."
           />
         )}

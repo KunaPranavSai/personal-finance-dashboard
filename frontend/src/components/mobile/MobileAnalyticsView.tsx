@@ -10,6 +10,7 @@ import { getStorageMode } from "@/lib/storage";
 import { getLocalAnalyticsSummary, AnalyticsFilters } from "@/lib/services/analyticsService";
 import { getGroupedChartData, getYearToDateChartData, ChartPoint } from "@/lib/services/customChartService";
 import { useCategories, useAccounts, usePaymentMethods } from "@/lib/reference";
+import { TrendingUp, Sparkles, SlidersHorizontal } from "lucide-react";
 import { useSettingsContext } from "@/lib/SettingsContext";
 import { formatCurrency, formatCompactCurrency } from "@/lib/format";
 import type { AnalyticsSummary } from "@/types";
@@ -136,7 +137,7 @@ export function MobileAnalyticsView() {
           </button>
         ))}
         <button type="button" className={`ppm-chip${activeExtraFilters > 0 ? " on" : ""}`} onClick={() => setFilterSheetOpen(true)}>
-          ⚙ Filters{activeExtraFilters > 0 ? ` (${activeExtraFilters})` : ""}
+          <SlidersHorizontal size={13} style={{display:"inline",verticalAlign:"-2px",marginRight:4}} />Filters{activeExtraFilters > 0 ? ` (${activeExtraFilters})` : ""}
         </button>
       </div>
 
@@ -157,7 +158,7 @@ export function MobileAnalyticsView() {
       {isError && !isLoading && <ErrorCard onRetry={() => refetch()} />}
 
       {!isLoading && !isError && data && data.totalTransactions === 0 && (
-        <EmptyCard icon="📈" title="No transactions in this range" subtitle="Try a wider date range or add some transactions." />
+        <EmptyCard icon={<TrendingUp size={22} />} title="No transactions in this range" subtitle="Try a wider date range or add some transactions." />
       )}
 
       {!isLoading && !isError && data && data.totalTransactions > 0 && (
@@ -224,7 +225,7 @@ export function MobileAnalyticsView() {
       )}
 
       {!isLoading && !isError && data && data.monthlyTrend.length > 0 && (
-        <button type="button" className="ppm-qa-btn" style={{ width: "100%", marginTop: 4 }} onClick={() => setBuilderOpen(true)}>✨ Custom Chart</button>
+        <button type="button" className="ppm-qa-btn" style={{ width: "100%", marginTop: 4 }} onClick={() => setBuilderOpen(true)}><Sparkles size={14} style={{display:"inline",verticalAlign:"-2px",marginRight:4}} />Custom Chart</button>
       )}
 
       <MobileSheet open={builderOpen} onClose={() => setBuilderOpen(false)} title="Custom Chart">

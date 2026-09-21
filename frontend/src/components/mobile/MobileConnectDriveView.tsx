@@ -8,6 +8,7 @@ import { useDriveStatus, isDriveReady, DRIVE_STATUS_QUERY_KEY } from "@/lib/driv
 import { api, ApiClientError } from "@/lib/api";
 import { setStorageMode } from "@/lib/storage";
 import { isLocalStorageAvailable } from "@/lib/storage/localDb";
+import { Database, AlertTriangle, CheckCircle2, FolderOpen, Laptop } from "lucide-react";
 
 /**
  * Mobile "Connect Drive" screen — a faithful port of the desktop
@@ -120,7 +121,7 @@ export function MobileConnectDriveView() {
     }
   }, [choiceToken, queryClient]);
 
-  const Shell = ({ icon, title, subtitle, children }: { icon: string; title: string; subtitle: string; children: React.ReactNode }) => (
+  const Shell = ({ icon, title, subtitle, children }: { icon: React.ReactNode; title: string; subtitle: string; children: React.ReactNode }) => (
     <div className="pp-mobile" style={{ minHeight: "100dvh", display: "flex", flexDirection: "column" }}>
       <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", padding: "16px 16px calc(24px + env(safe-area-inset-bottom, 0px))", maxWidth: 480, margin: "0 auto", width: "100%" }}>
         <div style={{ textAlign: "center", marginBottom: 24 }}>
@@ -146,14 +147,14 @@ export function MobileConnectDriveView() {
 
   if (view === "storageChoice") {
     return (
-      <Shell icon="🗄️" title="Choose how you want to store your data" subtitle="You can change this later in Settings">
+      <Shell icon={<Database size={35} />} title="Choose how you want to store your data" subtitle="You can change this later in Settings">
         <div className="ppm-card" style={{ marginBottom: 12 }}>
-          <div className="ppm-name" style={{ marginBottom: 4 }}>🗄️ Google Drive — Recommended</div>
+          <div className="ppm-name" style={{ marginBottom: 4 }}>Google Drive — Recommended</div>
           <p style={{ fontSize: 12, color: "var(--ppm-text-dim)", marginBottom: 12 }}>Store Penny Pilot data in your own Google Drive, backed up and accessible from any device.</p>
           <button type="button" className="ppm-sheet-submit" onClick={() => setView("connect")}>Connect Google Drive</button>
         </div>
         <div className="ppm-card">
-          <div className="ppm-name" style={{ marginBottom: 4 }}>💻 This Device Only</div>
+          <div className="ppm-name" style={{ marginBottom: 4, display:"flex", alignItems:"center", gap:6 }}><Laptop size={16} /> This Device Only</div>
           <p style={{ fontSize: 12, color: "var(--ppm-text-dim)", marginBottom: 12 }}>Keep Penny Pilot data locally in this browser/device without connecting Google Drive.</p>
           <button type="button" className="ppm-sheet-cancel" style={{ marginTop: 0 }} onClick={() => setView("localWarning")}>Continue on this Device</button>
         </div>
@@ -163,7 +164,7 @@ export function MobileConnectDriveView() {
 
   if (view === "localWarning") {
     return (
-      <Shell icon="⚠️" title="Important: local-only storage" subtitle="Please read before continuing">
+      <Shell icon={<AlertTriangle size={35} />} title="Important: local-only storage" subtitle="Please read before continuing">
         <div className="ppm-card" style={{ background: "rgba(255,190,11,.1)", marginBottom: 14 }}>
           <p style={{ fontSize: 13, margin: 0 }}>Your financial data will be stored only on this browser/device. Penny Pilot will not maintain a cloud backup of this data.</p>
           <p style={{ fontSize: 13, marginTop: 8, marginBottom: 0 }}>If browser/site data is cleared, the device is lost, the browser profile is reset, or you switch devices/browsers, your data may be permanently lost unless you have exported a backup.</p>
@@ -183,7 +184,7 @@ export function MobileConnectDriveView() {
 
   if (view === "localReady") {
     return (
-      <Shell icon="✅" title="Local Storage Ready" subtitle="Your data will stay on this device">
+      <Shell icon={<CheckCircle2 size={35} />} title="Local Storage Ready" subtitle="Your data will stay on this device">
         <p style={{ fontSize: 13, color: "var(--ppm-text-dim)", textAlign: "center", marginBottom: 18 }}>
           Penny Pilot will now store your financial data locally in this browser. You can export a backup or switch to Google Drive anytime from More → Settings → Storage.
         </p>
@@ -194,7 +195,7 @@ export function MobileConnectDriveView() {
 
   if (view === "success") {
     return (
-      <Shell icon="✅" title="Google Drive Connected" subtitle="Your Penny Pilot workspace is ready">
+      <Shell icon={<CheckCircle2 size={35} />} title="Google Drive Connected" subtitle="Your Penny Pilot workspace is ready">
         <p style={{ fontSize: 13, color: "var(--ppm-text-dim)", textAlign: "center", marginBottom: 18 }}>
           {migrated ? "Your existing Penny Pilot data has been moved into your Google Drive." : "Your financial workspace is ready. Start by adding your first transaction."}
         </p>
@@ -205,7 +206,7 @@ export function MobileConnectDriveView() {
 
   if (view === "accountChoice") {
     return (
-      <Shell icon="📁" title="Different Google Account" subtitle="We found existing Penny Pilot data in this Google Drive account">
+      <Shell icon={<FolderOpen size={35} />} title="Different Google Account" subtitle="We found existing Penny Pilot data in this Google Drive account">
         <p style={{ fontSize: 13, color: "var(--ppm-text-dim)", marginBottom: 14 }}>
           This Google account already has a Penny Pilot workspace in its Drive — possibly from a previous connection. Choose what to do:
         </p>
@@ -228,7 +229,7 @@ export function MobileConnectDriveView() {
   const connectingLabel = view === "connecting" ? "Redirecting to Google…" : isLegacyAccount ? "Migrating your data…" : "Setting up your workspace…";
 
   return (
-    <Shell icon="🗄️" title={title} subtitle={subtitle}>
+    <Shell icon={<Database size={35} />} title={title} subtitle={subtitle}>
       <p style={{ fontSize: 13, color: "var(--ppm-text-dim)", textAlign: "center", marginBottom: 14 }}>{description}</p>
       <ErrorBanner />
       {error && <p style={{ fontSize: 12, color: "var(--ppm-text-dim)", textAlign: "center", marginBottom: 12 }}>Nothing was lost — your data is safe. You can retry the connection below.</p>}

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { Key, Shield, Pencil, Trash2 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { startRegistration, browserSupportsWebAuthn } from "@simplewebauthn/browser";
 import { MobileShell } from "@/components/mobile/MobileShell";
@@ -223,7 +224,7 @@ export function MobileSecurityView() {
       <div className="ppm-card">
         <div className="ppm-section-label">Two-Factor Authentication</div>
         <div className="ppm-list-item" style={{ cursor: "default" }}>
-          <div className="ppm-ic" aria-hidden="true">🛡️</div>
+          <div className="ppm-ic" aria-hidden="true"><Shield size={18} /></div>
           <div className="ppm-info">
             <div className="ppm-name">Authenticator App</div>
             <div className="ppm-meta">{twoFactorEnabled ? "Enabled — a code is required at sign-in" : "Add an extra layer of security"}</div>
@@ -239,7 +240,7 @@ export function MobileSecurityView() {
       <div className="ppm-card" style={{ marginTop: 14 }}>
         <div className="ppm-section-label">Password</div>
         <div className="ppm-list-item" onClick={() => setPwSheet(true)}>
-          <div className="ppm-ic" aria-hidden="true">🔑</div>
+          <div className="ppm-ic" aria-hidden="true"><Key size={18} /></div>
           <div className="ppm-info"><div className="ppm-name">Change Password</div></div>
           <span className="ppm-chev">›</span>
         </div>
@@ -285,8 +286,8 @@ export function MobileSecurityView() {
                       <div className="ppm-name">{pk.name}</div>
                       <div className="ppm-meta">{pk.lastUsedAt ? `Last used ${new Date(pk.lastUsedAt).toLocaleDateString()}` : `Added ${new Date(pk.createdAt).toLocaleDateString()}`}</div>
                     </div>
-                    <button type="button" className="ppm-row-action" aria-label={`Rename ${pk.name}`} onClick={() => { setRenamingId(pk.id); setRenameValue(pk.name); }}>✏️</button>
-                    <button type="button" className="ppm-row-action" aria-label={`Remove ${pk.name}`} onClick={() => { setDeleteTarget(pk); setError(""); }}>🗑</button>
+                    <button type="button" className="ppm-row-action" aria-label={`Rename ${pk.name}`} onClick={() => { setRenamingId(pk.id); setRenameValue(pk.name); }}><Pencil size={14} /></button>
+                    <button type="button" className="ppm-row-action" aria-label={`Remove ${pk.name}`} onClick={() => { setDeleteTarget(pk); setError(""); }}><Trash2 size={15} /></button>
                   </>
                 )}
               </div>

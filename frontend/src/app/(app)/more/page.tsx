@@ -10,6 +10,7 @@ import { useSettingsContext } from "@/lib/SettingsContext";
 import { useIsMobile } from "@/lib/DeviceContext";
 import { playVoiceGreeting, VOICE_GREETINGS, isVoiceGreetingsEnabled } from "@/lib/voiceGreeting";
 import { useToast } from "@/components/ui/Toast";
+import { Moon, Bell, Globe, Receipt, Target, PiggyBank, Landmark, LineChart, FileText, Settings as SettingsIcon, ScrollText } from "lucide-react";
 
 /**
  * Mobile "More" tab — a mobile-only navigation hub with no desktop
@@ -86,18 +87,18 @@ export default function MorePage() {
       <div className="ppm-card" style={{ marginTop: 14 }}>
         <div className="ppm-section-label">Preferences</div>
         <div className="ppm-list-item">
-          <div className="ppm-ic" aria-hidden="true">🌙</div>
+          <div className="ppm-ic" aria-hidden="true"><Moon size={18} /></div>
           <div className="ppm-info"><div className="ppm-name">Dark Mode</div></div>
           <button type="button" className={`ppm-toggle${resolvedTheme === "dark" ? " on" : ""}`} role="switch" aria-checked={resolvedTheme === "dark"} aria-label="Toggle dark mode" onClick={toggleDarkMode} />
         </div>
         <Link href="/notifications" className="ppm-list-item">
-          <div className="ppm-ic" aria-hidden="true">🔔</div>
+          <div className="ppm-ic" aria-hidden="true"><Bell size={18} /></div>
           <div className="ppm-info"><div className="ppm-name">Notifications</div></div>
           <span className={`ppm-toggle${notificationsEnabled ? " on" : ""}`} aria-hidden="true" />
           <span className="ppm-chev">›</span>
         </Link>
         <Link href="/settings" className="ppm-list-item">
-          <div className="ppm-ic" aria-hidden="true">🎨</div>
+          <div className="ppm-ic" aria-hidden="true"><Globe size={18} /></div>
           <div className="ppm-info"><div className="ppm-name">Currency, Date &amp; Language</div></div>
           <span className="ppm-chev">›</span>
         </Link>
@@ -105,18 +106,18 @@ export default function MorePage() {
 
       <div className="ppm-card" style={{ marginTop: 14 }}>
         <div className="ppm-section-label">Financial Modules</div>
-        <Link href="/bills" className="ppm-list-item"><div className="ppm-ic" aria-hidden="true">🧾</div><div className="ppm-info"><div className="ppm-name">Bills &amp; EMIs</div></div><span className="ppm-chev">›</span></Link>
-        <Link href="/goals" className="ppm-list-item"><div className="ppm-ic" aria-hidden="true">🎯</div><div className="ppm-info"><div className="ppm-name">Goals</div></div><span className="ppm-chev">›</span></Link>
-        <Link href="/savings" className="ppm-list-item"><div className="ppm-ic" aria-hidden="true">🐷</div><div className="ppm-info"><div className="ppm-name">Savings</div></div><span className="ppm-chev">›</span></Link>
-        <Link href="/accounts" className="ppm-list-item"><div className="ppm-ic" aria-hidden="true">🏦</div><div className="ppm-info"><div className="ppm-name">Wallets, Categories &amp; Money Sources</div></div><span className="ppm-chev">›</span></Link>
-        <Link href="/analytics" className="ppm-list-item"><div className="ppm-ic" aria-hidden="true">📈</div><div className="ppm-info"><div className="ppm-name">Analytics</div></div><span className="ppm-chev">›</span></Link>
-        <Link href="/reports" className="ppm-list-item"><div className="ppm-ic" aria-hidden="true">📄</div><div className="ppm-info"><div className="ppm-name">Reports</div></div><span className="ppm-chev">›</span></Link>
+        <Link href="/bills" className="ppm-list-item"><div className="ppm-ic" aria-hidden="true"><Receipt size={18} /></div><div className="ppm-info"><div className="ppm-name">Bills &amp; EMIs</div></div><span className="ppm-chev">›</span></Link>
+        <Link href="/goals" className="ppm-list-item"><div className="ppm-ic" aria-hidden="true"><Target size={18} /></div><div className="ppm-info"><div className="ppm-name">Goals</div></div><span className="ppm-chev">›</span></Link>
+        <Link href="/savings" className="ppm-list-item"><div className="ppm-ic" aria-hidden="true"><PiggyBank size={18} /></div><div className="ppm-info"><div className="ppm-name">Savings</div></div><span className="ppm-chev">›</span></Link>
+        <Link href="/accounts" className="ppm-list-item"><div className="ppm-ic" aria-hidden="true"><Landmark size={18} /></div><div className="ppm-info"><div className="ppm-name">Wallets, Categories &amp; Money Sources</div></div><span className="ppm-chev">›</span></Link>
+        <Link href="/analytics" className="ppm-list-item"><div className="ppm-ic" aria-hidden="true"><LineChart size={18} /></div><div className="ppm-info"><div className="ppm-name">Analytics</div></div><span className="ppm-chev">›</span></Link>
+        <Link href="/reports" className="ppm-list-item"><div className="ppm-ic" aria-hidden="true"><FileText size={18} /></div><div className="ppm-info"><div className="ppm-name">Reports</div></div><span className="ppm-chev">›</span></Link>
       </div>
 
       <div className="ppm-card" style={{ marginTop: 14 }}>
         <div className="ppm-section-label">Storage &amp; Account</div>
-        <Link href="/settings" className="ppm-list-item"><div className="ppm-ic" aria-hidden="true">⚙️</div><div className="ppm-info"><div className="ppm-name">Settings</div><div className="ppm-meta">Appearance, storage, security, privacy</div></div><span className="ppm-chev">›</span></Link>
-        <Link href="/terms" className="ppm-list-item"><div className="ppm-ic" aria-hidden="true">📜</div><div className="ppm-info"><div className="ppm-name">Legal &amp; Consent</div></div><span className="ppm-chev">›</span></Link>
+        <Link href="/settings" className="ppm-list-item"><div className="ppm-ic" aria-hidden="true"><SettingsIcon size={18} /></div><div className="ppm-info"><div className="ppm-name">Settings</div><div className="ppm-meta">Appearance, storage, security, privacy</div></div><span className="ppm-chev">›</span></Link>
+        <Link href="/terms" className="ppm-list-item"><div className="ppm-ic" aria-hidden="true"><ScrollText size={18} /></div><div className="ppm-info"><div className="ppm-name">Legal &amp; Consent</div></div><span className="ppm-chev">›</span></Link>
       </div>
 
       <button type="button" className="ppm-danger-btn" style={{ width: "100%", marginTop: 16 }} onClick={handleLogout} disabled={loggingOut}>

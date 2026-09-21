@@ -10,6 +10,7 @@ import { getLocalMonthlyReport, getLocalCategoryReport, getLocalBudgetReport } f
 import { useSettingsContext } from "@/lib/SettingsContext";
 import { formatCurrency } from "@/lib/format";
 import type { ReportItem } from "@/types";
+import { FileText, Download, Printer } from "lucide-react";
 
 type Tab = "monthly" | "categories" | "budgets";
 const TABS: { id: Tab; label: string }[] = [
@@ -99,7 +100,7 @@ export function MobileReportsView() {
         <>
           {loadingMonthly && <LoadingCard lines={4} />}
           {errorMonthly && !loadingMonthly && <ErrorCard onRetry={() => refetchMonthly()} />}
-          {!loadingMonthly && !errorMonthly && (monthly?.items?.length ?? 0) === 0 && <EmptyCard icon="📄" title="No monthly data" subtitle="Add transactions to see monthly reports." />}
+          {!loadingMonthly && !errorMonthly && (monthly?.items?.length ?? 0) === 0 && <EmptyCard icon={<FileText size={22} />} title="No monthly data" subtitle="Add transactions to see monthly reports." />}
           {!loadingMonthly && !errorMonthly && (monthly?.items?.length ?? 0) > 0 && (
             <>
               <div className="ppm-card ppm-print-summary">
@@ -114,8 +115,8 @@ export function MobileReportsView() {
                 ))}
               </div>
               <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-                <button type="button" className="ppm-qa-btn" style={{ flex: 1 }} onClick={exportMonthlyCsv}>⬇ Export CSV</button>
-                <button type="button" className="ppm-qa-btn" style={{ flex: 1 }} onClick={() => window.print()}>🖨 Print / Save PDF</button>
+                <button type="button" className="ppm-qa-btn" style={{ flex: 1 }} onClick={exportMonthlyCsv}><Download size={13} style={{display:"inline",verticalAlign:"-2px",marginRight:4}} />Export CSV</button>
+                <button type="button" className="ppm-qa-btn" style={{ flex: 1 }} onClick={() => window.print()}><Printer size={13} style={{display:"inline",verticalAlign:"-2px",marginRight:4}} />Print / Save PDF</button>
               </div>
             </>
           )}
@@ -126,7 +127,7 @@ export function MobileReportsView() {
         <>
           {loadingCategories && <LoadingCard lines={4} />}
           {errorCategories && !loadingCategories && <ErrorCard onRetry={() => refetchCategories()} />}
-          {!loadingCategories && !errorCategories && (categories?.items?.length ?? 0) === 0 && <EmptyCard icon="📄" title="No category data" subtitle="Add expense transactions to see this report." />}
+          {!loadingCategories && !errorCategories && (categories?.items?.length ?? 0) === 0 && <EmptyCard icon={<FileText size={22} />} title="No category data" subtitle="Add expense transactions to see this report." />}
           {!loadingCategories && !errorCategories && (categories?.items?.length ?? 0) > 0 && (
             <div className="ppm-card">
               {categories!.items.map((c) => (
@@ -144,7 +145,7 @@ export function MobileReportsView() {
         <>
           {loadingBudgets && <LoadingCard lines={4} />}
           {errorBudgets && !loadingBudgets && <ErrorCard onRetry={() => refetchBudgets()} />}
-          {!loadingBudgets && !errorBudgets && (budgets?.items?.length ?? 0) === 0 && <EmptyCard icon="📄" title="No budget data" subtitle="Set budgets to compare against actual spending." />}
+          {!loadingBudgets && !errorBudgets && (budgets?.items?.length ?? 0) === 0 && <EmptyCard icon={<FileText size={22} />} title="No budget data" subtitle="Set budgets to compare against actual spending." />}
           {!loadingBudgets && !errorBudgets && (budgets?.items?.length ?? 0) > 0 && (
             <div className="ppm-card">
               {budgets!.items.map((b) => (

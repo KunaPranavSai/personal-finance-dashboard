@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, X } from "lucide-react";
+import { Search, X, Receipt, ArrowRight } from "lucide-react";
 import { searchPages, searchTransactions, SearchResult } from "@/lib/search";
 import { useSettingsContext } from "@/lib/SettingsContext";
 import { formatCurrency } from "@/lib/format";
@@ -90,7 +90,7 @@ export function DesktopSearch() {
               onClick={() => handleSelect(r)}
               className="flex w-full items-start gap-2.5 px-3 py-2 text-left text-sm text-navy hover:bg-black/5 dark:text-white dark:hover:bg-white/5"
             >
-              <span className="mt-0.5 text-xs" aria-hidden="true">{r.kind === "page" ? "→" : "🧾"}</span>
+              <span className="mt-0.5 text-pp-text-dim" aria-hidden="true">{r.kind === "page" ? <ArrowRight size={14} /> : <Receipt size={14} />}</span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-medium">{r.title}</span>
                 {r.subtitle && <span className="block truncate text-xs text-navy/50 dark:text-white/50">{r.subtitle}</span>}

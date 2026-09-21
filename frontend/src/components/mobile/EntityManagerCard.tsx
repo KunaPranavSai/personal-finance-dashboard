@@ -21,7 +21,7 @@ interface EntityManagerCardProps {
   localCollection: StorageCollection;
   itemLabel: string;
   addLabel: string;
-  icon: string;
+  icon: React.ReactNode;
   emptyTitle: string;
   emptyDescription: string;
 }

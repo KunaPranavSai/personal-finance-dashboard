@@ -19,10 +19,10 @@ function getPeriod(hour: number): Period {
   return "night";
 }
 
-const PERIOD_META: Record<Period, { greeting: string; badge: string; icon: typeof Sunrise; emoji: string }> = {
-  morning: { greeting: "Good Morning", badge: "Golden Hour", icon: Sunrise, emoji: "🌅" },
-  afternoon: { greeting: "Good Afternoon", badge: "Sunset Skies", icon: CloudSun, emoji: "🌤️" },
-  night: { greeting: "Clear Skies Tonight", badge: "Clear Night", icon: MoonStar, emoji: "🌌" },
+const PERIOD_META: Record<Period, { greeting: string; badge: string; icon: typeof Sunrise }> = {
+  morning: { greeting: "Good Morning", badge: "Golden Hour", icon: Sunrise },
+  afternoon: { greeting: "Good Afternoon", badge: "Sunset Skies", icon: CloudSun },
+  night: { greeting: "Clear Skies Tonight", badge: "Clear Night", icon: MoonStar },
 };
 
 const SKY_GRADIENT: Record<Period, string> = {
@@ -284,7 +284,7 @@ export function DashboardHero({
             </motion.div>
             <div className="min-w-0">
               <h1 className={cn("text-lg font-bold leading-snug sm:text-xl md:text-2xl", textClass)}>
-                {meta.greeting}, {firstName ? firstName : "Pilot"} {meta.emoji}
+                {meta.greeting}, {firstName ? firstName : "Pilot"}
               </h1>
               <p className={cn("text-xs sm:text-sm", period === "night" ? "text-white/60" : "text-slate-600 dark:text-white/60")}>
                 Here&apos;s how your finances are looking today.
@@ -299,7 +299,7 @@ export function DashboardHero({
               className={cn("inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold backdrop-blur-sm", textClass, pillClass)}
               title={`Financial Health Score: ${score}/100`}
             >
-              {tierMeta.emoji} {score} · {tierMeta.label}
+              {score} · {tierMeta.label}
             </span>
           </div>
         </motion.div>
