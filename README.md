@@ -312,4 +312,4 @@ Identifiable directly from the codebase's own comments/state, not speculative:
 
 ## License
 
-`backend/package.json` declares MIT. No `LICENSE` file is currently present at the repository root — add one to make this binding.
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
