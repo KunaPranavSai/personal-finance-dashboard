@@ -1,11 +1,15 @@
 import type { Metadata } from "next";
+import { Geist } from "next/font/google";
+import "@/styles/landing.css";
 import { MotionConfig } from "framer-motion";
 import { Header } from "@/components/landing/Header";
 import { Hero } from "@/components/landing/Hero";
 import { Features } from "@/components/landing/Features";
 import { WhyPennyPilot } from "@/components/landing/WhyPennyPilot";
 import { HowItWorks } from "@/components/landing/HowItWorks";
-import { BuiltForRealLife } from "@/components/landing/BuiltForRealLife";
+import { Modules } from "@/components/landing/Modules";
+import { StorageChoice } from "@/components/landing/StorageChoice";
+import { LiveBackground } from "@/components/landing/LiveBackground";
 import { FAQ } from "@/components/landing/FAQ";
 import { FinalCTA } from "@/components/landing/FinalCTA";
 import { LandingFooter } from "@/components/landing/Footer";
@@ -15,7 +19,9 @@ import { SoftwareApplicationJsonLd } from "@/components/seo/SoftwareApplicationJ
 import { FAQJsonLd } from "@/components/landing/FAQJsonLd";
 import { SITE_URL } from "@/lib/siteUrl";
 
-const TITLE = "Penny Pilot — Smart Money Management";
+const geist = Geist({ subsets: ["latin"], variable: "--font-landing", display: "swap" });
+
+const TITLE = "Penny Pilot - Smart Money Management";
 const DESCRIPTION =
   "Penny Pilot is a personal finance app for expense tracking, income tracking, budgeting, and savings goals. Store your data in Google Drive or keep it Local-Only, and get clear financial insights in one place.";
 
@@ -51,14 +57,16 @@ export default function HomePage() {
       <SoftwareApplicationJsonLd />
       <FAQJsonLd />
       <LoginModalProvider>
-        <div className="flex min-h-screen flex-col bg-pp-bg">
+        <div className={`dark ${geist.variable} relative isolate flex min-h-screen flex-col bg-pp-bg font-[family-name:var(--font-landing)] text-pp-text`}>
+          <LiveBackground />
           <Header />
           <main className="flex-1">
             <Hero />
+            <Modules />
             <Features />
             <WhyPennyPilot />
             <HowItWorks />
-            <BuiltForRealLife />
+            <StorageChoice />
             <FAQ />
             <FinalCTA />
           </main>

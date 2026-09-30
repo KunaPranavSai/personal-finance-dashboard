@@ -1,3 +1,6 @@
+"use client";
+
+import { motion } from "framer-motion";
 import { Search, ClipboardList, BarChart3, ShieldCheck } from "lucide-react";
 
 const BLOCKS = [
@@ -19,31 +22,42 @@ const BLOCKS = [
   {
     icon: ShieldCheck,
     title: "Keep Control of Your Data",
-    description: "Choose the storage approach that fits you — Google Drive or Local-Only.",
+    description: "Choose the storage approach that fits you: Google Drive or Local-Only.",
   },
 ];
 
 export function WhyPennyPilot() {
   return (
-    <section aria-labelledby="why-heading" className="px-4 py-12 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-5xl">
-        <h2 id="why-heading" className="text-center text-2xl font-bold text-pp-text">
+    <section aria-labelledby="why-heading" className="overflow-x-clip px-4 py-20 sm:px-6 md:py-28 lg:px-8">
+      <div className="mx-auto grid max-w-6xl grid-cols-1 gap-12 lg:grid-cols-[5fr_7fr] lg:gap-20">
+        <h2
+          id="why-heading"
+          className="self-start text-4xl font-semibold leading-[1.08] tracking-tighter text-pp-text sm:text-5xl lg:sticky lg:top-28"
+        >
           Everything you need to understand your money
         </h2>
 
-        <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2">
+        <ul className="divide-y divide-white/10">
           {BLOCKS.map((block) => (
-            <div key={block.title} className="flex items-start gap-4">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-pp-accent/10">
-                <block.icon className="h-5 w-5 text-pp-accent" aria-hidden="true" />
-              </div>
+            <motion.li
+              key={block.title}
+              initial={{ opacity: 0, x: 32 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true, amount: 0.5 }}
+              transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+              whileHover={{ x: 8 }}
+              className="group flex items-start gap-5 py-8 first:pt-0"
+            >
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.05] transition-colors group-hover:bg-pp-accent">
+                <block.icon className="h-5 w-5 text-pp-accent transition-colors group-hover:text-pp-accent-ink" strokeWidth={1.75} aria-hidden="true" />
+              </span>
               <div>
-                <h3 className="text-base font-semibold text-pp-text">{block.title}</h3>
-                <p className="mt-1 text-sm text-pp-text-dim">{block.description}</p>
+                <h3 className="text-2xl font-semibold tracking-tight text-pp-text">{block.title}</h3>
+                <p className="mt-2 max-w-[48ch] text-base leading-relaxed text-pp-text-dim">{block.description}</p>
               </div>
-            </div>
+            </motion.li>
           ))}
-        </div>
+        </ul>
       </div>
     </section>
   );

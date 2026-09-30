@@ -1,0 +1,20 @@
+/* Landing page live background + ambient loops (components/landing/*).
+   Transform-only keyframes so they stay on the compositor. */
+@keyframes lp-drift-a { 0%, 100% { transform: translate3d(0, 0, 0) scale(1); } 50% { transform: translate3d(9vw, 7vh, 0) scale(1.18); } }
+@keyframes lp-drift-b { 0%, 100% { transform: translate3d(0, 0, 0) scale(1.1); } 50% { transform: translate3d(-10vw, -8vh, 0) scale(0.92); } }
+@keyframes lp-drift-c { 0%, 100% { transform: translate3d(0, 0, 0) scale(0.9); } 50% { transform: translate3d(-6vw, 9vh, 0) scale(1.15); } }
+@keyframes lp-grid { to { transform: translate3d(0, 64px, 0); } }
+@keyframes lp-marquee { to { transform: translate3d(-50%, 0, 0); } }
+@keyframes lp-spin { to { transform: rotate(360deg); } }
+
+.lp-drift-a { animation: lp-drift-a 26s ease-in-out infinite; }
+.lp-drift-b { animation: lp-drift-b 32s ease-in-out infinite; }
+.lp-drift-c { animation: lp-drift-c 38s ease-in-out infinite; }
+.lp-grid-move { animation: lp-grid 6s linear infinite; }
+.lp-marquee { animation: lp-marquee 40s linear infinite; }
+.lp-spin-slow { animation: lp-spin 48s linear infinite; }
+.lp-spin-border { animation: lp-spin 7s linear infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-drift-a, .lp-drift-b, .lp-drift-c, .lp-grid-move, .lp-marquee, .lp-spin-slow, .lp-spin-border { animation: none; }
+}

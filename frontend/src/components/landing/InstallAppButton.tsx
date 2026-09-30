@@ -5,9 +5,9 @@ import { cn } from "@/lib/format";
 import { useLoginModal } from "./LoginModalContext";
 
 const variantClasses = {
-  header: "inline-flex items-center gap-2 rounded-xl border border-pp-border px-3 py-2 text-sm font-semibold text-pp-text-dim transition-colors hover:bg-pp-surface-2 hover:text-pp-text",
-  "header-mobile": "w-full inline-flex items-center justify-center gap-2 rounded-xl border border-pp-border px-4 py-2.5 text-sm font-semibold text-pp-text transition-colors hover:bg-pp-surface-2",
-  hero: "inline-flex items-center gap-2 rounded-xl border border-pp-border px-5 py-2.5 text-sm font-semibold text-pp-text-dim transition-colors hover:bg-pp-surface-2 hover:text-pp-text",
+  header: "inline-flex items-center gap-2 rounded-full border border-white/15 px-3 py-2 text-sm font-semibold text-pp-text-dim transition-colors hover:bg-white/10 hover:text-pp-text",
+  "header-mobile": "w-full inline-flex items-center justify-center gap-2 rounded-full border border-white/15 px-4 py-2.5 text-sm font-semibold text-pp-text transition-colors hover:bg-white/10",
+  hero: "inline-flex items-center gap-2 rounded-full border border-white/15 px-5 py-2.5 text-sm font-semibold text-pp-text-dim transition-colors hover:bg-white/10 hover:text-pp-text",
 };
 
 interface InstallAppButtonProps {
@@ -34,7 +34,7 @@ export function InstallAppButton({ variant = "header", className, iconOnly = fal
       type="button"
       onClick={openLoginModal}
       className={cn(variantClasses[variant], className)}
-      aria-label="Install Penny Pilot — sign in to continue"
+      aria-label="Install Penny Pilot, sign in to continue"
     >
       <Download className="h-4 w-4 shrink-0" aria-hidden="true" />
       {!iconOnly && <span>Install App</span>}

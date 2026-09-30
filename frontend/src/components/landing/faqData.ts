@@ -1,4 +1,4 @@
-// Single source of truth for the landing page FAQ — both the visible
+// Single source of truth for the landing page FAQ: both the visible
 // accordion (FAQ.tsx) and the FAQPage JSON-LD (FAQJsonLd.tsx) render from
 // this exact list, so the structured data can never drift from what a
 // visitor actually sees.
@@ -14,7 +14,7 @@ export const FAQ_ITEMS: FaqItem[] = [
   },
   {
     question: "What can I use Penny Pilot for?",
-    answer: "Use Penny Pilot for everyday expense tracking, income tracking, monthly budgeting, bill reminders, savings goals, and investment tracking — all from a single dashboard.",
+    answer: "Use Penny Pilot for everyday expense tracking, income tracking, monthly budgeting, bill reminders, savings goals, and investment tracking, all from a single dashboard.",
   },
   {
     question: "Can Penny Pilot track income and expenses?",
