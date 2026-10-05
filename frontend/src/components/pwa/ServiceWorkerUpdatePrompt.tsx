@@ -62,18 +62,18 @@ export function ServiceWorkerUpdatePrompt() {
   if (!waitingWorker || dismissed) return null;
 
   return (
-    <div className="fixed inset-x-4 bottom-4 z-[100] mx-auto flex max-w-sm items-center gap-3 rounded-xl border border-black/10 bg-white p-4 shadow-2xl dark:border-white/10 dark:bg-navy-dark sm:inset-x-auto sm:right-4">
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-teal/10">
-        <RefreshCw className="h-4 w-4 text-teal" />
+    <div className="fixed inset-x-4 bottom-4 z-[100] mx-auto flex max-w-sm items-center gap-3 rounded-xl border border-pp-border bg-pp-surface p-4 shadow-2xl dark:bg-pp-surface sm:inset-x-auto sm:right-4">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-pp-accent/10">
+        <RefreshCw className="h-4 w-4 text-pp-accent" />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium text-navy dark:text-white">Update available</p>
-        <p className="text-xs text-navy/50 dark:text-white/50">Refresh to get the latest version of Penny Pilot.</p>
+        <p className="text-sm font-medium text-pp-text">Update available</p>
+        <p className="text-xs text-pp-text-dim">Refresh to get the latest version of Penny Pilot.</p>
       </div>
       <button
         type="button"
         onClick={applyUpdate}
-        className="shrink-0 rounded-lg bg-teal px-3 py-1.5 text-xs font-semibold text-white hover:bg-teal/90"
+        className="shrink-0 rounded-lg bg-pp-accent px-3 py-1.5 text-xs font-semibold text-white hover:bg-pp-accent/90"
       >
         Refresh
       </button>
@@ -81,7 +81,7 @@ export function ServiceWorkerUpdatePrompt() {
         type="button"
         onClick={() => setDismissed(true)}
         aria-label="Dismiss"
-        className="shrink-0 text-navy/40 hover:text-navy dark:text-white/40 dark:hover:text-white"
+        className="shrink-0 text-pp-text-dim hover:text-pp-text/40 dark:hover:text-white"
       >
         <X className="h-4 w-4" />
       </button>

@@ -58,7 +58,7 @@ export function DesktopSearch() {
 
   return (
     <div ref={containerRef} className="relative hidden sm:block">
-      <div className="flex items-center gap-2 rounded-lg bg-black/5 px-3 py-1.5 text-sm text-navy/50 dark:bg-white/5 dark:text-white/40">
+      <div className="flex items-center gap-2 rounded-lg bg-pp-surface-2 px-3 py-1.5 text-sm text-pp-text-dim ">
         <Search className="h-3.5 w-3.5 shrink-0" />
         <input
           type="search"
@@ -66,34 +66,34 @@ export function DesktopSearch() {
           onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
           onFocus={() => setOpen(true)}
           placeholder="Search pages, transactions…"
-          className="w-24 min-w-0 bg-transparent text-sm outline-none text-navy dark:text-white placeholder:text-navy/50 dark:placeholder:text-white/40 lg:w-40"
+          className="w-24 min-w-0 bg-transparent text-sm outline-none text-pp-text placeholder:text-pp-text-dim dark:placeholder:text-white/40 lg:w-40"
           aria-label="Search"
         />
         {query && (
-          <button type="button" onClick={() => { setQuery(""); setResults([]); }} aria-label="Clear search" className="shrink-0 text-navy/40 hover:text-navy dark:text-white/40 dark:hover:text-white">
+          <button type="button" onClick={() => { setQuery(""); setResults([]); }} aria-label="Clear search" className="shrink-0 text-pp-text-dim hover:text-pp-text/40 dark:hover:text-white">
             <X className="h-3.5 w-3.5" />
           </button>
         )}
       </div>
 
       {showPanel && (
-        <div className="absolute right-0 top-full z-40 mt-2 w-72 max-h-96 overflow-y-auto rounded-xl border border-black/10 bg-white py-1 shadow-xl dark:border-white/10 dark:bg-navy-dark">
-          {loading && <p className="px-3 py-2 text-xs text-navy/50 dark:text-white/50">Searching…</p>}
-          {error && <p className="px-3 py-2 text-xs text-red-500">Something went wrong — try again.</p>}
+        <div className="absolute right-0 top-full z-40 mt-2 w-72 max-h-96 overflow-y-auto rounded-xl border border-pp-border bg-pp-surface py-1 shadow-xl ">
+          {loading && <p className="px-3 py-2 text-xs text-pp-text-dim">Searching…</p>}
+          {error && <p className="px-3 py-2 text-xs text-vulcanico">Something went wrong — try again.</p>}
           {!loading && !error && results.length === 0 && (
-            <p className="px-3 py-2 text-xs text-navy/50 dark:text-white/50">No results for &ldquo;{query}&rdquo;.</p>
+            <p className="px-3 py-2 text-xs text-pp-text-dim">No results for &ldquo;{query}&rdquo;.</p>
           )}
           {!loading && results.map((r) => (
             <button
               key={r.id}
               type="button"
               onClick={() => handleSelect(r)}
-              className="flex w-full items-start gap-2.5 px-3 py-2 text-left text-sm text-navy hover:bg-black/5 dark:text-white dark:hover:bg-white/5"
+              className="flex w-full items-start gap-2.5 px-3 py-2 text-left text-sm text-pp-text hover:bg-pp-surface-2"
             >
               <span className="mt-0.5 text-pp-text-dim" aria-hidden="true">{r.kind === "page" ? <ArrowRight size={14} /> : <Receipt size={14} />}</span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-medium">{r.title}</span>
-                {r.subtitle && <span className="block truncate text-xs text-navy/50 dark:text-white/50">{r.subtitle}</span>}
+                {r.subtitle && <span className="block truncate text-xs text-pp-text-dim">{r.subtitle}</span>}
               </span>
             </button>
           ))}

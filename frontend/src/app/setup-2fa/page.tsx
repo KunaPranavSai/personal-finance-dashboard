@@ -89,22 +89,22 @@ function SetupTwoFactorContent() {
 
   if (isLoading || !isAuthenticated || (twoFactorEnabled && step !== "backup")) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-900 via-navy to-slate-800">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-teal/30 border-t-teal" />
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-pp-text-dim via-navy to-pp-text-dim">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-pp-accent/30 border-t-teal" />
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-900 via-[#0a1628] to-slate-900 p-4">
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-pp-text-dim via-[#0a1628] to-pp-text-dim p-4">
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 -right-40 h-96 w-96 rounded-full bg-teal/5 blur-3xl" />
-        <div className="absolute -bottom-40 -left-40 h-96 w-96 rounded-full bg-blue-500/5 blur-3xl" />
+        <div className="absolute -top-40 -right-40 h-96 w-96 rounded-full bg-pp-accent/5 blur-3xl" />
+        <div className="absolute -bottom-40 -left-40 h-96 w-96 rounded-full bg-pp-accent/5 blur-3xl" />
       </div>
 
       <div className="relative w-full max-w-md">
         <div className="mb-8 flex flex-col items-center gap-3 text-center">
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-teal to-teal/70 shadow-lg shadow-teal/25">
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-pp-accent to-pp-accent/70 shadow-lg shadow-pp-accent/25">
             <ShieldCheck className="h-8 w-8 text-white" />
           </div>
           <div>
@@ -134,7 +134,7 @@ function SetupTwoFactorContent() {
                   aria-label="Copy secret key"
                   className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-white/50 hover:bg-white/10 hover:text-white"
                 >
-                  {secretCopied ? <Check className="h-3.5 w-3.5 text-teal" /> : <Copy className="h-3.5 w-3.5" />}
+                  {secretCopied ? <Check className="h-3.5 w-3.5 text-pp-accent" /> : <Copy className="h-3.5 w-3.5" />}
                 </button>
               </div>
               <div>
@@ -151,7 +151,7 @@ function SetupTwoFactorContent() {
                   placeholder="123456"
                   required
                   autoFocus
-                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-center text-lg tracking-widest text-white placeholder:text-white/30 focus:border-teal/50 focus:outline-none focus:ring-2 focus:ring-teal/20 transition-all"
+                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-center text-lg tracking-widest text-white placeholder:text-white/30 focus:border-pp-accent/50 focus:outline-none focus:ring-2 focus:ring-pp-accent/20 transition-all"
                 />
               </div>
 
@@ -160,7 +160,7 @@ function SetupTwoFactorContent() {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1, x: [0, -8, 8, -6, 6, -2, 2, 0] }}
                   transition={{ duration: 0.4 }}
-                  className="flex items-center gap-2 rounded-lg bg-red-500/10 border border-red-500/20 px-3 py-2 text-sm text-red-400"
+                  className="flex items-center gap-2 rounded-lg bg-vulcanico/10 border border-vulcanico/20 px-3 py-2 text-sm text-vulcanico"
                 >
                   <Shield className="h-4 w-4 shrink-0" />
                   {error}
@@ -170,7 +170,7 @@ function SetupTwoFactorContent() {
               <button
                 type="submit"
                 disabled={busy || !code}
-                className="w-full rounded-xl bg-gradient-to-r from-teal to-teal/80 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-teal/25 transition-all hover:from-teal/90 hover:to-teal/70 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="w-full rounded-xl bg-gradient-to-r from-pp-accent to-pp-accent/80 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-pp-accent/25 transition-all hover:from-pp-accent/90 hover:to-pp-accent/70 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {busy ? (
                   <>
@@ -198,9 +198,9 @@ function SetupTwoFactorContent() {
               <motion.div
                 initial={{ opacity: 0, scale: 0.7 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-teal/10"
+                className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-pp-accent/10"
               >
-                <CheckCircle className="h-7 w-7 text-teal" />
+                <CheckCircle className="h-7 w-7 text-pp-accent" />
               </motion.div>
               <p className="text-center text-sm text-white/70">
                 Two-factor authentication is enabled. Save these one-time backup codes somewhere safe — each can be used once if you lose access to your authenticator app. They won&apos;t be shown again.
@@ -218,7 +218,7 @@ function SetupTwoFactorContent() {
               <button
                 type="button"
                 onClick={goToDashboard}
-                className="w-full rounded-xl bg-gradient-to-r from-teal to-teal/80 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-teal/25 transition-all hover:from-teal/90 hover:to-teal/70"
+                className="w-full rounded-xl bg-gradient-to-r from-pp-accent to-pp-accent/80 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-pp-accent/25 transition-all hover:from-pp-accent/90 hover:to-pp-accent/70"
               >
                 Continue to {user?.role === "USER" ? "Dashboard" : "Admin Dashboard"}
               </button>
@@ -236,8 +236,8 @@ export default function SetupTwoFactorPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-900 via-navy to-slate-800">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-teal/30 border-t-teal" />
+        <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-pp-text-dim via-navy to-pp-text-dim">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-pp-accent/30 border-t-teal" />
         </div>
       }
     >

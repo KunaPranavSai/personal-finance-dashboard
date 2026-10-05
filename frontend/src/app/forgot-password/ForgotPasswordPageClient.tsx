@@ -10,10 +10,10 @@ import { PasswordStrengthMeter } from "@/components/ui/PasswordStrengthMeter";
 import { KeyRound, ArrowLeft, Mail, CheckCircle, AlertCircle, ShieldQuestion, Lock, ShieldCheck, ChevronRight } from "lucide-react";
 
 const inputBase =
-  "w-full rounded-xl border border-white/10 bg-white/5 py-3 pl-10 pr-4 text-sm text-white placeholder:text-white/30 outline-none transition-all focus:border-purple-400/60 focus:ring-2 focus:ring-purple-400/20 focus:shadow-[0_0_16px_rgba(168,85,247,0.25)]";
+  "w-full rounded-xl border border-white/10 bg-white/5 py-3 pl-10 pr-4 text-sm text-white placeholder:text-white/30 outline-none transition-all focus:border-pp-accent/60 focus:ring-2 focus:ring-pp-accent/20 focus:shadow-[0_0_16px_rgba(33,241,168,0.25)]";
 
 const primaryButton =
-  "flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-purple-500/25 transition-all hover:shadow-purple-500/40 disabled:opacity-50 disabled:cursor-not-allowed";
+  "flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-pp-accent to-pp-accent px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-pp-accent/25 transition-all hover:shadow-pp-accent/40 disabled:opacity-50 disabled:cursor-not-allowed";
 
 function ErrorMessage({ children, tone = "error" }: { children: React.ReactNode; tone?: "error" | "warning" }) {
   return (
@@ -25,7 +25,7 @@ function ErrorMessage({ children, tone = "error" }: { children: React.ReactNode;
         exit={{ opacity: 0, height: 0 }}
         transition={{ duration: 0.35 }}
         className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${
-          tone === "warning" ? "border-amber-500/20 bg-amber-500/10 text-amber-200" : "border-red-500/20 bg-red-500/10 text-red-300"
+          tone === "warning" ? "border-turmeric/20 bg-turmeric/10 text-turmeric/20" : "border-vulcanico/20 bg-vulcanico/10 text-vulcanico/40"
         }`}
       >
         <AlertCircle className="h-4 w-4 shrink-0" />
@@ -276,10 +276,10 @@ export function ForgotPasswordPageClient() {
                 type="button"
                 onClick={() => handleChooseMethod(method)}
                 disabled={pendingMethod !== null}
-                className="flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-4 text-left transition-all hover:border-purple-400/40 hover:bg-white/[0.08] disabled:opacity-50"
+                className="flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-4 text-left transition-all hover:border-pp-accent/40 hover:bg-white/[0.08] disabled:opacity-50"
               >
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white/10">
-                  <Icon className="h-5 w-5 text-purple-300" />
+                  <Icon className="h-5 w-5 text-pp-accent/40" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold text-white">{title}</p>
@@ -316,7 +316,7 @@ export function ForgotPasswordPageClient() {
                 placeholder="123456"
                 required
                 autoFocus
-                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-center text-lg tracking-widest text-white placeholder:text-white/30 outline-none transition-all focus:border-purple-400/60 focus:ring-2 focus:ring-purple-400/20 focus:shadow-[0_0_16px_rgba(168,85,247,0.25)]"
+                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-center text-lg tracking-widest text-white placeholder:text-white/30 outline-none transition-all focus:border-pp-accent/60 focus:ring-2 focus:ring-pp-accent/20 focus:shadow-[0_0_16px_rgba(33,241,168,0.25)]"
               />
             </div>
 
@@ -361,7 +361,7 @@ export function ForgotPasswordPageClient() {
                 placeholder="123456"
                 required
                 autoFocus
-                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-center text-lg tracking-widest text-white placeholder:text-white/30 outline-none transition-all focus:border-purple-400/60 focus:ring-2 focus:ring-purple-400/20 focus:shadow-[0_0_16px_rgba(168,85,247,0.25)]"
+                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-center text-lg tracking-widest text-white placeholder:text-white/30 outline-none transition-all focus:border-pp-accent/60 focus:ring-2 focus:ring-pp-accent/20 focus:shadow-[0_0_16px_rgba(33,241,168,0.25)]"
               />
             </div>
 
@@ -474,11 +474,11 @@ export function ForgotPasswordPageClient() {
               className="relative mx-auto flex h-14 w-14 items-center justify-center"
             >
               <motion.div
-                className="absolute inset-0 rounded-full bg-emerald-400/30 blur-xl"
+                className="absolute inset-0 rounded-full bg-mantis/30 blur-xl"
                 animate={{ scale: [1, 1.3, 1], opacity: [0.6, 0.2, 0.6] }}
                 transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
               />
-              <div className="relative flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500 shadow-[0_0_24px_rgba(16,185,129,0.5)]">
+              <div className="relative flex h-14 w-14 items-center justify-center rounded-full bg-mantis shadow-[0_0_24px_rgba(16,185,129,0.5)]">
                 <CheckCircle className="h-7 w-7 text-white" />
               </div>
             </motion.div>

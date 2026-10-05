@@ -147,7 +147,7 @@ export function MobileStorageView() {
             <button type="button" className="ppm-list-item" onClick={() => setSwitchConfirmOpen(true)}>
               <div className="ppm-ic" aria-hidden="true"><Link2 size={18} /></div>
               <div className="ppm-info"><div className="ppm-name">Switch to Google Drive</div></div>
-              <span className="ppm-chev">›</span>
+              <span className="ppm-chev" aria-hidden="true">›</span>
             </button>
           </div>
         </>
@@ -171,17 +171,17 @@ export function MobileStorageView() {
             <button type="button" className="ppm-list-item" onClick={() => verifyMutation.mutate()} disabled={verifyMutation.isPending}>
               <div className="ppm-ic" aria-hidden="true"><Shield size={18} /></div>
               <div className="ppm-info"><div className="ppm-name">{verifyMutation.isPending ? "Checking…" : "Verify Data"}</div></div>
-              <span className="ppm-chev">›</span>
+              <span className="ppm-chev" aria-hidden="true">›</span>
             </button>
             <button type="button" className="ppm-list-item" onClick={() => setRestoreOpen(true)}>
               <div className="ppm-ic" aria-hidden="true"><Clock size={18} /></div>
               <div className="ppm-info"><div className="ppm-name">Restore Data</div></div>
-              <span className="ppm-chev">›</span>
+              <span className="ppm-chev" aria-hidden="true">›</span>
             </button>
             <button type="button" className="ppm-list-item" onClick={() => setDisconnectConfirmOpen(true)}>
               <div className="ppm-ic" aria-hidden="true"><Unlock size={18} /></div>
               <div className="ppm-info"><div className="ppm-name" style={{ color: "var(--ppm-critical)" }}>Disconnect</div></div>
-              <span className="ppm-chev">›</span>
+              <span className="ppm-chev" aria-hidden="true">›</span>
             </button>
           </div>
 

@@ -89,7 +89,7 @@ export function CategoryManagerCard() {
             <button type="button" className={newType === "INCOME" ? "on" : ""} onClick={() => setNewType("INCOME")}>Income</button>
           </div>
           <div className="ppm-field">
-            <label htmlFor="ppm-cat-name">Name<span className="req">*</span></label>
+            <label htmlFor="ppm-cat-name">Name</label>
             <input id="ppm-cat-name" ref={categoryNameRef} value={newName} maxLength={50} onChange={(e) => setNewName(e.target.value)} />
           </div>
           {createCategory.isError && <div className="err" style={{ marginBottom: 10 }}>{(createCategory.error as Error)?.message}</div>}
@@ -103,7 +103,7 @@ export function CategoryManagerCard() {
       <MobileSheet open={Boolean(subcategoryTarget)} onClose={() => setSubcategoryTarget(null)} title={`Add subcategory to ${subcategoryTarget?.name ?? ""}`}>
         <form onSubmit={(e: FormEvent) => { e.preventDefault(); if (subcategoryTarget && subName.trim()) createSubcategory.mutate({ categoryId: subcategoryTarget.id, name: subName.trim() }); }}>
           <div className="ppm-field">
-            <label htmlFor="ppm-subcat-name">Name<span className="req">*</span></label>
+            <label htmlFor="ppm-subcat-name">Name</label>
             <input id="ppm-subcat-name" ref={subNameRef} value={subName} maxLength={50} onChange={(e) => setSubName(e.target.value)} />
           </div>
           {createSubcategory.isError && <div className="err" style={{ marginBottom: 10 }}>{(createSubcategory.error as Error)?.message}</div>}

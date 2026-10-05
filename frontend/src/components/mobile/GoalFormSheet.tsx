@@ -101,21 +101,21 @@ export function GoalFormSheet({ open, onClose, editing }: GoalFormSheetProps) {
     <MobileSheet open={open} onClose={handleClose} title={isEditing ? "Edit Goal" : "Add Goal"}>
       <form onSubmit={handleSubmit} noValidate>
         <div className="ppm-field">
-          <label htmlFor="ppm-goal-name">Name<span className="req">*</span></label>
-          <input id="ppm-goal-name" value={name} maxLength={100} placeholder="e.g. Emergency Fund" onChange={(e) => setName(e.target.value)} />
+          <label htmlFor="ppm-goal-name">Name</label>
+          <input id="ppm-goal-name" value={name} maxLength={100} placeholder="Name required" onChange={(e) => setName(e.target.value)} />
           {errors.name && <div className="err">{errors.name}</div>}
         </div>
 
         <div className="ppm-field">
-          <label htmlFor="ppm-goal-category">Category<span className="req">*</span></label>
+          <label htmlFor="ppm-goal-category">Category</label>
           <select id="ppm-goal-category" value={category} onChange={(e) => setCategory(e.target.value)}>
             {GOAL_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
 
         <div className="ppm-field">
-          <label htmlFor="ppm-goal-target">Target Amount (₹)<span className="req">*</span></label>
-          <input id="ppm-goal-target" inputMode="decimal" placeholder="0.00" value={targetAmount} onChange={(e) => setTargetAmount(e.target.value)} />
+          <label htmlFor="ppm-goal-target">Target Amount (₹)</label>
+          <input id="ppm-goal-target" inputMode="decimal" placeholder="Target amount required" value={targetAmount} onChange={(e) => setTargetAmount(e.target.value)} />
           {errors.targetAmount && <div className="err">{errors.targetAmount}</div>}
         </div>
 

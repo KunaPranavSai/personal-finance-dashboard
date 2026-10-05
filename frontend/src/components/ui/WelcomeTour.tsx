@@ -40,7 +40,7 @@ export function WelcomeTour({ isOpen, onClose }: { isOpen: boolean; onClose: () 
           exit={{ opacity: 0 }}
         >
           <motion.div
-            className="relative w-full max-w-md rounded-2xl bg-white p-8 shadow-2xl dark:bg-navy-dark"
+            className="relative w-full max-w-md rounded-2xl bg-white p-8 shadow-2xl dark:bg-pp-surface"
             initial={{ opacity: 0, scale: 0.95, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
@@ -48,7 +48,7 @@ export function WelcomeTour({ isOpen, onClose }: { isOpen: boolean; onClose: () 
           >
             <button
               onClick={handleClose}
-              className="absolute right-4 top-4 rounded-lg p-1.5 text-navy/40 hover:bg-black/5 dark:text-white/40 dark:hover:bg-white/10"
+              className="absolute right-4 top-4 rounded-lg p-1.5 text-pp-text-dim hover:bg-pp-surface-2 dark:hover:bg-white/10"
               aria-label="Skip tour"
             >
               <X className="h-4 w-4" />
@@ -56,18 +56,18 @@ export function WelcomeTour({ isOpen, onClose }: { isOpen: boolean; onClose: () 
 
             {isFirst && (
               <div className="mb-6 text-center">
-                <p className="text-xl font-bold text-navy dark:text-white">Welcome to Penny Pilot</p>
-                <p className="mt-1 text-sm text-navy/50 dark:text-white/50">Here&apos;s a quick look at what you can do.</p>
+                <p className="text-xl font-bold text-pp-text">Welcome to Penny Pilot</p>
+                <p className="mt-1 text-sm text-pp-text-dim">Here&apos;s a quick look at what you can do.</p>
               </div>
             )}
 
             <div className="flex flex-col items-center gap-4 text-center">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-teal/10">
-                <slide.icon className="h-8 w-8 text-teal" />
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-pp-accent/10">
+                <slide.icon className="h-8 w-8 text-pp-accent" />
               </div>
               <div>
-                <p className="text-lg font-semibold text-navy dark:text-white">{slide.title}</p>
-                <p className="mt-2 text-sm text-navy/60 dark:text-white/60">{slide.body}</p>
+                <p className="text-lg font-semibold text-pp-text">{slide.title}</p>
+                <p className="mt-2 text-sm text-pp-text-dim">{slide.body}</p>
               </div>
             </div>
 
@@ -75,7 +75,7 @@ export function WelcomeTour({ isOpen, onClose }: { isOpen: boolean; onClose: () 
               {SLIDES.map((_, i) => (
                 <span
                   key={i}
-                  className={`h-1.5 rounded-full transition-all ${i === step ? "w-5 bg-teal" : "w-1.5 bg-black/10 dark:bg-white/15"}`}
+                  className={`h-1.5 rounded-full transition-all ${i === step ? "w-5 bg-pp-accent" : "w-1.5 bg-black/10 dark:bg-white/15"}`}
                 />
               ))}
             </div>
@@ -102,7 +102,7 @@ export function WelcomeTour({ isOpen, onClose }: { isOpen: boolean; onClose: () 
             {!isLast && (
               <button
                 onClick={handleClose}
-                className="mt-4 w-full text-center text-xs text-navy/40 hover:text-navy/60 dark:text-white/40 dark:hover:text-white/60"
+                className="mt-4 w-full text-center text-xs text-pp-text-dim hover:text-pp-text-dim dark:hover:text-white/60"
               >
                 Skip for now
               </button>

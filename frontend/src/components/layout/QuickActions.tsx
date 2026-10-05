@@ -12,11 +12,11 @@ import { useIsMobile } from "@/lib/DeviceContext";
 import { cn } from "@/lib/format";
 
 const ACTIONS = [
-  { key: "expense", label: "Expense", icon: TrendingDown, color: "bg-red-500" },
-  { key: "income", label: "Income", icon: TrendingUp, color: "bg-emerald-500" },
-  { key: "budget", label: "Budget", icon: Wallet, color: "bg-amber-500" },
-  { key: "investment", label: "Investment", icon: LineChart, color: "bg-teal" },
-  { key: "goals", label: "Goals", icon: Target, color: "bg-indigo-500" },
+  { key: "expense", label: "Expense", icon: TrendingDown, color: "bg-vulcanico" },
+  { key: "income", label: "Income", icon: TrendingUp, color: "bg-mantis" },
+  { key: "budget", label: "Budget", icon: Wallet, color: "bg-turmeric" },
+  { key: "investment", label: "Investment", icon: LineChart, color: "bg-pp-accent" },
+  { key: "goals", label: "Goals", icon: Target, color: "bg-pp-accent" },
 ] as const;
 
 export function QuickActions() {
@@ -75,7 +75,7 @@ export function QuickActions() {
                 exit={{ opacity: 0, y: 10, scale: 0.9 }}
                 transition={{ delay: i * 0.03 }}
                 onClick={() => handleAction(action.key)}
-                className="flex items-center gap-2 rounded-full bg-white py-2 pl-3 pr-4 text-sm font-semibold text-navy shadow-lg dark:bg-navy-dark dark:text-white"
+                className="flex items-center gap-2 rounded-full bg-pp-surface py-2 pl-3 pr-4 text-sm font-semibold text-pp-text shadow-lg "
               >
                 <span className={cn("flex h-8 w-8 items-center justify-center rounded-full text-white", action.color)}>
                   <action.icon className="h-4 w-4" />
@@ -87,7 +87,7 @@ export function QuickActions() {
         <button
           onClick={() => setFabOpen((v) => !v)}
           aria-label={fabOpen ? "Close quick actions" : "Open quick actions"}
-          className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-teal to-indigo-500 text-white shadow-xl shadow-indigo-500/25 backdrop-blur-md transition-transform active:scale-95"
+          className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-teal to-pp-accent text-white shadow-xl shadow-pp-accent/25 backdrop-blur-md transition-transform active:scale-95"
         >
           <motion.span animate={{ rotate: fabOpen ? 135 : 0 }} transition={{ duration: 0.2 }}>
             {fabOpen ? <X className="h-6 w-6" /> : <Plus className="h-6 w-6" />}
@@ -115,7 +115,7 @@ export function QuickActions() {
           onClick={() => setMenuOpen((v) => !v)}
           aria-label={menuOpen ? "Close quick actions" : "Open quick actions"}
           aria-expanded={menuOpen}
-          className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-teal to-indigo-500 text-white shadow-md shadow-indigo-500/20 transition-transform hover:brightness-110 active:scale-95"
+          className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-teal to-pp-accent text-white shadow-md shadow-pp-accent/20 transition-transform hover:brightness-110 active:scale-95"
         >
           <motion.span animate={{ rotate: menuOpen ? 135 : 0 }} transition={{ duration: 0.2 }}>
             <Plus className="h-4.5 w-4.5" />
@@ -128,13 +128,13 @@ export function QuickActions() {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -6, scale: 0.96 }}
               transition={{ duration: 0.15 }}
-              className="absolute right-0 top-full z-40 mt-2 w-44 overflow-hidden rounded-xl border border-black/10 bg-white py-1 shadow-xl dark:border-white/10 dark:bg-navy-dark"
+              className="absolute right-0 top-full z-40 mt-2 w-44 overflow-hidden rounded-xl border border-pp-border bg-pp-surface py-1 shadow-xl "
             >
               {ACTIONS.map((action) => (
                 <button
                   key={action.key}
                   onClick={() => handleAction(action.key)}
-                  className="flex w-full items-center gap-2.5 px-3 py-2 text-sm font-medium text-navy transition-colors hover:bg-black/5 dark:text-white dark:hover:bg-white/5"
+                  className="flex w-full items-center gap-2.5 px-3 py-2 text-sm font-medium text-pp-text transition-colors hover:bg-pp-surface-2"
                 >
                   <span className={cn("flex h-7 w-7 items-center justify-center rounded-full text-white", action.color)}>
                     <action.icon className="h-3.5 w-3.5" />

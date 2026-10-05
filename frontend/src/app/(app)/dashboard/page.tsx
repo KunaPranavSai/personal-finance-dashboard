@@ -4,9 +4,10 @@ import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { Topbar } from "@/components/layout/Topbar";
-import { DashboardHero } from "@/components/dashboard/DashboardHero";
+import { Topbar } from "@/components/layout/AppTopbar";
 import { MonthlyAuditBanner } from "@/components/dashboard/MonthlyAuditBanner";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/PpCard";
+import { Badge } from "@/components/ui/PpBadge";
 import { KpiCard } from "@/components/kpi/KpiCard";
 import { KpiExpandedCard, KpiDetailData } from "@/components/kpi/KpiExpandedCard";
 import { IncomeExpenseChart } from "@/components/charts/IncomeExpenseChart";
@@ -25,16 +26,36 @@ import { api } from "@/lib/api";
 import { getStorageMode, getStorageProvider } from "@/lib/storage";
 import { getLocalDashboardSummary, getLocalIncomeExpenseTrend, getLocalCategoryBreakdown } from "@/lib/services/dashboardService";
 import { listLocalTransactions } from "@/lib/services/transactionsService";
-import { formatCurrency, formatCompactCurrency, formatPercent, formatDateIN } from "@/lib/format";
+import { formatCurrency, formatCompactCurrency, formatPercent, formatDateIN, cn } from "@/lib/format";
 import { useSettingsContext } from "@/lib/SettingsContext";
 import { useProfile } from "@/lib/reference";
 import { getHomeGreeting } from "@/lib/greeting";
 import { DashboardSummary, Transaction, PaginatedResponse, Investment, Goal } from "@/types";
 import {
   Wallet, TrendingDown, PiggyBank, Activity, Landmark, Gauge,
-  HeartPulse, ShieldCheck, TrendingUp, ArrowLeftRight, Receipt, BarChart3,
+  HeartPulse, ShieldCheck, TrendingUp, ArrowLeftRight, Receipt, BarChart3, Sparkles,
   Target, UtensilsCrossed, Car, Home, Film, ShoppingCart,
 } from "lucide-react";
+
+// Bridges the isolated mobile-scoped --ppm-* tokens (see src/styles/mobile.css,
+// scoped to .pp-mobile) to the app-wide --pp-* tokens (globals.css) so shared
+// presentational pieces like MiniFinancialChart/InsightCarousel — built for
+// the mobile tree — render correctly outside it too. Values are identical in
+// both themes by design; this only avoids duplicating the components.
+const PPM_BRIDGE_STYLE = {
+  "--ppm-bg": "var(--pp-bg)",
+  "--ppm-surface": "var(--pp-surface)",
+  "--ppm-accent": "var(--pp-accent)",
+  "--ppm-text": "var(--pp-text)",
+  "--ppm-text-dim": "var(--pp-text-dim)",
+  "--ppm-border": "var(--pp-border)",
+  "--ppm-positive": "var(--pp-positive)",
+  "--ppm-warning": "var(--pp-warning)",
+  "--ppm-critical": "var(--pp-critical)",
+  "--ppm-turmeric": "#FFBE0B",
+  "--ppm-mantis": "#59C749",
+  "--ppm-vulcanico": "#FF4103",
+} as React.CSSProperties;
 
 const CATEGORY_ICONS = [BarChart3, Receipt, Target, UtensilsCrossed, Car, Home, Film, ShoppingCart];
 
@@ -48,7 +69,6 @@ function DashboardContent() {
   const [isWelcome, setIsWelcome] = useState(false);
   const [selectedKpi, setSelectedKpi] = useState<KpiDetailData | null>(null);
   const mainRef = useRef<HTMLElement>(null);
-  const heroRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (searchParams.get("welcome") === "1") {
@@ -78,7 +98,6 @@ function DashboardContent() {
       getStorageMode() === "local"
         ? listLocalTransactions({ page: 1, pageSize: 3 })
         : api.get<PaginatedResponse<Transaction>>("/api/transactions?page=1&pageSize=3&sortBy=date&sortDir=desc"),
-    enabled: isMobile,
   });
 
   const { data: trend } = useQuery({
@@ -101,15 +120,14 @@ function DashboardContent() {
 
   // Real Investments/Goals data for the Annual Cash Flow allocation bar —
   // same list endpoints/local collections the Investments and Goals pages
-  // already use, just read-only here. Only fetched on mobile (this data
-  // only feeds the mobile Home layout).
+  // already use, just read-only here. Feeds both the mobile and desktop
+  // Home layouts (both render the same Annual Cash Flow card).
   const { data: investmentsData } = useQuery({
     queryKey: ["investments"],
     queryFn: () =>
       getStorageMode() === "local"
         ? getStorageProvider().list<Investment & { createdAt: string; updatedAt: string; [k: string]: unknown }>("investments").then((items) => ({ items }))
         : api.get<{ items: Investment[] }>("/api/investments"),
-    enabled: isMobile,
   });
   const { data: goalsData } = useQuery({
     queryKey: ["goals"],
@@ -117,7 +135,6 @@ function DashboardContent() {
       getStorageMode() === "local"
         ? getStorageProvider().list<Goal & { createdAt: string; updatedAt: string; [k: string]: unknown }>("goals").then((items) => ({ items }))
         : api.get<{ items: Goal[] }>("/api/goals"),
-    enabled: isMobile,
   });
 
   const trendByMonth = new Map<string, { month: string; income: number; expense: number }>();
@@ -128,18 +145,6 @@ function DashboardContent() {
     trendByMonth.set(row.month, entry);
   });
   const trendData = Array.from(trendByMonth.values()).sort((a, b) => a.month.localeCompare(b.month));
-
-  // Flight-path graph trajectory: a running cumulative balance (income minus
-  // expense per month) walked back from the current net worth, so the line
-  // ends exactly at today's figure while still shaping its climbs/dips from
-  // real monthly performance.
-  const netWorthTrend = (() => {
-    if (trendData.length < 2 || !summary?.kpis) return undefined;
-    const monthlyNet = trendData.map((m) => m.income - m.expense);
-    const totalNet = monthlyNet.reduce((a, b) => a + b, 0);
-    let running = summary.kpis.netWorth - totalNet;
-    return monthlyNet.map((n) => (running += n));
-  })();
 
   const hasError = !summary && !isLoading;
   // AuthContext's user.name is the primary source (kept live via
@@ -154,25 +159,12 @@ function DashboardContent() {
   // lib/greeting.ts for the deterministic seeding.
   const homeGreeting = useMemo(() => getHomeGreeting(firstName), [firstName]);
 
-  if (isMobile) {
-    if (isLoading) {
-      return (
-        <MobileShell title="Penny Pilot">
-          <div className="ppm-stack">
-            <LoadingCard lines={2} />
-            <LoadingCard />
-            <LoadingCard />
-          </div>
-        </MobileShell>
-      );
-    }
-    if (summaryIsError || !summary) {
-      return (
-        <MobileShell title="Penny Pilot">
-          <ErrorCard onRetry={() => refetchSummary()} />
-        </MobileShell>
-      );
-    }
+  // Shared derived view-model for the Home layout's four real-data cards
+  // (Net Worth+Intelligence, Monthly/Annual Cash Flow, Category Breakdown) —
+  // computed once here so mobile and desktop render the exact same numbers
+  // from the exact same source, never two parallel calculations.
+  const home = (() => {
+    if (!summary) return null;
     const k = summary.kpis;
     const incomeChange = k.changeVsPrevMonth?.income ?? 0;
     const netWorthUp = (k.netWorth ?? 0) >= 0;
@@ -246,6 +238,34 @@ function DashboardContent() {
     ]
       .filter((seg) => seg.value > 0)
       .map((seg) => ({ ...seg, pct: (seg.value / allocationBase) * 100 }));
+
+    return {
+      k, incomeChange, netWorthUp, monthNet, monthStatus, incomePct, expensePct,
+      totalBreakdown, currentYear, annual, annualNet, annualIncomePct, annualExpensePct,
+      insights, allocationSegments,
+    };
+  })();
+
+  if (isMobile) {
+    if (isLoading) {
+      return (
+        <MobileShell title="Penny Pilot">
+          <div className="ppm-stack">
+            <LoadingCard lines={2} />
+            <LoadingCard />
+            <LoadingCard />
+          </div>
+        </MobileShell>
+      );
+    }
+    if (summaryIsError || !summary || !home) {
+      return (
+        <MobileShell title="Penny Pilot">
+          <ErrorCard onRetry={() => refetchSummary()} />
+        </MobileShell>
+      );
+    }
+    const { k, incomeChange, netWorthUp, monthNet, monthStatus, incomePct, expensePct, totalBreakdown, currentYear, annual, annualNet, annualIncomePct, annualExpensePct, insights, allocationSegments } = home;
 
     return (
       <MobileShell title="Penny Pilot" subtitle="Smart Money Management">
@@ -375,32 +395,190 @@ function DashboardContent() {
   return (
     <>
       <Topbar title="Dashboard" />
-      <main ref={mainRef} className="flex-1 overflow-y-auto p-4 lg:p-6">
+      <main ref={mainRef} className="flex-1 overflow-y-auto p-4 lg:p-6 2xl:px-10">
         <MonthlyAuditBanner />
-        <DashboardHero
-          firstName={firstName}
-          netWorthLabel={f(summary?.kpis?.netWorth ?? 0)}
-          incomeLabel={f(summary?.kpis?.totalIncome ?? 0)}
-          expenseLabel={f(summary?.kpis?.totalExpenses ?? 0)}
-          netWorthTrend={netWorthTrend}
-          summary={summary}
-          scrollContainerRef={mainRef}
-          heroRef={heroRef}
-        />
+
+        {/* Compact page header — the same greeting the mobile Home screen
+            shows, laid out for a wide screen instead of a full-viewport
+            animated hero. */}
+        <div className="mb-6">
+          <h1 className="text-xl font-bold text-pp-text sm:text-2xl">{homeGreeting}</h1>
+          <p className="text-sm text-pp-text-dim">Here&apos;s how your finances are looking today.</p>
+        </div>
+
         {isLoading ? (
-          <div className="grid grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
-            {Array.from({ length: 12 }).map((_, i) => (
-              <div key={i} className="h-28 animate-pulse rounded-xl2 bg-black/5 dark:bg-white/5" />
-            ))}
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+              <div className="h-44 animate-pulse rounded-xl2 bg-pp-surface-2" />
+              <div className="h-44 animate-pulse rounded-xl2 bg-pp-surface-2" />
+            </div>
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+              <div className="h-52 animate-pulse rounded-xl2 bg-pp-surface-2" />
+              <div className="h-52 animate-pulse rounded-xl2 bg-pp-surface-2" />
+            </div>
           </div>
-        ) : hasError ? (
+        ) : hasError || !home ? (
           <div className="flex flex-col items-center justify-center gap-3 py-20 text-center">
-            <p className="text-sm font-semibold text-navy dark:text-white">Could not load dashboard</p>
-            <p className="text-sm text-navy/50 dark:text-white/50">Try refreshing the page.</p>
+            <p className="text-sm font-semibold text-pp-text">Could not load dashboard</p>
+            <p className="text-sm text-pp-text-dim">Try refreshing the page.</p>
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+            {/* Row 1: Net Worth + Financial Intelligence — the same two
+                pieces mobile stacks into one card, given room to sit
+                side by side. */}
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+              <Card>
+                <CardContent className="pt-5" style={PPM_BRIDGE_STYLE}>
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-pp-text-dim">Total Net Worth</p>
+                      <p className="mt-1 text-3xl font-extrabold text-pp-text">{f(home.k.netWorth)}</p>
+                      <span className={cn("mt-2 inline-flex items-center gap-1 text-xs font-semibold", home.netWorthUp ? "text-mantis" : "text-vulcanico")}>
+                        {home.netWorthUp ? "+" : ""}{formatPercent(home.incomeChange)} {home.netWorthUp ? "↗" : "↘"}
+                      </span>
+                    </div>
+                    <MiniFinancialChart income={home.k.currentMonth.income} expense={home.k.currentMonth.expense} savings={home.monthNet} format={f} formatCompact={fCompact} />
+                  </div>
+                  <div className="mt-4 flex flex-wrap gap-2 text-xs">
+                    <span className="inline-flex items-center gap-1 rounded-full border border-mantis/30 bg-mantis/10 px-2.5 py-1 font-semibold text-mantis">
+                      Income: {f(summary?.kpis?.totalIncome ?? 0)}
+                    </span>
+                    <span className="inline-flex items-center gap-1 rounded-full border border-vulcanico/30 bg-vulcanico/10 px-2.5 py-1 font-semibold text-vulcanico">
+                      Expenses: {f(summary?.kpis?.totalExpenses ?? 0)}
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-pp-accent" />
+                  <CardTitle>Financial Intelligence</CardTitle>
+                </CardHeader>
+                <CardContent style={PPM_BRIDGE_STYLE}>
+                  <InsightCarousel insights={home.insights} />
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Row 2: Monthly + Annual Cash Flow */}
+            <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <CardTitle>Monthly Cash Flow</CardTitle>
+                  <Badge tone={home.monthStatus.tone === "critical" ? "red" : home.monthStatus.tone === "positive" ? "green" : "gray"}>{home.monthStatus.label}</Badge>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="font-medium text-mantis">Income {f(home.k.currentMonth.income)}</span>
+                    <span className="font-medium text-vulcanico">Expenses {f(home.k.currentMonth.expense)}</span>
+                  </div>
+                  <div className="mt-2 flex h-2 overflow-hidden rounded-full bg-pp-surface-2">
+                    <div className="h-full bg-mantis" style={{ width: `${home.incomePct}%` }} />
+                    <div className="h-full bg-turmeric" style={{ width: `${home.expensePct}%` }} />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader><CardTitle>Annual Cash Flow · {home.currentYear}</CardTitle></CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="font-medium text-mantis">Income {f(home.annual.income)}</span>
+                    <span className="font-medium text-vulcanico">Expenses {f(home.annual.expense)}</span>
+                  </div>
+                  <div className="mt-2 flex h-2 overflow-hidden rounded-full bg-pp-surface-2">
+                    {home.allocationSegments.length > 0 ? (
+                      home.allocationSegments.map((seg) => (
+                        <div key={seg.label} className="h-full" style={{ width: `${seg.pct}%`, background: seg.color }} />
+                      ))
+                    ) : (
+                      <>
+                        <div className="h-full bg-mantis" style={{ width: `${home.annualIncomePct}%` }} />
+                        <div className="h-full bg-turmeric" style={{ width: `${home.annualExpensePct}%` }} />
+                      </>
+                    )}
+                  </div>
+                  {home.allocationSegments.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1.5 text-xs">
+                      {home.allocationSegments.map((seg) => (
+                        <div key={seg.label} className="flex items-center gap-1.5">
+                          <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: seg.color }} aria-hidden="true" />
+                          <span className="font-medium text-pp-text-dim">{seg.label}</span>
+                          <span className="font-semibold text-pp-text">{f(seg.value)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div className="mt-3 flex items-center justify-between border-t border-pp-border pt-3 text-sm">
+                    <span className="text-pp-text-dim">Net Savings</span>
+                    <span className={cn("font-bold", home.annualNet >= 0 ? "text-mantis" : "text-vulcanico")}>{f(home.annualNet)}</span>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Row 3: Category Breakdown + Recent Transactions */}
+            <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <CardTitle>Category Breakdown</CardTitle>
+                  <Link href="/budget" className="text-xs font-medium text-pp-accent hover:underline">View</Link>
+                </CardHeader>
+                <CardContent>
+                  {(breakdown?.items ?? []).length === 0 ? (
+                    <p className="text-sm text-pp-text-dim">No spending recorded yet.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {(breakdown?.items ?? []).slice(0, 4).map((item, i) => (
+                        <div key={item.category} className="flex items-center gap-3">
+                          <span className="text-pp-text-dim" aria-hidden="true">{(() => { const Ic = CATEGORY_ICONS[i % CATEGORY_ICONS.length]; return <Ic size={18} />; })()}</span>
+                          <span className="flex-1 truncate text-sm font-medium text-pp-text">{item.category}</span>
+                          <span className="shrink-0 text-right text-sm">
+                            <span className="font-semibold text-pp-text">{f(item.total)}</span>{" "}
+                            <span className="text-xs text-pp-text-dim">{formatPercent(item.total / home.totalBreakdown)}</span>
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <CardTitle>Recent Transactions</CardTitle>
+                  <Link href="/transactions" className="text-xs font-medium text-pp-accent hover:underline">View all</Link>
+                </CardHeader>
+                <CardContent>
+                  {(recentTxns?.items ?? []).length === 0 ? (
+                    <p className="text-sm text-pp-text-dim">No transactions yet — add your first one.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {(recentTxns?.items ?? []).map((t) => (
+                        <div key={t.id} className="flex items-center gap-3">
+                          <span className="text-pp-text-dim" aria-hidden="true">{t.type === "INCOME" ? <Wallet size={18} /> : <Receipt size={18} />}</span>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium text-pp-text">{t.description}</p>
+                            <p className="truncate text-xs text-pp-text-dim">{formatDateIN(t.date)} · {t.category?.name ?? "Uncategorized"}</p>
+                          </div>
+                          <span className={cn("shrink-0 text-sm font-semibold", t.type === "INCOME" ? "text-mantis" : "text-vulcanico")}>
+                            {t.type === "INCOME" ? "+" : "-"}{f(t.amount)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Secondary detail strip — desktop's extra room used for the
+                rest of the KPIs mobile has no space for, de-emphasized
+                below the main mobile-mirrored cards instead of dominating
+                the first viewport the way the old hero + KPI wall did. */}
+            <div className="mt-8 grid grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
               <KpiCard id="total-income" label="Total Income" value={f(summary?.kpis?.totalIncome ?? 0)} icon={Wallet}
                 changePct={summary?.kpis?.changeVsPrevMonth?.income}
                 onClick={() => setSelectedKpi({
@@ -518,7 +696,7 @@ function DashboardContent() {
 
             {!trendData.length && !breakdown?.items?.length && (
               <div className="mt-10">
-                <p className="text-center text-sm text-navy/40 dark:text-white/40">Add transactions to see charts and trends.</p>
+                <p className="text-center text-sm text-pp-text-dim">Add transactions to see charts and trends.</p>
               </div>
             )}
           </>
@@ -534,9 +712,9 @@ function DashboardContent() {
 export default function DashboardPage() {
   return (
     <Suspense fallback={
-      <><Topbar title="Dashboard" /><main className="flex-1 overflow-y-auto p-4 lg:p-6">
+      <><Topbar title="Dashboard" /><main className="flex-1 overflow-y-auto p-4 lg:p-6 2xl:px-10">
         <div className="grid grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
-          {Array.from({ length: 12 }).map((_, i) => <div key={i} className="h-28 animate-pulse rounded-xl2 bg-black/5 dark:bg-white/5" />)}
+          {Array.from({ length: 12 }).map((_, i) => <div key={i} className="h-28 animate-pulse rounded-xl2 bg-pp-surface-2" />)}
         </div>
       </main></>
     }>

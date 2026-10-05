@@ -45,14 +45,14 @@ function RecentTransactionsList({ transactionType }: { transactionType?: "EXPENS
     return (
       <div className="space-y-2">
         {Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="h-11 animate-pulse rounded-lg bg-black/5 dark:bg-white/5" />
+          <div key={i} className="h-11 animate-pulse rounded-lg bg-pp-surface-2" />
         ))}
       </div>
     );
   }
 
   if (items.length === 0) {
-    return <p className="py-4 text-center text-xs text-navy/40 dark:text-white/40">No recent transactions yet.</p>;
+    return <p className="py-4 text-center text-xs text-pp-text-dim">No recent transactions yet.</p>;
   }
 
   return (
@@ -60,10 +60,10 @@ function RecentTransactionsList({ transactionType }: { transactionType?: "EXPENS
       {items.map((t) => (
         <div key={t.id} className="flex items-center justify-between gap-3 rounded-lg px-2.5 py-2 hover:bg-black/[0.03] dark:hover:bg-white/[0.03]">
           <div className="min-w-0">
-            <p className="truncate text-sm font-medium text-navy dark:text-white">{t.description}</p>
-            <p className="truncate text-xs text-navy/40 dark:text-white/40">{t.category?.name ?? "Uncategorized"} · {new Date(t.date).toLocaleDateString()}</p>
+            <p className="truncate text-sm font-medium text-pp-text">{t.description}</p>
+            <p className="truncate text-xs text-pp-text-dim">{t.category?.name ?? "Uncategorized"} · {new Date(t.date).toLocaleDateString()}</p>
           </div>
-          <span className={cn("shrink-0 text-sm font-semibold", t.type === "INCOME" ? "text-emerald-600 dark:text-emerald-400" : "text-navy dark:text-white")}>
+          <span className={cn("shrink-0 text-sm font-semibold", t.type === "INCOME" ? "text-mantis dark:text-mantis" : "text-pp-text")}>
             {t.type === "INCOME" ? "+" : "-"}{t.amount.toLocaleString()}
           </span>
         </div>
@@ -113,7 +113,7 @@ export function KpiExpandedCard({ data, onClose }: { data: KpiDetailData | null;
           <div className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:p-6 md:items-center md:p-10">
             <motion.div
               layoutId={`kpi-card-${data.id}`}
-              className="flex max-h-[85vh] w-full flex-col overflow-hidden rounded-t-3xl border border-black/5 bg-white shadow-2xl dark:border-white/10 dark:bg-navy-dark md:max-w-xl md:rounded-3xl lg:max-w-2xl"
+              className="flex max-h-[85vh] w-full flex-col overflow-hidden rounded-t-3xl border border-pp-border bg-pp-surface shadow-2xl md:max-w-xl md:rounded-3xl lg:max-w-2xl"
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
               role="dialog"
               aria-modal="true"
@@ -121,16 +121,16 @@ export function KpiExpandedCard({ data, onClose }: { data: KpiDetailData | null;
             >
               <div className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-black/10 dark:bg-white/20 md:hidden" aria-hidden />
 
-            <div className="flex items-center justify-between border-b border-black/5 p-5 dark:border-white/10">
+            <div className="flex items-center justify-between border-b border-pp-border p-5 ">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal/10">
-                  <data.icon className="h-5 w-5 text-teal" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-pp-accent/10">
+                  <data.icon className="h-5 w-5 text-pp-accent" />
                 </div>
-                <h2 className="text-base font-semibold text-navy dark:text-white">{data.label}</h2>
+                <h2 className="text-base font-semibold text-pp-text">{data.label}</h2>
               </div>
               <button
                 onClick={onClose}
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-navy/50 hover:bg-black/5 dark:text-white/50 dark:hover:bg-white/5"
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-pp-text-dim hover:bg-pp-surface-2"
                 aria-label="Close"
               >
                 <X className="h-4 w-4" />
@@ -138,12 +138,12 @@ export function KpiExpandedCard({ data, onClose }: { data: KpiDetailData | null;
             </div>
 
             <div className="flex-1 overflow-y-auto p-5">
-              <p className="text-3xl font-bold text-navy dark:text-white">{data.value}</p>
+              <p className="text-3xl font-bold text-pp-text">{data.value}</p>
               {data.changePct !== undefined && data.changePct !== null && (
                 <span
                   className={cn(
                     "mt-2 inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold",
-                    isPositive ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"
+                    isPositive ? "bg-mantis/10 text-mantis" : "bg-vulcanico/10 text-vulcanico"
                   )}
                 >
                   {isPositive ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
@@ -158,7 +158,7 @@ export function KpiExpandedCard({ data, onClose }: { data: KpiDetailData | null;
                       <Line
                         type="monotone"
                         dataKey="v"
-                        stroke={data.tone === "negative" ? "#C0392B" : "#0EA5A5"}
+                        stroke={data.tone === "negative" ? "#FF4103" : "#21F1A8"}
                         strokeWidth={2}
                         dot={false}
                       />
@@ -167,27 +167,27 @@ export function KpiExpandedCard({ data, onClose }: { data: KpiDetailData | null;
                 </div>
               )}
 
-              <p className="mt-5 text-sm text-navy/60 dark:text-white/60">{data.description}</p>
+              <p className="mt-5 text-sm text-pp-text-dim">{data.description}</p>
 
               <div className="mt-6">
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-navy/40 dark:text-white/40">Recent Transactions</p>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-pp-text-dim">Recent Transactions</p>
                 <RecentTransactionsList transactionType={data.transactionType} />
               </div>
 
               {data.actions && data.actions.length > 0 && (
                 <div className="mt-6 space-y-2">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-navy/40 dark:text-white/40">Quick Actions</p>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-pp-text-dim">Quick Actions</p>
                   {data.actions.map((action) => (
                     <div
                       key={action.href}
-                      className="flex items-center justify-between gap-2 rounded-lg border border-black/10 pl-4 text-sm font-medium text-navy dark:border-white/10 dark:text-white"
+                      className="flex items-center justify-between gap-2 rounded-lg border border-pp-border pl-4 text-sm font-medium text-pp-text "
                     >
                       <span className="min-w-0 truncate py-3">{action.label}</span>
                       <Link
                         href={action.href}
                         onClick={onClose}
                         aria-label={`Go to ${action.label}`}
-                        className="flex h-full min-h-[44px] w-14 shrink-0 items-center justify-center rounded-r-lg text-navy/40 transition-colors hover:bg-teal/10 hover:text-teal active:bg-teal/20 dark:text-white/40 dark:hover:bg-teal/10"
+                        className="flex h-full min-h-[44px] w-14 shrink-0 items-center justify-center rounded-r-lg text-pp-text-dim transition-colors hover:bg-pp-accent/10 hover:text-pp-accent active:bg-pp-accent/20 dark:hover:bg-pp-accent/10"
                       >
                         <ArrowRight className="h-4 w-4" />
                       </Link>

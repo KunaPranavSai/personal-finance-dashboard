@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Button } from "../ui/Button";
+import { Button } from "../ui/PpButton";
 import { FocusTrap } from "../ui/FocusTrap";
 import { useExpenseCategories } from "@/lib/reference";
 import { postWithOfflineQueue } from "@/lib/offlineAwarePost";
@@ -13,6 +13,7 @@ import { generateIdempotencyKey } from "@/lib/idempotencyKey";
 import { getStorageMode } from "@/lib/storage";
 import { createLocalBudget } from "@/lib/services/budgetsService";
 import { useToast } from "../ui/Toast";
+import { usePpToast } from "../ui/PpToast";
 import type { Budget } from "@/types";
 
 const schema = z.object({
@@ -27,6 +28,7 @@ export function BudgetFormModal({
   const queryClient = useQueryClient();
   const { data: categories, isLoading, error } = useExpenseCategories();
   const { toast } = useToast();
+  const ppToast = usePpToast();
 
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -48,15 +50,22 @@ export function BudgetFormModal({
       }
       return postWithOfflineQueue<Budget>("budget", "/api/budgets", { ...values, period: "MONTHLY", periodKey }, createIdempotencyKeyRef.current);
     },
-    onSuccess: (result) => {
+    onMutate: () => ({ handle: ppToast.start("Saving budget…") }),
+    onSuccess: (result, _values, context) => {
       // dashboard-summary's budgetUtilizationPct reads this collection too.
       queryClient.invalidateQueries({ queryKey: ["budgets"], refetchType: "all" });
       queryClient.invalidateQueries({ queryKey: ["dashboard-summary"], refetchType: "all" });
       createIdempotencyKeyRef.current = generateIdempotencyKey();
       if (result && typeof result === "object" && "queued" in result && result.queued) {
         toast("You're offline — this will be saved automatically once you're back online.", "success");
+        context?.handle.success("Budget queued — will sync when back online");
+      } else {
+        context?.handle.success("Budget added");
       }
       onClose();
+    },
+    onError: (_err, _values, context) => {
+      context?.handle.error("Couldn't save budget — try again");
     },
   });
 
@@ -65,25 +74,25 @@ export function BudgetFormModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 animate-popup-backdrop" role="dialog" aria-modal="true" aria-label="Set budget" onClick={onClose}>
       <FocusTrap active={open}>
-      <div className="w-full max-w-sm rounded-xl2 bg-white p-6 shadow-xl dark:bg-navy-dark animate-popup-panel" onClick={(e) => e.stopPropagation()}>
-        <h2 className="text-lg font-semibold text-navy dark:text-white">Set Monthly Budget</h2>
-        {error && <p className="mt-2 text-xs text-red-600">Failed to load categories.</p>}
+      <div className="w-full max-w-sm rounded-xl2 bg-pp-surface p-6 shadow-xl animate-popup-panel" onClick={(e) => e.stopPropagation()}>
+        <h2 className="text-lg font-semibold text-pp-text">Set Monthly Budget</h2>
+        {error && <p className="mt-2 text-xs text-vulcanico">Failed to load categories.</p>}
         <form onSubmit={handleSubmit((v) => mutation.mutate(v))} className="mt-4 space-y-4">
           <div>
-            <label className="text-xs font-medium text-navy/60 dark:text-white/60">Category</label>
-            <select {...register("categoryId")} className="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
+            <label className="text-xs font-medium text-pp-text-dim">Category</label>
+            <select {...register("categoryId")} className="mt-1 w-full rounded-lg border border-pp-border px-3 py-2 text-sm ">
               <option value="">{isLoading ? "Loading…" : "Select…"}</option>
               {(categories?.items ?? []).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
-            {errors.categoryId && <p className="mt-1 text-xs text-red-600">{errors.categoryId.message}</p>}
+            {errors.categoryId && <p className="mt-1 text-xs text-vulcanico">{errors.categoryId.message}</p>}
           </div>
           <div>
-            <label className="text-xs font-medium text-navy/60 dark:text-white/60">Monthly Budget (₹)</label>
-            <input type="number" step="0.01" {...register("amount")} className="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 text-sm dark:bg-white/5" />
-            {errors.amount && <p className="mt-1 text-xs text-red-600">{errors.amount.message}</p>}
+            <label className="text-xs font-medium text-pp-text-dim">Monthly Budget (₹)</label>
+            <input type="number" step="0.01" {...register("amount")} className="mt-1 w-full rounded-lg border border-pp-border px-3 py-2 text-sm " />
+            {errors.amount && <p className="mt-1 text-xs text-vulcanico">{errors.amount.message}</p>}
           </div>
           {mutation.isError && (
-            <p className="text-xs text-red-600">{(mutation.error as Error)?.message ?? "Something went wrong"}</p>
+            <p className="text-xs text-vulcanico">{(mutation.error as Error)?.message ?? "Something went wrong"}</p>
           )}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>

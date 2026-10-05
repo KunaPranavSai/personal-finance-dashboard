@@ -2,11 +2,11 @@
 
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Topbar } from "@/components/layout/Topbar";
+import { Topbar } from "@/components/layout/AppTopbar";
 import { BudgetTable } from "@/components/budget/BudgetTable";
 import { BudgetFormModal } from "@/components/budget/BudgetFormModal";
-import { Button } from "@/components/ui/Button";
-import { Card, CardContent } from "@/components/ui/Card";
+import { Button } from "@/components/ui/PpButton";
+import { Card, CardContent } from "@/components/ui/PpCard";
 import { Plus, Trash2 } from "lucide-react";
 import { MobileShell } from "@/components/mobile/MobileShell";
 import { LoadingCard, ErrorCard, EmptyCard } from "@/components/mobile/MobileStates";
@@ -127,9 +127,9 @@ export default function BudgetPage() {
   return (
     <>
       <Topbar title="Budget Planner" />
-      <main className="flex-1 overflow-y-auto p-4 lg:p-6">
+      <main className="flex-1 overflow-y-auto p-4 lg:p-6 2xl:px-10">
         <div className="mb-4 flex items-center justify-between">
-          <p className="text-sm text-navy/50 dark:text-white/50">
+          <p className="text-sm text-pp-text-dim">
             Monthly budgets for {periodKey}. Actuals are calculated live from your transactions.
           </p>
           <Button onClick={() => setModalOpen(true)}>

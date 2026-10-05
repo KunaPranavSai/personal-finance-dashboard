@@ -20,7 +20,7 @@ function OrbitingPlane() {
         animate={{ x: [46, 0, -46, 0, 46], y: [0, 20, 0, -20, 0], scale: [1, 0.55, 1, 0.55, 1], opacity: [1, 0.45, 1, 0.45, 1] }}
         transition={{ duration: 7, repeat: Infinity, ease: "linear", times: [0, 0.25, 0.5, 0.75, 1] }}
       >
-        <Send className="h-4 w-4 -rotate-45 text-cyan-300 drop-shadow-[0_0_6px_rgba(34,211,238,0.6)]" />
+        <Send className="h-4 w-4 -rotate-45 text-tiffany drop-shadow-[0_0_6px_rgba(33,241,168,0.6)]" />
       </motion.div>
     </motion.div>
   );
@@ -41,7 +41,7 @@ export default function NotFound() {
           onTap={() => setBounce((b) => b + 1)}
           transition={{ type: "spring", stiffness: 300, damping: 12 }}
         >
-          <div className="absolute inset-0 rounded-full bg-amber-400/25 blur-xl" />
+          <div className="absolute inset-0 rounded-full bg-turmeric/25 blur-xl" />
           <OrbitingPlane />
           <motion.div
             key={bounce}

@@ -111,11 +111,11 @@ export function MobileProfileView() {
               </div>
             )}
             <div className="ppm-field">
-              <label htmlFor="ppm-p-name">Name<span className="req">*</span></label>
+              <label htmlFor="ppm-p-name">Name</label>
               <input id="ppm-p-name" value={form.name} disabled={!editing} maxLength={100} onChange={(e) => set("name", e.target.value)} />
             </div>
             <div className="ppm-field">
-              <label htmlFor="ppm-p-email">Email<span className="req">*</span></label>
+              <label htmlFor="ppm-p-email">Email</label>
               <input id="ppm-p-email" type="email" value={form.email} disabled={!editing} onChange={(e) => set("email", e.target.value)} />
             </div>
             <div className="ppm-field-row">

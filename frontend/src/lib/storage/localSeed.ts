@@ -36,7 +36,7 @@ const INCOME_CATEGORIES: Record<string, string[]> = {
   "Other Income": ["Gifts", "Other"],
 };
 
-const DEFAULT_ACCOUNT_NAMES = ["Bank Account", "Credit Card", "Wallet", "Cash", "Savings Account"];
+const DEFAULT_ACCOUNT_NAMES = ["Bank Account", "Cash", "Credit Card", "Digital Wallet", "Other"];
 
 function newId(): string {
   return typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `local-${Date.now()}-${Math.random().toString(36).slice(2)}`;

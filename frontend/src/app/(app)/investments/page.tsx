@@ -2,10 +2,10 @@
 
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Topbar } from "@/components/layout/Topbar";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
-import { Badge } from "@/components/ui/Badge";
+import { Topbar } from "@/components/layout/AppTopbar";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/PpCard";
+import { Button } from "@/components/ui/PpButton";
+import { Badge } from "@/components/ui/PpBadge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useRouter } from "next/navigation";
 import { api, ApiClientError } from "@/lib/api";
@@ -21,6 +21,8 @@ import { z } from "zod";
 import { INVESTMENT_CATEGORIES } from "@/lib/reference";
 import { FocusTrap } from "@/components/ui/FocusTrap";
 import { useToast } from "@/components/ui/Toast";
+import { usePpToast } from "@/components/ui/PpToast";
+import { usePpConfirm } from "@/components/ui/PpConfirm";
 import { postWithOfflineQueue } from "@/lib/offlineAwarePost";
 import { generateIdempotencyKey } from "@/lib/idempotencyKey";
 import { useIsMobile } from "@/lib/DeviceContext";
@@ -50,6 +52,7 @@ function InvestmentModal({ open, editing, onClose }: {
 }) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const ppToast = usePpToast();
   const router = useRouter();
   const { register, handleSubmit, reset, formState: { errors } } = useForm<InvestmentForm>({
     resolver: zodResolver(investmentSchema),
@@ -76,7 +79,8 @@ function InvestmentModal({ open, editing, onClose }: {
       }
       return postWithOfflineQueue<Investment>("investment", "/api/investments", data, createIdempotencyKeyRef.current);
     },
-    onSuccess: (result) => {
+    onMutate: () => ({ handle: ppToast.start("Saving investment…") }),
+    onSuccess: (result, _values, context) => {
       // dashboard-summary's netWorth includes portfolio value — must be invalidated here too,
       // or Net Worth on the dashboard silently shows a stale figure after adding an investment.
       queryClient.invalidateQueries({ queryKey: ["investments"], refetchType: "all" });
@@ -84,10 +88,11 @@ function InvestmentModal({ open, editing, onClose }: {
       createIdempotencyKeyRef.current = generateIdempotencyKey();
       onClose();
       reset();
-      toast(result.queued ? "You're offline — this will be saved automatically once you're back online." : "Investment added", "success");
+      context?.handle.success(result.queued ? "Investment queued — will sync when back online" : "Investment added");
     },
-    onError: (err, variables) => {
+    onError: (err, variables, context) => {
       const message = err instanceof ApiClientError ? err.message : err instanceof Error ? err.message : "Failed to save investment";
+      context?.handle.error(message);
       toast(message, "error", { action: getRecoveryAction(err, router, () => createMutation.mutate(variables)) });
     },
   });
@@ -100,13 +105,15 @@ function InvestmentModal({ open, editing, onClose }: {
       }
       return api.patch<Investment>(`/api/investments/${editing!.id}`, data);
     },
-    onSuccess: () => {
+    onMutate: () => ({ handle: ppToast.start("Updating investment…") }),
+    onSuccess: (_result, _values, context) => {
       queryClient.invalidateQueries({ queryKey: ["investments"], refetchType: "all" });
       queryClient.invalidateQueries({ queryKey: ["dashboard-summary"], refetchType: "all" });
-      onClose(); reset(); toast("Investment updated", "success");
+      onClose(); reset(); context?.handle.success("Investment updated");
     },
-    onError: (err) => {
+    onError: (err, _values, context) => {
       const message = err instanceof ApiClientError ? err.message : "Failed to update investment";
+      context?.handle.error(message);
       toast(message, "error", { action: getRecoveryAction(err, router) });
     },
   });
@@ -120,50 +127,50 @@ function InvestmentModal({ open, editing, onClose }: {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose} role="dialog" aria-modal="true" aria-label={editing ? "Edit investment" : "Add investment"}>
       <FocusTrap active={open}>
-      <div className="w-full max-w-md rounded-xl2 bg-white p-6 dark:bg-navy-dark max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+      <div className="w-full max-w-md rounded-xl2 bg-pp-surface p-6 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-navy dark:text-white">{editing ? "Edit" : "Add"} Investment</h2>
-          <button onClick={onClose}><X className="h-5 w-5 text-navy/50 dark:text-white/50" /></button>
+          <h2 className="text-lg font-semibold text-pp-text">{editing ? "Edit" : "Add"} Investment</h2>
+          <button onClick={onClose} aria-label="Close"><X className="h-5 w-5 text-pp-text-dim" /></button>
         </div>
         <form onSubmit={onSubmit} className="space-y-3">
-          <div><label className="text-xs text-navy/50 dark:text-white/50">Instrument *</label>
-            <input {...register("instrument")} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" />
-            {errors.instrument && <p className="text-xs text-red-500">{errors.instrument.message}</p>}
+          <div><label className="text-xs text-pp-text-dim">Instrument</label>
+            <input {...register("instrument")} placeholder="Instrument required" className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm " />
+            {errors.instrument && <p className="text-xs text-vulcanico">{errors.instrument.message}</p>}
           </div>
-          <div><label className="text-xs text-navy/50 dark:text-white/50">Category *</label>
-            <select {...register("category")} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
+          <div><label className="text-xs text-pp-text-dim">Category</label>
+            <select {...register("category")} className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm ">
               <option value="">Select category…</option>
               {INVESTMENT_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
-            {errors.category && <p className="text-xs text-red-500">{errors.category.message}</p>}
+            {errors.category && <p className="text-xs text-vulcanico">{errors.category.message}</p>}
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <div><label className="text-xs text-navy/50 dark:text-white/50">Invested Amount *</label>
-              <input type="number" step="0.01" {...register("investedAmount")} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" />
-              {errors.investedAmount && <p className="text-xs text-red-500">{errors.investedAmount.message}</p>}
+            <div><label className="text-xs text-pp-text-dim">Invested Amount</label>
+              <input type="number" step="0.01" {...register("investedAmount")} placeholder="Invested amount required" className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm " />
+              {errors.investedAmount && <p className="text-xs text-vulcanico">{errors.investedAmount.message}</p>}
             </div>
-            <div><label className="text-xs text-navy/50 dark:text-white/50">Current Value *</label>
-              <input type="number" step="0.01" {...register("currentValue")} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" />
-              {errors.currentValue && <p className="text-xs text-red-500">{errors.currentValue.message}</p>}
+            <div><label className="text-xs text-pp-text-dim">Current Value</label>
+              <input type="number" step="0.01" {...register("currentValue")} className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm " />
+              {errors.currentValue && <p className="text-xs text-vulcanico">{errors.currentValue.message}</p>}
             </div>
           </div>
-          <div><label className="text-xs text-navy/50 dark:text-white/50">Purchase Date *</label>
-            <input type="date" {...register("purchaseDate")} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" />
-            {errors.purchaseDate && <p className="text-xs text-red-500">{errors.purchaseDate.message}</p>}
+          <div><label className="text-xs text-pp-text-dim">Purchase Date</label>
+            <input type="date" {...register("purchaseDate")} className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm " />
+            {errors.purchaseDate && <p className="text-xs text-vulcanico">{errors.purchaseDate.message}</p>}
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <div><label className="text-xs text-navy/50 dark:text-white/50">Monthly Contribution</label>
-              <input type="number" step="0.01" {...register("monthlyContribution")} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" />
+            <div><label className="text-xs text-pp-text-dim">Monthly Contribution</label>
+              <input type="number" step="0.01" {...register("monthlyContribution")} className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm " />
             </div>
-            <div><label className="text-xs text-navy/50 dark:text-white/50">Annual Return (%)</label>
-              <input type="number" step="0.01" {...register("annualReturnPct")} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" />
+            <div><label className="text-xs text-pp-text-dim">Annual Return (%)</label>
+              <input type="number" step="0.01" {...register("annualReturnPct")} className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm " />
             </div>
           </div>
-          <div><label className="text-xs text-navy/50 dark:text-white/50">Platform</label>
-            <input {...register("platform")} placeholder="e.g. Zerodha, Groww" className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" />
+          <div><label className="text-xs text-pp-text-dim">Platform</label>
+            <input {...register("platform")} placeholder="e.g. Zerodha, Groww" className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm " />
           </div>
-          <div><label className="text-xs text-navy/50 dark:text-white/50">Notes</label>
-            <textarea rows={2} {...register("notes")} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" />
+          <div><label className="text-xs text-pp-text-dim">Notes</label>
+            <textarea rows={2} {...register("notes")} className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm " />
           </div>
           <Button type="submit" className="w-full" disabled={createMutation.isPending || updateMutation.isPending}>
             {createMutation.isPending || updateMutation.isPending ? "Saving..." : editing ? "Update" : "Create"}
@@ -186,6 +193,8 @@ export default function InvestmentsPage() {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const ppToast = usePpToast();
+  const confirmDialog = usePpConfirm();
   const router = useRouter();
 
   const isMobile = useIsMobile();
@@ -212,13 +221,15 @@ export default function InvestmentsPage() {
       }
       return api.delete(`/api/investments/${id}`);
     },
-    onSuccess: () => {
+    onMutate: () => ({ handle: ppToast.start("Removing investment…") }),
+    onSuccess: (_data, _id, context) => {
       queryClient.invalidateQueries({ queryKey: ["investments"], refetchType: "all" });
       queryClient.invalidateQueries({ queryKey: ["dashboard-summary"], refetchType: "all" });
-      toast("Investment deleted", "success");
+      context?.handle.success("Investment deleted");
     },
-    onError: (err, id) => {
+    onError: (err, id, context) => {
       const message = err instanceof ApiClientError ? err.message : "Failed to delete investment";
+      context?.handle.error(message);
       toast(message, "error", { action: getRecoveryAction(err, router, () => deleteMutation.mutate(id)) });
     },
   });
@@ -351,36 +362,36 @@ export default function InvestmentsPage() {
   return (
     <>
       <Topbar title="Investments" />
-      <main className="flex-1 overflow-y-auto p-4 lg:p-6">
+      <main className="flex-1 overflow-y-auto p-4 lg:p-6 2xl:px-10">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-          <p className="text-sm text-navy/50 dark:text-white/50">Track your investment portfolio.</p>
+          <p className="text-sm text-pp-text-dim">Track your investment portfolio.</p>
           <Button onClick={() => { setEditing(null); setModalOpen(true); }}><Plus className="h-4 w-4" /> Add Investment</Button>
         </div>
 
         <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
           <Card><CardContent className="flex items-center gap-3 pt-5">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-teal/10"><Landmark className="h-5 w-5 text-teal" /></div>
-            <div className="min-w-0"><p className="text-xs text-navy/50 dark:text-white/50">Portfolio Value</p><p className="text-lg font-bold text-navy dark:text-white truncate">{formatCurrency(totalValue, cur)}</p></div>
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-pp-accent/10"><Landmark className="h-5 w-5 text-pp-accent" /></div>
+            <div className="min-w-0"><p className="text-xs text-pp-text-dim">Portfolio Value</p><p className="text-lg font-bold text-pp-text truncate">{formatCurrency(totalValue, cur)}</p></div>
           </CardContent></Card>
           <Card><CardContent className="flex items-center gap-3 pt-5">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-teal/10"><Landmark className="h-5 w-5 text-teal" /></div>
-            <div className="min-w-0"><p className="text-xs text-navy/50 dark:text-white/50">Total Invested</p><p className="text-lg font-bold text-navy dark:text-white truncate">{formatCurrency(totalInvested, cur)}</p></div>
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-pp-accent/10"><Landmark className="h-5 w-5 text-pp-accent" /></div>
+            <div className="min-w-0"><p className="text-xs text-pp-text-dim">Total Invested</p><p className="text-lg font-bold text-pp-text truncate">{formatCurrency(totalInvested, cur)}</p></div>
           </CardContent></Card>
           <Card><CardContent className="flex items-center gap-3 pt-5">
-            <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${profitLoss >= 0 ? "bg-emerald-500/10" : "bg-red-500/10"}`}><TrendingUp className={`h-5 w-5 ${profitLoss >= 0 ? "text-emerald-600" : "text-red-600"}`} /></div>
-            <div className="min-w-0"><p className="text-xs text-navy/50 dark:text-white/50">Profit / Loss</p><p className={`text-lg font-bold truncate ${profitLoss >= 0 ? "text-emerald-600" : "text-red-600"}`}>{profitLoss >= 0 ? "+" : ""}{formatCurrency(profitLoss, cur)}</p></div>
+            <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${profitLoss >= 0 ? "bg-mantis/10" : "bg-vulcanico/10"}`}><TrendingUp className={`h-5 w-5 ${profitLoss >= 0 ? "text-mantis" : "text-vulcanico"}`} /></div>
+            <div className="min-w-0"><p className="text-xs text-pp-text-dim">Profit / Loss</p><p className={`text-lg font-bold truncate ${profitLoss >= 0 ? "text-mantis" : "text-vulcanico"}`}>{profitLoss >= 0 ? "+" : ""}{formatCurrency(profitLoss, cur)}</p></div>
           </CardContent></Card>
           <Card><CardContent className="flex items-center gap-3 pt-5">
-            <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${roiPct >= 0 ? "bg-emerald-500/10" : "bg-red-500/10"}`}><TrendingUp className={`h-5 w-5 ${roiPct >= 0 ? "text-emerald-600" : "text-red-600"}`} /></div>
-            <div className="min-w-0"><p className="text-xs text-navy/50 dark:text-white/50">ROI</p><p className={`text-lg font-bold truncate ${roiPct >= 0 ? "text-emerald-600" : "text-red-600"}`}>{formatPercent(roiPct / 100)}</p></div>
+            <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${roiPct >= 0 ? "bg-mantis/10" : "bg-vulcanico/10"}`}><TrendingUp className={`h-5 w-5 ${roiPct >= 0 ? "text-mantis" : "text-vulcanico"}`} /></div>
+            <div className="min-w-0"><p className="text-xs text-pp-text-dim">ROI</p><p className={`text-lg font-bold truncate ${roiPct >= 0 ? "text-mantis" : "text-vulcanico"}`}>{formatPercent(roiPct / 100)}</p></div>
           </CardContent></Card>
           <Card><CardContent className="flex items-center gap-3 pt-5">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-teal/10"><TrendingUp className="h-5 w-5 text-teal" /></div>
-            <div className="min-w-0"><p className="text-xs text-navy/50 dark:text-white/50">Monthly Contribution</p><p className="text-lg font-bold text-navy dark:text-white truncate">{formatCurrency(totalMonthly, cur)}</p></div>
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-pp-accent/10"><TrendingUp className="h-5 w-5 text-pp-accent" /></div>
+            <div className="min-w-0"><p className="text-xs text-pp-text-dim">Monthly Contribution</p><p className="text-lg font-bold text-pp-text truncate">{formatCurrency(totalMonthly, cur)}</p></div>
           </CardContent></Card>
           <Card><CardContent className="flex items-center gap-3 pt-5">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-teal/10"><TrendingUp className="h-5 w-5 text-teal" /></div>
-            <div className="min-w-0"><p className="text-xs text-navy/50 dark:text-white/50">Avg. Annual Return</p><p className="text-lg font-bold text-navy dark:text-white truncate">{formatPercent(avgReturn / 100)}</p></div>
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-pp-accent/10"><TrendingUp className="h-5 w-5 text-pp-accent" /></div>
+            <div className="min-w-0"><p className="text-xs text-pp-text-dim">Avg. Annual Return</p><p className="text-lg font-bold text-pp-text truncate">{formatPercent(avgReturn / 100)}</p></div>
           </CardContent></Card>
         </div>
 
@@ -390,11 +401,11 @@ export default function InvestmentsPage() {
             <CardContent className="space-y-2 pt-0">
               {allocation.map((a) => (
                 <div key={a.category} className="flex items-center gap-3">
-                  <span className="w-28 shrink-0 truncate text-xs text-navy/60 dark:text-white/60">{a.category}</span>
-                  <div className="h-2 flex-1 overflow-hidden rounded-full bg-black/5 dark:bg-white/10">
-                    <div className="h-full rounded-full bg-teal" style={{ width: `${a.pct}%` }} />
+                  <span className="w-28 shrink-0 truncate text-xs text-pp-text-dim">{a.category}</span>
+                  <div className="h-2 flex-1 overflow-hidden rounded-full bg-pp-surface-2 dark:bg-white/10">
+                    <div className="h-full rounded-full bg-pp-accent" style={{ width: `${a.pct}%` }} />
                   </div>
-                  <span className="w-12 shrink-0 text-right text-xs font-medium text-navy dark:text-white">{a.pct.toFixed(0)}%</span>
+                  <span className="w-12 shrink-0 text-right text-xs font-medium text-pp-text">{a.pct.toFixed(0)}%</span>
                 </div>
               ))}
             </CardContent>
@@ -406,11 +417,11 @@ export default function InvestmentsPage() {
             <div className="flex flex-wrap items-center justify-between gap-2">
               <CardTitle>All Investments</CardTitle>
               <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1 rounded-lg border border-black/10 px-2 py-1 dark:border-white/10">
-                  <Search className="h-3.5 w-3.5 text-navy/40 dark:text-white/40" />
-                  <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search..." className="w-28 bg-transparent text-xs outline-none placeholder:text-navy/30 dark:text-white" />
+                <div className="flex items-center gap-1 rounded-lg border border-pp-border px-2 py-1 ">
+                  <Search className="h-3.5 w-3.5 text-pp-text-dim" />
+                  <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search..." className="w-28 bg-transparent text-xs outline-none placeholder:text-pp-text-dim " />
                 </div>
-                <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} className="rounded-lg border border-black/10 px-2 py-1 text-xs dark:border-white/10 dark:bg-navy-dark dark:text-white">
+                <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} className="rounded-lg border border-pp-border px-2 py-1 text-xs ">
                   <option value="">All Categories</option>
                   {INVESTMENT_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
@@ -419,7 +430,7 @@ export default function InvestmentsPage() {
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-10 animate-pulse rounded-lg bg-black/5 dark:bg-white/5" />)}</div>
+              <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-10 animate-pulse rounded-lg bg-pp-surface-2" />)}</div>
             ) : filtered.length === 0 ? (
               <EmptyState icon={TrendingUp} title="No investments yet"
                 description={items.length === 0 ? "Add your first investment to start tracking." : "No matching investments."}
@@ -430,7 +441,7 @@ export default function InvestmentsPage() {
                 <div className="hidden overflow-x-auto md:block">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="border-b border-black/5 dark:border-white/10 text-left text-navy/50 dark:text-white/50">
+                      <tr className="border-b border-pp-border text-left text-pp-text-dim">
                         <th className="pb-2 font-medium cursor-pointer select-none" onClick={() => toggleSort("name")}>
                           Instrument <ArrowUpDown className="inline h-3 w-3" />
                         </th>
@@ -451,20 +462,20 @@ export default function InvestmentsPage() {
                     </thead>
                     <tbody>
                       {filtered.map((inv) => (
-                        <tr key={inv.id} className="border-b border-black/5 dark:border-white/5">
-                          <td className="py-2 font-medium text-navy dark:text-white truncate max-w-[150px]">{inv.instrument}</td>
+                        <tr key={inv.id} className="border-b border-pp-border dark:border-white/5">
+                          <td className="py-2 font-medium text-pp-text truncate max-w-[150px]">{inv.instrument}</td>
                           <td className="py-2"><Badge tone="gray">{inv.category}</Badge></td>
-                          <td className="py-2 text-navy/70 dark:text-white/70 truncate max-w-[120px]">{formatCurrency(inv.investedAmount, cur)}</td>
-                          <td className="py-2 text-navy dark:text-white truncate max-w-[120px]">{formatCurrency(inv.currentValue, cur)}</td>
-                          <td className={`py-2 truncate max-w-[120px] font-medium ${inv.currentValue - inv.investedAmount >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                          <td className="py-2 text-pp-text-dim truncate max-w-[120px]">{formatCurrency(inv.investedAmount, cur)}</td>
+                          <td className="py-2 text-pp-text truncate max-w-[120px]">{formatCurrency(inv.currentValue, cur)}</td>
+                          <td className={`py-2 truncate max-w-[120px] font-medium ${inv.currentValue - inv.investedAmount >= 0 ? "text-mantis" : "text-vulcanico"}`}>
                             {inv.currentValue - inv.investedAmount >= 0 ? "+" : ""}{formatCurrency(inv.currentValue - inv.investedAmount, cur)}
                           </td>
-                          <td className="py-2 text-navy/70 dark:text-white/70">{formatCurrency(inv.monthlyContribution, cur)}</td>
+                          <td className="py-2 text-pp-text-dim">{formatCurrency(inv.monthlyContribution, cur)}</td>
                           <td className="py-2">{formatPercent(inv.annualReturnPct / 100)}</td>
                           <td className="py-2">
                             <div className="flex gap-1">
-                              <button onClick={() => { setEditing(inv); setModalOpen(true); }} className="rounded-lg p-1.5 text-navy/40 hover:bg-black/5 hover:text-navy dark:text-white/40 dark:hover:bg-white/10 dark:hover:text-white"><Pencil className="h-3.5 w-3.5" /></button>
-                              <button onClick={() => { if (confirm("Delete this investment?")) deleteMutation.mutate(inv.id); }} className="rounded-lg p-1.5 hover:bg-red-50 dark:hover:bg-red-500/10"><Trash2 className="h-3.5 w-3.5 text-red-500" /></button>
+                              <button onClick={() => { setEditing(inv); setModalOpen(true); }} aria-label="Edit" className="rounded-lg p-1.5 text-pp-text-dim hover:bg-pp-surface-2 hover:text-pp-text/40 dark:hover:text-white"><Pencil className="h-3.5 w-3.5" /></button>
+                              <button onClick={async () => { if (await confirmDialog({ message: "Delete this investment?" })) deleteMutation.mutate(inv.id); }} aria-label="Delete" className="rounded-lg p-1.5 hover:bg-vulcanico/10 dark:hover:bg-vulcanico/10"><Trash2 className="h-3.5 w-3.5 text-vulcanico" /></button>
                             </div>
                           </td>
                         </tr>
@@ -477,27 +488,27 @@ export default function InvestmentsPage() {
                   {filtered.map((inv) => {
                     const pnl = inv.currentValue - inv.investedAmount;
                     return (
-                      <div key={inv.id} className="rounded-xl2 border border-black/5 bg-white p-3 dark:border-white/10 dark:bg-white/5">
+                      <div key={inv.id} className="rounded-xl2 border border-pp-border bg-pp-surface p-3 ">
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
-                            <p className="truncate text-sm font-medium text-navy dark:text-white">{inv.instrument}</p>
+                            <p className="truncate text-sm font-medium text-pp-text">{inv.instrument}</p>
                             <Badge tone="gray">{inv.category}</Badge>
                           </div>
                           <div className="shrink-0 text-right">
-                            <p className="text-sm font-semibold text-navy dark:text-white">{formatCurrency(inv.currentValue, cur)}</p>
-                            <p className={`text-xs font-medium ${pnl >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                            <p className="text-sm font-semibold text-pp-text">{formatCurrency(inv.currentValue, cur)}</p>
+                            <p className={`text-xs font-medium ${pnl >= 0 ? "text-mantis" : "text-vulcanico"}`}>
                               {pnl >= 0 ? "+" : ""}{formatCurrency(pnl, cur)}
                             </p>
                           </div>
                         </div>
                         <div className="mt-2 flex items-center justify-between gap-2">
-                          <div className="flex flex-wrap items-center gap-x-2 text-xs text-navy/50 dark:text-white/50">
+                          <div className="flex flex-wrap items-center gap-x-2 text-xs text-pp-text-dim">
                             <span>Invested {formatCurrency(inv.investedAmount, cur)}</span>
                             <span>· {formatPercent(inv.annualReturnPct / 100)} return</span>
                           </div>
                           <div className="flex shrink-0 gap-1">
-                            <button onClick={() => { setEditing(inv); setModalOpen(true); }} className="rounded-lg p-1.5 text-navy/40 hover:bg-black/5 hover:text-navy dark:text-white/40 dark:hover:bg-white/10 dark:hover:text-white" aria-label="Edit"><Pencil className="h-3.5 w-3.5" /></button>
-                            <button onClick={() => { if (confirm("Delete this investment?")) deleteMutation.mutate(inv.id); }} className="rounded-lg p-1.5 hover:bg-red-50 dark:hover:bg-red-500/10" aria-label="Delete"><Trash2 className="h-3.5 w-3.5 text-red-500" /></button>
+                            <button onClick={() => { setEditing(inv); setModalOpen(true); }} className="rounded-lg p-1.5 text-pp-text-dim hover:bg-pp-surface-2 hover:text-pp-text/40 dark:hover:text-white" aria-label="Edit"><Pencil className="h-3.5 w-3.5" /></button>
+                            <button onClick={async () => { if (await confirmDialog({ message: "Delete this investment?" })) deleteMutation.mutate(inv.id); }} className="rounded-lg p-1.5 hover:bg-vulcanico/10 dark:hover:bg-vulcanico/10" aria-label="Delete"><Trash2 className="h-3.5 w-3.5 text-vulcanico" /></button>
                           </div>
                         </div>
                       </div>

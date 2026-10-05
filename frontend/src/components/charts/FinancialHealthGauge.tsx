@@ -2,7 +2,7 @@
 
 import { useId } from "react";
 import { PieChart, Pie, Cell } from "recharts";
-import { Card, CardHeader, CardTitle, CardContent } from "../ui/Card";
+import { Card, CardHeader, CardTitle, CardContent } from "../ui/PpCard";
 import { cn } from "@/lib/format";
 
 interface Tier {
@@ -14,9 +14,9 @@ interface Tier {
 }
 
 const TIERS: Tier[] = [
-  { min: 75, label: "Thriving", status: "Flight Path Optimal", stops: ["#10B981", "#0D9488"], textClass: "text-emerald-500 dark:text-emerald-400" },
-  { min: 50, label: "Fair", status: "Flight Path Stable", stops: ["#F59E0B", "#06B6D4"], textClass: "text-amber-500 dark:text-amber-400" },
-  { min: 0, label: "Critical", status: "Turbulence Ahead", stops: ["#F43F5E", "#BE123C"], textClass: "text-rose-500 dark:text-rose-400" },
+  { min: 75, label: "Thriving", status: "Flight Path Optimal", stops: ["#59C749", "#0E8478"], textClass: "text-mantis dark:text-mantis" },
+  { min: 50, label: "Fair", status: "Flight Path Stable", stops: ["#FFBE0B", "#21F1A8"], textClass: "text-turmeric dark:text-turmeric" },
+  { min: 0, label: "Critical", status: "Turbulence Ahead", stops: ["#FF4103", "#B91C1C"], textClass: "text-vulcanico dark:text-vulcanico" },
 ];
 
 function tierFor(score: number): Tier {
@@ -50,7 +50,7 @@ function TickMarks() {
         const y1 = CY - (OUTER_R - 6) * Math.sin(rad);
         const x2 = CX + (OUTER_R + 5) * Math.cos(rad);
         const y2 = CY - (OUTER_R + 5) * Math.sin(rad);
-        return <line key={v} x1={x1} y1={y1} x2={x2} y2={y2} stroke="rgba(148,163,184,0.5)" strokeWidth={2} strokeLinecap="round" />;
+        return <line key={v} x1={x1} y1={y1} x2={x2} y2={y2} stroke="var(--pp-border)" strokeWidth={2} strokeLinecap="round" />;
       })}
     </svg>
   );
@@ -76,7 +76,7 @@ export function FinancialHealthGauge({ score }: { score: number }) {
             <defs>
               <linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="0">
                 <stop offset="0%" stopColor={tier.stops[0]} />
-                <stop offset="50%" stopColor="#F59E0B" />
+                <stop offset="50%" stopColor="#FFBE0B" />
                 <stop offset="100%" stopColor={tier.stops[1]} />
               </linearGradient>
             </defs>
@@ -100,7 +100,7 @@ export function FinancialHealthGauge({ score }: { score: number }) {
           <TickMarks />
           <div className="absolute inset-x-0 flex flex-col items-center" style={{ top: CY + 14 }}>
             <span
-              className="text-3xl font-extrabold text-slate-900 dark:text-slate-100"
+              className="text-3xl font-extrabold text-pp-text-dim dark:text-pp-text-dim"
               style={{ filter: `drop-shadow(0 0 12px ${tier.stops[0]}66)` }}
             >
               {Math.round(clamped)}

@@ -41,7 +41,7 @@ export default function OfflinePage() {
     return () => clearTimeout(t);
   }, [justReconnected, router]);
 
-  const ringColor = isOnline ? "rgba(16,185,129,0.5)" : "rgba(168,85,247,0.5)";
+  const ringColor = isOnline ? "rgba(16,185,129,0.5)" : "rgba(33,241,168,0.5)";
 
   return (
     <ErrorPageShell>
@@ -62,7 +62,7 @@ export default function OfflinePage() {
           animate={{ rotate: [-14, 14, -14], x: [-2, 2, -2] }}
           transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
         >
-          <Send className="h-5 w-5 -rotate-45 text-purple-300 drop-shadow-[0_0_6px_rgba(168,85,247,0.6)]" />
+          <Send className="h-5 w-5 -rotate-45 text-pp-accent/40 drop-shadow-[0_0_6px_rgba(33,241,168,0.6)]" />
         </motion.div>
 
         <div className="relative z-10">
@@ -73,16 +73,16 @@ export default function OfflinePage() {
       <AnimatePresence mode="wait">
         {justReconnected ? (
           <motion.div key="online" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-            <div className="mx-auto mb-2 flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/20">
-              <Wifi className="h-4 w-4 text-emerald-400" />
+            <div className="mx-auto mb-2 flex h-8 w-8 items-center justify-center rounded-full bg-mantis/20">
+              <Wifi className="h-4 w-4 text-mantis" />
             </div>
             <h1 className="text-lg font-bold text-white sm:text-xl">Reconnected!</h1>
             <p className="mx-auto mt-2 max-w-sm text-sm text-[#94A3B8]">Taking you back to your dashboard…</p>
           </motion.div>
         ) : (
           <motion.div key="offline" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-            <div className="mx-auto mb-2 flex h-8 w-8 items-center justify-center rounded-full bg-purple-500/20">
-              <WifiOff className="h-4 w-4 text-purple-300" />
+            <div className="mx-auto mb-2 flex h-8 w-8 items-center justify-center rounded-full bg-pp-accent/20">
+              <WifiOff className="h-4 w-4 text-pp-accent/40" />
             </div>
             <h1 className="text-lg font-bold text-white sm:text-xl">Signal Lost</h1>
             <p className="mx-auto mt-2 max-w-sm text-sm text-[#94A3B8]">

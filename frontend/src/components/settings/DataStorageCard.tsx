@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/PpCard";
+import { Button } from "@/components/ui/PpButton";
 import { useToast } from "@/components/ui/Toast";
 import { HardDrive, Laptop, Download, Upload, AlertCircle } from "lucide-react";
 import { getStorageMode, setStorageMode, STORAGE_COLLECTIONS, StorageCollection } from "@/lib/storage";
@@ -189,13 +189,13 @@ export function DataStorageCard() {
     <Card>
       <CardHeader><CardTitle>Data &amp; Storage</CardTitle></CardHeader>
       <CardContent className="space-y-4">
-        <div className="flex items-center gap-3 rounded-lg border border-black/5 px-4 py-3 dark:border-white/10">
-          {mode === "drive" ? <HardDrive className="h-5 w-5 text-teal" /> : <Laptop className="h-5 w-5 text-teal" />}
+        <div className="flex items-center gap-3 rounded-lg border border-black/5 px-4 py-3 ">
+          {mode === "drive" ? <HardDrive className="h-5 w-5 text-pp-accent" /> : <Laptop className="h-5 w-5 text-pp-accent" />}
           <div>
-            <p className="text-sm font-medium text-navy dark:text-white">
+            <p className="text-sm font-medium text-pp-text">
               {mode === "drive" ? "Google Drive" : "This Device Only"}
             </p>
-            <p className="text-xs text-navy/50 dark:text-white/50">
+            <p className="text-xs text-pp-text-dim">
               {mode === "drive"
                 ? "Your financial data is stored in your own Google Drive."
                 : "Your financial data is stored only in this browser."}
@@ -205,7 +205,7 @@ export function DataStorageCard() {
 
         {mode === "local" && (
           <>
-            <div className="flex items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
+            <div className="flex items-center gap-2 rounded-lg border border-turmeric/20 bg-turmeric/10 px-3 py-2 text-xs text-turmeric dark:text-turmeric/40">
               <AlertCircle className="h-3.5 w-3.5 shrink-0" />
               Local-only data isn&apos;t backed up automatically. Export a backup regularly.
             </div>
@@ -240,9 +240,9 @@ export function DataStorageCard() {
             </div>
 
             {exportPrompt && (
-              <div className="space-y-2 rounded-lg border border-black/10 p-3 dark:border-white/10">
-                <p className="text-xs font-medium text-navy dark:text-white">Protect this backup with a password</p>
-                <p className="text-xs text-navy/50 dark:text-white/50">
+              <div className="space-y-2 rounded-lg border border-pp-border p-3 ">
+                <p className="text-xs font-medium text-pp-text">Protect this backup with a password</p>
+                <p className="text-xs text-pp-text-dim">
                   This encrypts the downloaded file. There is no way to recover it if you forget this password — store it somewhere safe.
                 </p>
                 <input
@@ -250,16 +250,16 @@ export function DataStorageCard() {
                   value={exportPassword}
                   onChange={(e) => setExportPassword(e.target.value)}
                   placeholder="Backup password (min 8 characters)"
-                  className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10"
+                  className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm "
                 />
                 <input
                   type="password"
                   value={exportPasswordConfirm}
                   onChange={(e) => setExportPasswordConfirm(e.target.value)}
                   placeholder="Confirm password"
-                  className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10"
+                  className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm "
                 />
-                {exportError && <p className="text-xs text-red-500">{exportError}</p>}
+                {exportError && <p className="text-xs text-vulcanico">{exportError}</p>}
                 <div className="flex gap-2">
                   <Button size="sm" onClick={handleConfirmExport} disabled={busy}>{busy ? "Encrypting…" : "Download Encrypted Backup"}</Button>
                   <Button size="sm" variant="ghost" onClick={() => { setExportPrompt(false); setExportPassword(""); setExportPasswordConfirm(""); setExportError(""); }}>Cancel</Button>
@@ -268,17 +268,17 @@ export function DataStorageCard() {
             )}
 
             {pendingImportFile && (
-              <div className="space-y-2 rounded-lg border border-black/10 p-3 dark:border-white/10">
-                <p className="text-xs font-medium text-navy dark:text-white">Enter the backup&apos;s password</p>
-                <p className="text-xs text-navy/50 dark:text-white/50">&quot;{pendingImportFile.name}&quot; is encrypted.</p>
+              <div className="space-y-2 rounded-lg border border-pp-border p-3 ">
+                <p className="text-xs font-medium text-pp-text">Enter the backup&apos;s password</p>
+                <p className="text-xs text-pp-text-dim">&quot;{pendingImportFile.name}&quot; is encrypted.</p>
                 <input
                   type="password"
                   value={importPassword}
                   onChange={(e) => setImportPassword(e.target.value)}
                   placeholder="Backup password"
-                  className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10"
+                  className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm "
                 />
-                {importError && <p className="text-xs text-red-500">{importError}</p>}
+                {importError && <p className="text-xs text-vulcanico">{importError}</p>}
                 <div className="flex flex-wrap gap-2">
                   <Button size="sm" onClick={handleConfirmImport} disabled={busy}>{busy ? "Decrypting…" : "Restore Backup"}</Button>
                   <Button size="sm" variant="ghost" onClick={() => { setPendingImportFile(null); setImportPassword(""); setImportError(""); setImportErrorCode(undefined); }}>Cancel</Button>

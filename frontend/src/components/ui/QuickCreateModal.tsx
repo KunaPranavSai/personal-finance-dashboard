@@ -24,8 +24,8 @@ export function QuickCreateModal({
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4 animate-popup-backdrop" role="dialog" aria-modal="true" aria-label={title} onClick={onClose}>
       <FocusTrap active>
-        <div className="w-full max-w-sm rounded-xl2 bg-white p-5 shadow-xl dark:bg-navy-dark animate-popup-panel" onClick={(e) => e.stopPropagation()}>
-          <h3 className="text-sm font-semibold text-navy dark:text-white">{title}</h3>
+        <div className="w-full max-w-sm rounded-xl2 bg-white p-5 shadow-xl dark:bg-pp-surface animate-popup-panel" onClick={(e) => e.stopPropagation()}>
+          <h3 className="text-sm font-semibold text-pp-text">{title}</h3>
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -38,9 +38,9 @@ export function QuickCreateModal({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder={placeholder}
-              className="w-full rounded-lg border border-black/10 px-3 py-2 text-sm dark:border-white/10 dark:bg-white/5 dark:text-white"
+              className="w-full rounded-lg border border-pp-border px-3 py-2 text-sm dark:bg-white/5 "
             />
-            {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+            {error && <p className="mt-1 text-xs text-vulcanico">{error}</p>}
             <div className="mt-4 flex justify-end gap-2">
               <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
               <Button type="submit" disabled={isPending || !name.trim()}>

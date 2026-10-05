@@ -17,6 +17,7 @@ import { ShieldCheck, Lock, Fingerprint, Mail, AlertCircle } from "lucide-react"
 import { browserSupportsWebAuthn } from "@simplewebauthn/browser";
 import { PREFER_BIOMETRIC_KEY } from "@/lib/passkeyPrefs";
 import { cn } from "@/lib/format";
+import { api } from "@/lib/api";
 import { hasFunctionalConsent } from "@/lib/cookieConsent";
 
 const REMEMBERED_EMAIL_KEY = "pfd-remembered-email";
@@ -68,7 +69,7 @@ interface LoginPageClientProps {
 }
 
 export function LoginPageClient({ embedded = false }: LoginPageClientProps = {}) {
-  const { user, login, loginWithPasskey, verifyLogin2FA, forceChangePassword, isAuthenticated, isLoading } = useAuth();
+  const { user, login, loginWithPin, loginWithPasskey, verifyLogin2FA, forceChangePassword, isAuthenticated, isLoading } = useAuth();
   const { settings } = useSettingsContext();
   const { toast } = useToast();
   const router = useRouter();
@@ -85,6 +86,19 @@ export function LoginPageClient({ embedded = false }: LoginPageClientProps = {})
   const [mode, setMode] = useState<"password" | "biometric">("password");
   const [biometricPending, setBiometricPending] = useState(false);
   const [info, setInfo] = useState("");
+  // Set when this device remembers an account with a PIN: PIN entry is the default view.
+  const [pinDevice, setPinDevice] = useState<{ name: string; email: string } | null>(null);
+  const [usePassword, setUsePassword] = useState(false);
+  const [pinChecked, setPinChecked] = useState(false);
+  // New device: no remembered account, so the user types their email / User ID next to the PIN.
+  const [pinManual, setPinManual] = useState(false);
+
+  useEffect(() => {
+    api.get<{ device: boolean; name?: string; email?: string }>("/api/auth/pin/device")
+      .then((d) => { if (d.device && d.name && d.email) setPinDevice({ name: d.name, email: d.email }); })
+      .catch(() => { /* no PIN view: password form stays */ })
+      .finally(() => setPinChecked(true));
+  }, []);
 
   useEffect(() => {
     const supported = browserSupportsWebAuthn();
@@ -178,7 +192,7 @@ export function LoginPageClient({ embedded = false }: LoginPageClientProps = {})
     setError("");
     setIsPending(true);
     try {
-      const result = await login(email.trim().toLowerCase(), password);
+      const result = await login(email.trim(), password);
       try {
         // Remembering a sign-in email is a "Functional" (non-essential)
         // cookie-consent category — see lib/cookieConsent.ts and /cookie-notice.
@@ -234,7 +248,7 @@ export function LoginPageClient({ embedded = false }: LoginPageClientProps = {})
     }
   };
 
-  if (isLoading) {
+  if (isLoading || !pinChecked) {
     return (
       <div className={cn("flex items-center justify-center bg-noturno", embedded ? "p-16" : "min-h-screen")}>
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-tiffany/30 border-t-tiffany" />
@@ -263,6 +277,55 @@ export function LoginPageClient({ embedded = false }: LoginPageClientProps = {})
           onCancel={() => setChallengeToken(null)}
           cancelLabel="Back to sign in"
         />
+      </div>
+    );
+  }
+
+  if ((pinDevice || pinManual) && !usePassword && !passwordChangeToken) {
+    const switchToPassword = () => { if (pinDevice) setEmail(pinDevice.email); setPinManual(false); setUsePassword(true); };
+    return (
+      <div className={cn("relative flex items-center justify-center overflow-hidden bg-noturno p-4", embedded ? "" : "min-h-screen")}>
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute -top-32 -left-32 h-[28rem] w-[28rem] rounded-full bg-cypress/25 blur-[100px]" />
+          <div className="absolute -bottom-32 -right-32 h-[28rem] w-[28rem] rounded-full bg-tiffany/20 blur-[100px]" />
+        </div>
+        <div className="relative flex w-full max-w-sm flex-col items-stretch gap-3">
+          {!pinDevice && (
+            <input
+              id="pin-identifier"
+              type="text"
+              autoComplete="username"
+              autoFocus
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Email or User ID required"
+              className={inputBase}
+              aria-label="Email or User ID"
+            />
+          )}
+          <AnimatedCodeVerification
+            length={4}
+            title={pinDevice ? `Welcome back, ${pinDevice.name.split(" ")[0]}` : "Sign in with PIN"}
+            subtitle={pinDevice ? `Enter your 4-digit PIN to sign in as ${pinDevice.email}` : "Enter your email or User ID, then your 4-digit PIN"}
+            tip="Locked out? Use your email and password below"
+            successTitle="Signed In Successfully!"
+            successSubtitle="Redirecting to your dashboard…"
+            onVerify={async (pin) => {
+              if (!pinDevice && !email.trim()) throw new Error("Enter your email or User ID first");
+              const result = await loginWithPin(pin, pinDevice ? undefined : email.trim());
+              if (result.requires2FA && result.challengeToken) { setChallengeToken(result.challengeToken); return; }
+              if (result.requiresPasswordChange && result.passwordChangeToken) { setPasswordChangeToken(result.passwordChangeToken); return; }
+              greetLogin(Boolean(result.isFirstLogin));
+            }}
+          />
+          <button
+            type="button"
+            onClick={switchToPassword}
+            className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 text-sm font-medium text-white/80 transition hover:bg-white/10"
+          >
+            <Mail className="h-4 w-4" /> Sign in with email &amp; password
+          </button>
+        </div>
       </div>
     );
   }
@@ -366,11 +429,11 @@ export function LoginPageClient({ embedded = false }: LoginPageClientProps = {})
                 <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
                 <input
                   id="email"
-                  type="email"
-                  autoComplete="email"
+                  type="text"
+                  autoComplete="username"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
+                  placeholder="Email or User ID required"
                   required
                   className={inputBase}
                 />
@@ -408,6 +471,10 @@ export function LoginPageClient({ embedded = false }: LoginPageClientProps = {})
               {isPending ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" /> : <Lock className="h-4 w-4" />}
               {isPending ? "Signing in…" : "Sign In"}
             </motion.button>
+
+            <button type="button" onClick={() => { setError(""); setPinManual(true); }} className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 text-sm font-medium text-white/80 transition hover:bg-white/10">
+              Sign in with PIN instead
+            </button>
           </motion.form>
         )}
       </AnimatePresence>

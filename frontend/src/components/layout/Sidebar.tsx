@@ -19,11 +19,20 @@ interface NavGroup {
   items: { href: string; label: string; icon: typeof LayoutDashboard }[];
 }
 
+// Same five destinations as the approved mobile bottom nav (Home / Activity /
+// Budget / Invest / More) surfaced first and unlabeled, exactly like the
+// mobile tab bar has no section headers — everything else follows as
+// secondary groups. No destination is duplicated between groups.
 const NAV_GROUPS: NavGroup[] = [
   {
-    id: "overview",
+    id: "primary",
     label: null,
-    items: [{ href: "/dashboard", label: "Dashboard", icon: LayoutDashboard }],
+    items: [
+      { href: "/dashboard", label: "Home", icon: LayoutDashboard },
+      { href: "/transactions", label: "Activity", icon: Receipt },
+      { href: "/budget", label: "Budget", icon: Wallet },
+      { href: "/investments", label: "Invest", icon: Landmark },
+    ],
   },
   {
     id: "money",
@@ -34,18 +43,10 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    id: "budgets",
-    label: "Budgets",
+    id: "planning",
+    label: "Planning",
     items: [
-      { href: "/budget", label: "Budget Planner", icon: Wallet },
-      { href: "/bills", label: "Bills & EMI", icon: Receipt },
-    ],
-  },
-  {
-    id: "investments",
-    label: "Investments",
-    items: [
-      { href: "/investments", label: "Investments", icon: Landmark },
+      { href: "/bills", label: "Bills & EMI", icon: FileText },
       { href: "/savings", label: "Savings", icon: PiggyBank },
       { href: "/goals", label: "Financial Goals", icon: Target },
     ],
@@ -115,14 +116,14 @@ function SidebarInner() {
             key={group.id}
             className={cn(
               "mb-1 pb-2",
-              i < NAV_GROUPS.length - 1 && "border-b border-black/5 dark:border-white/10"
+              i < NAV_GROUPS.length - 1 && "border-b border-pp-border"
             )}
           >
             {group.label && showLabels && (
               <button
                 type="button"
                 onClick={() => toggleNavGroup(group.id)}
-                className="flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-navy/40 hover:text-navy/60 dark:text-white/30 dark:hover:text-white/50"
+                className="flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-pp-text-dim hover:text-pp-text"
                 aria-expanded={!isCollapsed}
               >
                 <span>{group.label}</span>
@@ -140,11 +141,11 @@ function SidebarInner() {
                       onClick={closeSidebar}
                       title={showLabels ? undefined : label}
                       className={cn(
-                        "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal/50",
+                        "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pp-accent/50",
                         !showLabels && "justify-center px-0",
                         active
-                          ? "bg-teal/10 text-teal"
-                          : "text-navy/60 hover:bg-black/5 dark:text-white/60 dark:hover:bg-white/5"
+                          ? "bg-pp-accent/10 text-pp-accent"
+                          : "text-pp-text-dim hover:bg-pp-surface-2"
                       )}
                       aria-current={active ? "page" : undefined}
                     >
@@ -164,7 +165,7 @@ function SidebarInner() {
   const sidebarToggle = (
     <button
       onClick={closeSidebar}
-      className="flex h-8 w-8 items-center justify-center rounded-lg text-navy/50 hover:bg-black/5 dark:text-white/50 dark:hover:bg-white/5 lg:hidden"
+      className="flex h-8 w-8 items-center justify-center rounded-lg text-pp-text-dim hover:bg-pp-surface-2 lg:hidden"
       aria-label="Close sidebar"
     >
       <X className="h-4 w-4" />
@@ -187,7 +188,7 @@ function SidebarInner() {
         onMouseEnter={() => sidebarCollapsed && setHoverExpanded(true)}
         onMouseLeave={() => setHoverExpanded(false)}
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex w-64 flex-col overflow-hidden border-r border-black/5 bg-white px-3 py-5 shadow-xl transition-all duration-300 ease-in-out dark:border-white/10 dark:bg-navy-dark lg:static lg:z-auto lg:translate-x-0 lg:shadow-none",
+          "fixed inset-y-0 left-0 z-50 flex w-64 flex-col overflow-hidden border-r border-pp-border bg-pp-surface px-3 py-5 shadow-pp transition-all duration-300 ease-in-out lg:static lg:z-auto lg:translate-x-0 lg:shadow-none",
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         )}
         role="navigation"
@@ -198,7 +199,7 @@ function SidebarInner() {
             <Image src="/logo.png" alt="Penny Pilot" width={32} height={32} className="h-8 w-8 shrink-0 rounded-lg object-cover" />
             {showLabels && (
               <div className="min-w-0">
-                <p className="truncate text-sm font-bold leading-tight text-navy dark:text-white">Penny Pilot</p>
+                <p className="truncate text-sm font-bold leading-tight text-pp-text">Penny Pilot</p>
               </div>
             )}
           </Link>
@@ -208,7 +209,7 @@ function SidebarInner() {
           <button
             type="button"
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            className="hidden h-7 w-7 shrink-0 items-center justify-center rounded-lg text-navy/50 transition-colors hover:bg-black/5 dark:text-white/50 dark:hover:bg-white/5 lg:flex"
+            className="hidden h-7 w-7 shrink-0 items-center justify-center rounded-lg text-pp-text-dim transition-colors hover:bg-pp-surface-2 lg:flex"
             aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
             {sidebarCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
@@ -224,7 +225,7 @@ function SidebarInner() {
 
 export function Sidebar() {
   return (
-    <Suspense fallback={<aside className="hidden w-64 shrink-0 border-r border-black/5 bg-white dark:border-white/10 dark:bg-navy-dark lg:block" />}>
+    <Suspense fallback={<aside className="hidden w-64 shrink-0 border-r border-pp-border bg-pp-surface lg:block" />}>
       <SidebarInner />
     </Suspense>
   );

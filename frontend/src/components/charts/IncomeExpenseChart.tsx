@@ -5,7 +5,7 @@ import {
   ComposedChart, Area, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine,
 } from "recharts";
 import type { TooltipProps } from "recharts";
-import { Card, CardHeader, CardTitle, CardContent } from "../ui/Card";
+import { Card, CardHeader, CardTitle, CardContent } from "../ui/PpCard";
 import { EmptyState } from "../ui/EmptyState";
 import { formatCompactCurrency, cn } from "@/lib/format";
 import { LineChart as LineChartIcon } from "lucide-react";
@@ -19,10 +19,10 @@ interface Point {
 type MetricKey = "income" | "expense" | "netCashFlow" | "budgetLimit";
 
 const METRIC_META: Record<MetricKey, { label: string; swatchClass: string }> = {
-  income: { label: "Income", swatchClass: "bg-gradient-to-r from-cyan-500 to-blue-500" },
-  expense: { label: "Expenses", swatchClass: "bg-gradient-to-r from-rose-500 to-red-600" },
-  netCashFlow: { label: "Net Surplus", swatchClass: "bg-gradient-to-r from-emerald-500 to-rose-500" },
-  budgetLimit: { label: "Budget Limit", swatchClass: "bg-slate-400" },
+  income: { label: "Income", swatchClass: "bg-gradient-to-r from-cypress to-pp-accent" },
+  expense: { label: "Expenses", swatchClass: "bg-gradient-to-r from-vulcanico to-vulcanico" },
+  netCashFlow: { label: "Net Surplus", swatchClass: "bg-gradient-to-r from-mantis to-vulcanico" },
+  budgetLimit: { label: "Budget Limit", swatchClass: "bg-pp-surface-2" },
 };
 
 /** Glassmorphic tooltip per the Midnight Cockpit spec — formatted currency
@@ -33,20 +33,20 @@ function GlassTooltip({ active, payload, label }: TooltipProps<number, string>) 
   const expense = payload.find((p) => p.dataKey === "expense")?.value as number | undefined;
   const net = payload.find((p) => p.dataKey === "netCashFlow")?.value as number | undefined;
   return (
-    <div className="rounded-xl border border-slate-700/80 bg-slate-900/90 p-3 text-xs shadow-xl backdrop-blur-md">
-      <p className="mb-1.5 font-semibold text-slate-200">{label}</p>
+    <div className="rounded-xl border border-pp-border bg-pp-surface-2 p-3 text-xs shadow-xl backdrop-blur-md">
+      <p className="mb-1.5 font-semibold text-pp-text-dim">{label}</p>
       {income !== undefined && (
-        <p className="flex items-center justify-between gap-4 text-cyan-300">
+        <p className="flex items-center justify-between gap-4 text-pp-accent">
           <span>Income</span> <span className="font-semibold">{formatCompactCurrency(income)}</span>
         </p>
       )}
       {expense !== undefined && (
-        <p className="flex items-center justify-between gap-4 text-rose-300">
+        <p className="flex items-center justify-between gap-4 text-vulcanico">
           <span>Expenses</span> <span className="font-semibold">{formatCompactCurrency(expense)}</span>
         </p>
       )}
       {net !== undefined && (
-        <p className={cn("flex items-center justify-between gap-4", net >= 0 ? "text-emerald-300" : "text-rose-300")}>
+        <p className={cn("flex items-center justify-between gap-4", net >= 0 ? "text-mantis" : "text-vulcanico")}>
           <span>Net Surplus</span> <span className="font-semibold">{net >= 0 ? "+" : ""}{formatCompactCurrency(net)}</span>
         </p>
       )}
@@ -85,8 +85,8 @@ export function IncomeExpenseChart({ data, budgetLimit }: { data: Point[]; budge
                     className={cn(
                       "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors",
                       visible[key]
-                        ? "border-slate-300 bg-slate-100 text-slate-700 dark:border-slate-600/50 dark:bg-slate-800/60 dark:text-slate-200"
-                        : "border-black/10 bg-transparent text-navy/40 dark:border-white/10 dark:text-white/30"
+                        ? "border-pp-border bg-pp-surface-2 text-pp-text-dim dark:border-pp-border dark:bg-pp-surface-2 dark:text-pp-text-dim"
+                        : "border-pp-border bg-transparent text-pp-text-dim "
                     )}
                   >
                     <span className={cn("h-2 w-2 rounded-full", METRIC_META[key].swatchClass, !visible[key] && "opacity-30")} />
@@ -99,30 +99,30 @@ export function IncomeExpenseChart({ data, budgetLimit }: { data: Point[]; budge
               <ComposedChart data={chartData}>
                 <defs>
                   <linearGradient id="incomeGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#06B6D4" stopOpacity={0.9} />
-                    <stop offset="100%" stopColor="#3B82F6" stopOpacity={0.05} />
+                    <stop offset="0%" stopColor="#21F1A8" stopOpacity={0.9} />
+                    <stop offset="100%" stopColor="#0E8478" stopOpacity={0.05} />
                   </linearGradient>
                   <linearGradient id="expenseGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#F43F5E" stopOpacity={0.9} />
-                    <stop offset="100%" stopColor="#E11D48" stopOpacity={0.05} />
+                    <stop offset="0%" stopColor="#FF4103" stopOpacity={0.9} />
+                    <stop offset="100%" stopColor="#B91C1C" stopOpacity={0.05} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                <XAxis dataKey="month" tick={{ fontSize: 12, fontWeight: 500, fill: "#94A3B8" }} axisLine={{ stroke: "rgba(148,163,184,0.2)" }} tickLine={false} />
-                <YAxis yAxisId="left" tickFormatter={(v) => formatCompactCurrency(v)} tick={{ fontSize: 12, fontWeight: 500, fill: "#94A3B8" }} axisLine={{ stroke: "rgba(148,163,184,0.2)" }} tickLine={false} width={64} />
-                <YAxis yAxisId="right" orientation="right" tickFormatter={(v) => formatCompactCurrency(v)} tick={{ fontSize: 12, fontWeight: 500, fill: "#94A3B8" }} axisLine={false} tickLine={false} width={64} />
-                <Tooltip content={<GlassTooltip />} cursor={{ stroke: "rgba(99,102,241,0.3)", strokeWidth: 1 }} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--pp-border)" />
+                <XAxis dataKey="month" tick={{ fontSize: 12, fontWeight: 500, fill: "var(--pp-text-dim)" }} axisLine={{ stroke: "var(--pp-border)" }} tickLine={false} />
+                <YAxis yAxisId="left" tickFormatter={(v) => formatCompactCurrency(v)} tick={{ fontSize: 12, fontWeight: 500, fill: "var(--pp-text-dim)" }} axisLine={{ stroke: "var(--pp-border)" }} tickLine={false} width={64} />
+                <YAxis yAxisId="right" orientation="right" tickFormatter={(v) => formatCompactCurrency(v)} tick={{ fontSize: 12, fontWeight: 500, fill: "var(--pp-text-dim)" }} axisLine={false} tickLine={false} width={64} />
+                <Tooltip content={<GlassTooltip />} cursor={{ stroke: "var(--pp-accent)", strokeOpacity: 0.3, strokeWidth: 1 }} />
 
                 {visible.income && (
-                  <Area yAxisId="left" type="monotone" dataKey="income" stroke="#06B6D4" strokeWidth={2} fill="url(#incomeGradient)" fillOpacity={0.2} name="Income" />
+                  <Area yAxisId="left" type="monotone" dataKey="income" stroke="#21F1A8" strokeWidth={2} fill="url(#incomeGradient)" fillOpacity={0.2} name="Income" />
                 )}
                 {visible.expense && (
-                  <Area yAxisId="left" type="monotone" dataKey="expense" stroke="#F43F5E" strokeWidth={2} fill="url(#expenseGradient)" fillOpacity={0.15} name="Expenses" />
+                  <Area yAxisId="left" type="monotone" dataKey="expense" stroke="#FF4103" strokeWidth={2} fill="url(#expenseGradient)" fillOpacity={0.15} name="Expenses" />
                 )}
                 {visible.netCashFlow && (
                   <Bar yAxisId="right" dataKey="netCashFlow" radius={[4, 4, 4, 4]} name="Net Surplus" barSize={14} opacity={0.85}>
                     {chartData.map((d, i) => (
-                      <Cell key={i} fill={d.netCashFlow >= 0 ? "#10B981" : "#F43F5E"} />
+                      <Cell key={i} fill={d.netCashFlow >= 0 ? "#59C749" : "#FF4103"} />
                     ))}
                   </Bar>
                 )}
@@ -130,10 +130,10 @@ export function IncomeExpenseChart({ data, budgetLimit }: { data: Point[]; budge
                   <ReferenceLine
                     yAxisId="left"
                     y={budgetLimit}
-                    stroke="#94A3B8"
+                    stroke="var(--pp-text-dim)"
                     strokeDasharray="6 4"
                     strokeWidth={1.5}
-                    label={{ value: "Budget Ceiling", position: "insideTopRight", fill: "#94A3B8", fontSize: 11 }}
+                    label={{ value: "Budget Ceiling", position: "insideTopRight", fill: "var(--pp-text-dim)", fontSize: 11 }}
                   />
                 )}
               </ComposedChart>

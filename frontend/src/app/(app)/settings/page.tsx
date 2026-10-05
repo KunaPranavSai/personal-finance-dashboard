@@ -8,9 +8,9 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/AuthContext";
 import { api } from "@/lib/api";
 
-import { Topbar } from "@/components/layout/Topbar";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
+import { Topbar } from "@/components/layout/AppTopbar";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/PpCard";
+import { Button } from "@/components/ui/PpButton";
 import { PasswordInput } from "@/components/ui/PasswordInput";
 import { ExportPreviewModal } from "@/components/ui/ExportPreviewModal";
 import { GoogleDriveBackupCard } from "@/components/settings/GoogleDriveBackupCard";
@@ -25,6 +25,7 @@ import { isPwaInstalled, canPromptInstall, triggerInstallPrompt, subscribeToInst
 import { getPreferBiometric, setPreferBiometric } from "@/lib/passkeyPrefs";
 import { startRegistration, browserSupportsWebAuthn } from "@simplewebauthn/browser";
 import { Fingerprint, Pencil, Trash2, X } from "lucide-react";
+import { PinSettings } from "@/components/auth/pin";
 import { useIsMobile } from "@/lib/DeviceContext";
 import { MobileSettingsView } from "@/components/mobile/MobileSettingsView";
 
@@ -118,15 +119,15 @@ function InstallAppSection() {
   };
 
   return (
-    <div className="rounded-lg border border-black/10 p-4 dark:border-white/10">
+    <div className="rounded-lg border border-pp-border p-4 ">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-teal/10">
-            <Smartphone className="h-4 w-4 text-teal" />
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-pp-accent/10">
+            <Smartphone className="h-4 w-4 text-pp-accent" />
           </div>
           <div>
-            <p className="text-sm font-semibold text-navy dark:text-white">Install Penny Pilot</p>
-            <p className="text-xs text-navy/50 dark:text-white/50">
+            <p className="text-sm font-semibold text-pp-text">Install Penny Pilot</p>
+            <p className="text-xs text-pp-text-dim">
               {installed
                 ? "Already installed on this device."
                 : available
@@ -152,14 +153,14 @@ function ExportTab() {
     <Card>
       <CardHeader><CardTitle>Data Export &amp; Backup</CardTitle></CardHeader>
       <CardContent className="space-y-4">
-        <p className="text-sm text-navy/60 dark:text-white/60">
+        <p className="text-sm text-pp-text-dim">
           Preview what will be included, then download your financial data in CSV, Excel, JSON, or PDF.
         </p>
         <Button type="button" onClick={() => setPreviewOpen(true)}>
           <Download className="h-4 w-4" /> Export data
         </Button>
-        <div className="rounded-lg border border-black/5 bg-black/2 p-3 dark:border-white/5 dark:bg-white/2">
-          <p className="text-xs text-navy/40 dark:text-white/40">
+        <div className="rounded-lg border border-pp-border bg-black/2 p-3 dark:border-white/5 dark:bg-white/2">
+          <p className="text-xs text-pp-text-dim">
             Exports include transactions, budgets, investments, bills, goals, accounts, and categories.
           </p>
         </div>
@@ -249,10 +250,10 @@ function TwoFactorSection() {
 
   if (step === "backup") {
     return (
-      <div className="rounded-lg border border-black/5 p-4 space-y-3 dark:border-white/10">
-        <p className="text-sm font-semibold text-navy dark:text-white">Save your backup codes</p>
-        <p className="text-xs text-navy/50 dark:text-white/50">Each code can be used once if you lose access to your authenticator app. Store them somewhere safe — they won&apos;t be shown again.</p>
-        <div className="grid grid-cols-2 gap-2 rounded-lg bg-black/5 p-3 font-mono text-sm dark:bg-white/5">
+      <div className="rounded-lg border border-pp-border p-4 space-y-3 ">
+        <p className="text-sm font-semibold text-pp-text">Save your backup codes</p>
+        <p className="text-xs text-pp-text-dim">Each code can be used once if you lose access to your authenticator app. Store them somewhere safe — they won&apos;t be shown again.</p>
+        <div className="grid grid-cols-2 gap-2 rounded-lg bg-pp-surface-2 p-3 font-mono text-sm ">
           {backupCodes.map((c) => <span key={c}>{c}</span>)}
         </div>
         <Button type="button" size="sm" variant="secondary" onClick={copyBackupCodes}>
@@ -265,12 +266,12 @@ function TwoFactorSection() {
 
   if (step === "qr") {
     return (
-      <div className="rounded-lg border border-black/5 p-4 space-y-3 dark:border-white/10">
-        <p className="text-sm font-semibold text-navy dark:text-white">Scan this QR code</p>
-        <p className="text-xs text-navy/50 dark:text-white/50">Use Google Authenticator, Microsoft Authenticator, Authy, or 2FAS to scan the code below, or enter the key manually.</p>
+      <div className="rounded-lg border border-pp-border p-4 space-y-3 ">
+        <p className="text-sm font-semibold text-pp-text">Scan this QR code</p>
+        <p className="text-xs text-pp-text-dim">Use Google Authenticator, Microsoft Authenticator, Authy, or 2FAS to scan the code below, or enter the key manually.</p>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={qrCode} alt="2FA QR code" className="h-40 w-40 rounded-lg bg-white p-2" />
-        <div className="flex items-center gap-2 rounded-lg bg-black/5 p-2 dark:bg-white/5">
+        <img src={qrCode} alt="2FA QR code" className="h-40 w-40 rounded-lg bg-pp-surface p-2" />
+        <div className="flex items-center gap-2 rounded-lg bg-pp-surface-2 p-2 ">
           <p className="min-w-0 flex-1 break-all font-mono text-xs">{secret}</p>
           <button
             type="button"
@@ -280,20 +281,20 @@ function TwoFactorSection() {
               setTimeout(() => setSecretCopied(false), 2000);
             }}
             aria-label="Copy secret key"
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-navy/50 hover:bg-black/5 dark:text-white/50 dark:hover:bg-white/10"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-pp-text-dim hover:bg-pp-surface-2"
           >
-            {secretCopied ? <Check className="h-3.5 w-3.5 text-teal" /> : <Copy className="h-3.5 w-3.5" />}
+            {secretCopied ? <Check className="h-3.5 w-3.5 text-pp-accent" /> : <Copy className="h-3.5 w-3.5" />}
           </button>
         </div>
         <div>
-          <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Enter the 6-digit code from your app</label>
-          <input type="text" inputMode="numeric" autoComplete="one-time-code" value={code} onChange={(e) => setCode(e.target.value)} placeholder="123456" className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" />
+          <label className="block text-xs font-medium text-pp-text-dim mb-1">Enter the 6-digit code from your app</label>
+          <input type="text" inputMode="numeric" autoComplete="one-time-code" value={code} onChange={(e) => setCode(e.target.value)} placeholder="123456" className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm " />
         </div>
         {justVerified ? (
           <motion.p
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="flex items-center gap-1.5 text-sm font-medium text-teal"
+            className="flex items-center gap-1.5 text-sm font-medium text-pp-accent"
           >
             <CheckCircle className="h-4 w-4" /> Verified — enabling 2FA…
           </motion.p>
@@ -302,7 +303,7 @@ function TwoFactorSection() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1, x: [0, -8, 8, -6, 6, -2, 2, 0] }}
             transition={{ duration: 0.4 }}
-            className="text-xs text-red-500"
+            className="text-xs text-vulcanico"
           >
             {error}
           </motion.p>
@@ -317,21 +318,21 @@ function TwoFactorSection() {
 
   if (step === "disable") {
     return (
-      <div className="rounded-lg border border-black/5 p-4 space-y-3 dark:border-white/10">
-        <p className="text-sm font-semibold text-navy dark:text-white">Disable Two-Factor Authentication</p>
+      <div className="rounded-lg border border-pp-border p-4 space-y-3 ">
+        <p className="text-sm font-semibold text-pp-text">Disable Two-Factor Authentication</p>
         <div>
-          <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Password</label>
-          <PasswordInput autoComplete="current-password" value={disablePassword} onChange={(e) => setDisablePassword(e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" />
+          <label className="block text-xs font-medium text-pp-text-dim mb-1">Password</label>
+          <PasswordInput autoComplete="current-password" value={disablePassword} onChange={(e) => setDisablePassword(e.target.value)} className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm " />
         </div>
         <div>
-          <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Verification code</label>
-          <input type="text" inputMode="numeric" autoComplete="one-time-code" value={disableCode} onChange={(e) => setDisableCode(e.target.value)} placeholder="123456" className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" />
+          <label className="block text-xs font-medium text-pp-text-dim mb-1">Verification code</label>
+          <input type="text" inputMode="numeric" autoComplete="one-time-code" value={disableCode} onChange={(e) => setDisableCode(e.target.value)} placeholder="123456" className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm " />
         </div>
         {justDisabled ? (
           <motion.p
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="flex items-center gap-1.5 text-sm font-medium text-teal"
+            className="flex items-center gap-1.5 text-sm font-medium text-pp-accent"
           >
             <CheckCircle className="h-4 w-4" /> 2FA disabled
           </motion.p>
@@ -340,7 +341,7 @@ function TwoFactorSection() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1, x: [0, -8, 8, -6, 6, -2, 2, 0] }}
             transition={{ duration: 0.4 }}
-            className="text-xs text-red-500"
+            className="text-xs text-vulcanico"
           >
             {error}
           </motion.p>
@@ -356,8 +357,8 @@ function TwoFactorSection() {
   return (
     <div className="flex items-center justify-between">
       <div>
-        <p className="text-sm font-medium text-navy dark:text-white">Two-Factor Authentication</p>
-        <p className="text-xs text-navy/50 dark:text-white/50">{twoFactorEnabled ? "Enabled — your account requires a code at sign-in" : "Add an extra layer of security"}</p>
+        <p className="text-sm font-medium text-pp-text">Two-Factor Authentication</p>
+        <p className="text-xs text-pp-text-dim">{twoFactorEnabled ? "Enabled — your account requires a code at sign-in" : "Add an extra layer of security"}</p>
       </div>
       {twoFactorEnabled ? (
         <Button type="button" size="sm" variant="secondary" onClick={() => setStep("disable")}>Disable</Button>
@@ -494,19 +495,19 @@ function PasskeySection() {
   if (!supported) return null;
 
   return (
-    <div className="rounded-lg border border-black/5 p-4 space-y-3 dark:border-white/10">
+    <div className="rounded-lg border border-pp-border p-4 space-y-3 ">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="flex items-center gap-1.5 text-sm font-semibold text-navy dark:text-white">
-            <Fingerprint className="h-4 w-4 text-teal" /> Passkeys &amp; Biometrics
+          <p className="flex items-center gap-1.5 text-sm font-semibold text-pp-text">
+            <Fingerprint className="h-4 w-4 text-pp-accent" /> Passkeys &amp; Biometrics
           </p>
-          <p className="text-xs text-navy/50 dark:text-white/50">Sign in with Windows Hello, Touch ID, Face ID, or a security key instead of your password.</p>
+          <p className="text-xs text-pp-text-dim">Sign in with Windows Hello, Touch ID, Face ID, or a security key instead of your password.</p>
         </div>
         {!adding && <Button type="button" size="sm" onClick={() => setAdding(true)}>Add Passkey</Button>}
       </div>
 
       {passkeys.length > 0 && (
-        <label className="flex items-center gap-2 text-xs text-navy/60 dark:text-white/60">
+        <label className="flex items-center gap-2 text-xs text-pp-text-dim">
           <input type="checkbox" checked={preferBiometric} onChange={(e) => togglePreferBiometric(e.target.checked)} className="rounded border-black/20 dark:border-white/20" />
           Prefer biometric login on this device
         </label>
@@ -521,16 +522,16 @@ function PasskeySection() {
                   autoFocus
                   value={renameValue}
                   onChange={(e) => setRenameValue(e.target.value)}
-                  className="min-w-0 flex-1 rounded-lg border border-black/10 bg-transparent px-2 py-1 text-sm dark:border-white/10"
+                  className="min-w-0 flex-1 rounded-lg border border-pp-border bg-transparent px-2 py-1 text-sm "
                 />
-                <button type="button" onClick={() => handleRename(pk.id)} className="text-xs font-medium text-teal">Save</button>
-                <button type="button" onClick={() => setRenamingId(null)} className="text-navy/40 dark:text-white/40"><X className="h-3.5 w-3.5" /></button>
+                <button type="button" onClick={() => handleRename(pk.id)} className="text-xs font-medium text-pp-accent">Save</button>
+                <button type="button" onClick={() => setRenamingId(null)} className="text-pp-text-dim"><X className="h-3.5 w-3.5" /></button>
               </div>
             ) : (
               <>
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-navy dark:text-white">{pk.name}</p>
-                  <p className="text-xs text-navy/40 dark:text-white/40">
+                  <p className="truncate text-sm font-medium text-pp-text">{pk.name}</p>
+                  <p className="text-xs text-pp-text-dim">
                     {pk.lastUsedAt ? `Last used ${new Date(pk.lastUsedAt).toLocaleDateString()}` : `Added ${new Date(pk.createdAt).toLocaleDateString()}`}
                   </p>
                 </div>
@@ -539,7 +540,7 @@ function PasskeySection() {
                     type="button"
                     aria-label="Rename passkey"
                     onClick={() => { setRenamingId(pk.id); setRenameValue(pk.name); }}
-                    className="flex h-7 w-7 items-center justify-center rounded-md text-navy/50 hover:bg-black/5 dark:text-white/50 dark:hover:bg-white/10"
+                    className="flex h-7 w-7 items-center justify-center rounded-md text-pp-text-dim hover:bg-pp-surface-2"
                   >
                     <Pencil className="h-3.5 w-3.5" />
                   </button>
@@ -547,7 +548,7 @@ function PasskeySection() {
                     type="button"
                     aria-label="Remove passkey"
                     onClick={() => { setDeletingId(pk.id); setError(""); }}
-                    className="flex h-7 w-7 items-center justify-center rounded-md text-red-500/70 hover:bg-red-500/10"
+                    className="flex h-7 w-7 items-center justify-center rounded-md text-vulcanico/70 hover:bg-vulcanico/10"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
@@ -556,17 +557,17 @@ function PasskeySection() {
             )}
           </div>
         ))}
-        {passkeys.length === 0 && !adding && <p className="text-xs text-navy/40 dark:text-white/40">No passkeys registered yet.</p>}
+        {passkeys.length === 0 && !adding && <p className="text-xs text-pp-text-dim">No passkeys registered yet.</p>}
       </div>
 
       {deletingId && (
-        <div className="rounded-lg border border-red-500/20 p-3 space-y-2">
-          <p className="text-xs font-medium text-navy dark:text-white">Confirm your password to remove this passkey</p>
-          <PasswordInput autoComplete="current-password" value={deletePassword} onChange={(e) => setDeletePassword(e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" placeholder="Current password" />
+        <div className="rounded-lg border border-vulcanico/20 p-3 space-y-2">
+          <p className="text-xs font-medium text-pp-text">Confirm your password to remove this passkey</p>
+          <PasswordInput autoComplete="current-password" value={deletePassword} onChange={(e) => setDeletePassword(e.target.value)} className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm " placeholder="Current password" />
           {twoFactorEnabled && (
-            <input type="text" inputMode="numeric" autoComplete="one-time-code" value={deleteCode} onChange={(e) => setDeleteCode(e.target.value)} placeholder="6-digit code" className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" />
+            <input type="text" inputMode="numeric" autoComplete="one-time-code" value={deleteCode} onChange={(e) => setDeleteCode(e.target.value)} placeholder="6-digit code" className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm " />
           )}
-          {error && <p className="text-xs text-red-500">{error}</p>}
+          {error && <p className="text-xs text-vulcanico">{error}</p>}
           <div className="flex gap-2">
             <Button type="button" size="sm" variant="danger" disabled={busy || !deletePassword || (twoFactorEnabled && !deleteCode)} onClick={() => handleDelete(deletingId)}>{busy ? "Removing…" : "Remove Passkey"}</Button>
             <Button type="button" size="sm" variant="secondary" onClick={() => { setDeletingId(null); setError(""); }}>Cancel</Button>
@@ -575,15 +576,15 @@ function PasskeySection() {
       )}
 
       {adding && (
-        <div className="rounded-lg border border-black/5 p-3 space-y-2 dark:border-white/10">
+        <div className="rounded-lg border border-pp-border p-3 space-y-2 ">
           {addStep === "confirm" ? (
             <>
-              <p className="text-xs font-medium text-navy dark:text-white">Confirm your identity to add a passkey</p>
-              <PasswordInput autoComplete="current-password" value={addPassword} onChange={(e) => setAddPassword(e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" placeholder="Current password" />
+              <p className="text-xs font-medium text-pp-text">Confirm your identity to add a passkey</p>
+              <PasswordInput autoComplete="current-password" value={addPassword} onChange={(e) => setAddPassword(e.target.value)} className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm " placeholder="Current password" />
               {twoFactorEnabled && (
-                <input type="text" inputMode="numeric" autoComplete="one-time-code" value={addCode} onChange={(e) => setAddCode(e.target.value)} placeholder="6-digit code" className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" />
+                <input type="text" inputMode="numeric" autoComplete="one-time-code" value={addCode} onChange={(e) => setAddCode(e.target.value)} placeholder="6-digit code" className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm " />
               )}
-              {error && <p className="text-xs text-red-500">{error}</p>}
+              {error && <p className="text-xs text-vulcanico">{error}</p>}
               <div className="flex gap-2">
                 <Button type="button" size="sm" disabled={busy || !addPassword || (twoFactorEnabled && !addCode)} onClick={handleStartRegistration}>{busy ? "Verifying…" : "Continue"}</Button>
                 <Button type="button" size="sm" variant="secondary" onClick={resetAddFlow}>Cancel</Button>
@@ -591,9 +592,9 @@ function PasskeySection() {
             </>
           ) : (
             <>
-              <p className="text-xs font-medium text-navy dark:text-white">Name this passkey</p>
-              <input value={addName} onChange={(e) => setAddName(e.target.value)} placeholder="e.g. Windows Hello, iPhone" autoFocus className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" />
-              {error && <p className="text-xs text-red-500">{error}</p>}
+              <p className="text-xs font-medium text-pp-text">Name this passkey</p>
+              <input value={addName} onChange={(e) => setAddName(e.target.value)} placeholder="e.g. Windows Hello, iPhone" autoFocus className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm " />
+              {error && <p className="text-xs text-vulcanico">{error}</p>}
               <div className="flex gap-2">
                 <Button type="button" size="sm" disabled={busy || !addName.trim()} onClick={handleCompleteRegistration}>{busy ? "Registering…" : "Register Device"}</Button>
                 <Button type="button" size="sm" variant="secondary" onClick={resetAddFlow}>Cancel</Button>
@@ -634,18 +635,18 @@ function ChangeUidSection() {
   }, [newUid, password, changeUid, toast]);
 
   return (
-    <div className="rounded-lg border border-black/5 p-4 space-y-3 dark:border-white/10">
-      <p className="text-sm font-semibold text-navy dark:text-white">Change User ID</p>
-      <p className="text-xs text-navy/50 dark:text-white/50">Current User ID: <span className="font-mono font-semibold">{user?.uid}</span></p>
+    <div className="rounded-lg border border-pp-border p-4 space-y-3 ">
+      <p className="text-sm font-semibold text-pp-text">Change User ID</p>
+      <p className="text-xs text-pp-text-dim">Current User ID: <span className="font-mono font-semibold">{user?.uid}</span></p>
       <div>
-        <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">New User ID</label>
-        <input type="text" value={newUid} onChange={(e) => setNewUid(e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" placeholder="New User ID" />
+        <label className="block text-xs font-medium text-pp-text-dim mb-1">New User ID</label>
+        <input type="text" value={newUid} onChange={(e) => setNewUid(e.target.value)} className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm " placeholder="New User ID" />
       </div>
       <div>
-        <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Confirm with Password</label>
-        <PasswordInput autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" placeholder="Current password" />
+        <label className="block text-xs font-medium text-pp-text-dim mb-1">Confirm with Password</label>
+        <PasswordInput autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm " placeholder="Current password" />
       </div>
-      {error && <p className="text-xs text-red-500">{error}</p>}
+      {error && <p className="text-xs text-vulcanico">{error}</p>}
       <Button type="button" size="sm" onClick={handleChange} disabled={busy || !newUid || !password}>{busy ? "Changing…" : "Change User ID"}</Button>
     </div>
   );
@@ -704,9 +705,9 @@ function SecurityQuestionsSection() {
   }, [question1, answer1, question2, answer2, password, loadStatus, toast]);
 
   return (
-    <div className="rounded-lg border border-black/5 p-4 space-y-3 dark:border-white/10">
-      <p className="text-sm font-semibold text-navy dark:text-white">Account-Recovery Security Questions</p>
-      <p className="text-xs text-navy/50 dark:text-white/50">
+    <div className="rounded-lg border border-pp-border p-4 space-y-3 ">
+      <p className="text-sm font-semibold text-pp-text">Account-Recovery Security Questions</p>
+      <p className="text-xs text-pp-text-dim">
         {status?.configured
           ? "Configured — used as an extra verification step during password recovery."
           : "Not configured. Your account remains fully recoverable via email code alone; adding security questions is an optional extra layer."}
@@ -718,26 +719,26 @@ function SecurityQuestionsSection() {
       ) : (
         <div className="space-y-3">
           <div>
-            <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Question 1</label>
-            <select value={question1} onChange={(e) => setQuestion1(e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
+            <label className="block text-xs font-medium text-pp-text-dim mb-1">Question 1</label>
+            <select value={question1} onChange={(e) => setQuestion1(e.target.value)} className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm ">
               <option value="">Select…</option>
               {SECURITY_QUESTIONS.map((q) => <option key={q.key} value={q.key} disabled={q.key === question2}>{q.text}</option>)}
             </select>
-            <input type="text" value={answer1} onChange={(e) => setAnswer1(e.target.value)} placeholder="Your answer" className="mt-2 w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" />
+            <input type="text" value={answer1} onChange={(e) => setAnswer1(e.target.value)} placeholder="Your answer" className="mt-2 w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm " />
           </div>
           <div>
-            <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Question 2</label>
-            <select value={question2} onChange={(e) => setQuestion2(e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
+            <label className="block text-xs font-medium text-pp-text-dim mb-1">Question 2</label>
+            <select value={question2} onChange={(e) => setQuestion2(e.target.value)} className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm ">
               <option value="">Select…</option>
               {SECURITY_QUESTIONS.map((q) => <option key={q.key} value={q.key} disabled={q.key === question1}>{q.text}</option>)}
             </select>
-            <input type="text" value={answer2} onChange={(e) => setAnswer2(e.target.value)} placeholder="Your answer" className="mt-2 w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" />
+            <input type="text" value={answer2} onChange={(e) => setAnswer2(e.target.value)} placeholder="Your answer" className="mt-2 w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm " />
           </div>
           <div>
-            <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Confirm with Password</label>
-            <PasswordInput autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" placeholder="Current password" />
+            <label className="block text-xs font-medium text-pp-text-dim mb-1">Confirm with Password</label>
+            <PasswordInput autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm " placeholder="Current password" />
           </div>
-          {error && <p className="text-xs text-red-500">{error}</p>}
+          {error && <p className="text-xs text-vulcanico">{error}</p>}
           <div className="flex gap-2">
             <Button type="button" size="sm" onClick={handleSave} disabled={busy}>{busy ? "Saving…" : "Save"}</Button>
             <Button type="button" size="sm" variant="ghost" onClick={() => { setEditing(false); setError(""); }}>Cancel</Button>
@@ -791,15 +792,15 @@ function ActivityTab() {
       <CardHeader><CardTitle>Account Activity</CardTitle></CardHeader>
       <CardContent>
         {isLoading ? (
-          <div className="space-y-2">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="h-12 animate-pulse rounded-lg bg-black/5 dark:bg-white/5" />)}</div>
+          <div className="space-y-2">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="h-12 animate-pulse rounded-lg bg-pp-surface-2" />)}</div>
         ) : items.length === 0 ? (
-          <p className="py-8 text-center text-sm text-navy/50 dark:text-white/50">No activity recorded yet.</p>
+          <p className="py-8 text-center text-sm text-pp-text-dim">No activity recorded yet.</p>
         ) : (
           <>
             <div className="hidden overflow-x-auto md:block">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-black/5 dark:border-white/10 text-left text-navy/50 dark:text-white/50">
+                  <tr className="border-b border-pp-border text-left text-pp-text-dim">
                     <th className="pb-2 pr-3 font-medium">Event</th>
                     <th className="pb-2 pr-3 font-medium">Time</th>
                     <th className="pb-2 pr-3 font-medium">IP</th>
@@ -810,16 +811,16 @@ function ActivityTab() {
                 </thead>
                 <tbody>
                   {items.map((a) => (
-                    <tr key={a.id} className="border-b border-black/5 dark:border-white/5">
+                    <tr key={a.id} className="border-b border-pp-border dark:border-white/5">
                       <td className="py-2 pr-3">
-                        <span className="font-medium text-navy dark:text-white">{EVENT_LABELS[a.event] ?? a.event}</span>
-                        {a.detail && <span className="block text-xs text-navy/40 dark:text-white/40">{a.detail}</span>}
+                        <span className="font-medium text-pp-text">{EVENT_LABELS[a.event] ?? a.event}</span>
+                        {a.detail && <span className="block text-xs text-pp-text-dim">{a.detail}</span>}
                       </td>
-                      <td className="py-2 pr-3 text-navy/70 dark:text-white/70 whitespace-nowrap">{new Date(a.createdAt).toLocaleString()}</td>
-                      <td className="py-2 pr-3 font-mono text-xs text-navy/60 dark:text-white/60">{a.ip ?? "—"}</td>
-                      <td className="py-2 pr-3 text-navy/60 dark:text-white/60">{a.browser ?? "—"}</td>
-                      <td className="py-2 pr-3 text-navy/60 dark:text-white/60">{a.os ?? "—"}</td>
-                      <td className="py-2 text-navy/60 dark:text-white/60">{a.device ?? "—"}</td>
+                      <td className="py-2 pr-3 text-pp-text-dim whitespace-nowrap">{new Date(a.createdAt).toLocaleString()}</td>
+                      <td className="py-2 pr-3 font-mono text-xs text-pp-text-dim">{a.ip ?? "—"}</td>
+                      <td className="py-2 pr-3 text-pp-text-dim">{a.browser ?? "—"}</td>
+                      <td className="py-2 pr-3 text-pp-text-dim">{a.os ?? "—"}</td>
+                      <td className="py-2 text-pp-text-dim">{a.device ?? "—"}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -828,15 +829,15 @@ function ActivityTab() {
 
             <div className="flex flex-col gap-2 md:hidden">
               {items.map((a) => (
-                <div key={a.id} className="rounded-xl2 border border-black/5 bg-white p-3 dark:border-white/10 dark:bg-white/5">
+                <div key={a.id} className="rounded-xl2 border border-pp-border bg-pp-surface p-3 ">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-navy dark:text-white">{EVENT_LABELS[a.event] ?? a.event}</p>
-                      {a.detail && <p className="truncate text-xs text-navy/40 dark:text-white/40">{a.detail}</p>}
+                      <p className="truncate text-sm font-medium text-pp-text">{EVENT_LABELS[a.event] ?? a.event}</p>
+                      {a.detail && <p className="truncate text-xs text-pp-text-dim">{a.detail}</p>}
                     </div>
-                    <p className="shrink-0 whitespace-nowrap text-xs text-navy/50 dark:text-white/50">{new Date(a.createdAt).toLocaleString()}</p>
+                    <p className="shrink-0 whitespace-nowrap text-xs text-pp-text-dim">{new Date(a.createdAt).toLocaleString()}</p>
                   </div>
-                  <p className="mt-1.5 text-xs text-navy/40 dark:text-white/40">
+                  <p className="mt-1.5 text-xs text-pp-text-dim">
                     {[a.browser, a.os, a.device].filter(Boolean).join(" · ") || "—"}
                     {a.ip && <span className="ml-1 font-mono">({a.ip})</span>}
                   </p>
@@ -846,7 +847,7 @@ function ActivityTab() {
             {totalPages > 1 && (
               <div className="mt-4 flex items-center justify-between text-sm">
                 <Button type="button" size="sm" variant="secondary" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}>Previous</Button>
-                <span className="text-navy/50 dark:text-white/50">Page {page} of {totalPages}</span>
+                <span className="text-pp-text-dim">Page {page} of {totalPages}</span>
                 <Button type="button" size="sm" variant="secondary" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages}>Next</Button>
               </div>
             )}
@@ -862,7 +863,7 @@ function SettingsContent() {
   const isMobile = useIsMobile();
   const { settings, updateSettings, isLoading, isSaving } = useSettingsContext();
   const { toast } = useToast();
-  const { changePassword } = useAuth();
+  const { user, changePassword } = useAuth();
   const [activeTab, setActiveTab] = useState(searchParams.get("tab") ?? "appearance");
   const [localSettings, setLocalSettings] = useState<Record<string, unknown>>({});
   const [pwForm, setPwForm] = useState({ current: "", next: "", confirm: "" });
@@ -928,8 +929,8 @@ function SettingsContent() {
             <CardContent className="space-y-5">
               <InstallAppSection />
 
-              <div className="rounded-lg border border-black/10 p-4 dark:border-white/10">
-                <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Theme</label>
+              <div className="rounded-lg border border-pp-border p-4 ">
+                <label className="block text-xs font-medium text-pp-text-dim mb-1">Theme</label>
                 <div className="grid grid-cols-3 gap-3">
                   {([
                     { value: "light", label: "Light", icon: Sun },
@@ -943,59 +944,59 @@ function SettingsContent() {
                       whileTap={{ scale: 0.97 }}
                       transition={{ duration: 0.15 }}
                       className={cn("flex items-center justify-center gap-2 rounded-lg border px-4 py-3 text-sm font-medium transition-colors",
-                        settings.theme === value ? "border-teal bg-teal/10 text-teal" : "border-black/10 text-navy/60 hover:bg-black/5 dark:border-white/10 dark:text-white/60"
+                        settings.theme === value ? "border-pp-accent bg-pp-accent/10 text-pp-accent" : "border-pp-border text-pp-text-dim hover:bg-pp-surface-2 "
                       )}>
                       <Icon className="h-4 w-4" /> {label}
                     </motion.button>
                   ))}
                 </div>
-                <p className="mt-2 text-xs text-navy/40 dark:text-white/40">Applies instantly with a smooth transition — no save needed.</p>
+                <p className="mt-2 text-xs text-pp-text-dim">Applies instantly with a smooth transition — no save needed.</p>
               </div>
 
-              <div className="rounded-lg border border-black/10 p-4 space-y-4 dark:border-white/10">
-                <p className="text-sm font-semibold text-navy dark:text-white">Currency & Format</p>
+              <div className="rounded-lg border border-pp-border p-4 space-y-4 ">
+                <p className="text-sm font-semibold text-pp-text">Currency & Format</p>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
-                    <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Currency</label>
-                    <select value={String(s.currency ?? "INR")} onChange={(e) => { handleChange("currency", e.target.value); handleChange("currencySymbol", e.target.value); }} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
+                    <label className="block text-xs font-medium text-pp-text-dim mb-1">Currency</label>
+                    <select value={String(s.currency ?? "INR")} onChange={(e) => { handleChange("currency", e.target.value); handleChange("currencySymbol", e.target.value); }} className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm ">
                       {CURRENCIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Number Format</label>
-                    <select value={String(s.numberFormat ?? "1,234.56")} onChange={(e) => handleChange("numberFormat", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
+                    <label className="block text-xs font-medium text-pp-text-dim mb-1">Number Format</label>
+                    <select value={String(s.numberFormat ?? "1,234.56")} onChange={(e) => handleChange("numberFormat", e.target.value)} className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm ">
                       {NUMBER_FORMATS.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
                     </select>
                   </div>
                 </div>
               </div>
 
-              <div className="rounded-lg border border-black/10 p-4 space-y-4 dark:border-white/10">
-                <p className="text-sm font-semibold text-navy dark:text-white">Regional & Date/Time</p>
+              <div className="rounded-lg border border-pp-border p-4 space-y-4 ">
+                <p className="text-sm font-semibold text-pp-text">Regional & Date/Time</p>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
-                    <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Timezone</label>
-                    <select value={String(s.timezone ?? "Asia/Kolkata")} onChange={(e) => handleChange("timezone", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
+                    <label className="block text-xs font-medium text-pp-text-dim mb-1">Timezone</label>
+                    <select value={String(s.timezone ?? "Asia/Kolkata")} onChange={(e) => handleChange("timezone", e.target.value)} className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm ">
                       {TIMEZONES.map((t) => <option key={t} value={t}>{t}</option>)}
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Language</label>
-                    <select value={String(s.language ?? "en")} onChange={(e) => handleChange("language", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
+                    <label className="block text-xs font-medium text-pp-text-dim mb-1">Language</label>
+                    <select value={String(s.language ?? "en")} onChange={(e) => handleChange("language", e.target.value)} className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm ">
                       {LANGUAGES.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}
                     </select>
                   </div>
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
-                    <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Date Format</label>
-                    <select value={String(s.dateFormat ?? "DD-MM-YYYY")} onChange={(e) => handleChange("dateFormat", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
+                    <label className="block text-xs font-medium text-pp-text-dim mb-1">Date Format</label>
+                    <select value={String(s.dateFormat ?? "DD-MM-YYYY")} onChange={(e) => handleChange("dateFormat", e.target.value)} className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm ">
                       {DATE_FORMATS.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Time Format</label>
-                    <select value={String(s.timeFormat ?? "24h")} onChange={(e) => handleChange("timeFormat", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
+                    <label className="block text-xs font-medium text-pp-text-dim mb-1">Time Format</label>
+                    <select value={String(s.timeFormat ?? "24h")} onChange={(e) => handleChange("timeFormat", e.target.value)} className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm ">
                       <option value="24h">24-Hour</option>
                       <option value="12h">12-Hour (AM/PM)</option>
                     </select>
@@ -1003,32 +1004,32 @@ function SettingsContent() {
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
-                    <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">First Day of Week</label>
-                    <select value={String(s.firstDayOfWeek ?? "monday")} onChange={(e) => handleChange("firstDayOfWeek", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
+                    <label className="block text-xs font-medium text-pp-text-dim mb-1">First Day of Week</label>
+                    <select value={String(s.firstDayOfWeek ?? "monday")} onChange={(e) => handleChange("firstDayOfWeek", e.target.value)} className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm ">
                       {FIRST_DAY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Default Dashboard</label>
-                    <select value={String(s.defaultDashboard ?? "dashboard")} onChange={(e) => handleChange("defaultDashboard", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
+                    <label className="block text-xs font-medium text-pp-text-dim mb-1">Default Dashboard</label>
+                    <select value={String(s.defaultDashboard ?? "dashboard")} onChange={(e) => handleChange("defaultDashboard", e.target.value)} className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm ">
                       {DEFAULT_DASHBOARDS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
                     </select>
                   </div>
                 </div>
               </div>
 
-              <div className="rounded-lg border border-black/10 p-4 space-y-4 dark:border-white/10">
-                <p className="text-sm font-semibold text-navy dark:text-white">Preferences</p>
+              <div className="rounded-lg border border-pp-border p-4 space-y-4 ">
+                <p className="text-sm font-semibold text-pp-text">Preferences</p>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
-                    <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Startup Preference</label>
-                    <select value={String(s.startupPreferences ?? "last-viewed")} onChange={(e) => handleChange("startupPreferences", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
+                    <label className="block text-xs font-medium text-pp-text-dim mb-1">Startup Preference</label>
+                    <select value={String(s.startupPreferences ?? "last-viewed")} onChange={(e) => handleChange("startupPreferences", e.target.value)} className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm ">
                       {STARTUP_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Default Chart</label>
-                    <select value={String(pref.defaultCharts ?? "income-expense")} onChange={(e) => handleNestedChange("preferences", "defaultCharts", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
+                    <label className="block text-xs font-medium text-pp-text-dim mb-1">Default Chart</label>
+                    <select value={String(pref.defaultCharts ?? "income-expense")} onChange={(e) => handleNestedChange("preferences", "defaultCharts", e.target.value)} className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm ">
                       <option value="income-expense">Income vs Expense</option>
                       <option value="category-breakdown">Category Breakdown</option>
                       <option value="net-worth">Net Worth</option>
@@ -1037,8 +1038,8 @@ function SettingsContent() {
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
-                    <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Default Filter</label>
-                    <select value={String(pref.defaultFilters ?? "all")} onChange={(e) => handleNestedChange("preferences", "defaultFilters", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
+                    <label className="block text-xs font-medium text-pp-text-dim mb-1">Default Filter</label>
+                    <select value={String(pref.defaultFilters ?? "all")} onChange={(e) => handleNestedChange("preferences", "defaultFilters", e.target.value)} className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm ">
                       <option value="all">All Expenses & Income</option>
                       <option value="income">Income Only</option>
                       <option value="expense">Expenses Only</option>
@@ -1046,8 +1047,8 @@ function SettingsContent() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Default Transaction Type</label>
-                    <select value={String(pref.defaultTransactionType ?? "EXPENSE")} onChange={(e) => handleNestedChange("preferences", "defaultTransactionType", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
+                    <label className="block text-xs font-medium text-pp-text-dim mb-1">Default Transaction Type</label>
+                    <select value={String(pref.defaultTransactionType ?? "EXPENSE")} onChange={(e) => handleNestedChange("preferences", "defaultTransactionType", e.target.value)} className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm ">
                       <option value="EXPENSE">Expense</option>
                       <option value="INCOME">Income</option>
                     </select>
@@ -1055,22 +1056,22 @@ function SettingsContent() {
                 </div>
                 <div className="space-y-3 pt-1">
                   <label className="flex items-center gap-3 cursor-pointer">
-                    <input type="checkbox" checked={Boolean(pref.compactMode ?? false)} onChange={(e) => handleNestedChange("preferences", "compactMode", e.target.checked)} className="h-4 w-4 rounded border-black/20 text-teal dark:border-white/20" />
-                    <span className="text-sm text-navy dark:text-white">Compact mode (smaller spacing)</span>
+                    <input type="checkbox" checked={Boolean(pref.compactMode ?? false)} onChange={(e) => handleNestedChange("preferences", "compactMode", e.target.checked)} className="h-4 w-4 rounded border-black/20 text-pp-accent dark:border-white/20" />
+                    <span className="text-sm text-pp-text">Compact mode (smaller spacing)</span>
                   </label>
                   <label className="flex items-center gap-3 cursor-pointer">
-                    <input type="checkbox" checked={Boolean(pref.showTips ?? true)} onChange={(e) => handleNestedChange("preferences", "showTips", e.target.checked)} className="h-4 w-4 rounded border-black/20 text-teal dark:border-white/20" />
-                    <span className="text-sm text-navy dark:text-white">Show tips and suggestions</span>
+                    <input type="checkbox" checked={Boolean(pref.showTips ?? true)} onChange={(e) => handleNestedChange("preferences", "showTips", e.target.checked)} className="h-4 w-4 rounded border-black/20 text-pp-accent dark:border-white/20" />
+                    <span className="text-sm text-pp-text">Show tips and suggestions</span>
                   </label>
                   <label className="flex items-center gap-3 cursor-pointer">
-                    <input type="checkbox" checked={Boolean(pref.confirmBeforeDelete ?? true)} onChange={(e) => handleNestedChange("preferences", "confirmBeforeDelete", e.target.checked)} className="h-4 w-4 rounded border-black/20 text-teal dark:border-white/20" />
-                    <span className="text-sm text-navy dark:text-white">Confirm before deleting items</span>
+                    <input type="checkbox" checked={Boolean(pref.confirmBeforeDelete ?? true)} onChange={(e) => handleNestedChange("preferences", "confirmBeforeDelete", e.target.checked)} className="h-4 w-4 rounded border-black/20 text-pp-accent dark:border-white/20" />
+                    <span className="text-sm text-pp-text">Confirm before deleting items</span>
                   </label>
                   <label className="flex items-start gap-3 cursor-pointer">
-                    <input type="checkbox" checked={Boolean(pref.voiceGreetings ?? true)} onChange={(e) => handleNestedChange("preferences", "voiceGreetings", e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-black/20 text-teal dark:border-white/20" />
+                    <input type="checkbox" checked={Boolean(pref.voiceGreetings ?? true)} onChange={(e) => handleNestedChange("preferences", "voiceGreetings", e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-black/20 text-pp-accent dark:border-white/20" />
                     <span>
-                      <span className="block text-sm text-navy dark:text-white">Voice Greetings</span>
-                      <span className="block text-xs text-navy/50 dark:text-white/50">Hear a short spoken greeting when you sign in, sign up, or sign out.</span>
+                      <span className="block text-sm text-pp-text">Voice Greetings</span>
+                      <span className="block text-xs text-pp-text-dim">Hear a short spoken greeting when you sign in, sign up, or sign out.</span>
                     </span>
                   </label>
                 </div>
@@ -1093,19 +1094,19 @@ function SettingsContent() {
                   { key: "push", label: "Push / Browser Notifications" },
                 ].map((opt) => (
                   <label key={opt.key} className="flex items-center gap-3 cursor-pointer">
-                    <input type="checkbox" checked={Boolean(notifs[opt.key] ?? false)} onChange={(e) => handleNestedChange("notifications", opt.key, e.target.checked)} className="h-4 w-4 rounded border-black/20 text-teal dark:border-white/20" />
-                    <span className="text-sm text-navy dark:text-white">{opt.label}</span>
+                    <input type="checkbox" checked={Boolean(notifs[opt.key] ?? false)} onChange={(e) => handleNestedChange("notifications", opt.key, e.target.checked)} className="h-4 w-4 rounded border-black/20 text-pp-accent dark:border-white/20" />
+                    <span className="text-sm text-pp-text">{opt.label}</span>
                   </label>
                 ))}
               </div>
               <div>
-                <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Reminder Frequency</label>
-                <select value={String(notifs.reminderFrequency ?? "daily")} onChange={(e) => handleNestedChange("notifications", "reminderFrequency", e.target.value)} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
+                <label className="block text-xs font-medium text-pp-text-dim mb-1">Reminder Frequency</label>
+                <select value={String(notifs.reminderFrequency ?? "daily")} onChange={(e) => handleNestedChange("notifications", "reminderFrequency", e.target.value)} className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm ">
                   {REMINDER_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
               </div>
-              <div className="space-y-3 pt-2 border-t border-black/5 dark:border-white/10">
-                <p className="text-xs font-medium text-navy/50 dark:text-white/50">Alert Preferences</p>
+              <div className="space-y-3 pt-2 border-t border-pp-border">
+                <p className="text-xs font-medium text-pp-text-dim">Alert Preferences</p>
                 {[
                   { key: "budgetAlerts", label: "Budget Alerts" },
                   { key: "goalUpdates", label: "Goal Progress Alerts" },
@@ -1113,8 +1114,8 @@ function SettingsContent() {
                   { key: "insights", label: "Insights & Tips" },
                 ].map((opt) => (
                   <label key={opt.key} className="flex items-center gap-3 cursor-pointer">
-                    <input type="checkbox" checked={Boolean(notifs[opt.key] ?? false)} onChange={(e) => handleNestedChange("notifications", opt.key, e.target.checked)} className="h-4 w-4 rounded border-black/20 text-teal dark:border-white/20" />
-                    <span className="text-sm text-navy dark:text-white">{opt.label}</span>
+                    <input type="checkbox" checked={Boolean(notifs[opt.key] ?? false)} onChange={(e) => handleNestedChange("notifications", opt.key, e.target.checked)} className="h-4 w-4 rounded border-black/20 text-pp-accent dark:border-white/20" />
+                    <span className="text-sm text-pp-text">{opt.label}</span>
                   </label>
                 ))}
               </div>
@@ -1130,24 +1131,26 @@ function SettingsContent() {
             <CardHeader><CardTitle>Security Settings</CardTitle></CardHeader>
             <CardContent className="space-y-6">
               {/* Change Password */}
-              <div className="rounded-lg border border-black/5 p-4 space-y-3 dark:border-white/10">
-                <p className="text-sm font-semibold text-navy dark:text-white">Change Password</p>
+              <div className="rounded-lg border border-pp-border p-4 space-y-3 ">
+                <p className="text-sm font-semibold text-pp-text">Change Password</p>
                 <div>
-                  <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Current Password</label>
-                  <PasswordInput autoComplete="current-password" value={pwForm.current} onChange={(e) => setPwForm((p) => ({ ...p, current: e.target.value }))} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" placeholder="Current password" />
+                  <label className="block text-xs font-medium text-pp-text-dim mb-1">Current Password</label>
+                  <PasswordInput autoComplete="current-password" value={pwForm.current} onChange={(e) => setPwForm((p) => ({ ...p, current: e.target.value }))} className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm " placeholder="Current password" />
                 </div>
-                <div>
-                  <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">New Password</label>
-                  <PasswordInput autoComplete="new-password" value={pwForm.next} onChange={(e) => setPwForm((p) => ({ ...p, next: e.target.value }))} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" placeholder="New password (min 8 chars)" />
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-xs font-medium text-pp-text-dim mb-1">New Password</label>
+                    <PasswordInput autoComplete="new-password" value={pwForm.next} onChange={(e) => setPwForm((p) => ({ ...p, next: e.target.value }))} className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm " placeholder="New password (min 8 chars)" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-pp-text-dim mb-1">Confirm New Password</label>
+                    <PasswordInput autoComplete="new-password" value={pwForm.confirm} onChange={(e) => setPwForm((p) => ({ ...p, confirm: e.target.value }))} className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm " placeholder="Confirm new password" />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Confirm New Password</label>
-                  <PasswordInput autoComplete="new-password" value={pwForm.confirm} onChange={(e) => setPwForm((p) => ({ ...p, confirm: e.target.value }))} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" placeholder="Confirm new password" />
-                </div>
-                {pwError && <p className="text-xs text-red-500">{pwError}</p>}
+                {pwError && <p className="text-xs text-vulcanico">{pwError}</p>}
                 <div className="flex flex-wrap items-center gap-3">
                   <Button type="button" size="sm" onClick={handlePasswordChange} disabled={pwChanging || !pwForm.current || !pwForm.next || !pwForm.confirm}>{pwChanging ? "Changing…" : "Change Password"}</Button>
-                  <Link href="/forgot-password" className="flex items-center gap-1.5 text-xs font-medium text-teal hover:underline">
+                  <Link href="/forgot-password" className="flex items-center gap-1.5 text-xs font-medium text-pp-accent hover:underline">
                     <KeyRound className="h-3.5 w-3.5" /> Forgot password?
                   </Link>
                 </div>
@@ -1155,54 +1158,57 @@ function SettingsContent() {
               <ChangeUidSection />
               <SecurityQuestionsSection />
               <TwoFactorSection />
+              <PinSettings variant="desktop" userId={user?.uid ?? ""} />
               <PasskeySection />
-              <div>
-                <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Session Timeout (Inactivity)</label>
-                <select
-                  value={String(sec.sessionTimeout ?? 30)}
-                  onChange={(e) => handleNestedChange("security", "sessionTimeout", Number(e.target.value))}
-                  className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white"
-                >
-                  {SESSION_TIMEOUT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                </select>
-                <p className="mt-1 text-xs text-navy/40 dark:text-white/40">
-                  You&apos;ll be signed out automatically after this much time without any activity — mouse, keyboard, touch, scrolling, or app usage.
-                </p>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Auto Lock</label>
-                {(() => {
-                  const autoLockValue = String(sec.autoLock ?? "15");
-                  const isPreset = AUTO_LOCK_OPTIONS.some((o) => o.value === autoLockValue);
-                  return (
-                    <>
-                      <select
-                        value={isPreset ? autoLockValue : "custom"}
-                        onChange={(e) => handleNestedChange("security", "autoLock", e.target.value === "custom" ? "10" : e.target.value)}
-                        className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white"
-                      >
-                        {AUTO_LOCK_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                        <option value="custom">Custom…</option>
-                      </select>
-                      {!isPreset && (
-                        <input
-                          type="number"
-                          min={1}
-                          value={Number(autoLockValue) || 1}
-                          onChange={(e) => handleNestedChange("security", "autoLock", String(Math.max(1, Number(e.target.value))))}
-                          placeholder="Minutes"
-                          className="mt-2 w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10"
-                        />
-                      )}
-                    </>
-                  );
-                })()}
+              <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                <div>
+                  <label className="block text-xs font-medium text-pp-text-dim mb-1">Session Timeout (Inactivity)</label>
+                  <select
+                    value={String(sec.sessionTimeout ?? 30)}
+                    onChange={(e) => handleNestedChange("security", "sessionTimeout", Number(e.target.value))}
+                    className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm "
+                  >
+                    {SESSION_TIMEOUT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
+                  <p className="mt-1 text-xs text-pp-text-dim">
+                    You&apos;ll be signed out automatically after this much time without any activity — mouse, keyboard, touch, scrolling, or app usage.
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-pp-text-dim mb-1">Auto Lock</label>
+                  {(() => {
+                    const autoLockValue = String(sec.autoLock ?? "15");
+                    const isPreset = AUTO_LOCK_OPTIONS.some((o) => o.value === autoLockValue);
+                    return (
+                      <>
+                        <select
+                          value={isPreset ? autoLockValue : "custom"}
+                          onChange={(e) => handleNestedChange("security", "autoLock", e.target.value === "custom" ? "10" : e.target.value)}
+                          className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm "
+                        >
+                          {AUTO_LOCK_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                          <option value="custom">Custom…</option>
+                        </select>
+                        {!isPreset && (
+                          <input
+                            type="number"
+                            min={1}
+                            value={Number(autoLockValue) || 1}
+                            onChange={(e) => handleNestedChange("security", "autoLock", String(Math.max(1, Number(e.target.value))))}
+                            placeholder="Minutes"
+                            className="mt-2 w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm "
+                          />
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
               </div>
               <div className="pt-2">
                 <Button onClick={handleSave} disabled={isSaving}><Save className="h-4 w-4" /> {isSaving ? "Saving..." : "Save Settings"}</Button>
               </div>
-              <div className="border-t border-black/5 pt-6 dark:border-white/10">
-                <p className="mb-3 text-sm font-semibold text-navy dark:text-white">Activity Log</p>
+              <div className="border-t border-pp-border pt-6 ">
+                <p className="mb-3 text-sm font-semibold text-pp-text">Activity Log</p>
                 <ActivityTab />
               </div>
             </CardContent>
@@ -1212,14 +1218,8 @@ function SettingsContent() {
       case "backup":
         return (
           <div className="space-y-4">
-            {getStorageMode() === "drive" && (
-              <>
-                <GoogleDriveBackupCard />
-                <div className="border-t border-black/5 pt-4 dark:border-white/10">
-                  <ExportTab />
-                </div>
-              </>
-            )}
+            {getStorageMode() === "drive" && <GoogleDriveBackupCard />}
+            <ExportTab />
           </div>
         );
       case "privacy":
@@ -1229,24 +1229,24 @@ function SettingsContent() {
             <CardHeader><CardTitle>Privacy Settings</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <label className="flex items-center gap-3 cursor-pointer">
-                <input type="checkbox" checked={Boolean(priv.shareAnonymousData ?? true)} onChange={(e) => handleNestedChange("privacy", "shareAnonymousData", e.target.checked)} className="h-4 w-4 rounded border-black/20 text-teal dark:border-white/20" />
-                <span className="text-sm text-navy dark:text-white">Share anonymous usage data to improve the app</span>
+                <input type="checkbox" checked={Boolean(priv.shareAnonymousData ?? true)} onChange={(e) => handleNestedChange("privacy", "shareAnonymousData", e.target.checked)} className="h-4 w-4 rounded border-black/20 text-pp-accent dark:border-white/20" />
+                <span className="text-sm text-pp-text">Share anonymous usage data to improve the app</span>
               </label>
               <label className="flex items-center gap-3 cursor-pointer">
-                <input type="checkbox" checked={Boolean(priv.analytics ?? true)} onChange={(e) => handleNestedChange("privacy", "analytics", e.target.checked)} className="h-4 w-4 rounded border-black/20 text-teal dark:border-white/20" />
-                <span className="text-sm text-navy dark:text-white">Analytics</span>
+                <input type="checkbox" checked={Boolean(priv.analytics ?? true)} onChange={(e) => handleNestedChange("privacy", "analytics", e.target.checked)} className="h-4 w-4 rounded border-black/20 text-pp-accent dark:border-white/20" />
+                <span className="text-sm text-pp-text">Analytics</span>
               </label>
               <label className="flex items-center gap-3 cursor-pointer">
-                <input type="checkbox" checked={Boolean(priv.crashReporting ?? true)} onChange={(e) => handleNestedChange("privacy", "crashReporting", e.target.checked)} className="h-4 w-4 rounded border-black/20 text-teal dark:border-white/20" />
-                <span className="text-sm text-navy dark:text-white">Crash Reporting</span>
+                <input type="checkbox" checked={Boolean(priv.crashReporting ?? true)} onChange={(e) => handleNestedChange("privacy", "crashReporting", e.target.checked)} className="h-4 w-4 rounded border-black/20 text-pp-accent dark:border-white/20" />
+                <span className="text-sm text-pp-text">Crash Reporting</span>
               </label>
               <label className="flex items-center gap-3 cursor-pointer">
-                <input type="checkbox" checked={Boolean(priv.tracking ?? true)} onChange={(e) => handleNestedChange("privacy", "tracking", e.target.checked)} className="h-4 w-4 rounded border-black/20 text-teal dark:border-white/20" />
-                <span className="text-sm text-navy dark:text-white">Tracking</span>
+                <input type="checkbox" checked={Boolean(priv.tracking ?? true)} onChange={(e) => handleNestedChange("privacy", "tracking", e.target.checked)} className="h-4 w-4 rounded border-black/20 text-pp-accent dark:border-white/20" />
+                <span className="text-sm text-pp-text">Tracking</span>
               </label>
               <label className="flex items-center gap-3 cursor-pointer">
-                <input type="checkbox" checked={Boolean(priv.showInSuggestions ?? false)} onChange={(e) => handleNestedChange("privacy", "showInSuggestions", e.target.checked)} className="h-4 w-4 rounded border-black/20 text-teal dark:border-white/20" />
-                <span className="text-sm text-navy dark:text-white">Show my profile in community suggestions</span>
+                <input type="checkbox" checked={Boolean(priv.showInSuggestions ?? false)} onChange={(e) => handleNestedChange("privacy", "showInSuggestions", e.target.checked)} className="h-4 w-4 rounded border-black/20 text-pp-accent dark:border-white/20" />
+                <span className="text-sm text-pp-text">Show my profile in community suggestions</span>
               </label>
               <div className="pt-2">
                 <Button onClick={handleSave} disabled={isSaving}><Save className="h-4 w-4" /> {isSaving ? "Saving..." : "Save Settings"}</Button>
@@ -1259,14 +1259,14 @@ function SettingsContent() {
             <CardContent>
               <Link
                 href="/manual"
-                className="flex items-center gap-3 rounded-lg border border-black/10 px-4 py-3 transition-colors hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/5"
+                className="flex items-center gap-3 rounded-lg border border-pp-border px-4 py-3 transition-colors hover:bg-pp-surface-2"
               >
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-teal/10">
-                  <BookOpen className="h-4 w-4 text-teal" />
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-pp-accent/10">
+                  <BookOpen className="h-4 w-4 text-pp-accent" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-sm font-medium text-navy dark:text-white">User Manual</p>
-                  <p className="text-xs text-navy/50 dark:text-white/50">Learn how Penny Pilot works</p>
+                  <p className="text-sm font-medium text-pp-text">User Manual</p>
+                  <p className="text-xs text-pp-text-dim">Learn how Penny Pilot works</p>
                 </div>
               </Link>
             </CardContent>
@@ -1283,10 +1283,36 @@ function SettingsContent() {
   return (
     <>
       <Topbar title={currentTabLabel} />
-      <main className="flex-1 overflow-y-auto p-4 lg:p-6">
+      <main className="flex-1 overflow-y-auto p-4 lg:p-6 2xl:px-10">
         <div className="mx-auto max-w-3xl">
+          {/* Visible tab strip — the desktop equivalent of switching cards on
+              the mobile Settings screen. Previously this page only changed
+              tabs via the sidebar's per-tab links; this makes the sections
+              switchable in-page too, without touching renderTab()'s logic. */}
+          <div className="mb-5 flex gap-1 overflow-x-auto rounded-pp border border-pp-border bg-pp-surface p-1" role="tablist" aria-label="Settings sections">
+            {TABS.map((t) => {
+              const TabIcon = t.icon;
+              const active = activeTab === t.id;
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => setActiveTab(t.id)}
+                  className={cn(
+                    "flex shrink-0 items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold transition-colors min-h-[40px]",
+                    active ? "bg-pp-accent text-pp-accent-ink" : "text-pp-text-dim hover:bg-pp-surface-2"
+                  )}
+                >
+                  <TabIcon className="h-3.5 w-3.5" />
+                  {t.label}
+                </button>
+              );
+            })}
+          </div>
           {isLoading ? (
-            <div className="space-y-4">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-20 animate-pulse rounded-xl2 bg-black/5 dark:bg-white/5" />)}</div>
+            <div className="space-y-4">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-20 animate-pulse rounded-xl2 bg-pp-surface-2" />)}</div>
           ) : (
             renderTab()
           )}
@@ -1299,7 +1325,7 @@ function SettingsContent() {
 export default function SettingsPage() {
   return (
     <Suspense fallback={
-      <><Topbar title="Settings" /><main className="flex-1 overflow-y-auto p-4 lg:p-6"><div className="mx-auto max-w-4xl"><div className="space-y-4">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-20 animate-pulse rounded-xl2 bg-black/5 dark:bg-white/5" />)}</div></div></main></>
+      <><Topbar title="Settings" /><main className="flex-1 overflow-y-auto p-4 lg:p-6 2xl:px-10"><div className="mx-auto max-w-4xl"><div className="space-y-4">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-20 animate-pulse rounded-xl2 bg-pp-surface-2" />)}</div></div></main></>
     }>
       <SettingsContent />
     </Suspense>

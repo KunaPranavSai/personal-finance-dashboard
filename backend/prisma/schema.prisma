@@ -62,6 +62,7 @@ model User {
   twoFactorSecret        String?
   twoFactorPendingSecret String?
   twoFactorBackupCodes   String[]   @default([])
+  pinHash                String?
   sessionVersion         Int        @default(0)
   resetOtpHash           String?
   resetOtpExpiry         DateTime?

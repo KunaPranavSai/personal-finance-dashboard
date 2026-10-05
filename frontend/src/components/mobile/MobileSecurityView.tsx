@@ -6,6 +6,7 @@ import { Key, Shield, Pencil, Trash2 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { startRegistration, browserSupportsWebAuthn } from "@simplewebauthn/browser";
 import { MobileShell } from "@/components/mobile/MobileShell";
+import { PinSettings } from "@/components/auth/pin";
 import { MobileSheet } from "@/components/mobile/MobileSheet";
 import { useAuth } from "@/lib/AuthContext";
 import { api } from "@/lib/api";
@@ -29,7 +30,7 @@ interface PasskeyItem {
  * /settings → "Security & Account".
  */
 export function MobileSecurityView() {
-  const { twoFactorEnabled, setupTwoFactor, confirmTwoFactor, disableTwoFactor, changePassword } = useAuth();
+  const { user, twoFactorEnabled, setupTwoFactor, confirmTwoFactor, disableTwoFactor, changePassword } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -235,6 +236,7 @@ export function MobileSecurityView() {
             <button type="button" className="ppm-link-btn" disabled={busy} onClick={startTwoFa}>{busy ? "Starting…" : "Enable"}</button>
           )}
         </div>
+        <PinSettings variant="mobile" userId={user?.uid ?? ""} />
       </div>
 
       <div className="ppm-card" style={{ marginTop: 14 }}>
@@ -242,12 +244,12 @@ export function MobileSecurityView() {
         <div className="ppm-list-item" onClick={() => setPwSheet(true)}>
           <div className="ppm-ic" aria-hidden="true"><Key size={18} /></div>
           <div className="ppm-info"><div className="ppm-name">Change Password</div></div>
-          <span className="ppm-chev">›</span>
+          <span className="ppm-chev" aria-hidden="true">›</span>
         </div>
         <Link href="/forgot-password" className="ppm-list-item">
           <div className="ppm-ic" aria-hidden="true">🆘</div>
           <div className="ppm-info"><div className="ppm-name">Account Recovery</div></div>
-          <span className="ppm-chev">›</span>
+          <span className="ppm-chev" aria-hidden="true">›</span>
         </Link>
       </div>
 

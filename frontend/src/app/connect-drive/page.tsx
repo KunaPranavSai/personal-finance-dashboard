@@ -17,7 +17,7 @@ import { useIsMobile } from "@/lib/DeviceContext";
 import { MobileConnectDriveView } from "@/components/mobile/MobileConnectDriveView";
 
 const primaryButton =
-  "flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-purple-500/25 transition-all hover:shadow-purple-500/40 disabled:opacity-50 disabled:cursor-not-allowed";
+  "flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-pp-accent to-pp-accent px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-pp-accent/25 transition-all hover:shadow-pp-accent/40 disabled:opacity-50 disabled:cursor-not-allowed";
 const secondaryButton =
   "flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white/80 transition-all hover:bg-white/10";
 
@@ -134,7 +134,7 @@ export default function ConnectDrivePage() {
   if (authLoading || !isAuthenticated) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#0B0F19]">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-purple-400/30 border-t-purple-400" />
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-pp-accent/30 border-t-purple-400" />
       </div>
     );
   }
@@ -145,7 +145,7 @@ export default function ConnectDrivePage() {
         <div className="space-y-4">
           <div className="rounded-xl border border-white/10 bg-white/5 p-4">
             <h3 className="flex items-center gap-2 text-sm font-semibold text-white">
-              <HardDrive className="h-4 w-4 text-purple-300" /> Google Drive — Recommended
+              <HardDrive className="h-4 w-4 text-pp-accent/40" /> Google Drive — Recommended
             </h3>
             <p className="mt-1.5 text-xs text-[#94A3B8]">Store Penny Pilot data in your own Google Drive, backed up and accessible from any device.</p>
             <motion.button
@@ -176,7 +176,7 @@ export default function ConnectDrivePage() {
     return (
       <AuthPageShell icon={ShieldAlert} title="Important: local-only storage" subtitle="Please read before continuing" footer={<Footer variant="dark" />}>
         <div className="space-y-4">
-          <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-4 text-sm text-amber-200">
+          <div className="rounded-lg border border-turmeric/20 bg-turmeric/10 p-4 text-sm text-turmeric/20">
             <p>
               Your financial data will be stored only on this browser/device. Penny Pilot will not maintain a cloud backup of this data.
             </p>
@@ -186,7 +186,7 @@ export default function ConnectDrivePage() {
             </p>
           </div>
           {error && (
-            <div className="flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+            <div className="flex items-center gap-2 rounded-lg border border-vulcanico/20 bg-vulcanico/10 px-3 py-2 text-sm text-vulcanico/40">
               <AlertCircle className="h-4 w-4 shrink-0" /> {error}
             </div>
           )}
@@ -252,7 +252,7 @@ export default function ConnectDrivePage() {
             Choose what to do:
           </p>
           {error && (
-            <div className="flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+            <div className="flex items-center gap-2 rounded-lg border border-vulcanico/20 bg-vulcanico/10 px-3 py-2 text-sm text-vulcanico/40">
               <AlertCircle className="h-4 w-4 shrink-0" /> {error}
             </div>
           )}
@@ -285,7 +285,7 @@ export default function ConnectDrivePage() {
       <div className="space-y-5 text-center">
         <p className="text-sm text-[#94A3B8]">{description}</p>
         {error && (
-          <div className="flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-left text-sm text-red-300">
+          <div className="flex items-center gap-2 rounded-lg border border-vulcanico/20 bg-vulcanico/10 px-3 py-2 text-left text-sm text-vulcanico/40">
             <AlertCircle className="h-4 w-4 shrink-0" /> {error}
           </div>
         )}

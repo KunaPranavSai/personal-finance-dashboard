@@ -68,21 +68,21 @@ export function PwaInstallPrompt() {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 40 }}
           transition={{ duration: 0.25 }}
-          className="fixed inset-x-4 bottom-4 z-[95] mx-auto flex max-w-sm items-center gap-3 rounded-xl border border-black/10 bg-white p-4 shadow-2xl dark:border-white/10 dark:bg-navy-dark sm:inset-x-auto sm:right-4"
+          className="fixed inset-x-4 bottom-4 z-[95] mx-auto flex max-w-sm items-center gap-3 rounded-xl border border-pp-border bg-pp-surface p-4 shadow-2xl dark:bg-pp-surface sm:inset-x-auto sm:right-4"
           role="dialog"
           aria-label="Install Penny Pilot"
         >
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-teal/10">
-            <Download className="h-5 w-5 text-teal" />
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-pp-accent/10">
+            <Download className="h-5 w-5 text-pp-accent" />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium text-navy dark:text-white">Install Penny Pilot</p>
-            <p className="text-xs text-navy/50 dark:text-white/50">Add it to your home screen for quick, app-like access.</p>
+            <p className="text-sm font-medium text-pp-text">Install Penny Pilot</p>
+            <p className="text-xs text-pp-text-dim">Add it to your home screen for quick, app-like access.</p>
           </div>
           <button
             type="button"
             onClick={handleInstall}
-            className="shrink-0 rounded-lg bg-teal px-3 py-1.5 text-xs font-semibold text-white hover:bg-teal/90"
+            className="shrink-0 rounded-lg bg-pp-accent px-3 py-1.5 text-xs font-semibold text-white hover:bg-pp-accent/90"
           >
             Install
           </button>
@@ -90,7 +90,7 @@ export function PwaInstallPrompt() {
             type="button"
             onClick={handleDismiss}
             aria-label="Dismiss"
-            className="shrink-0 text-navy/40 hover:text-navy dark:text-white/40 dark:hover:text-white"
+            className="shrink-0 text-pp-text-dim hover:text-pp-text/40 dark:hover:text-white"
           >
             <X className="h-4 w-4" />
           </button>

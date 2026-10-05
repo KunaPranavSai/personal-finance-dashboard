@@ -77,11 +77,11 @@ function AuditFieldModal({ field, initialValue, onClose, onSave }: { field: Fiel
         role="dialog"
         aria-modal="true"
         aria-labelledby="audit-modal-title"
-        className="w-full max-w-sm rounded-2xl border border-violet-500/30 bg-slate-900/95 p-5 shadow-2xl shadow-violet-500/20 backdrop-blur-xl"
+        className="w-full max-w-sm rounded-2xl border border-pp-accent/30 bg-pp-surface-2 p-5 shadow-2xl shadow-pp-accent/20 backdrop-blur-xl"
       >
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-2.5">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-500/15 text-violet-300">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-pp-accent/15 text-pp-accent/40">
               <Icon className="h-4.5 w-4.5" />
             </span>
             <h2 id="audit-modal-title" className="text-sm font-semibold text-white">
@@ -102,17 +102,17 @@ function AuditFieldModal({ field, initialValue, onClose, onSave }: { field: Fiel
           onKeyDown={(e) => {
             if (e.key === "Enter") onSave(value);
           }}
-          className="mt-1.5 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none placeholder:text-white/30 focus:border-violet-400/60 focus:ring-2 focus:ring-violet-400/20"
+          className="mt-1.5 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none placeholder:text-white/30 focus:border-pp-accent/60 focus:ring-2 focus:ring-pp-accent/20"
         />
 
-        <Link href={meta.href} onClick={onClose} className="mt-3 flex items-center gap-1 text-xs font-medium text-violet-300 hover:text-violet-200">
+        <Link href={meta.href} onClick={onClose} className="mt-3 flex items-center gap-1 text-xs font-medium text-pp-accent/40 hover:text-pp-accent/20">
           Open full {meta.label} page <ArrowRight className="h-3 w-3" />
         </Link>
 
         <div className="mt-5 flex gap-2">
           <button
             onClick={() => onSave(value)}
-            className="flex-1 rounded-lg bg-violet-500 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-violet-400"
+            className="flex-1 rounded-lg bg-pp-accent px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-pp-accent"
           >
             Save & Mark Updated
           </button>
@@ -134,7 +134,7 @@ function SuccessBurst() {
         return (
           <motion.span
             key={i}
-            className="absolute h-1.5 w-1.5 rounded-full bg-emerald-400"
+            className="absolute h-1.5 w-1.5 rounded-full bg-mantis"
             initial={{ x: 0, y: 0, opacity: 1, scale: 1 }}
             animate={{ x: Math.cos(angle) * 34, y: Math.sin(angle) * 34, opacity: 0, scale: 0.4 }}
             transition={{ duration: 0.8, ease: "easeOut" }}
@@ -165,14 +165,14 @@ function AuditChip({
       className={cn(
         "relative flex items-center gap-2 rounded-xl border px-3 py-2.5 text-left text-xs font-semibold transition-colors sm:text-sm",
         state.updated
-          ? "border-emerald-300/80 bg-emerald-100/90 text-emerald-900 hover:bg-emerald-100 dark:border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-400 dark:hover:bg-emerald-500/20"
-          : "border-amber-300/60 bg-amber-100/80 text-amber-900 hover:bg-amber-100 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-300 dark:hover:bg-amber-500/15"
+          ? "border-mantis/80 bg-mantis/90 text-mantis hover:bg-mantis/10 dark:border-mantis/30 dark:bg-mantis/15 dark:text-mantis dark:hover:bg-mantis/20"
+          : "border-turmeric/60 bg-turmeric/80 text-turmeric hover:bg-turmeric/10 dark:border-turmeric/20 dark:bg-turmeric/10 dark:text-turmeric/40 dark:hover:bg-turmeric/15"
       )}
     >
       <AnimatePresence>{burst && <SuccessBurst />}</AnimatePresence>
       {!state.updated && (
         <motion.span
-          className="absolute inset-0 rounded-xl bg-amber-400/10"
+          className="absolute inset-0 rounded-xl bg-turmeric/10"
           animate={{ opacity: [0.3, 0.7, 0.3] }}
           transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
         />
@@ -241,13 +241,13 @@ export function MonthlyAuditBanner() {
       <motion.div
         initial={{ opacity: 0, y: -6 }}
         animate={{ opacity: 1, y: 0 }}
-        className="mb-4 inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-500 dark:text-emerald-400"
+        className="mb-4 inline-flex items-center gap-2 rounded-full border border-mantis/30 bg-mantis/10 px-4 py-2 text-sm font-semibold text-mantis dark:text-mantis"
       >
         <CheckCircle2 className="h-4 w-4" />
         {monthLabel} Audit Complete!
         <button
           onClick={() => setExpanded(true)}
-          className="ml-1 inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs font-semibold text-emerald-500 hover:bg-emerald-500/25 dark:text-emerald-400"
+          className="ml-1 inline-flex items-center gap-1 rounded-full bg-mantis/15 px-2 py-0.5 text-xs font-semibold text-mantis hover:bg-mantis/25 dark:text-mantis"
         >
           <RotateCcw className="h-3 w-3" /> Re-edit
         </button>
@@ -263,27 +263,27 @@ export function MonthlyAuditBanner() {
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, ease: "easeOut" }}
-        className="relative mb-6 overflow-hidden rounded-2xl border border-indigo-200/80 bg-indigo-50/90 p-4 shadow-lg shadow-indigo-500/10 backdrop-blur-xl dark:border-violet-500/30 dark:bg-slate-900/80 sm:p-5"
+        className="relative mb-6 overflow-hidden rounded-2xl border border-pp-accent/80 bg-pp-accent/90 p-4 shadow-lg shadow-pp-accent/10 backdrop-blur-xl dark:border-pp-accent/30 dark:bg-pp-surface-2 sm:p-5"
       >
         <button
           onClick={allDone ? () => setExpanded(false) : dismiss}
           aria-label={allDone ? "Collapse" : "Dismiss for this session"}
-          className="absolute right-3 top-3 rounded-lg p-1.5 text-navy/40 hover:bg-black/5 hover:text-navy/80 dark:text-white/40 dark:hover:bg-white/10 dark:hover:text-white/80"
+          className="absolute right-3 top-3 rounded-lg p-1.5 text-pp-text-dim hover:bg-pp-surface-2 hover:text-pp-text-dim dark:hover:text-white/80"
         >
           <X className="h-4 w-4" />
         </button>
 
         <div className="flex items-start gap-3 pr-8">
           <motion.span
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-500/15 text-violet-600 dark:text-violet-300"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-pp-accent/15 text-pp-accent dark:text-pp-accent/40"
             animate={{ rotate: [0, 8, -8, 0] }}
             transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut" }}
           >
             <Sparkles className="h-5 w-5" />
           </motion.span>
           <div className="min-w-0">
-            <h2 className="text-sm font-bold text-navy dark:text-white sm:text-base">Monthly Flight Check-In for {monthLabel}</h2>
-            <p className="mt-0.5 text-xs text-navy/60 dark:text-white/60 sm:text-sm">Update your financial deck for the new month to keep your insights accurate.</p>
+            <h2 className="text-sm font-bold text-pp-text sm:text-base">Monthly Flight Check-In for {monthLabel}</h2>
+            <p className="mt-0.5 text-xs text-pp-text-dim sm:text-sm">Update your financial deck for the new month to keep your insights accurate.</p>
           </div>
         </div>
 
@@ -293,7 +293,7 @@ export function MonthlyAuditBanner() {
           ))}
         </div>
 
-        <p className="mt-3 text-[11px] font-medium text-navy/40 dark:text-white/40">{completedCount}/4 updated this month</p>
+        <p className="mt-3 text-[11px] font-medium text-pp-text-dim">{completedCount}/4 updated this month</p>
       </motion.div>
 
       <AnimatePresence>

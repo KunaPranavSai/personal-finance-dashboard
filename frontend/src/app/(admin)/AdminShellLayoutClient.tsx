@@ -8,10 +8,12 @@ import { Footer } from "@/components/layout/Footer";
 import { TwoFactorReverifyDialog } from "@/components/ui/TwoFactorReverifyDialog";
 import { CommandHeader } from "@/components/admin/CommandHeader";
 import { useAuth } from "@/lib/AuthContext";
+import { useDailyLogin } from "@/lib/useDailyLogin";
 import "@/styles/admin-command-center.css";
 
 export function AdminShellLayoutClient({ children }: { children: React.ReactNode }) {
   const { user, isAuthenticated, isLoading } = useAuth();
+  useDailyLogin("/admin-login");
   const router = useRouter();
 
   useEffect(() => {

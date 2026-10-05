@@ -25,31 +25,33 @@ const PERIOD_META: Record<Period, { greeting: string; badge: string; icon: typeo
   night: { greeting: "Clear Skies Tonight", badge: "Clear Night", icon: MoonStar },
 };
 
+// Approved Penny Pilot palette only (Sand/Milky/Cypress light, Noturno/
+// Tiffany dark, Turmeric/Mantis/Vulcanico status) — no page-specific sky
+// imagery colors.
 const SKY_GRADIENT: Record<Period, string> = {
-  morning: "from-sky-100 via-indigo-50/60 to-amber-50 dark:from-amber-950 dark:via-orange-950 dark:to-indigo-950",
-  afternoon: "from-violet-100 via-rose-50 to-amber-100 dark:from-orange-900 dark:via-rose-950 dark:to-violet-950",
-  night: "from-indigo-950 via-slate-900 to-slate-950",
+  morning: "from-sand via-milky to-turmeric/15 dark:from-noturno dark:via-noturno dark:to-cypress/40",
+  afternoon: "from-turmeric/15 via-sand to-mantis/10 dark:from-cypress/40 dark:via-noturno dark:to-noturno",
+  night: "from-noturno via-noturno to-cypress",
 };
 
 /** Night's background is dark under either app theme, so header text/pills
  * need to stay light regardless of the light/dark toggle. */
 const TEXT_CLASS: Record<Period, string> = {
-  morning: "text-slate-900 dark:text-white",
-  afternoon: "text-slate-900 dark:text-white",
-  night: "text-white",
+  morning: "text-cypress ",
+  afternoon: "text-cypress ",
+  night: "text-milky",
 };
 const PILL_CLASS: Record<Period, string> = {
-  morning: "bg-white/50 dark:bg-white/10",
-  afternoon: "bg-white/40 dark:bg-white/10",
-  night: "bg-white/15",
+  morning: "bg-milky/50 dark:bg-milky/10",
+  afternoon: "bg-milky/40 dark:bg-milky/10",
+  night: "bg-milky/15",
 };
 /** The Net Worth balance box specifically — a slightly richer frosted-glass
- * treatment than the small badge pills above, per the Signature Light Glass
- * spec (indigo-tinted border + shadow instead of a plain translucent fill). */
+ * treatment than the small badge pills above. */
 const NET_WORTH_BOX_CLASS: Record<Period, string> = {
-  morning: "bg-white/80 dark:bg-white/10 border border-indigo-100 dark:border-white/10 shadow-md shadow-indigo-500/5 dark:shadow-none",
-  afternoon: "bg-white/80 dark:bg-white/10 border border-indigo-100 dark:border-white/10 shadow-md shadow-indigo-500/5 dark:shadow-none",
-  night: "bg-white/15 border border-white/10",
+  morning: "bg-milky/80 dark:bg-milky/10 border border-cypress/15 shadow-md shadow-cypress/5 dark:shadow-none",
+  afternoon: "bg-milky/80 dark:bg-milky/10 border border-cypress/15 shadow-md shadow-cypress/5 dark:shadow-none",
+  night: "bg-milky/15 border border-milky/10",
 };
 
 interface DashboardHeroProps {
@@ -90,7 +92,7 @@ function TipCarousel({ tips, textClass, pillClass }: { tips: string[]; textClass
       )}
       aria-label="Next financial tip"
     >
-      <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500 dark:text-amber-300" />
+      <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-turmeric" />
       <span className="relative min-h-[18px] flex-1">
         <AnimatePresence mode="wait" initial={false}>
           <motion.span
@@ -194,7 +196,7 @@ export function DashboardHero({
         {period === "morning" && (
           <>
             <motion.div
-              className="absolute bottom-[38%] left-1/2 h-16 w-16 -translate-x-1/2 rounded-full bg-[radial-gradient(circle_at_35%_30%,#fef9c3,#fcd34d,#fb923c)] shadow-[0_0_60px_24px_rgba(251,191,36,0.55)] sm:h-20 sm:w-20"
+              className="absolute bottom-[38%] left-1/2 h-16 w-16 -translate-x-1/2 rounded-full bg-[radial-gradient(circle_at_35%_30%,#FFE699,#FFBE0B,#FF4103)] shadow-[0_0_60px_24px_rgba(255,190,11,0.55)] sm:h-20 sm:w-20"
               initial={{ y: 90, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ duration: 2.2, ease: "easeOut" }}
@@ -240,15 +242,15 @@ export function DashboardHero({
               transition={{ duration: 1.6, repeat: Infinity, repeatDelay: 4, ease: "easeIn" }}
             />
             <motion.div
-              className="absolute inset-0 opacity-20 [background:radial-gradient(60%_40%_at_70%_20%,rgba(168,85,247,0.5),transparent)]"
+              className="absolute inset-0 opacity-20 [background:radial-gradient(60%_40%_at_70%_20%,rgba(33,241,168,0.5),transparent)]"
               animate={{ opacity: [0.15, 0.3, 0.15] }}
               transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
             />
           </>
         )}
 
-        <Mountain className="absolute -bottom-2 left-4 h-16 w-16 text-navy/20 dark:text-white/30 sm:h-20 sm:w-20" />
-        <Mountain className="absolute -bottom-4 left-20 h-20 w-20 text-navy/15 dark:text-white/20 sm:h-28 sm:w-28" />
+        <Mountain className="absolute -bottom-2 left-4 h-16 w-16 text-pp-text-dim sm:h-20 sm:w-20" />
+        <Mountain className="absolute -bottom-4 left-20 h-20 w-20 text-pp-text-dim sm:h-28 sm:w-28" />
       </motion.div>
 
       {/* Foreground: paper plane + drifting coins, faster than scroll */}
@@ -258,7 +260,7 @@ export function DashboardHero({
           animate={{ x: [0, -14, 0], y: [0, 8, 0], rotate: [0, -6, 0] }}
           transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
         >
-          <Send className="h-5 w-5 -rotate-45 text-navy/40 drop-shadow dark:text-white/70" />
+          <Send className="h-5 w-5 -rotate-45 text-pp-text-dim drop-shadow " />
         </motion.div>
         <motion.div className="absolute bottom-6 right-24" animate={{ y: [0, -10, 0] }} transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}>
           <GoldCoin size="1.1rem" spinDuration={3} />
@@ -286,7 +288,7 @@ export function DashboardHero({
               <h1 className={cn("text-lg font-bold leading-snug sm:text-xl md:text-2xl", textClass)}>
                 {meta.greeting}, {firstName ? firstName : "Pilot"}
               </h1>
-              <p className={cn("text-xs sm:text-sm", period === "night" ? "text-white/60" : "text-slate-600 dark:text-white/60")}>
+              <p className={cn("text-xs sm:text-sm", period === "night" ? "text-milky/60" : "text-cypress/70 ")}>
                 Here&apos;s how your finances are looking today.
               </p>
             </div>
@@ -314,7 +316,7 @@ export function DashboardHero({
               NET_WORTH_BOX_CLASS[period]
             )}
           >
-            <span className={cn("text-[11px] font-semibold uppercase tracking-wider", period === "night" ? "text-white/60" : "text-slate-600 dark:text-white/50")}>
+            <span className={cn("text-[11px] font-semibold uppercase tracking-wider", period === "night" ? "text-milky/60" : "text-cypress/70 ")}>
               Net Worth · Flight Deck Status
             </span>
             <div className="mt-0.5 flex w-full items-center justify-between gap-3">
@@ -322,7 +324,7 @@ export function DashboardHero({
               {netWorthTrend && netWorthTrend.length > 1 && (
                 <FlightPathGraph
                   data={netWorthTrend}
-                  className={cn("h-8 w-20 shrink-0 sm:h-9 sm:w-28", period === "night" ? "text-violet-300" : "text-indigo-500 dark:text-violet-300")}
+                  className={cn("h-8 w-20 shrink-0 sm:h-9 sm:w-28", period === "night" ? "text-tiffany" : "text-cypress dark:text-tiffany")}
                 />
               )}
             </div>
@@ -343,10 +345,10 @@ export function DashboardHero({
           </button>
 
           <div className="flex flex-wrap gap-2 text-xs">
-            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200/60 bg-emerald-50 text-emerald-700 shadow-sm shadow-emerald-500/10 px-2.5 py-1 font-semibold dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-400 dark:shadow-none">
+            <span className="inline-flex items-center gap-1 rounded-full border border-mantis/30 bg-mantis/10 text-mantis shadow-sm shadow-mantis/10 px-2.5 py-1 font-semibold dark:shadow-none">
               Income: {incomeLabel}
             </span>
-            <span className="inline-flex items-center gap-1 rounded-full border border-rose-200/60 bg-rose-50 text-rose-700 shadow-sm shadow-rose-500/10 px-2.5 py-1 font-semibold dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-400 dark:shadow-none">
+            <span className="inline-flex items-center gap-1 rounded-full border border-vulcanico/30 bg-vulcanico/10 text-vulcanico shadow-sm shadow-vulcanico/10 px-2.5 py-1 font-semibold dark:shadow-none">
               Expenses: {expenseLabel}
             </span>
           </div>
@@ -371,7 +373,7 @@ export function DashboardHero({
         style={{ opacity: indicatorOpacity }}
         className={cn(
           "pointer-events-none absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 flex-col items-center gap-0.5",
-          period === "night" ? "text-white/50" : "text-slate-500 dark:text-white/40"
+          period === "night" ? "text-milky/50" : "text-cypress/60 "
         )}
       >
         <span className="text-[10px] font-medium tracking-wide">Scroll to explore</span>

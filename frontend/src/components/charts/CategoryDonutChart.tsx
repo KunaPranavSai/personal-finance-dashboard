@@ -4,13 +4,13 @@ import { useMemo, useRef, useState } from "react";
 import { PieChart, Pie, Cell, Sector } from "recharts";
 import type { PieSectorDataItem } from "recharts/types/polar/Pie";
 import { AnimatePresence, motion } from "framer-motion";
-import { Card, CardHeader, CardTitle, CardContent } from "../ui/Card";
+import { Card, CardHeader, CardTitle, CardContent } from "../ui/PpCard";
 import { EmptyState } from "../ui/EmptyState";
 import { formatCompactCurrency, cn } from "@/lib/format";
 import { PieChart as PieChartIcon } from "lucide-react";
 
-// Vivid Midnight Cockpit accent palette, replacing the old muted set.
-const COLORS = ["#06B6D4", "#6366F1", "#F59E0B", "#F43F5E", "#10B981", "#8B5CF6", "#3B82F6", "#F97316"];
+// Approved Penny Pilot palette only.
+const COLORS = ["#21F1A8", "#004741", "#59C749", "#FFBE0B", "#FF4103", "#7DDFC0", "#0E8478", "#B98A00"];
 
 const WIDTH = 320;
 const HEIGHT = 280;
@@ -98,10 +98,10 @@ export function CategoryDonutChart({ data }: { data: Slice[] }) {
               {/* Center metric: total by default, switches to the hovered
                   category's amount + share while hovering a slice. */}
               <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-lg font-extrabold text-slate-900 dark:text-slate-100">
+                <span className="text-lg font-extrabold text-pp-text-dim dark:text-pp-text-dim">
                   {formatCompactCurrency(active ? active.total : total)}
                 </span>
-                <span className="mt-0.5 max-w-[8rem] truncate text-[11px] font-medium text-slate-600 dark:text-slate-400">
+                <span className="mt-0.5 max-w-[8rem] truncate text-[11px] font-medium text-pp-text-dim dark:text-pp-text-dim">
                   {active ? `${active.category} · ${activePct}%` : "Total"}
                 </span>
               </div>
@@ -113,14 +113,14 @@ export function CategoryDonutChart({ data }: { data: Slice[] }) {
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.95 }}
                     transition={{ duration: 0.12 }}
-                    className="pointer-events-none absolute z-10 rounded-xl border border-slate-700/80 bg-slate-900/90 p-3 text-xs text-white shadow-2xl backdrop-blur-md"
+                    className="pointer-events-none absolute z-10 rounded-xl border border-pp-border bg-pp-surface-2 p-3 text-xs text-white shadow-2xl backdrop-blur-md"
                     style={{
                       left: Math.min(Math.max(pos.x + 14, 0), WIDTH - 140),
                       top: Math.min(Math.max(pos.y - 40, 0), HEIGHT - 60),
                     }}
                   >
-                    <p className="font-semibold text-slate-200">{active.category}</p>
-                    <p className="mt-0.5 text-slate-300">{formatCompactCurrency(active.total)} · {activePct}%</p>
+                    <p className="font-semibold text-pp-text-dim">{active.category}</p>
+                    <p className="mt-0.5 text-pp-text-dim">{formatCompactCurrency(active.total)} · {activePct}%</p>
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -140,8 +140,8 @@ export function CategoryDonutChart({ data }: { data: Slice[] }) {
                     className={cn(
                       "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors",
                       hidden
-                        ? "border-black/10 bg-transparent text-navy/30 line-through dark:border-white/10 dark:text-white/25"
-                        : "border-slate-300 bg-slate-100 text-slate-700 dark:border-slate-600/50 dark:bg-slate-800/60 dark:text-slate-200"
+                        ? "border-pp-border bg-transparent text-pp-text-dim line-through "
+                        : "border-pp-border bg-pp-surface-2 text-pp-text-dim dark:border-pp-border dark:bg-pp-surface-2 dark:text-pp-text-dim"
                     )}
                   >
                     <span className="h-2 w-2 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length], opacity: hidden ? 0.3 : 1 }} />

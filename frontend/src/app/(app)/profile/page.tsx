@@ -2,11 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Topbar } from "@/components/layout/Topbar";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import { Topbar } from "@/components/layout/AppTopbar";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/PpCard";
 import Image from "next/image";
 
-import { Button } from "@/components/ui/Button";
+import { Button } from "@/components/ui/PpButton";
 import { api } from "@/lib/api";
 import { Profile } from "@/types";
 import { User, Pencil, Save, X, ImageIcon, UserCircle } from "lucide-react";
@@ -136,11 +136,11 @@ export default function ProfilePage() {
   return (
     <>
       <Topbar title="Profile" />
-      <main className="flex-1 overflow-y-auto p-4 lg:p-6">
+      <main className="flex-1 overflow-y-auto p-4 lg:p-6 2xl:px-10">
         <div className="mx-auto max-w-3xl">
           {isLoading ? (
             <div className="space-y-4">
-              {Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-40 animate-pulse rounded-xl2 bg-black/5 dark:bg-white/5" />)}
+              {Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-40 animate-pulse rounded-xl2 bg-pp-surface-2" />)}
             </div>
           ) : (
             <form onSubmit={onSubmit} className="space-y-6">
@@ -150,7 +150,7 @@ export default function ProfilePage() {
                     <Image
                       src={avatarUrl}
                       alt="Profile"
-                      className="h-20 w-20 rounded-full object-cover border-2 border-teal/30"
+                      className="h-20 w-20 rounded-full object-cover border-2 border-pp-accent/30"
                       width={80}
                       height={80}
                       unoptimized
@@ -160,25 +160,25 @@ export default function ProfilePage() {
                     <Image
                       src={profile.avatar}
                       alt="Profile"
-                      className="h-20 w-20 rounded-full object-cover border-2 border-teal/30"
+                      className="h-20 w-20 rounded-full object-cover border-2 border-pp-accent/30"
                       width={80}
                       height={80}
                       unoptimized
                       onError={() => setImageError(true)}
                     />
                   ) : (
-                    <div className="flex h-20 w-20 items-center justify-center rounded-full bg-teal/10">
+                    <div className="flex h-20 w-20 items-center justify-center rounded-full bg-pp-accent/10">
                       {editing ? (
-                        <ImageIcon className="h-10 w-10 text-teal" />
+                        <ImageIcon className="h-10 w-10 text-pp-accent" />
                       ) : (
-                        <User className="h-10 w-10 text-teal" />
+                        <User className="h-10 w-10 text-pp-accent" />
                       )}
                     </div>
                   )}
                   <div className="flex-1 min-w-0">
-                    <h2 className="text-xl font-bold text-navy dark:text-white truncate">{watchAll.name || "User"}</h2>
-                    <p className="text-sm text-navy/50 dark:text-white/50 truncate">{watchAll.email || ""}</p>
-                    {watchAll.occupation && <p className="text-xs text-navy/40 dark:text-white/40">{watchAll.occupation}</p>}
+                    <h2 className="text-xl font-bold text-pp-text truncate">{watchAll.name || "User"}</h2>
+                    <p className="text-sm text-pp-text-dim truncate">{watchAll.email || ""}</p>
+                    {watchAll.occupation && <p className="text-xs text-pp-text-dim">{watchAll.occupation}</p>}
                   </div>
                   {!editing ? (
                     <Button type="button" variant="secondary" onClick={() => setEditing(true)}>
@@ -198,7 +198,7 @@ export default function ProfilePage() {
                           key={src}
                           type="button"
                           onClick={() => setValue("avatar", src, { shouldDirty: true })}
-                          className={`relative aspect-square rounded-full border-2 p-0.5 transition ${avatarUrl === src ? "border-teal" : "border-transparent hover:border-teal/40"}`}
+                          className={`relative aspect-square rounded-full border-2 p-0.5 transition ${avatarUrl === src ? "border-pp-accent" : "border-transparent hover:border-pp-accent/40"}`}
                           aria-label="Select avatar"
                           aria-pressed={avatarUrl === src}
                         >
@@ -217,62 +217,62 @@ export default function ProfilePage() {
                 <CardContent className="space-y-4">
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div>
-                      <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Full Name *</label>
-                      <input {...register("name")} disabled={!editing} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm disabled:opacity-60 dark:border-white/10" />
-                      {errors.name && <p className="mt-1 text-xs text-red-500">{errors.name.message}</p>}
+                      <label className="block text-xs font-medium text-pp-text-dim mb-1">Full Name</label>
+                      <input {...register("name")} disabled={!editing} className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm disabled:opacity-60 " />
+                      {errors.name && <p className="mt-1 text-xs text-vulcanico">{errors.name.message}</p>}
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Email *</label>
-                      <input type="email" {...register("email")} disabled={!editing} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm disabled:opacity-60 dark:border-white/10" />
-                      {errors.email && <p className="mt-1 text-xs text-red-500">{errors.email.message}</p>}
+                      <label className="block text-xs font-medium text-pp-text-dim mb-1">Email</label>
+                      <input type="email" {...register("email")} disabled={!editing} className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm disabled:opacity-60 " />
+                      {errors.email && <p className="mt-1 text-xs text-vulcanico">{errors.email.message}</p>}
                     </div>
                   </div>
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div>
-                      <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Phone</label>
-                      <input {...register("phone")} disabled={!editing} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm disabled:opacity-60 dark:border-white/10" />
+                      <label className="block text-xs font-medium text-pp-text-dim mb-1">Phone</label>
+                      <input {...register("phone")} disabled={!editing} className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm disabled:opacity-60 " />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Occupation</label>
-                      <input {...register("occupation")} disabled={!editing} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm disabled:opacity-60 dark:border-white/10" />
+                      <label className="block text-xs font-medium text-pp-text-dim mb-1">Occupation</label>
+                      <input {...register("occupation")} disabled={!editing} className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm disabled:opacity-60 " />
                     </div>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Monthly Income</label>
-                    <input type="number" {...register("monthlyIncome", { valueAsNumber: true })} disabled={!editing} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm disabled:opacity-60 dark:border-white/10" />
+                    <label className="block text-xs font-medium text-pp-text-dim mb-1">Monthly Income</label>
+                    <input type="number" {...register("monthlyIncome", { valueAsNumber: true })} disabled={!editing} className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm disabled:opacity-60 " />
                   </div>
                   <div className="grid gap-4 sm:grid-cols-3">
                     <div>
-                      <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Country</label>
-                      <input {...register("country")} disabled={!editing} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm disabled:opacity-60 dark:border-white/10" />
+                      <label className="block text-xs font-medium text-pp-text-dim mb-1">Country</label>
+                      <input {...register("country")} disabled={!editing} className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm disabled:opacity-60 " />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">State</label>
-                      <input {...register("state")} disabled={!editing} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm disabled:opacity-60 dark:border-white/10" />
+                      <label className="block text-xs font-medium text-pp-text-dim mb-1">State</label>
+                      <input {...register("state")} disabled={!editing} className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm disabled:opacity-60 " />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">City</label>
-                      <input {...register("city")} disabled={!editing} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm disabled:opacity-60 dark:border-white/10" />
+                      <label className="block text-xs font-medium text-pp-text-dim mb-1">City</label>
+                      <input {...register("city")} disabled={!editing} className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm disabled:opacity-60 " />
                     </div>
                   </div>
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div>
-                      <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Currency</label>
-                      <select {...register("currency")} disabled={!editing} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm disabled:opacity-60 dark:border-white/10 dark:bg-navy-dark dark:text-white">
+                      <label className="block text-xs font-medium text-pp-text-dim mb-1">Currency</label>
+                      <select {...register("currency")} disabled={!editing} className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm disabled:opacity-60 ">
                         {CURRENCIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
                       </select>
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Timezone</label>
-                      <select {...register("timezone")} disabled={!editing} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm disabled:opacity-60 dark:border-white/10 dark:bg-navy-dark dark:text-white">
+                      <label className="block text-xs font-medium text-pp-text-dim mb-1">Timezone</label>
+                      <select {...register("timezone")} disabled={!editing} className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm disabled:opacity-60 ">
                         {TIMEZONES.map((t) => <option key={t} value={t}>{t}</option>)}
                       </select>
                     </div>
                   </div>
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div>
-                      <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Language</label>
-                      <select {...register("language")} disabled={!editing} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm disabled:opacity-60 dark:border-white/10 dark:bg-navy-dark dark:text-white">
+                      <label className="block text-xs font-medium text-pp-text-dim mb-1">Language</label>
+                      <select {...register("language")} disabled={!editing} className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm disabled:opacity-60 ">
                         {LANGUAGES.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}
                       </select>
                     </div>
@@ -284,30 +284,30 @@ export default function ProfilePage() {
                 <CardHeader><CardTitle>Financial Profile</CardTitle></CardHeader>
                 <CardContent className="space-y-4">
                   <div>
-                    <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Financial Goal</label>
-                    <input {...register("financialGoal")} disabled={!editing} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm disabled:opacity-60 dark:border-white/10" placeholder="e.g. Buy a home, retire early..." />
+                    <label className="block text-xs font-medium text-pp-text-dim mb-1">Financial Goal</label>
+                    <input {...register("financialGoal")} disabled={!editing} className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm disabled:opacity-60 " placeholder="e.g. Buy a home, retire early..." />
                   </div>
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div>
-                      <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Risk Appetite</label>
-                      <select {...register("riskAppetite")} disabled={!editing} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm disabled:opacity-60 dark:border-white/10 dark:bg-navy-dark dark:text-white">
+                      <label className="block text-xs font-medium text-pp-text-dim mb-1">Risk Appetite</label>
+                      <select {...register("riskAppetite")} disabled={!editing} className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm disabled:opacity-60 ">
                         {RISK_APPETITE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                       </select>
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Investment Experience</label>
-                      <select {...register("investmentExperience")} disabled={!editing} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm disabled:opacity-60 dark:border-white/10 dark:bg-navy-dark dark:text-white">
+                      <label className="block text-xs font-medium text-pp-text-dim mb-1">Investment Experience</label>
+                      <select {...register("investmentExperience")} disabled={!editing} className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm disabled:opacity-60 ">
                         {INVESTMENT_EXPERIENCE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                       </select>
                     </div>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Emergency Fund Target</label>
-                    <input type="number" {...register("emergencyFundTarget", { valueAsNumber: true })} disabled={!editing} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm disabled:opacity-60 dark:border-white/10" />
+                    <label className="block text-xs font-medium text-pp-text-dim mb-1">Emergency Fund Target</label>
+                    <input type="number" {...register("emergencyFundTarget", { valueAsNumber: true })} disabled={!editing} className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm disabled:opacity-60 " />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Bio</label>
-                    <textarea {...register("bio")} disabled={!editing} rows={3} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm disabled:opacity-60 dark:border-white/10" placeholder="Tell us about yourself..." />
+                    <label className="block text-xs font-medium text-pp-text-dim mb-1">Bio</label>
+                    <textarea {...register("bio")} disabled={!editing} rows={3} className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm disabled:opacity-60 " placeholder="Tell us about yourself..." />
                   </div>
                 </CardContent>
               </Card>
@@ -317,26 +317,26 @@ export default function ProfilePage() {
                 <CardContent className="space-y-4">
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div>
-                      <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Savings Goal (%)</label>
-                      <input type="number" {...register("financialPreferences.savingsGoal", { valueAsNumber: true })} disabled={!editing} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm disabled:opacity-60 dark:border-white/10" />
+                      <label className="block text-xs font-medium text-pp-text-dim mb-1">Savings Goal (%)</label>
+                      <input type="number" {...register("financialPreferences.savingsGoal", { valueAsNumber: true })} disabled={!editing} className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm disabled:opacity-60 " />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Emergency Fund (months)</label>
-                      <input type="number" {...register("financialPreferences.emergencyFundMonths", { valueAsNumber: true })} disabled={!editing} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm disabled:opacity-60 dark:border-white/10" />
+                      <label className="block text-xs font-medium text-pp-text-dim mb-1">Emergency Fund (months)</label>
+                      <input type="number" {...register("financialPreferences.emergencyFundMonths", { valueAsNumber: true })} disabled={!editing} className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm disabled:opacity-60 " />
                     </div>
                   </div>
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div>
-                      <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Risk Tolerance</label>
-                      <select {...register("financialPreferences.riskTolerance")} disabled={!editing} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm disabled:opacity-60 dark:border-white/10 dark:bg-navy-dark dark:text-white">
+                      <label className="block text-xs font-medium text-pp-text-dim mb-1">Risk Tolerance</label>
+                      <select {...register("financialPreferences.riskTolerance")} disabled={!editing} className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm disabled:opacity-60 ">
                         <option value="low">Low</option>
                         <option value="moderate">Moderate</option>
                         <option value="high">High</option>
                       </select>
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-navy/50 dark:text-white/50 mb-1">Budget Method</label>
-                      <select {...register("financialPreferences.budgetMethod")} disabled={!editing} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm disabled:opacity-60 dark:border-white/10 dark:bg-navy-dark dark:text-white">
+                      <label className="block text-xs font-medium text-pp-text-dim mb-1">Budget Method</label>
+                      <select {...register("financialPreferences.budgetMethod")} disabled={!editing} className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm disabled:opacity-60 ">
                         <option value="envelope">Envelope</option>
                         <option value="zero-based">Zero-Based</option>
                         <option value="50-30-20">50/30/20</option>
@@ -347,7 +347,7 @@ export default function ProfilePage() {
               </Card>
 
               {editing && (
-                <div className="sticky bottom-0 flex justify-end gap-2 bg-white/80 py-3 backdrop-blur dark:bg-navy-dark/80">
+                <div className="sticky bottom-0 flex justify-end gap-2 bg-white/80 py-3 backdrop-blur /80">
                   <Button type="button" variant="ghost" onClick={handleCancel}>
                     <X className="h-4 w-4" /> Cancel
                   </Button>
@@ -412,20 +412,20 @@ function LegalConsentCard() {
       <CardContent className="space-y-3">
         <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
           <div>
-            <p className="text-xs text-navy/50 dark:text-white/50">Terms of Service version accepted</p>
-            <p className="font-medium text-navy dark:text-white">v{consent.termsVersion}</p>
+            <p className="text-xs text-pp-text-dim">Terms of Service version accepted</p>
+            <p className="font-medium text-pp-text">v{consent.termsVersion}</p>
           </div>
           <div>
-            <p className="text-xs text-navy/50 dark:text-white/50">Privacy Policy version acknowledged</p>
-            <p className="font-medium text-navy dark:text-white">v{consent.privacyVersion}</p>
+            <p className="text-xs text-pp-text-dim">Privacy Policy version acknowledged</p>
+            <p className="font-medium text-pp-text">v{consent.privacyVersion}</p>
           </div>
           <div>
-            <p className="text-xs text-navy/50 dark:text-white/50">Signed name</p>
-            <p className="font-medium text-navy dark:text-white">{consent.signedName}</p>
+            <p className="text-xs text-pp-text-dim">Signed name</p>
+            <p className="font-medium text-pp-text">{consent.signedName}</p>
           </div>
           <div>
-            <p className="text-xs text-navy/50 dark:text-white/50">Acceptance date</p>
-            <p className="font-medium text-navy dark:text-white">
+            <p className="text-xs text-pp-text-dim">Acceptance date</p>
+            <p className="font-medium text-pp-text">
               {new Date(consent.acceptedAt).toLocaleString("en-IN", { dateStyle: "long", timeStyle: "short" })}
             </p>
           </div>

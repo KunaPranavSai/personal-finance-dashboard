@@ -52,15 +52,15 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
         <motion.div
           animate={{ x: [0, -1.5, 1.5, -1, 0] }}
           transition={{ duration: 2.6, repeat: Infinity, repeatDelay: 1.4, ease: "easeInOut" }}
-          className="relative flex h-20 w-20 items-center justify-center rounded-2xl border border-red-400/20 bg-white/5 sm:h-24 sm:w-24"
+          className="relative flex h-20 w-20 items-center justify-center rounded-2xl border border-vulcanico/20 bg-white/5 sm:h-24 sm:w-24"
         >
-          <div className="absolute inset-0 rounded-2xl bg-red-500/10 blur-lg" />
-          <PiggyBank className="relative h-9 w-9 text-amber-300 sm:h-11 sm:w-11" />
+          <div className="absolute inset-0 rounded-2xl bg-vulcanico/10 blur-lg" />
+          <PiggyBank className="relative h-9 w-9 text-turmeric/40 sm:h-11 sm:w-11" />
         </motion.div>
       </div>
 
       <motion.h1
-        className="bg-gradient-to-b from-red-300 to-amber-500 bg-clip-text text-6xl font-extrabold text-transparent sm:text-7xl"
+        className="bg-gradient-to-b from-vulcanico/40 to-turmeric bg-clip-text text-6xl font-extrabold text-transparent sm:text-7xl"
         animate={{ opacity: [1, 0.85, 1, 0.7, 1] }}
         transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut", times: [0, 0.1, 0.2, 0.3, 1] }}
       >
@@ -80,7 +80,7 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
           Try Again
         </motion.button>
         <button type="button" onClick={handleReportIssue} className={errorGhostButton}>
-          {copied ? <Check className="h-4 w-4 text-emerald-400" /> : <ClipboardCopy className="h-4 w-4" />}
+          {copied ? <Check className="h-4 w-4 text-mantis" /> : <ClipboardCopy className="h-4 w-4" />}
           {copied ? "Copied!" : "Report Issue"}
         </button>
       </div>

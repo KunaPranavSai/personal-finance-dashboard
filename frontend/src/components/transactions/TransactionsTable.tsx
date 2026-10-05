@@ -10,9 +10,11 @@ import { listLocalTransactions, deleteLocalTransaction } from "@/lib/services/tr
 import { Transaction, PaginatedResponse } from "@/types";
 import { formatCurrency as fmtCurr, formatDateIN } from "@/lib/format";
 import { useSettingsContext } from "@/lib/SettingsContext";
-import { Badge } from "../ui/Badge";
-import { Button } from "../ui/Button";
+import { Badge } from "../ui/PpBadge";
+import { Button } from "../ui/PpButton";
 import { EmptyState } from "../ui/EmptyState";
+import { usePpToast } from "../ui/PpToast";
+import { usePpConfirm } from "../ui/PpConfirm";
 import { Pencil, Trash2, Search, ArrowLeftRight } from "lucide-react";
 
 export function TransactionsTable({
@@ -43,12 +45,19 @@ export function TransactionsTable({
           ),
   });
 
+  const ppToast = usePpToast();
+  const confirmDialog = usePpConfirm();
   const deleteMutation = useMutation({
     mutationFn: (id: string) => (getStorageMode() === "local" ? deleteLocalTransaction(id) : api.delete(`/api/transactions/${id}`)),
-    onSuccess: () => {
+    onMutate: () => ({ handle: ppToast.start("Removing transaction…") }),
+    onSuccess: (_data, _id, context) => {
       // See TransactionFormModal.tsx for why refetchType: "all" is needed here.
       queryClient.invalidateQueries({ queryKey: ["transactions"], refetchType: "all" });
       queryClient.invalidateQueries({ queryKey: ["dashboard-summary"], refetchType: "all" });
+      context?.handle.success("Transaction deleted");
+    },
+    onError: (_err, _id, context) => {
+      context?.handle.error("Couldn't delete transaction — try again");
     },
   });
 
@@ -57,20 +66,20 @@ export function TransactionsTable({
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-2 rounded-lg border border-black/10 px-3 py-2 text-sm dark:border-white/10">
-          <Search className="h-4 w-4 text-navy/40 dark:text-white/40" />
+        <div className="flex items-center gap-2 rounded-lg border border-pp-border px-3 py-2 text-sm ">
+          <Search className="h-4 w-4 text-pp-text-dim" />
           <input
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(1); }}
             placeholder="Search description, merchant, notes…"
-            className="w-56 bg-transparent outline-none placeholder:text-navy/30 dark:placeholder:text-white/30"
+            className="w-56 bg-transparent outline-none placeholder:text-pp-text-dim dark:placeholder:text-white/30"
           />
         </div>
         {!fixedType && (
           <select
             value={typeFilter}
             onChange={(e) => { setTypeFilter(e.target.value as any); setPage(1); }}
-            className="rounded-lg border border-black/10 px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white"
+            className="rounded-lg border border-pp-border px-3 py-2 text-sm "
           >
             <option value="">All Types</option>
             <option value="INCOME">Income</option>
@@ -82,7 +91,7 @@ export function TransactionsTable({
       {isLoading ? (
         <div className="space-y-2">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="h-12 animate-pulse rounded-lg bg-black/5 dark:bg-white/5" />
+            <div key={i} className="h-12 animate-pulse rounded-lg bg-pp-surface-2" />
           ))}
         </div>
       ) : items.length === 0 ? (
@@ -100,9 +109,9 @@ export function TransactionsTable({
       ) : (
         <>
           {/* Desktop / tablet: full table */}
-          <div className="hidden overflow-x-auto rounded-xl2 border border-black/5 dark:border-white/10 md:block">
+          <div className="hidden overflow-x-auto rounded-xl2 border border-pp-border md:block">
             <table className="w-full text-left text-sm">
-              <thead className="bg-black/[0.02] text-xs font-semibold uppercase text-navy/50 dark:bg-white/5 dark:text-white/50">
+              <thead className="bg-black/[0.02] text-xs font-semibold uppercase text-pp-text-dim ">
                 <tr>
                   <th className="px-4 py-3">Date</th>
                   <th className="px-4 py-3">Description</th>
@@ -114,27 +123,28 @@ export function TransactionsTable({
               </thead>
               <tbody>
                 {items.map((tx) => (
-                  <tr key={tx.id} className="border-t border-black/5 dark:border-white/5">
-                    <td className="px-4 py-3 text-navy/70 dark:text-white/70">{formatDateIN(tx.date)}</td>
-                    <td className="px-4 py-3 font-medium text-navy dark:text-white">
+                  <tr key={tx.id} className="border-t border-pp-border dark:border-white/5">
+                    <td className="px-4 py-3 text-pp-text-dim">{formatDateIN(tx.date)}</td>
+                    <td className="px-4 py-3 font-medium text-pp-text">
                       {tx.description}
-                      {tx.merchant && <span className="ml-2 text-xs text-navy/40 dark:text-white/40">· {tx.merchant}</span>}
+                      {tx.merchant && <span className="ml-2 text-xs text-pp-text-dim">· {tx.merchant}</span>}
                     </td>
                     <td className="px-4 py-3">
                       <Badge tone="teal">{tx.category?.name}</Badge>
                     </td>
-                    <td className="px-4 py-3 text-navy/60 dark:text-white/60">{tx.paymentMethodType?.name ?? "—"}</td>
-                    <td className={`px-4 py-3 text-right font-semibold ${tx.type === "INCOME" ? "text-emerald-600" : "text-red-600"}`}>
+                    <td className="px-4 py-3 text-pp-text-dim">{tx.paymentMethodType?.name ?? "—"}</td>
+                    <td className={`px-4 py-3 text-right font-semibold ${tx.type === "INCOME" ? "text-mantis" : "text-vulcanico"}`}>
                       {tx.type === "INCOME" ? "+" : "-"}{formatINR(tx.amount)}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex justify-end gap-1">
-                        <button onClick={() => onEdit(tx)} className="rounded p-1.5 text-navy/40 hover:bg-black/5 hover:text-navy dark:text-white/40 dark:hover:bg-white/10 dark:hover:text-white">
+                        <button onClick={() => onEdit(tx)} className="rounded p-1.5 text-pp-text-dim hover:bg-pp-surface-2 hover:text-pp-text/40 dark:hover:text-white" aria-label="Edit">
                           <Pencil className="h-3.5 w-3.5" />
                         </button>
                         <button
-                          onClick={() => { if (confirm("Delete this transaction?")) deleteMutation.mutate(tx.id); }}
-                          className="rounded p-1.5 text-navy/40 hover:bg-red-50 hover:text-red-600 dark:text-white/40 dark:hover:bg-red-500/10"
+                          onClick={async () => { if (await confirmDialog({ message: "Delete this transaction?" })) deleteMutation.mutate(tx.id); }}
+                          className="rounded p-1.5 text-pp-text-dim hover:bg-vulcanico/10 hover:text-vulcanico dark:hover:bg-vulcanico/10"
+                          aria-label="Delete"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
@@ -149,31 +159,31 @@ export function TransactionsTable({
           {/* Mobile: compact card list, same data as the table with no horizontal scroll */}
           <div className="flex flex-col gap-2 md:hidden">
             {items.map((tx) => (
-              <div key={tx.id} className="rounded-xl2 border border-black/5 bg-white p-3 dark:border-white/10 dark:bg-white/5">
+              <div key={tx.id} className="rounded-xl2 border border-pp-border bg-pp-surface p-3 ">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-navy dark:text-white">{tx.description}</p>
-                    {tx.merchant && <p className="truncate text-xs text-navy/40 dark:text-white/40">{tx.merchant}</p>}
+                    <p className="truncate text-sm font-medium text-pp-text">{tx.description}</p>
+                    {tx.merchant && <p className="truncate text-xs text-pp-text-dim">{tx.merchant}</p>}
                   </div>
-                  <p className={`shrink-0 text-sm font-semibold ${tx.type === "INCOME" ? "text-emerald-600" : "text-red-600"}`}>
+                  <p className={`shrink-0 text-sm font-semibold ${tx.type === "INCOME" ? "text-mantis" : "text-vulcanico"}`}>
                     {tx.type === "INCOME" ? "+" : "-"}{formatINR(tx.amount)}
                   </p>
                 </div>
                 <div className="mt-2 flex items-center justify-between gap-2">
                   <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                     <Badge tone="teal">{tx.category?.name}</Badge>
-                    <span className="text-xs text-navy/40 dark:text-white/40">{formatDateIN(tx.date)}</span>
+                    <span className="text-xs text-pp-text-dim">{formatDateIN(tx.date)}</span>
                     {tx.paymentMethodType?.name && (
-                      <span className="text-xs text-navy/40 dark:text-white/40">· {tx.paymentMethodType.name}</span>
+                      <span className="text-xs text-pp-text-dim">· {tx.paymentMethodType.name}</span>
                     )}
                   </div>
                   <div className="flex shrink-0 gap-1">
-                    <button onClick={() => onEdit(tx)} className="rounded p-1.5 text-navy/40 hover:bg-black/5 hover:text-navy dark:text-white/40 dark:hover:bg-white/10 dark:hover:text-white" aria-label="Edit">
+                    <button onClick={() => onEdit(tx)} className="rounded p-1.5 text-pp-text-dim hover:bg-pp-surface-2 hover:text-pp-text/40 dark:hover:text-white" aria-label="Edit">
                       <Pencil className="h-3.5 w-3.5" />
                     </button>
                     <button
-                      onClick={() => { if (confirm("Delete this transaction?")) deleteMutation.mutate(tx.id); }}
-                      className="rounded p-1.5 text-navy/40 hover:bg-red-50 hover:text-red-600 dark:text-white/40 dark:hover:bg-red-500/10"
+                      onClick={async () => { if (await confirmDialog({ message: "Delete this transaction?" })) deleteMutation.mutate(tx.id); }}
+                      className="rounded p-1.5 text-pp-text-dim hover:bg-vulcanico/10 hover:text-vulcanico dark:hover:bg-vulcanico/10"
                       aria-label="Delete"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -187,7 +197,7 @@ export function TransactionsTable({
       )}
 
       {data && data.pagination.totalPages > 1 && (
-        <div className="mt-4 flex items-center justify-between text-sm text-navy/60 dark:text-white/60">
+        <div className="mt-4 flex items-center justify-between text-sm text-pp-text-dim">
           <span>
             Page {data.pagination.page} of {data.pagination.totalPages} · {data.pagination.total} transactions
           </span>

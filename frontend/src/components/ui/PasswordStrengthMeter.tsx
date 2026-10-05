@@ -14,10 +14,10 @@ function scorePassword(pw: string): number {
 
 const LEVELS = [
   { label: "", color: "bg-white/10" },
-  { label: "Weak", color: "bg-red-500" },
-  { label: "Fair", color: "bg-amber-500" },
-  { label: "Good", color: "bg-blue-400" },
-  { label: "Strong", color: "bg-emerald-500" },
+  { label: "Weak", color: "bg-vulcanico" },
+  { label: "Fair", color: "bg-turmeric" },
+  { label: "Good", color: "bg-pp-accent" },
+  { label: "Strong", color: "bg-mantis" },
 ];
 
 export function PasswordStrengthMeter({ password }: { password: string }) {
@@ -39,7 +39,7 @@ export function PasswordStrengthMeter({ password }: { password: string }) {
           </div>
         ))}
       </div>
-      {level.label && <p className="mt-1 text-[11px] text-[#94A3B8]">{level.label}</p>}
+      {level.label && <p className="mt-1 text-[11px] text-white/60">{level.label}</p>}
     </div>
   );
 }

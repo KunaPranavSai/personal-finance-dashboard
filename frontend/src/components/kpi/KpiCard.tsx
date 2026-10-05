@@ -46,10 +46,9 @@ export function KpiCard({
   const rotateY = useSpring(useMotionValue(0), { stiffness: 300, damping: 25 });
   const spotlightX = useMotionValue(50);
   const spotlightY = useMotionValue(50);
-  const spotlight = useMotionTemplate`radial-gradient(circle at ${spotlightX}% ${spotlightY}%, rgba(14,165,165,0.16), transparent 60%)`;
+  const spotlight = useMotionTemplate`radial-gradient(circle at ${spotlightX}% ${spotlightY}%, rgba(0,71,65,0.16), transparent 60%)`;
   // Cursor-tracking gradient BORDER (distinct from the internal spotlight
-  // above) — dark mode glows violet/gold, light mode a soft cyan/indigo
-  // shimmer, per the design spec.
+  // above) — a soft Tiffany glow in both themes, per the approved palette.
   const borderGlow = useMotionTemplate`radial-gradient(180px circle at ${spotlightX}% ${spotlightY}%, var(--kpi-border-glow), transparent 70%)`;
 
   // Fine-pointer devices only get the 3D tilt — on touch, continuously
@@ -102,7 +101,7 @@ export function KpiCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25 }}
       className="relative"
-      style={{ perspective: "800px", ["--kpi-border-glow" as string]: "rgba(99,102,241,0.35)" }}
+      style={{ perspective: "800px", ["--kpi-border-glow" as string]: "rgba(33,241,168,0.35)" }}
       onMouseMove={handleMouseMove}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={handleMouseLeave}
@@ -115,7 +114,7 @@ export function KpiCard({
           ring through, independent of the card's own background. */}
       <motion.div
         aria-hidden
-        className="pointer-events-none absolute -inset-px rounded-[1.25rem] opacity-0 transition-opacity duration-300 dark:[--kpi-border-glow:rgba(99,102,241,0.3)]"
+        className="pointer-events-none absolute -inset-px rounded-[1.25rem] opacity-0 transition-opacity duration-300 dark:[--kpi-border-glow:rgba(33,241,168,0.3)]"
         style={{ background: borderGlow, opacity: hovered ? 1 : 0 }}
       />
 
@@ -129,7 +128,7 @@ export function KpiCard({
             // glass with a visible border (was too translucent and blended
             // into the background at rest, only standing out via the
             // cursor-tracking glow layer above).
-            "group relative overflow-hidden rounded-xl2 border border-indigo-100/80 bg-white/[0.92] p-3 shadow-[0_4px_20px_-2px_rgba(99,102,241,0.08),0_2px_6px_-1px_rgba(0,0,0,0.04)] backdrop-blur-md transition-[color,background-color,border-color,box-shadow,transform] duration-200 will-change-transform hover:border-indigo-300/70 dark:border-white/10 dark:bg-slate-900/85 dark:shadow-card dark:backdrop-blur-xl dark:hover:border-indigo-500/40 dark:hover:shadow-lg dark:hover:shadow-indigo-500/10 sm:p-4",
+            "group relative overflow-hidden rounded-xl2 border border-pp-accent/80 bg-white/[0.92] p-3 shadow-[0_4px_20px_-2px_rgba(0,71,65,0.08),0_2px_6px_-1px_rgba(0,0,0,0.04)] backdrop-blur-md transition-[color,background-color,border-color,box-shadow,transform] duration-200 will-change-transform hover:border-pp-accent/70 dark:bg-pp-surface-2 dark:shadow-card dark:backdrop-blur-xl dark:hover:border-pp-accent/40 dark:hover:shadow-lg dark:hover:shadow-pp-accent/10 sm:p-4",
             onClick && "cursor-pointer ease-out hover:shadow-md active:scale-95 sm:active:scale-100"
           )}
           title={tooltip}
@@ -142,7 +141,7 @@ export function KpiCard({
           <span
             aria-hidden
             className={cn(
-              "pointer-events-none absolute -bottom-3 -right-2 select-none text-4xl font-black italic tracking-tighter text-navy/[0.04] transition-opacity duration-300 dark:text-white/[0.05] sm:text-5xl",
+              "pointer-events-none absolute -bottom-3 -right-2 select-none text-4xl font-black italic tracking-tighter text-pp-text/[0.04] transition-opacity duration-300 /[0.05] sm:text-5xl",
               hovered ? "opacity-100" : "opacity-0"
             )}
           >
@@ -164,7 +163,7 @@ export function KpiCard({
               <span
                 className={cn(
                   "inline-flex shrink-0 items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[11px] font-semibold",
-                  isPositive ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"
+                  isPositive ? "bg-mantis/10 text-mantis" : "bg-vulcanico/10 text-vulcanico"
                 )}
               >
                 {isPositive ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
@@ -173,8 +172,8 @@ export function KpiCard({
             )}
           </div>
 
-          <p className="relative mt-2 truncate text-xs font-medium text-slate-600 dark:text-slate-400">{label}</p>
-          <p className="relative mt-0.5 truncate text-lg font-extrabold text-slate-900 dark:text-slate-100 sm:text-xl" style={{ fontSize: "clamp(14px, 2vw, 22px)", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "100%" }}>
+          <p className="relative mt-2 truncate text-xs font-medium text-pp-text-dim dark:text-pp-text-dim">{label}</p>
+          <p className="relative mt-0.5 truncate text-lg font-extrabold text-pp-text-dim dark:text-pp-text-dim sm:text-xl" style={{ fontSize: "clamp(14px, 2vw, 22px)", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "100%" }}>
             {value}
           </p>
 
@@ -185,7 +184,7 @@ export function KpiCard({
                   <Line
                     type="monotone"
                     dataKey="v"
-                    stroke={tone === "negative" ? "#C0392B" : "#0EA5A5"}
+                    stroke={tone === "negative" ? "#FF4103" : "#21F1A8"}
                     strokeWidth={2}
                     dot={false}
                   />
@@ -197,7 +196,7 @@ export function KpiCard({
       </motion.div>
 
       <motion.div
-        className="pointer-events-none absolute left-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-lg border border-indigo-200/60 bg-indigo-50 text-indigo-600 shadow-sm dark:border-indigo-500/20 dark:bg-indigo-500/15 dark:text-indigo-400 sm:left-4 sm:top-4 sm:h-9 sm:w-9"
+        className="pointer-events-none absolute left-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-lg border border-pp-accent/60 bg-pp-accent/10 text-pp-accent shadow-sm dark:border-pp-accent/20 dark:bg-pp-accent/15 dark:text-pp-accent sm:left-4 sm:top-4 sm:h-9 sm:w-9"
         animate={{ y: hovered ? -14 : 0, z: hovered ? 40 : 0, scale: hovered ? 1.15 : 1 }}
         transition={{ type: "spring", stiffness: 320, damping: 16 }}
         style={{ willChange: "transform" }}

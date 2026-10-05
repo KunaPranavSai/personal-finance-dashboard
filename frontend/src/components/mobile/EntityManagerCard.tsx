@@ -132,7 +132,7 @@ export function EntityManagerCard({ queryKey, apiPath, localCollection, itemLabe
       <MobileSheet open={sheetOpen} onClose={() => { setSheetOpen(false); setEditing(null); }} title={editing ? `Edit ${itemLabel}` : `New ${itemLabel}`}>
         <form onSubmit={handleSubmit}>
           <div className="ppm-field">
-            <label htmlFor="ppm-entity-name">Name<span className="req">*</span></label>
+            <label htmlFor="ppm-entity-name">Name</label>
             <input id="ppm-entity-name" ref={nameInputRef} value={name} maxLength={50} onChange={(e) => setName(e.target.value)} />
           </div>
           {(createMutation.isError || updateMutation.isError) && (

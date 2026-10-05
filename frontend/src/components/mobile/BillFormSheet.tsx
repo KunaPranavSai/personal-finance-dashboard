@@ -126,13 +126,13 @@ export function BillFormSheet({ open, onClose, editing }: BillFormSheetProps) {
     <MobileSheet open={open} onClose={handleClose} title={isEditing ? "Edit Bill" : "Add Bill"}>
       <form onSubmit={handleSubmit} noValidate>
         <div className="ppm-field">
-          <label htmlFor="ppm-bill-name">Name<span className="req">*</span></label>
-          <input id="ppm-bill-name" value={name} maxLength={100} placeholder="e.g. HDFC Home EMI" onChange={(e) => setName(e.target.value)} />
+          <label htmlFor="ppm-bill-name">Name</label>
+          <input id="ppm-bill-name" value={name} maxLength={100} placeholder="Name required" onChange={(e) => setName(e.target.value)} />
           {errors.name && <div className="err">{errors.name}</div>}
         </div>
 
         <div className="ppm-field">
-          <label htmlFor="ppm-bill-type">Type<span className="req">*</span></label>
+          <label htmlFor="ppm-bill-type">Type</label>
           <select id="ppm-bill-type" value={type} onChange={(e) => setType(e.target.value)}>
             {BILL_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
           </select>
@@ -140,12 +140,12 @@ export function BillFormSheet({ open, onClose, editing }: BillFormSheetProps) {
 
         <div className="ppm-field-row">
           <div className="ppm-field">
-            <label htmlFor="ppm-bill-amount">Amount (₹)<span className="req">*</span></label>
-            <input id="ppm-bill-amount" inputMode="decimal" placeholder="0.00" value={amount} onChange={(e) => setAmount(e.target.value)} />
+            <label htmlFor="ppm-bill-amount">Amount (₹)</label>
+            <input id="ppm-bill-amount" inputMode="decimal" placeholder="Amount required" value={amount} onChange={(e) => setAmount(e.target.value)} />
             {errors.amount && <div className="err">{errors.amount}</div>}
           </div>
           <div className="ppm-field">
-            <label htmlFor="ppm-bill-due">Due Date<span className="req">*</span></label>
+            <label htmlFor="ppm-bill-due">Due Date</label>
             <input id="ppm-bill-due" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
             {errors.dueDate && <div className="err">{errors.dueDate}</div>}
           </div>

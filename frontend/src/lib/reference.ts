@@ -14,15 +14,15 @@ export const ENTRY_TYPES: { value: string; label: string }[] = [
 
 export const BILL_TYPES = [
   "EMI", "Subscription", "Utility", "Insurance", "Rent", "Other",
-];
+].sort((a, b) => a.localeCompare(b));
 
 export const GOAL_CATEGORIES = [
   "Emergency Fund", "Retirement", "Education", "Travel", "Home", "Vehicle", "Other",
-];
+].sort((a, b) => a.localeCompare(b));
 
 export const INVESTMENT_CATEGORIES = [
   "Mutual Funds", "Stocks", "Fixed Deposit", "PPF", "EPF", "NPS", "Real Estate", "Gold", "Bonds", "Other",
-];
+].sort((a, b) => a.localeCompare(b));
 
 export const CURRENCIES = [
   { value: "INR", label: "INR (₹)" },

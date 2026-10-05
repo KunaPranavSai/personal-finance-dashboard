@@ -2,9 +2,9 @@
 
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Topbar } from "@/components/layout/Topbar";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
+import { Topbar } from "@/components/layout/AppTopbar";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/PpCard";
+import { Button } from "@/components/ui/PpButton";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { api } from "@/lib/api";
 import { getStorageMode, getStorageProvider } from "@/lib/storage";
@@ -18,6 +18,8 @@ import { z } from "zod";
 import { GOAL_CATEGORIES } from "@/lib/reference";
 import { FocusTrap } from "@/components/ui/FocusTrap";
 import { useToast } from "@/components/ui/Toast";
+import { usePpToast } from "@/components/ui/PpToast";
+import { usePpConfirm } from "@/components/ui/PpConfirm";
 import { generateIdempotencyKey } from "@/lib/idempotencyKey";
 import { useIsMobile } from "@/lib/DeviceContext";
 import { MobileShell } from "@/components/mobile/MobileShell";
@@ -40,6 +42,7 @@ function GoalModal({ open, editing, onClose }: {
 }) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const ppToast = usePpToast();
   const { register, handleSubmit, reset, formState: { errors } } = useForm<GoalForm>({
     resolver: zodResolver(goalSchema),
     defaultValues: editing ?? { name: "", category: "", targetAmount: 0, currentAmount: 0, monthlyContribution: 0 },
@@ -62,14 +65,18 @@ function GoalModal({ open, editing, onClose }: {
       }
       return api.post<Goal>("/api/goals", data, createIdempotencyKeyRef.current);
     },
-    onSuccess: () => {
+    onMutate: () => ({ handle: ppToast.start("Saving goal…") }),
+    onSuccess: (_result, _values, context) => {
       // dashboard-summary's emergencyFund/goalCount read this collection too.
       queryClient.invalidateQueries({ queryKey: ["goals"], refetchType: "all" });
       queryClient.invalidateQueries({ queryKey: ["dashboard-summary"], refetchType: "all" });
       createIdempotencyKeyRef.current = generateIdempotencyKey();
-      onClose(); reset(); toast("Goal created", "success");
+      onClose(); reset(); context?.handle.success("Goal added");
     },
-    onError: () => { toast("Failed to create goal", "error"); },
+    onError: (_err, _values, context) => {
+      context?.handle.error("Couldn't save goal — try again");
+      toast("Failed to create goal", "error");
+    },
   });
   const updateMutation = useMutation({
     mutationFn: async (data: GoalForm) => {
@@ -80,12 +87,16 @@ function GoalModal({ open, editing, onClose }: {
       }
       return api.patch<Goal>(`/api/goals/${editing!.id}`, data);
     },
-    onSuccess: () => {
+    onMutate: () => ({ handle: ppToast.start("Updating goal…") }),
+    onSuccess: (_result, _values, context) => {
       queryClient.invalidateQueries({ queryKey: ["goals"], refetchType: "all" });
       queryClient.invalidateQueries({ queryKey: ["dashboard-summary"], refetchType: "all" });
-      onClose(); reset(); toast("Goal updated", "success");
+      onClose(); reset(); context?.handle.success("Goal updated");
     },
-    onError: () => { toast("Failed to update goal", "error"); },
+    onError: (_err, _values, context) => {
+      context?.handle.error("Couldn't update goal — try again");
+      toast("Failed to update goal", "error");
+    },
   });
 
   const onSubmit = handleSubmit((data) => {
@@ -97,34 +108,34 @@ function GoalModal({ open, editing, onClose }: {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose} role="dialog" aria-modal="true" aria-label={editing ? "Edit goal" : "Add goal"}>
       <FocusTrap active={open}>
-      <div className="w-full max-w-md rounded-xl2 bg-white p-6 dark:bg-navy-dark max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+      <div className="w-full max-w-md rounded-xl2 bg-pp-surface p-6 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-navy dark:text-white">{editing ? "Edit" : "Add"} Goal</h2>
-          <button onClick={onClose}><X className="h-5 w-5 text-navy/50 dark:text-white/50" /></button>
+          <h2 className="text-lg font-semibold text-pp-text">{editing ? "Edit" : "Add"} Goal</h2>
+          <button onClick={onClose} aria-label="Close"><X className="h-5 w-5 text-pp-text-dim" /></button>
         </div>
         <form onSubmit={onSubmit} className="space-y-3">
-          <div><label className="text-xs text-navy/50 dark:text-white/50">Name *</label>
-            <input {...register("name")} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" />
-            {errors.name && <p className="text-xs text-red-500">{errors.name.message}</p>}
+          <div><label className="text-xs text-pp-text-dim">Name</label>
+            <input {...register("name")} placeholder="Name required" className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm " />
+            {errors.name && <p className="text-xs text-vulcanico">{errors.name.message}</p>}
           </div>
-          <div><label className="text-xs text-navy/50 dark:text-white/50">Category *</label>
-            <select {...register("category")} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10 dark:bg-navy-dark dark:text-white">
+          <div><label className="text-xs text-pp-text-dim">Category</label>
+            <select {...register("category")} className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm ">
               <option value="">Select category…</option>
               {GOAL_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
-            {errors.category && <p className="text-xs text-red-500">{errors.category.message}</p>}
+            {errors.category && <p className="text-xs text-vulcanico">{errors.category.message}</p>}
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <div><label className="text-xs text-navy/50 dark:text-white/50">Target Amount *</label>
-              <input type="number" step="0.01" {...register("targetAmount")} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" />
-              {errors.targetAmount && <p className="text-xs text-red-500">{errors.targetAmount.message}</p>}
+            <div><label className="text-xs text-pp-text-dim">Target Amount</label>
+              <input type="number" step="0.01" {...register("targetAmount")} placeholder="Target amount required" className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm " />
+              {errors.targetAmount && <p className="text-xs text-vulcanico">{errors.targetAmount.message}</p>}
             </div>
-            <div><label className="text-xs text-navy/50 dark:text-white/50">Current Amount</label>
-              <input type="number" step="0.01" {...register("currentAmount")} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" />
+            <div><label className="text-xs text-pp-text-dim">Current Amount</label>
+              <input type="number" step="0.01" {...register("currentAmount")} className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm " />
             </div>
           </div>
-          <div><label className="text-xs text-navy/50 dark:text-white/50">Monthly Contribution</label>
-            <input type="number" step="0.01" {...register("monthlyContribution")} className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10" />
+          <div><label className="text-xs text-pp-text-dim">Monthly Contribution</label>
+            <input type="number" step="0.01" {...register("monthlyContribution")} className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm " />
           </div>
           <Button type="submit" className="w-full" disabled={createMutation.isPending || updateMutation.isPending}>
             {createMutation.isPending || updateMutation.isPending ? "Saving..." : editing ? "Update" : "Create"}
@@ -144,6 +155,8 @@ export default function GoalsPage() {
   const [search, setSearch] = useState("");
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const ppToast = usePpToast();
+  const confirmDialog = usePpConfirm();
 
   const isMobile = useIsMobile();
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
@@ -169,12 +182,16 @@ export default function GoalsPage() {
       }
       return api.delete(`/api/goals/${id}`);
     },
-    onSuccess: () => {
+    onMutate: () => ({ handle: ppToast.start("Removing goal…") }),
+    onSuccess: (_data, _id, context) => {
       queryClient.invalidateQueries({ queryKey: ["goals"], refetchType: "all" });
       queryClient.invalidateQueries({ queryKey: ["dashboard-summary"], refetchType: "all" });
-      toast("Goal deleted", "success");
+      context?.handle.success("Goal deleted");
     },
-    onError: () => { toast("Failed to delete goal", "error"); },
+    onError: (_err, _id, context) => {
+      context?.handle.error("Couldn't delete goal — try again");
+      toast("Failed to delete goal", "error");
+    },
   });
 
   const items = useMemo(() => data?.items ?? [], [data]);
@@ -243,22 +260,22 @@ export default function GoalsPage() {
   return (
     <>
       <Topbar title="Financial Goals" />
-      <main className="flex-1 overflow-y-auto p-4 lg:p-6">
+      <main className="flex-1 overflow-y-auto p-4 lg:p-6 2xl:px-10">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-          <p className="text-sm text-navy/50 dark:text-white/50">Set and track your financial goals.</p>
+          <p className="text-sm text-pp-text-dim">Set and track your financial goals.</p>
           <Button onClick={() => { setEditing(null); setModalOpen(true); }}><Plus className="h-4 w-4" /> Add Goal</Button>
         </div>
 
         <div className="mb-4 flex items-center gap-2">
-          <div className="flex items-center gap-1 rounded-lg border border-black/10 px-2 py-1 dark:border-white/10">
-            <Search className="h-3.5 w-3.5 text-navy/40 dark:text-white/40" />
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search goals..." className="w-40 bg-transparent text-xs outline-none placeholder:text-navy/30 dark:text-white" />
+          <div className="flex items-center gap-1 rounded-lg border border-pp-border px-2 py-1 ">
+            <Search className="h-3.5 w-3.5 text-pp-text-dim" />
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search goals..." className="w-40 bg-transparent text-xs outline-none placeholder:text-pp-text-dim " />
           </div>
         </div>
 
         {isLoading ? (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-40 animate-pulse rounded-xl2 bg-black/5 dark:bg-white/5" />)}
+            {Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-40 animate-pulse rounded-xl2 bg-pp-surface-2" />)}
           </div>
         ) : items.length === 0 ? (
           <Card><CardContent className="pt-5">
@@ -279,24 +296,24 @@ export default function GoalsPage() {
                   <CardContent className="pt-5">
                     <div className="flex items-start justify-between">
                       <div className="min-w-0">
-                        <h3 className="font-semibold text-navy dark:text-white truncate">{g.name}</h3>
-                        <p className="text-xs text-navy/50 dark:text-white/50">{g.category}</p>
+                        <h3 className="font-semibold text-pp-text truncate">{g.name}</h3>
+                        <p className="text-xs text-pp-text-dim">{g.category}</p>
                       </div>
                       <div className="flex gap-1 shrink-0">
-                        <button onClick={() => { setEditing(g); setModalOpen(true); }} className="rounded-lg p-1.5 hover:bg-black/5"><Pencil className="h-3.5 w-3.5" /></button>
-                        <button onClick={() => { if (confirm("Delete this goal?")) deleteMutation.mutate(g.id); }} className="rounded-lg p-1.5 hover:bg-red-50"><Trash2 className="h-3.5 w-3.5 text-red-500" /></button>
+                        <button onClick={() => { setEditing(g); setModalOpen(true); }} aria-label="Edit" className="rounded-lg p-1.5 hover:bg-pp-surface-2"><Pencil className="h-3.5 w-3.5" /></button>
+                        <button onClick={async () => { if (await confirmDialog({ message: "Delete this goal?" })) deleteMutation.mutate(g.id); }} aria-label="Delete" className="rounded-lg p-1.5 hover:bg-vulcanico/10"><Trash2 className="h-3.5 w-3.5 text-vulcanico" /></button>
                       </div>
                     </div>
                     <div className="mt-3">
-                      <div className="flex justify-between text-xs text-navy/50 dark:text-white/50 mb-1">
+                      <div className="flex justify-between text-xs text-pp-text-dim mb-1">
                         <span>{formatPercent(pct)} complete</span>
                         <span className="truncate ml-2">{formatCurrency(g.currentAmount, cur)} / {formatCurrency(g.targetAmount, cur)}</span>
                       </div>
-                      <div className="h-2 rounded-full bg-black/5 dark:bg-white/5 overflow-hidden">
-                        <div className="h-full rounded-full bg-teal transition-all" style={{ width: `${Math.min(pct * 100, 100)}%` }} />
+                      <div className="h-2 rounded-full bg-pp-surface-2 overflow-hidden">
+                        <div className="h-full rounded-full bg-pp-accent transition-all" style={{ width: `${Math.min(pct * 100, 100)}%` }} />
                       </div>
                     </div>
-                    <div className="mt-3 flex items-center gap-2 text-xs text-navy/50 dark:text-white/50">
+                    <div className="mt-3 flex items-center gap-2 text-xs text-pp-text-dim">
                       <TrendingUp className="h-3 w-3 shrink-0" />
                       <span className="truncate">{formatCurrency(g.monthlyContribution, cur)}/mo — {formatCurrency(remaining, cur)} remaining</span>
                     </div>

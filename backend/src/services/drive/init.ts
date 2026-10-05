@@ -46,7 +46,7 @@ const incomeCategories: Record<string, string[]> = {
   "Other Income": ["Gifts", "Other"],
 };
 
-const defaultAccountNames = ["Bank Account", "Credit Card", "Wallet", "Cash", "Savings Account"];
+const defaultAccountNames = ["Bank Account", "Cash", "Credit Card", "Digital Wallet", "Other"];
 
 function defaultCategoryRecords(): DriveRecord[] {
   const now = new Date().toISOString();

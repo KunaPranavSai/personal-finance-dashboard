@@ -120,7 +120,7 @@ export function MobileSettingsView() {
         <button type="button" className="ppm-list-item" onClick={() => setPrefsOpen(true)}>
           <div className="ppm-ic" aria-hidden="true"><Palette size={18} /></div>
           <div className="ppm-info"><div className="ppm-name">Currency, Date &amp; Language</div></div>
-          <span className="ppm-chev">›</span>
+          <span className="ppm-chev" aria-hidden="true">›</span>
         </button>
       </div>
 
@@ -148,7 +148,7 @@ export function MobileSettingsView() {
         <button type="button" className="ppm-list-item" onClick={() => setNotifsOpen(true)}>
           <div className="ppm-ic" aria-hidden="true"><Bell size={18} /></div>
           <div className="ppm-info"><div className="ppm-name">Notification Preferences</div></div>
-          <span className="ppm-chev">›</span>
+          <span className="ppm-chev" aria-hidden="true">›</span>
         </button>
       </div>
 
@@ -167,7 +167,7 @@ export function MobileSettingsView() {
               {driveStatus?.accountEmail && <div className="ppm-meta">{driveStatus.accountEmail}</div>}
             </div>
             {!driveStatusLoading && driveState && <span className={`ppm-status ${driveState.tone}`}>{driveState.label}</span>}
-            <span className="ppm-chev">›</span>
+            <span className="ppm-chev" aria-hidden="true">›</span>
           </Link>
         )}
         <Link href="/settings/storage" className="ppm-list-item">
@@ -176,19 +176,19 @@ export function MobileSettingsView() {
             <div className="ppm-name">Manage Storage</div>
             <div className="ppm-meta">Disconnect, restore, switch mode, encrypted backup</div>
           </div>
-          <span className="ppm-chev">›</span>
+          <span className="ppm-chev" aria-hidden="true">›</span>
         </Link>
         {!isDriveReady(driveStatus) && !isLocalOnly && (
           <Link href="/connect-drive" className="ppm-list-item">
             <div className="ppm-ic" aria-hidden="true"><Link2 size={18} /></div>
             <div className="ppm-info"><div className="ppm-name">Connect Google Drive</div></div>
-            <span className="ppm-chev">›</span>
+            <span className="ppm-chev" aria-hidden="true">›</span>
           </Link>
         )}
         <button type="button" className="ppm-list-item" onClick={() => setExportOpen(true)}>
           <div className="ppm-ic" aria-hidden="true"><Download size={18} /></div>
           <div className="ppm-info"><div className="ppm-name">Export Data</div></div>
-          <span className="ppm-chev">›</span>
+          <span className="ppm-chev" aria-hidden="true">›</span>
         </button>
       </div>
 
@@ -197,17 +197,17 @@ export function MobileSettingsView() {
         <Link href="/settings/security" className="ppm-list-item">
           <div className="ppm-ic" aria-hidden="true"><Lock size={18} /></div>
           <div className="ppm-info"><div className="ppm-name">2FA, Passkeys &amp; Password</div></div>
-          <span className="ppm-chev">›</span>
+          <span className="ppm-chev" aria-hidden="true">›</span>
         </Link>
         <Link href="/forgot-password" className="ppm-list-item">
           <div className="ppm-ic" aria-hidden="true"><Key size={18} /></div>
           <div className="ppm-info"><div className="ppm-name">Account Recovery</div></div>
-          <span className="ppm-chev">›</span>
+          <span className="ppm-chev" aria-hidden="true">›</span>
         </Link>
         <button type="button" className="ppm-list-item" onClick={() => setPrivacyOpen(true)}>
           <div className="ppm-ic" aria-hidden="true"><EyeOff size={18} /></div>
           <div className="ppm-info"><div className="ppm-name">Privacy</div></div>
-          <span className="ppm-chev">›</span>
+          <span className="ppm-chev" aria-hidden="true">›</span>
         </button>
       </div>
 
@@ -219,7 +219,7 @@ export function MobileSettingsView() {
             <div className="ppm-name">User Manual</div>
             <div className="ppm-meta">Learn how Penny Pilot works</div>
           </div>
-          <span className="ppm-chev">›</span>
+          <span className="ppm-chev" aria-hidden="true">›</span>
         </Link>
       </div>
 
@@ -228,12 +228,12 @@ export function MobileSettingsView() {
         <Link href="/privacy-policy" className="ppm-list-item">
           <div className="ppm-ic" aria-hidden="true"><ScrollText size={18} /></div>
           <div className="ppm-info"><div className="ppm-name">Privacy Policy</div></div>
-          <span className="ppm-chev">›</span>
+          <span className="ppm-chev" aria-hidden="true">›</span>
         </Link>
         <Link href="/terms" className="ppm-list-item">
           <div className="ppm-ic" aria-hidden="true"><FileText size={18} /></div>
           <div className="ppm-info"><div className="ppm-name">Terms of Service</div></div>
-          <span className="ppm-chev">›</span>
+          <span className="ppm-chev" aria-hidden="true">›</span>
         </Link>
       </div>
 

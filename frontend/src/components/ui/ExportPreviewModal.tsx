@@ -116,7 +116,7 @@ export function ExportPreviewModal({
           onClick={onClose}
         >
           <motion.div
-            className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl dark:bg-navy-dark"
+            className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl dark:bg-pp-surface"
             initial={{ opacity: 0, scale: 0.95, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
@@ -124,16 +124,16 @@ export function ExportPreviewModal({
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between">
-              <p className="text-sm font-semibold text-navy dark:text-white">Preview export</p>
-              <button onClick={onClose} className="rounded-lg p-1 text-navy/40 hover:bg-black/5 dark:text-white/40 dark:hover:bg-white/10">
+              <p className="text-sm font-semibold text-pp-text">Preview export</p>
+              <button onClick={onClose} className="rounded-lg p-1 text-pp-text-dim hover:bg-pp-surface-2 dark:hover:bg-white/10" aria-label="Close">
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <p className="mt-1 text-xs text-navy/50 dark:text-white/50">This export will include:</p>
+            <p className="mt-1 text-xs text-pp-text-dim">This export will include:</p>
 
             {!externalRange && (
               <div className="mt-4">
-                <p className="mb-2 text-xs font-medium text-navy/50 dark:text-white/50">Date Range</p>
+                <p className="mb-2 text-xs font-medium text-pp-text-dim">Date Range</p>
                 <div className="flex flex-wrap gap-2">
                   {RANGE_PRESETS.map((p) => (
                     <button
@@ -143,8 +143,8 @@ export function ExportPreviewModal({
                       className={cn(
                         "rounded-lg border px-3 py-1.5 text-xs font-medium transition-all",
                         rangePreset === p.id
-                          ? "border-teal bg-teal/10 text-teal"
-                          : "border-black/10 text-navy hover:border-teal/50 dark:border-white/10 dark:text-white"
+                          ? "border-pp-accent bg-pp-accent/10 text-pp-accent"
+                          : "border-pp-border text-pp-text hover:border-pp-accent/50 "
                       )}
                     >
                       {p.label}
@@ -153,23 +153,23 @@ export function ExportPreviewModal({
                 </div>
                 {rangePreset === "custom" && (
                   <div className="mt-2 flex gap-2">
-                    <input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} className="w-full rounded-lg border border-black/10 px-2 py-1.5 text-xs dark:border-white/10 dark:bg-white/5 dark:text-white" />
-                    <input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} className="w-full rounded-lg border border-black/10 px-2 py-1.5 text-xs dark:border-white/10 dark:bg-white/5 dark:text-white" />
+                    <input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} className="w-full rounded-lg border border-pp-border px-2 py-1.5 text-xs dark:bg-white/5 " />
+                    <input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} className="w-full rounded-lg border border-pp-border px-2 py-1.5 text-xs dark:bg-white/5 " />
                   </div>
                 )}
               </div>
             )}
 
             <div className="mt-4">
-              <p className="mb-2 text-xs font-medium text-navy/50 dark:text-white/50">Data to Include</p>
+              <p className="mb-2 text-xs font-medium text-pp-text-dim">Data to Include</p>
               <div className="grid grid-cols-2 gap-1.5">
                 {DATA_TYPES.map((t) => (
-                  <label key={t.key} className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-xs text-navy/70 hover:bg-black/5 dark:text-white/70 dark:hover:bg-white/5">
+                  <label key={t.key} className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-xs text-pp-text-dim hover:bg-pp-surface-2">
                     <input
                       type="checkbox"
                       checked={selectedTypes.includes(t.key)}
                       onChange={() => toggleType(t.key)}
-                      className="h-3.5 w-3.5 rounded border-black/20 text-teal dark:border-white/20"
+                      className="h-3.5 w-3.5 rounded border-black/20 text-pp-accent dark:border-white/20"
                     />
                     {t.label}
                   </label>
@@ -179,21 +179,21 @@ export function ExportPreviewModal({
 
             {isLoading ? (
               <div className="mt-4 grid grid-cols-2 gap-2">
-                {Array.from({ length: 6 }).map((_, i) => <div key={i} className="h-10 animate-pulse rounded-lg bg-black/5 dark:bg-white/5" />)}
+                {Array.from({ length: 6 }).map((_, i) => <div key={i} className="h-10 animate-pulse rounded-lg bg-pp-surface-2 dark:bg-white/5" />)}
               </div>
             ) : (
               <div className="mt-4 grid grid-cols-2 gap-2">
                 {COUNT_META.map((m) => (
-                  <div key={m.key} className="flex items-center justify-between rounded-lg bg-black/5 px-3 py-2 text-sm dark:bg-white/5">
-                    <span className="flex items-center gap-1.5 text-navy/60 dark:text-white/60"><m.icon className="h-3.5 w-3.5" /> {m.label}</span>
-                    <span className="font-semibold text-navy dark:text-white">{data?.counts[m.key] ?? 0}</span>
+                  <div key={m.key} className="flex items-center justify-between rounded-lg bg-pp-surface-2 px-3 py-2 text-sm dark:bg-white/5">
+                    <span className="flex items-center gap-1.5 text-pp-text-dim"><m.icon className="h-3.5 w-3.5" /> {m.label}</span>
+                    <span className="font-semibold text-pp-text">{data?.counts[m.key] ?? 0}</span>
                   </div>
                 ))}
               </div>
             )}
 
             <div className="mt-5">
-              <p className="mb-2 text-xs font-medium text-navy/50 dark:text-white/50">Format</p>
+              <p className="mb-2 text-xs font-medium text-pp-text-dim">Format</p>
               <div className="flex flex-wrap gap-2">
                 {FORMATS.map((f) => (
                   <button
@@ -203,8 +203,8 @@ export function ExportPreviewModal({
                     className={cn(
                       "rounded-lg border px-3 py-1.5 text-xs font-medium uppercase transition-all",
                       format === f.id
-                        ? "border-teal bg-teal/10 text-teal"
-                        : "border-black/10 text-navy hover:border-teal/50 dark:border-white/10 dark:text-white"
+                        ? "border-pp-accent bg-pp-accent/10 text-pp-accent"
+                        : "border-pp-border text-pp-text hover:border-pp-accent/50 "
                     )}
                   >
                     {f.label}

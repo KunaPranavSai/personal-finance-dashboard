@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { PennyPilotCoinLoader } from "./ui/PennyPilotCoinLoader";
 
-const NAVY = "#1F2A44";
-const GREEN = "#1FAE6B";
+const NAVY = "#004741"; // Cypress
+const GREEN = "#59C749"; // Mantis
 
 // Timeline (ms): logo 0-500, brand name 300-700, tagline 550-950,
 // progress line 700-1900, pause 1900-2100, exit fade 2100-2500.
@@ -43,7 +43,7 @@ export function Preloader({ onFinish }: { onFinish?: () => void }) {
     <AnimatePresence onExitComplete={onFinish}>
       {visible && (
         <motion.div
-          className="fixed inset-0 z-[9999] flex items-center justify-center bg-surface dark:bg-navy-dark"
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-pp-surface dark:bg-pp-surface"
           initial={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.4, ease: "easeInOut" }}

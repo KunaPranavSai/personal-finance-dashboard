@@ -17,7 +17,7 @@ import { sendAutomatedEmail } from "../services/email/automation";
 import { notifySecurityEvent, sendEmail, createNotification } from "../lib/notify";
 import { RP_ID, RP_NAME, RP_ORIGINS } from "../lib/webauthn";
 import { computeSessionExpiryForUser } from "../lib/sessionExpiry";
-import { ACCESS_SECRET, REFRESH_SECRET, signAccess, signRefresh, setTokenCookies, TfaClaims, clearImpersonationCookie } from "../lib/tokens";
+import { ACCESS_SECRET, REFRESH_SECRET, signAccess, signRefresh, setTokenCookies, TfaClaims, clearImpersonationCookie, setPinDeviceCookie, clearPinDeviceCookie } from "../lib/tokens";
 import {
   generateRegistrationOptions,
   verifyRegistrationResponse,
@@ -346,6 +346,47 @@ router.get(
   })
 );
 
+const DUMMY_PIN_HASH = bcrypt.hashSync("0000", 10);
+
+// Sign-in identifier: an email (contains "@") or the account's User ID (uid).
+async function findByIdentifier(raw: string): Promise<User | null> {
+  const id = raw.trim();
+  if (!id) return null;
+  return id.includes("@")
+    ? prisma.user.findUnique({ where: { email: id.toLowerCase() } })
+    : prisma.user.findUnique({ where: { uid: id } });
+}
+
+// Shared by password and PIN login once the first factor is verified: password-change gate,
+// 2FA challenge, then session issue.
+async function completeLogin(req: Request, res: Response, user: User) {
+  if (user.mustChangePassword) {
+    const passwordChangeToken = jwt.sign({ userId: user.id, purpose: "change-password" }, ACCESS_SECRET, { expiresIn: PASSWORD_CHANGE_TOKEN_TTL });
+    res.json({ requiresPasswordChange: true, passwordChangeToken });
+    return;
+  }
+
+  if (user.twoFactorEnabled) {
+    const challengeToken = jwt.sign({ userId: user.id, twoFactor: true }, ACCESS_SECRET, { expiresIn: CHALLENGE_TOKEN_TTL });
+    res.json({ requires2FA: true, challengeToken });
+    return;
+  }
+
+  const sv = bumpSessionVersion(user.id);
+  const sessionExpiresAt = await computeSessionExpiryForUser(user.id);
+  const sessionId = (await createSessionRecord(req, user.id)) ?? undefined;
+  setTokenCookies(res, signAccess(user, sv, { sessionExpiresAt, sessionId }), signRefresh(user, sv, { sessionExpiresAt, sessionId }));
+  // Captured before the update fires, so this reflects the account's real
+  // login history — a null value here means this is genuinely the first
+  // successful login ever (no existing field/flag was added for this; it
+  // reuses the User model's existing lastLoginAt).
+  const isFirstLogin = user.lastLoginAt === null;
+  void prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
+  void createNotification(user.id, "security", "New sign-in", "Your account was signed in from a new session.");
+  if (user.pinHash) setPinDeviceCookie(res, user.id);
+  res.json({ user: toUserJson(user), sessionExpiresAt, isFirstLogin });
+}
+
 // ─── POST /api/auth/login ────────────────────────────────────────────────────
 router.post(
   "/login",
@@ -356,7 +397,7 @@ router.post(
       res.status(400).json({ error: "Email and password are required" });
       return;
     }
-    const user = await prisma.user.findUnique({ where: { email: email.trim().toLowerCase() } });
+    const user = await findByIdentifier(email);
     if (!user || !user.passwordHash) {
       res.status(401).json({ error: "Invalid credentials", code: "AUTH_INVALID" });
       return;
@@ -406,30 +447,7 @@ router.post(
       void prisma.user.update({ where: { id: user.id }, data: { failedLoginAttempts: 0, lockedUntil: null } });
     }
 
-    if (user.mustChangePassword) {
-      const passwordChangeToken = jwt.sign({ userId: user.id, purpose: "change-password" }, ACCESS_SECRET, { expiresIn: PASSWORD_CHANGE_TOKEN_TTL });
-      res.json({ requiresPasswordChange: true, passwordChangeToken });
-      return;
-    }
-
-    if (user.twoFactorEnabled) {
-      const challengeToken = jwt.sign({ userId: user.id, twoFactor: true }, ACCESS_SECRET, { expiresIn: CHALLENGE_TOKEN_TTL });
-      res.json({ requires2FA: true, challengeToken });
-      return;
-    }
-
-    const sv = bumpSessionVersion(user.id);
-    const sessionExpiresAt = await computeSessionExpiryForUser(user.id);
-    const sessionId = (await createSessionRecord(req, user.id)) ?? undefined;
-    setTokenCookies(res, signAccess(user, sv, { sessionExpiresAt, sessionId }), signRefresh(user, sv, { sessionExpiresAt, sessionId }));
-    // Captured before the update fires, so this reflects the account's real
-    // login history — a null value here means this is genuinely the first
-    // successful login ever (no existing field/flag was added for this; it
-    // reuses the User model's existing lastLoginAt).
-    const isFirstLogin = user.lastLoginAt === null;
-    void prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
-    void createNotification(user.id, "security", "New sign-in", "Your account was signed in from a new session.");
-    res.json({ user: toUserJson(user), sessionExpiresAt, isFirstLogin });
+    await completeLogin(req, res, user);
   })
 );
 
@@ -556,6 +574,80 @@ router.get(
     res.json({ enabled: user?.twoFactorEnabled ?? false });
   })
 );
+
+// ─── Daily PIN (unlock gate shown once per calendar day) ─────────────────────
+const pinLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 10, standardHeaders: true, legacyHeaders: false, message: { error: "Too many attempts. Please try again later.", code: "AUTH_RATE_LIMITED" } });
+const isPin = (v: unknown): v is string => typeof v === "string" && /^\d{4,6}$/.test(v);
+
+router.get("/pin", authenticate, asyncHandler(async (req: Request, res: Response) => {
+  const user = await prisma.user.findUnique({ where: { id: req.auth!.userId }, select: { pinHash: true } });
+  res.json({ enabled: Boolean(user?.pinHash) });
+}));
+
+router.post("/pin", authenticate, pinLimiter, asyncHandler(async (req: Request, res: Response) => {
+  const { pin, password } = req.body ?? {};
+  if (!isPin(pin) || typeof password !== "string") { res.status(400).json({ error: "PIN must be 4-6 digits and password is required" }); return; }
+  const user = await prisma.user.findUnique({ where: { id: req.auth!.userId } });
+  if (!user?.passwordHash || !(await bcrypt.compare(password, user.passwordHash))) { res.status(401).json({ error: "Incorrect password", code: "AUTH_INVALID" }); return; }
+  await prisma.user.update({ where: { id: user.id }, data: { pinHash: await bcrypt.hash(pin, 10) } });
+  void logActivity(req, "pin_set", "Daily PIN set", user.id);
+  setPinDeviceCookie(res, user.id);
+  res.json({ ok: true });
+}));
+
+router.post("/pin/verify", authenticate, pinLimiter, asyncHandler(async (req: Request, res: Response) => {
+  const { pin } = req.body ?? {};
+  const user = await prisma.user.findUnique({ where: { id: req.auth!.userId }, select: { pinHash: true } });
+  if (!isPin(pin) || !user?.pinHash || !(await bcrypt.compare(pin, user.pinHash))) { res.status(401).json({ error: "Incorrect PIN", code: "AUTH_INVALID" }); return; }
+  res.json({ ok: true });
+}));
+
+// Which account (if any) PIN sign-in is offered for on this device.
+router.get("/pin/device", asyncHandler(async (req: Request, res: Response) => {
+  const id = req.signedCookies?.pin_device;
+  const user = typeof id === "string" ? await prisma.user.findUnique({ where: { id }, select: { name: true, email: true, pinHash: true, status: true } }) : null;
+  if (!user?.pinHash || user.status === "SUSPENDED") { res.json({ device: false }); return; }
+  res.json({ device: true, name: user.name, email: user.email });
+}));
+
+router.post("/pin/login", loginLimiter, asyncHandler(async (req: Request, res: Response) => {
+  const { pin, portal, identifier } = req.body as { pin?: string; portal?: string; identifier?: string };
+  // Remembered device first; otherwise (new device) the user types their email / User ID.
+  const id = req.signedCookies?.pin_device;
+  const user = typeof id === "string" ? await prisma.user.findUnique({ where: { id } }) : typeof identifier === "string" ? await findByIdentifier(identifier) : null;
+  if (!user?.pinHash || !isPin(pin)) {
+    // Burn the same bcrypt time as a real check so response timing does not reveal whether the account has a PIN.
+    await bcrypt.compare(String(pin ?? ""), DUMMY_PIN_HASH);
+    res.status(401).json({ error: "Invalid credentials", code: "AUTH_INVALID" }); return; }
+  if (user.status === "SUSPENDED") { res.status(403).json({ error: "Your account has been suspended. Contact support.", code: "AUTH_FORBIDDEN" }); return; }
+  if (enforcePortalOrReject(req, res, user, portal)) return;
+  if (await isRestricted(user.id)) { res.status(403).json({ error: "Your account access has been restricted. Contact support.", code: "AUTH_FORBIDDEN" }); return; }
+  if (user.lockedUntil && user.lockedUntil > new Date()) {
+    const minutesLeft = Math.ceil((user.lockedUntil.getTime() - Date.now()) / 60000);
+    res.status(423).json({ error: "Too many failed attempts. Try again in " + minutesLeft + " minute" + (minutesLeft === 1 ? "" : "s") + ".", code: "AUTH_RATE_LIMITED" });
+    return;
+  }
+  if (!(await bcrypt.compare(pin, user.pinHash))) {
+    // Same counters/lockout as password login, so a 4-digit PIN cannot be brute-forced.
+    const attempts = user.failedLoginAttempts + 1;
+    const locked = attempts >= MAX_LOGIN_ATTEMPTS;
+    await prisma.user.update({ where: { id: user.id }, data: { failedLoginAttempts: attempts, lockedUntil: locked ? new Date(Date.now() + LOCKOUT_DURATION_MS) : null } });
+    void logActivity(req, "login_failed", locked ? "Wrong PIN - account locked" : "Wrong PIN", user.id);
+    res.status(locked ? 423 : 401).json({ error: locked ? "Too many failed attempts. Your account is locked for " + LOCKOUT_DURATION_MS / 60000 + " minutes." : "Incorrect PIN", code: locked ? "AUTH_RATE_LIMITED" : "AUTH_INVALID" });
+    return;
+  }
+  if (user.failedLoginAttempts > 0 || user.lockedUntil) {
+    void prisma.user.update({ where: { id: user.id }, data: { failedLoginAttempts: 0, lockedUntil: null } });
+  }
+  await completeLogin(req, res, user);
+}));
+
+router.delete("/pin", authenticate, asyncHandler(async (req: Request, res: Response) => {
+  await prisma.user.update({ where: { id: req.auth!.userId }, data: { pinHash: null } });
+  void logActivity(req, "pin_removed", "Daily PIN removed", req.auth!.userId);
+  clearPinDeviceCookie(res);
+  res.json({ ok: true });
+}));
 
 // ─── POST /api/auth/2fa/setup ────────────────────────────────────────────────
 router.post(

@@ -4,8 +4,8 @@ import { Footer } from "@/components/layout/Footer";
 import { cn } from "@/lib/format";
 
 const navLink =
-  "rounded-lg px-3 py-1.5 text-sm font-medium transition-colors text-navy/60 hover:bg-black/5 hover:text-navy dark:text-white/60 dark:hover:bg-white/5 dark:hover:text-white";
-const navLinkActive = "bg-teal/10 text-navy dark:bg-white/10 dark:text-white";
+  "rounded-lg px-3 py-1.5 text-sm font-medium transition-colors text-pp-text-dim hover:bg-pp-surface-2 hover:text-pp-text/60 dark:hover:text-white";
+const navLinkActive = "bg-pp-accent/10 text-pp-text dark:bg-white/10 ";
 
 interface LegalPageShellProps {
   title: string;
@@ -17,19 +17,19 @@ interface LegalPageShellProps {
 
 /**
  * Shared public-page shell for /privacy-policy and /terms — reuses the app's
- * "Midnight Cockpit" canvas (already painted by the root layout's body) and
- * the same glass Card language as the authenticated app, but as a plain
+ * pp-* canvas (already painted by the root layout's body) and the same
+ * card language as the authenticated app, but as a plain
  * server-renderable page (no auth gate, no client state) since neither page
  * needs interactivity.
  */
 export function LegalPageShell({ title, lastUpdated, version, active, children }: LegalPageShellProps) {
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="sticky top-0 z-10 border-b border-black/5 bg-white/70 backdrop-blur-xl dark:border-white/10 dark:bg-navy-dark/70">
+      <header className="sticky top-0 z-10 border-b border-pp-border bg-pp-surface/70 backdrop-blur-xl dark:bg-pp-surface/70">
         <div className="mx-auto flex max-w-4xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <Link href="/login" className="flex min-w-0 items-center gap-2">
             <Image src="/logo.png" alt="Penny Pilot" width={32} height={32} className="h-8 w-8 shrink-0 rounded-lg object-cover" />
-            <span className="truncate text-sm font-bold text-navy dark:text-white">Penny Pilot</span>
+            <span className="truncate text-sm font-bold text-pp-text">Penny Pilot</span>
           </Link>
           <nav aria-label="Legal pages" className="flex items-center gap-1">
             <Link href="/privacy-policy" className={cn(navLink, active === "privacy" && navLinkActive)}>
@@ -47,29 +47,29 @@ export function LegalPageShell({ title, lastUpdated, version, active, children }
 
       <main className="mx-auto w-full max-w-4xl flex-1 px-4 py-10 sm:px-6 sm:py-14">
         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-navy dark:text-white sm:text-3xl">{title}</h1>
-          <p className="mt-2 text-sm text-navy/50 dark:text-white/40">
+          <h1 className="text-2xl font-bold text-pp-text sm:text-3xl">{title}</h1>
+          <p className="mt-2 text-sm text-pp-text-dim ">
             {version && <>Version {version} · </>}Last updated: {lastUpdated}
-            <span className="ml-2 rounded-full bg-teal/10 px-2 py-0.5 text-xs font-medium text-teal">Official document</span>
+            <span className="ml-2 rounded-full bg-pp-accent/10 px-2 py-0.5 text-xs font-medium text-pp-accent">Official document</span>
           </p>
         </div>
 
         <div
           className={cn(
-            "rounded-xl2 border border-[rgba(199,210,254,0.7)] bg-white/[0.82] p-6 shadow-[0_10px_30px_-10px_rgba(79,70,229,0.08),0_4px_12px_-2px_rgba(0,0,0,0.03)] backdrop-blur-2xl dark:border-white/[0.08] dark:bg-[rgba(15,23,42,0.75)] dark:shadow-card dark:backdrop-blur-xl sm:p-10",
+            "rounded-xl2 border border-pp-border bg-pp-surface p-6 shadow-pp backdrop-blur-2xl sm:p-10",
             "prose-legal"
           )}
         >
           {children}
 
           {active !== "cookies" && (
-            <div className="mt-10 border-t border-black/5 pt-6 dark:border-white/10">
+            <div className="mt-10 border-t border-pp-border pt-6 ">
               <h2>Acceptance &amp; Electronic Authorization</h2>
               <p>
                 Acceptance of this document is recorded during account creation, through the required Terms of
                 Service and Privacy Policy consent checkboxes and a typed electronic signature/authorization on the
                 signup page — not by viewing this page on its own. If you have not yet created an account, you can{" "}
-                <Link href="/signup" className="font-medium text-teal underline underline-offset-2 hover:opacity-80">
+                <Link href="/signup" className="font-medium text-pp-accent underline underline-offset-2 hover:opacity-80">
                   return to signup
                 </Link>{" "}
                 to review and accept.
@@ -78,9 +78,9 @@ export function LegalPageShell({ title, lastUpdated, version, active, children }
           )}
         </div>
 
-        <p className="mt-8 text-center text-sm text-navy/50 dark:text-white/40">
+        <p className="mt-8 text-center text-sm text-pp-text-dim ">
           Questions about {active === "privacy" ? "this Privacy Policy" : active === "terms" ? "these Terms" : "this Cookie Notice"}? See{" "}
-          <Link href="/privacy-policy" className="font-medium text-teal underline underline-offset-2 hover:opacity-80">
+          <Link href="/privacy-policy" className="font-medium text-pp-accent underline underline-offset-2 hover:opacity-80">
             our Privacy Policy
           </Link>{" "}
           or the contact details below.

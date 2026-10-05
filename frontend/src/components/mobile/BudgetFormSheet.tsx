@@ -79,7 +79,7 @@ export function BudgetFormSheet({ open, onClose, periodKey }: BudgetFormSheetPro
     <MobileSheet open={open} onClose={handleClose} title="Add Budget">
       <form onSubmit={handleSubmit} noValidate>
         <div className="ppm-field">
-          <label htmlFor="ppm-budget-category">Category<span className="req">*</span></label>
+          <label htmlFor="ppm-budget-category">Category</label>
           <select id="ppm-budget-category" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
             <option value="">Select a category</option>
             {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -89,8 +89,8 @@ export function BudgetFormSheet({ open, onClose, periodKey }: BudgetFormSheetPro
         </div>
 
         <div className="ppm-field">
-          <label htmlFor="ppm-budget-amount">Monthly Amount (₹)<span className="req">*</span></label>
-          <input id="ppm-budget-amount" inputMode="decimal" placeholder="0.00" value={amount} onChange={(e) => setAmount(e.target.value)} />
+          <label htmlFor="ppm-budget-amount">Monthly Amount (₹)</label>
+          <input id="ppm-budget-amount" inputMode="decimal" placeholder="Amount required" value={amount} onChange={(e) => setAmount(e.target.value)} />
           {errors.amount && <div className="err">{errors.amount}</div>}
         </div>
 

@@ -15,10 +15,10 @@ import { downloadConsentPdfFromBase64 } from "@/lib/consent";
 import { UserPlus, ArrowLeft, User, Mail, Phone, Lock, AlertCircle, PenLine, CheckCircle2, Download } from "lucide-react";
 
 const inputBase =
-  "w-full rounded-xl border border-white/10 bg-white/5 py-3 pl-10 pr-4 text-sm text-white placeholder:text-white/30 outline-none transition-all focus:border-purple-400/60 focus:ring-2 focus:ring-purple-400/20 focus:shadow-[0_0_16px_rgba(168,85,247,0.25)]";
+  "w-full rounded-xl border border-white/10 bg-white/5 py-3 pl-10 pr-4 text-sm text-white placeholder:text-white/30 outline-none transition-all focus:border-tiffany/60 focus:ring-2 focus:ring-tiffany/20 focus:shadow-[0_0_16px_rgba(33,241,168,0.25)]";
 
 const primaryButton =
-  "flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-purple-500/25 transition-all hover:shadow-purple-500/40 disabled:opacity-50 disabled:cursor-not-allowed";
+  "flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cypress to-tiffany px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-cypress/25 transition-all hover:shadow-cypress/40 disabled:opacity-50 disabled:cursor-not-allowed";
 
 const secondaryButton =
   "flex w-full items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-sm font-semibold text-white transition-all hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed";
@@ -38,7 +38,7 @@ function ErrorMessage({ children }: { children: React.ReactNode }) {
         exit={{ opacity: 0, height: 0 }}
         transition={{ duration: 0.35 }}
         role="alert"
-        className="flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-300"
+        className="flex items-center gap-2 rounded-lg border border-vulcanico/20 bg-vulcanico/10 px-3 py-2 text-sm text-vulcanico/40"
       >
         <AlertCircle className="h-4 w-4 shrink-0" />
         {children}
@@ -176,7 +176,7 @@ export function SignupPageClient() {
           </div>
 
           {downloadState === "failed" && (
-            <p className="flex items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+            <p className="flex items-center gap-2 rounded-lg border border-turmeric/20 bg-turmeric/10 px-3 py-2 text-xs text-turmeric/20">
               <AlertCircle className="h-3.5 w-3.5 shrink-0" />
               Your account was created successfully, but the automatic download didn&apos;t start. Use the button below,
               or download it again anytime after signing in from Profile.
@@ -331,7 +331,7 @@ export function SignupPageClient() {
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={(e) => e.stopPropagation()}
-                    className="font-medium text-purple-300 underline underline-offset-2 hover:text-purple-200"
+                    className="font-medium text-tiffany underline underline-offset-2 hover:text-tiffany/80"
                   >
                     Terms of Service
                   </Link>
@@ -351,7 +351,7 @@ export function SignupPageClient() {
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={(e) => e.stopPropagation()}
-                    className="font-medium text-purple-300 underline underline-offset-2 hover:text-purple-200"
+                    className="font-medium text-tiffany underline underline-offset-2 hover:text-tiffany/80"
                   >
                     Privacy Policy
                   </Link>
@@ -386,7 +386,7 @@ export function SignupPageClient() {
                 />
               </div>
               {signatureTouched && !signatureValid && (
-                <p id="signature-help" className="mt-1 text-xs text-red-300">
+                <p id="signature-help" className="mt-1 text-xs text-vulcanico/40">
                   Enter your full name (letters, spaces, hyphens, and apostrophes only).
                 </p>
               )}

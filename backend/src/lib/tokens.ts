@@ -70,3 +70,16 @@ export function setImpersonationCookie(res: Response, token: string) {
 export function clearImpersonationCookie(res: Response) {
   res.clearCookie("impersonation_token", { path: "/" });
 }
+
+// Remembers which account PIN sign-in is offered for on this device. Not a credential by itself:
+// the PIN is still required, and it is only issued after a password login or PIN setup.
+const PIN_DEVICE_TTL_MS = 180 * 24 * 60 * 60 * 1000;
+const pinDeviceOptions = { httpOnly: true, signed: true, secure: IS_PROD, sameSite: (IS_PROD ? "none" : "lax") as "none" | "lax", path: "/api/auth" };
+
+export function setPinDeviceCookie(res: Response, userId: string) {
+  res.cookie("pin_device", userId, { ...pinDeviceOptions, maxAge: PIN_DEVICE_TTL_MS });
+}
+
+export function clearPinDeviceCookie(res: Response) {
+  res.clearCookie("pin_device", pinDeviceOptions);
+}

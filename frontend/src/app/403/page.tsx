@@ -25,18 +25,18 @@ export default function AccessDeniedPage() {
           key={shake}
           animate={shake ? { x: [0, -8, 8, -6, 6, -2, 2, 0] } : undefined}
           transition={{ duration: 0.45 }}
-          className="relative mx-auto mb-4 flex h-24 w-24 items-center justify-center rounded-3xl border border-amber-400/20 bg-white/5 sm:h-28 sm:w-28"
+          className="relative mx-auto mb-4 flex h-24 w-24 items-center justify-center rounded-3xl border border-turmeric/20 bg-white/5 sm:h-28 sm:w-28"
         >
           <motion.div
-            className="absolute inset-0 rounded-3xl bg-red-500/20 blur-xl"
+            className="absolute inset-0 rounded-3xl bg-vulcanico/20 blur-xl"
             animate={{ opacity: [0.5, 0.9, 0.5], scale: [1, 1.08, 1] }}
             transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
           />
-          <Lock className="relative h-10 w-10 text-amber-300 sm:h-12 sm:w-12" />
+          <Lock className="relative h-10 w-10 text-turmeric/40 sm:h-12 sm:w-12" />
         </motion.div>
       </div>
 
-      <h1 className="bg-gradient-to-b from-amber-200 to-red-400 bg-clip-text text-5xl font-extrabold text-transparent sm:text-6xl">
+      <h1 className="bg-gradient-to-b from-turmeric/20 to-vulcanico bg-clip-text text-5xl font-extrabold text-transparent sm:text-6xl">
         403
       </h1>
       <h2 className="mt-1 text-lg font-bold text-white sm:text-xl">Restricted Airspace</h2>

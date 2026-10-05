@@ -190,7 +190,8 @@ html.dark .ppm-sheet-portal {
   display: flex; align-items: center; gap: 11px; padding: 11px 0; border-bottom: 1px solid var(--ppm-border);
 }
 .ppm-cat-row:last-child, .ppm-txn-row:last-child, .ppm-hold-row:last-child, .ppm-list-item:last-child { border-bottom: none; }
-.ppm-txn-row, .ppm-list-item { cursor: pointer; transition: transform .12s ease; min-height: 44px; }
+.ppm-txn-row, .ppm-list-item { cursor: pointer; transition: transform .12s ease; min-height: 56px; }
+.ppm-list-item:focus-visible, .ppm-txn-row:focus-visible { outline: 2px solid var(--ppm-accent); outline-offset: 2px; }
 .ppm-txn-row:active, .ppm-list-item:active { transform: scale(.985); }
 
 .ppm-ic {
@@ -420,3 +421,10 @@ html.dark .ppm-sheet-portal {
     box-shadow: none !important; border: 1px solid #ccc !important; color: #000 !important;
   }
 }
+
+/* More hub: whole card is the tap target (≥64px), arrow is decorative only. */
+.ppm-hub { display: grid; gap: 10px; margin-top: 14px; }
+.ppm-hub-card, .ppm-profile-card { display: flex; align-items: center; gap: 12px; min-height: 64px; color: inherit; text-decoration: none; transition: transform .12s ease; }
+.ppm-hub-card:active, .ppm-profile-card:active { transform: scale(.985); }
+.ppm-hub-card:focus-visible, .ppm-profile-card:focus-visible { outline: 2px solid var(--ppm-accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .ppm-hub-card, .ppm-profile-card { transition: none; } }

@@ -127,13 +127,13 @@ export function InvestmentFormSheet({ open, onClose, editing }: InvestmentFormSh
     <MobileSheet open={open} onClose={handleClose} title={isEditing ? "Edit Investment" : "Add Investment"}>
       <form onSubmit={handleSubmit} noValidate>
         <div className="ppm-field">
-          <label htmlFor="ppm-inv-instrument">Instrument<span className="req">*</span></label>
-          <input id="ppm-inv-instrument" value={instrument} maxLength={100} placeholder="e.g. Nifty 50 Index Fund" onChange={(e) => setInstrument(e.target.value)} />
+          <label htmlFor="ppm-inv-instrument">Instrument</label>
+          <input id="ppm-inv-instrument" value={instrument} maxLength={100} placeholder="Instrument required" onChange={(e) => setInstrument(e.target.value)} />
           {errors.instrument && <div className="err">{errors.instrument}</div>}
         </div>
 
         <div className="ppm-field">
-          <label htmlFor="ppm-inv-category">Category<span className="req">*</span></label>
+          <label htmlFor="ppm-inv-category">Category</label>
           <select id="ppm-inv-category" value={category} onChange={(e) => setCategory(e.target.value)}>
             {INVESTMENT_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
@@ -141,19 +141,19 @@ export function InvestmentFormSheet({ open, onClose, editing }: InvestmentFormSh
 
         <div className="ppm-field-row">
           <div className="ppm-field">
-            <label htmlFor="ppm-inv-invested">Invested (₹)<span className="req">*</span></label>
-            <input id="ppm-inv-invested" inputMode="decimal" placeholder="0.00" value={investedAmount} onChange={(e) => setInvestedAmount(e.target.value)} />
+            <label htmlFor="ppm-inv-invested">Invested (₹)</label>
+            <input id="ppm-inv-invested" inputMode="decimal" placeholder="Invested amount required" value={investedAmount} onChange={(e) => setInvestedAmount(e.target.value)} />
             {errors.investedAmount && <div className="err">{errors.investedAmount}</div>}
           </div>
           <div className="ppm-field">
-            <label htmlFor="ppm-inv-current">Current Value (₹)<span className="req">*</span></label>
+            <label htmlFor="ppm-inv-current">Current Value (₹)</label>
             <input id="ppm-inv-current" inputMode="decimal" placeholder="0.00" value={currentValue} onChange={(e) => setCurrentValue(e.target.value)} />
             {errors.currentValue && <div className="err">{errors.currentValue}</div>}
           </div>
         </div>
 
         <div className="ppm-field">
-          <label htmlFor="ppm-inv-date">Purchase Date<span className="req">*</span></label>
+          <label htmlFor="ppm-inv-date">Purchase Date</label>
           <input id="ppm-inv-date" type="date" value={purchaseDate} max={todayIso()} onChange={(e) => setPurchaseDate(e.target.value)} />
           {errors.purchaseDate && <div className="err">{errors.purchaseDate}</div>}
         </div>
