@@ -39,7 +39,7 @@ import { generateConsentPdf } from "../services/consent/consentPdf";
 import { generateRecoveryToken, hashRecoveryToken } from "../lib/recoveryToken";
 import { setRecoveryCookie, clearRecoveryCookie, readRecoveryToken } from "../lib/recoveryCookie";
 import { SECURITY_QUESTIONS, SECURITY_QUESTION_KEYS, securityQuestionText, normalizeSecurityAnswer } from "../lib/securityQuestions";
-import { RECOVERY_OTP_EMAIL_HTML, PASSWORD_CHANGED_NOTIFICATION_EMAIL_HTML } from "../lib/emailTemplates";
+import { RECOVERY_OTP_EMAIL_HTML, PASSWORD_CHANGED_NOTIFICATION_EMAIL_HTML, EMAIL_VERIFICATION_EMAIL_HTML, SIGNIN_CODE_EMAIL_HTML } from "../lib/emailTemplates";
 import type { RecoverySession } from "@prisma/client";
 
 const router = Router();
@@ -1446,13 +1446,19 @@ router.get(
 const startLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 10, standardHeaders: true, legacyHeaders: false, message: { error: "Too many attempts. Please try again later.", code: "AUTH_RATE_LIMITED" } });
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-async function issueEmailCode(user: User): Promise<void> {
+async function issueEmailCode(req: Request, user: User, purpose: "email_verification" | "signin_code"): Promise<void> {
   const code = generateOtp();
   await prisma.user.update({
     where: { id: user.id },
     data: { emailOtpHash: await bcrypt.hash(code, 8), emailOtpExpiry: new Date(Date.now() + 10 * 60 * 1000), emailOtpAttempts: 0 },
   });
-  const sent = await sendEmail(user.email, "Your Penny Pilot verification code", RECOVERY_OTP_EMAIL_HTML(user.name || "there", code));
+  const name = user.name || "there";
+  const sent = await sendAutomatedEmail({
+    req, triggerKey: purpose, userId: user.id, to: user.email,
+    defaultSubject: purpose === "signin_code" ? "Your Penny Pilot sign-in code" : "Verify your Penny Pilot email",
+    defaultHtml: purpose === "signin_code" ? SIGNIN_CODE_EMAIL_HTML(name, code) : EMAIL_VERIFICATION_EMAIL_HTML(name, code),
+    vars: { name, code },
+  });
   // No mail provider configured (local development): surface the code in the server log instead.
   if (!sent && process.env.NODE_ENV !== "production") console.log(`[dev] email code for ${user.email}: ${code}`);
 }
@@ -1477,7 +1483,7 @@ router.post("/start", startLimiter, asyncHandler(async (req: Request, res: Respo
   let user = await prisma.user.findUnique({ where: { email } });
   if (user?.emailVerifiedAt) {
     if (user.status === "SUSPENDED") { res.status(403).json({ error: "Your account has been suspended. Contact support.", code: "AUTH_FORBIDDEN" }); return; }
-    await issueEmailCode(user);
+    await issueEmailCode(req, user, "signin_code");
     res.json({ mode: "code" });
     return;
   }
@@ -1503,7 +1509,7 @@ router.post("/email/send-code", authenticate, startLimiter, asyncHandler(async (
   const user = await prisma.user.findUnique({ where: { id: req.auth!.userId } });
   if (!user) { res.status(401).json({ error: "Account not found", code: "AUTH_EXPIRED" }); return; }
   if (user.emailVerifiedAt) { res.status(400).json({ error: "Email is already verified" }); return; }
-  await issueEmailCode(user);
+  await issueEmailCode(req, user, "email_verification");
   res.json({ ok: true, to: user.email.replace(/^(.).*(@.*)$/, "$1***$2") });
 }));
 

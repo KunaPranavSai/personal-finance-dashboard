@@ -65,6 +65,24 @@ export const RECOVERY_OTP_EMAIL_HTML = (name: string, code: string) => `
   <p>If you didn't request this, you can safely ignore this email — your password has not been changed.</p>
 `;
 
+export const EMAIL_VERIFICATION_EMAIL_HTML = (name: string, code: string) => `
+  <h2>Verify your Penny Pilot email</h2>
+  <p>Hi ${name},</p>
+  <p>Enter this code to verify your email and start saving your data:</p>
+  <h1 style="letter-spacing:6px;font-size:32px;">${code}</h1>
+  <p>This code expires in 10 minutes and can only be used once.</p>
+  <p>If you didn't request this, you can safely ignore this email.</p>
+`;
+
+export const SIGNIN_CODE_EMAIL_HTML = (name: string, code: string) => `
+  <h2>Your Penny Pilot sign-in code</h2>
+  <p>Hi ${name},</p>
+  <p>Enter this code to sign in:</p>
+  <h1 style="letter-spacing:6px;font-size:32px;">${code}</h1>
+  <p>This code expires in 10 minutes and can only be used once.</p>
+  <p>If you didn't request this, you can safely ignore this email.</p>
+`;
+
 export const PASSWORD_CHANGED_NOTIFICATION_EMAIL_HTML = (name: string) => `
   <h2>Your Penny Pilot password was changed</h2>
   <p>Hi ${name},</p>
@@ -74,11 +92,13 @@ export const PASSWORD_CHANGED_NOTIFICATION_EMAIL_HTML = (name: string) => `
 `;
 
 export const EMAIL_TEMPLATES = [
-  { id: "welcome", name: "Welcome / Approval Email", html: WELCOME_EMAIL_HTML("Sample User", "sample.user", "TempPass123") },
-  { id: "rejection", name: "Rejection Email", html: REJECTION_EMAIL_HTML("Sample User", "Incomplete information") },
-  { id: "password_reset_by_admin", name: "Password Reset by Admin", html: PASSWORD_RESET_BY_ADMIN_EMAIL_HTML("Sample User", "sample.user", "TempPass123") },
-  { id: "uid_reset_by_admin", name: "UID Reset by Admin", html: UID_RESET_BY_ADMIN_EMAIL_HTML("Sample User", "new.uid") },
-  { id: "account_updated", name: "Account Updated by Admin", html: ACCOUNT_UPDATED_BY_ADMIN_EMAIL_HTML("Sample User", ["Email changed to sample@example.com", "Role changed to ADMIN"]) },
-  { id: "recovery_otp", name: "Account Recovery OTP", html: RECOVERY_OTP_EMAIL_HTML("Sample User", "482913") },
-  { id: "password_changed", name: "Password Changed Notification", html: PASSWORD_CHANGED_NOTIFICATION_EMAIL_HTML("Sample User") },
+  { id: "welcome", name: "Welcome / Approval Email", html: WELCOME_EMAIL_HTML("Sample User", "sample.user", "TempPass123"), tagged: WELCOME_EMAIL_HTML("{{name}}", "{{uid}}", "{{tempPassword}}") },
+  { id: "rejection", name: "Rejection Email", html: REJECTION_EMAIL_HTML("Sample User", "Incomplete information"), tagged: REJECTION_EMAIL_HTML("{{name}}", "{{reason}}") },
+  { id: "password_reset_by_admin", name: "Password Reset by Admin", html: PASSWORD_RESET_BY_ADMIN_EMAIL_HTML("Sample User", "sample.user", "TempPass123"), tagged: PASSWORD_RESET_BY_ADMIN_EMAIL_HTML("{{name}}", "{{uid}}", "{{tempPassword}}") },
+  { id: "uid_reset_by_admin", name: "UID Reset by Admin", html: UID_RESET_BY_ADMIN_EMAIL_HTML("Sample User", "new.uid"), tagged: UID_RESET_BY_ADMIN_EMAIL_HTML("{{name}}", "{{uid}}") },
+  { id: "account_updated", name: "Account Updated by Admin", html: ACCOUNT_UPDATED_BY_ADMIN_EMAIL_HTML("Sample User", ["Email changed to sample@example.com", "Role changed to ADMIN"]), tagged: ACCOUNT_UPDATED_BY_ADMIN_EMAIL_HTML("{{name}}", ["{{changes}}"]) },
+  { id: "recovery_otp", name: "Account Recovery OTP", html: RECOVERY_OTP_EMAIL_HTML("Sample User", "482913"), tagged: RECOVERY_OTP_EMAIL_HTML("{{name}}", "{{code}}") },
+  { id: "password_changed", name: "Password Changed Notification", html: PASSWORD_CHANGED_NOTIFICATION_EMAIL_HTML("Sample User"), tagged: PASSWORD_CHANGED_NOTIFICATION_EMAIL_HTML("{{name}}") },
+  { id: "email_verification", name: "Email Verification Code", html: EMAIL_VERIFICATION_EMAIL_HTML("Sample User", "482913"), tagged: EMAIL_VERIFICATION_EMAIL_HTML("{{name}}", "{{code}}") },
+  { id: "signin_code", name: "Sign-in Code", html: SIGNIN_CODE_EMAIL_HTML("Sample User", "482913"), tagged: SIGNIN_CODE_EMAIL_HTML("{{name}}", "{{code}}") },
 ] as const;

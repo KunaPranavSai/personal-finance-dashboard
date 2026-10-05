@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
-import { Mail, Send, Eye, X, CheckCircle, AlertTriangle, Info, Pencil, RotateCcw, Power } from "lucide-react";
+import { Mail, Send, Eye, X, CheckCircle, AlertTriangle, Info, Pencil, RotateCcw, Power, Upload, Check, Copy } from "lucide-react";
 import { Topbar } from "@/components/layout/Topbar";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
@@ -18,7 +18,23 @@ interface EmailTemplate {
   subject: string | null;
   hasOverride: boolean;
   enabled: boolean;
+  /** Default content with {{tags}} in place of sample values: the starting point for a custom version. */
+  taggedHtml: string;
+  tags: Tag[];
+  globalTags: Tag[];
 }
+
+interface Tag {
+  tag: string;
+  description: string;
+  required: boolean;
+  sample: string;
+}
+
+const TAG_RE = /\{\{\s*(\w+)\s*\}\}/g;
+const tagsIn = (html: string) => new Set([...html.matchAll(TAG_RE)].map((m) => m[1]));
+// Preview with sample values, the same substitution the server performs when sending.
+const withSamples = (html: string, tags: Tag[]) => html.replace(TAG_RE, (m, k: string) => tags.find((t) => t.tag === k)?.sample ?? m);
 
 /**
  * Communication → Email Templates. Reuses the existing GET /api/admin/email-templates,
@@ -38,6 +54,8 @@ export default function AdminEmailTemplatesPage() {
   const [sending, setSending] = useState<string | null>(null);
   const [result, setResult] = useState<{ id: string; emailSent: boolean } | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const htmlRef = useRef<HTMLTextAreaElement>(null);
+  const [showPreview, setShowPreview] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["admin-email-templates"],
@@ -61,7 +79,24 @@ export default function AdminEmailTemplatesPage() {
   const openEdit = (t: EmailTemplate) => {
     setEditing(t);
     setEditSubject(t.subject ?? "");
-    setEditHtml(t.html);
+    // No custom version yet: start from the default written with {{tags}}, so the tags are already in place.
+    setEditHtml(t.hasOverride ? t.html : t.taggedHtml);
+  };
+
+  const insertTag = (tag: string) => {
+    const el = htmlRef.current;
+    const text = `{{${tag}}}`;
+    if (!el) return setEditHtml((h) => h + text);
+    const start = el.selectionStart ?? editHtml.length;
+    const end = el.selectionEnd ?? start;
+    setEditHtml(editHtml.slice(0, start) + text + editHtml.slice(end));
+    requestAnimationFrame(() => { el.focus(); el.setSelectionRange(start + text.length, start + text.length); });
+  };
+
+  const loadFile = async (file: File | undefined) => {
+    if (!file) return;
+    if (file.size > 500_000) return toast("That file is larger than 500 KB", "error");
+    setEditHtml(await file.text());
   };
 
   const saveEdit = async () => {
@@ -117,10 +152,9 @@ export default function AdminEmailTemplatesPage() {
         <div className="cc-panel mb-4 flex items-start gap-2 p-3">
           <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" style={{ color: "var(--cc-text-faint)" }} />
           <p className="text-xs" style={{ color: "var(--cc-text-faint)" }}>
-            Edit/Enable-Disable/Restore-default are real and persisted. Duplicate is not offered — overrides are scoped to
-            these 7 built-in template keys only, there is no custom/arbitrary template concept. When an override is
-            enabled, its content is sent as-is to every recipient — names, UIDs, and other per-user details are not
-            re-substituted into edited content (the underlying send functions aren&apos;t a generic placeholder engine).
+            Paste your own HTML for any email below. Put <code>{"{{tags}}"}</code> where each person&apos;s details belong (name, code,
+            User ID...). The editor lists the tags each email supports, marks the required ones, and will not save a
+            version that leaves a required tag out. Use Restore default to go back to the built-in email.
           </p>
         </div>
 
@@ -221,46 +255,106 @@ export default function AdminEmailTemplatesPage() {
       </AnimatePresence>
 
       <AnimatePresence>
-        {editing && (
-          <motion.div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            onClick={() => setEditing(null)}
-          >
+        {editing && (() => {
+          const used = tagsIn(editHtml);
+          const missing = editing.tags.filter((t) => t.required && !used.has(t.tag));
+          const known = new Set([...editing.tags, ...editing.globalTags].map((t) => t.tag));
+          const unknown = [...used].filter((k) => !known.has(k));
+          const row = (t: Tag) => (
+            <li key={t.tag} className="flex items-start gap-2 rounded-lg border p-2" style={{ borderColor: "var(--cc-border)" }}>
+              <span className="mt-0.5 shrink-0" aria-label={used.has(t.tag) ? "In use" : t.required ? "Missing" : "Not used"}>
+                {used.has(t.tag) ? <Check className="h-4 w-4" style={{ color: "var(--cc-green)" }} /> : <span className="block h-4 w-4 rounded-full border" style={{ borderColor: t.required ? "var(--cc-red)" : "var(--cc-border)" }} />}
+              </span>
+              <span className="min-w-0 flex-1">
+                <code className="cc-mono text-xs" style={{ color: "var(--cc-accent)" }}>{`{{${t.tag}}}`}</code>
+                {t.required && <span className="ml-1.5 rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase" style={{ background: "rgba(248,113,113,0.15)", color: "var(--cc-red)" }}>Required</span>}
+                <span className="block text-[11px]" style={{ color: "var(--cc-text-dim)" }}>{t.description}</span>
+                <span className="block text-[10px]" style={{ color: "var(--cc-text-faint)" }}>e.g. {t.sample}</span>
+              </span>
+              <span className="flex shrink-0 gap-1">
+                <button type="button" onClick={() => insertTag(t.tag)} className="min-h-[36px] rounded border px-2 text-[11px] font-semibold" style={{ borderColor: "var(--cc-border)", color: "var(--cc-text)" }}>Insert</button>
+                <button type="button" aria-label={`Copy ${t.tag}`} onClick={() => navigator.clipboard?.writeText(`{{${t.tag}}}`).then(() => toast("Copied", "success"))} className="flex min-h-[36px] w-9 items-center justify-center rounded border" style={{ borderColor: "var(--cc-border)", color: "var(--cc-text-dim)" }}><Copy className="h-3.5 w-3.5" /></button>
+              </span>
+            </li>
+          );
+          return (
             <motion.div
-              className="cc-panel flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden"
-              initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
-              onClick={(e) => e.stopPropagation()}
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-2 backdrop-blur-sm sm:p-4"
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setEditing(null)}
             >
-              <div className="flex items-center justify-between border-b p-4" style={{ borderColor: "var(--cc-border)" }}>
-                <p className="text-sm font-semibold" style={{ color: "var(--cc-text)" }}>Edit — {editing.name}</p>
-                <button onClick={() => setEditing(null)} className="rounded p-1" style={{ color: "var(--cc-text-faint)" }}>
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-              <div className="flex-1 space-y-3 overflow-y-auto p-4">
-                <div className="flex items-start gap-2 rounded p-2 text-[11px]" style={{ background: "var(--cc-panel-alt)", color: "var(--cc-amber)" }}>
-                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                  Saving here sends this exact content to every recipient — no per-user name/UID/password substitution.
+              <motion.div
+                className="cc-panel flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden"
+                initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between border-b p-4" style={{ borderColor: "var(--cc-border)" }}>
+                  <p className="text-sm font-semibold" style={{ color: "var(--cc-text)" }}>Edit - {editing.name}</p>
+                  <button onClick={() => setEditing(null)} aria-label="Close" className="flex h-11 w-11 items-center justify-center rounded" style={{ color: "var(--cc-text-faint)" }}>
+                    <X className="h-4 w-4" />
+                  </button>
                 </div>
-                <div>
-                  <label className="cc-mono mb-1 block text-[10px] uppercase tracking-wider" style={{ color: "var(--cc-text-faint)" }}>Subject (optional override)</label>
-                  <input value={editSubject} onChange={(e) => setEditSubject(e.target.value)} className="cc-mono w-full rounded border bg-transparent px-3 py-2 text-sm" style={{ borderColor: "var(--cc-border)", color: "var(--cc-text)" }} placeholder="Leave blank to keep the default subject" />
+
+                <div className="grid min-h-0 flex-1 grid-cols-1 gap-0 overflow-y-auto lg:grid-cols-[1fr_320px]">
+                  <div className="space-y-3 p-4">
+                    <div>
+                      <label className="cc-mono mb-1 block text-[10px] uppercase tracking-wider" style={{ color: "var(--cc-text-faint)" }}>Subject (optional; tags allowed)</label>
+                      <input value={editSubject} onChange={(e) => setEditSubject(e.target.value)} placeholder="Leave empty to keep the default subject" className="cc-mono w-full rounded border bg-transparent px-3 py-2 text-sm" style={{ borderColor: "var(--cc-border)", color: "var(--cc-text)" }} />
+                    </div>
+                    <div>
+                      <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+                        <label className="cc-mono block text-[10px] uppercase tracking-wider" style={{ color: "var(--cc-text-faint)" }}>HTML body</label>
+                        <span className="flex gap-2">
+                          <label className="flex min-h-[36px] cursor-pointer items-center gap-1.5 rounded border px-2.5 text-[11px] font-semibold" style={{ borderColor: "var(--cc-border)", color: "var(--cc-text)" }}>
+                            <Upload className="h-3.5 w-3.5" /> Load .html file
+                            <input type="file" accept=".html,.htm,text/html" className="sr-only" onChange={(e) => { void loadFile(e.target.files?.[0]); e.target.value = ""; }} />
+                          </label>
+                          <button type="button" onClick={() => setShowPreview((v) => !v)} className="flex min-h-[36px] items-center gap-1.5 rounded border px-2.5 text-[11px] font-semibold" style={{ borderColor: "var(--cc-border)", color: "var(--cc-text)" }}>
+                            <Eye className="h-3.5 w-3.5" /> {showPreview ? "Edit" : "Preview"}
+                          </button>
+                        </span>
+                      </div>
+                      {showPreview ? (
+                        <iframe title="Preview with sample values" srcDoc={withSamples(editHtml, [...editing.globalTags, ...editing.tags])} sandbox="" className="h-[360px] w-full rounded border bg-white" style={{ borderColor: "var(--cc-border)" }} />
+                      ) : (
+                        <textarea ref={htmlRef} value={editHtml} onChange={(e) => setEditHtml(e.target.value)} rows={16} spellCheck={false} placeholder="Paste your HTML here" className="cc-mono w-full rounded border bg-transparent px-3 py-2 text-xs" style={{ borderColor: "var(--cc-border)", color: "var(--cc-text)" }} />
+                      )}
+                    </div>
+                  </div>
+
+                  <aside aria-label="Tags" className="space-y-3 border-t p-4 lg:border-l lg:border-t-0" style={{ borderColor: "var(--cc-border)" }}>
+                    <div>
+                      <p className="cc-mono mb-2 text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--cc-text-faint)" }}>Tags for this email</p>
+                      <ul className="space-y-2">{editing.tags.map(row)}</ul>
+                    </div>
+                    <div>
+                      <p className="cc-mono mb-2 text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--cc-text-faint)" }}>Available in every email</p>
+                      <ul className="space-y-2">{editing.globalTags.map(row)}</ul>
+                    </div>
+                    {unknown.length > 0 && (
+                      <p className="flex items-start gap-1.5 rounded p-2 text-[11px]" style={{ background: "var(--cc-panel-alt)", color: "var(--cc-amber)" }}>
+                        <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                        Not recognised for this email, so it will appear as typed: {unknown.map((k) => `{{${k}}}`).join(", ")}
+                      </p>
+                    )}
+                  </aside>
                 </div>
-                <div>
-                  <label className="cc-mono mb-1 block text-[10px] uppercase tracking-wider" style={{ color: "var(--cc-text-faint)" }}>HTML Body</label>
-                  <textarea value={editHtml} onChange={(e) => setEditHtml(e.target.value)} rows={14} className="cc-mono w-full rounded border bg-transparent px-3 py-2 text-xs" style={{ borderColor: "var(--cc-border)", color: "var(--cc-text)" }} />
+
+                <div className="flex flex-wrap items-center justify-between gap-2 border-t p-4" style={{ borderColor: "var(--cc-border)" }}>
+                  <p role="status" className="text-xs" style={{ color: missing.length ? "var(--cc-red)" : "var(--cc-green)" }}>
+                    {missing.length ? `Missing required: ${missing.map((m) => `{{${m.tag}}}`).join(", ")}` : "All required tags are present"}
+                  </p>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="secondary" onClick={() => setEditing(null)}>Cancel</Button>
+                    <Button size="sm" onClick={saveEdit} disabled={busyId === editing.id || !editHtml.trim() || missing.length > 0}>
+                      {busyId === editing.id ? "Saving…" : "Save"}
+                    </Button>
+                  </div>
                 </div>
-              </div>
-              <div className="flex justify-end gap-2 border-t p-4" style={{ borderColor: "var(--cc-border)" }}>
-                <Button size="sm" variant="secondary" onClick={() => setEditing(null)}>Cancel</Button>
-                <Button size="sm" onClick={saveEdit} disabled={busyId === editing.id || !editHtml.trim()}>
-                  {busyId === editing.id ? "Saving…" : "Save Override"}
-                </Button>
-              </div>
+              </motion.div>
             </motion.div>
-          </motion.div>
-        )}
+          );
+        })()}
       </AnimatePresence>
     </>
   );

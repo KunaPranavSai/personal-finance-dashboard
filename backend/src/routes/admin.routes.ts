@@ -14,6 +14,7 @@ import { getSystemHealth } from "../services/admin/systemHealth";
 import { lookupGeo } from "../lib/geoip";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
+import { TEMPLATE_TAGS, GLOBAL_TAGS, missingRequiredTags, sampleVars } from "../lib/emailTemplateRenderer";
 import { tableToCsv, tableToExcel, tableToPdf, TableReport } from "../services/export/tableExporter";
 import { signImpersonation, setImpersonationCookie } from "../lib/tokens";
 
@@ -398,6 +399,10 @@ router.get(
         subject: override?.enabled && override.subject ? override.subject : null,
         hasOverride: Boolean(override),
         enabled: override?.enabled ?? true,
+        // The editor's side panel: what this template can fill, which tags are mandatory, and sample values.
+        taggedHtml: t.tagged,
+        tags: TEMPLATE_TAGS[t.id] ?? [],
+        globalTags: GLOBAL_TAGS,
       };
     });
     res.json({ items });
@@ -420,6 +425,14 @@ router.patch(
       return;
     }
     const { subject, html, enabled } = req.body as { subject?: string | null; html?: string | null; enabled?: boolean };
+    // Refuse content that would send a useless email (e.g. a sign-in code mail with no {{code}}).
+    if (typeof html === "string" && enabled !== false) {
+      const missing = missingRequiredTags(templateKey, html);
+      if (missing.length > 0) {
+        res.status(400).json({ error: `Missing required tag${missing.length > 1 ? "s" : ""}: ${missing.map((m) => `{{${m}}}`).join(", ")}`, missing });
+        return;
+      }
+    }
     const data: Record<string, unknown> = { updatedById: req.auth!.userId };
     if (subject !== undefined) data.subject = subject;
     if (html !== undefined) data.html = html;
@@ -472,7 +485,7 @@ router.post(
       return;
     }
     const subject = await resolveEmailSubject(template.id, `[Test] Penny Pilot — ${template.name}`);
-    const html = await resolveEmailHtml(template.id, template.html);
+    const html = await resolveEmailHtml(template.id, template.html, sampleVars(template.id));
     const emailSent = await sendEmail(admin.email, subject, html);
     res.json({ emailSent });
   })

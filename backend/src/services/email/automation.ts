@@ -19,6 +19,8 @@ export const AUTOMATED_EMAIL_TRIGGERS: { key: string; name: string; defaultTempl
   { key: "account_updated", name: "Account Updated by Admin", defaultTemplateKey: "account_updated", securityCritical: false },
   { key: "password_reset_by_admin", name: "Password Reset by Admin", defaultTemplateKey: "password_reset_by_admin", securityCritical: true },
   { key: "uid_reset_by_admin", name: "UID Reset by Admin", defaultTemplateKey: "uid_reset_by_admin", securityCritical: true },
+  { key: "email_verification", name: "Email Verification Code", defaultTemplateKey: "email_verification", securityCritical: true },
+  { key: "signin_code", name: "Sign-in Code", defaultTemplateKey: "signin_code", securityCritical: true },
 ];
 
 export function getTriggerMeta(key: string) {
