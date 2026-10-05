@@ -25,9 +25,12 @@ router.get(
     const now = new Date();
     const items = await prisma.announcement.findMany({
       where: {
-        status: "PUBLISHED",
-        OR: [{ expireAt: null }, { expireAt: { gt: now } }],
-        AND: [{ OR: [{ publishAt: null }, { publishAt: { lte: now } }] }],
+        // PUBLISHED, or SCHEDULED once its publish time has arrived (no job flips the stored status).
+        OR: [{ status: "PUBLISHED" }, { status: "SCHEDULED", publishAt: { lte: now } }],
+        AND: [
+          { OR: [{ expireAt: null }, { expireAt: { gt: now } }] },
+          { OR: [{ publishAt: null }, { publishAt: { lte: now } }] },
+        ],
       },
       orderBy: { publishAt: "desc" },
       select: {

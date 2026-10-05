@@ -14,7 +14,9 @@ import { isSessionRevoked, markSessionsRevoked } from "../lib/sessionRevocation"
 import { enforcePortalOrReject } from "../lib/portal";
 import { isRestricted } from "../services/entitlements";
 import { sendAutomatedEmail } from "../services/email/automation";
-import { notifySecurityEvent, sendEmail, createNotification } from "../lib/notify";
+import { notifySecurityEvent, notifyAdminsOfSignup, createNotification } from "../lib/notify";
+import { ApiError } from "../middleware/errorHandler";
+import { platformConfig } from "../lib/platformConfig";
 import { RP_ID, RP_NAME, RP_ORIGINS } from "../lib/webauthn";
 import { computeSessionExpiryForUser } from "../lib/sessionExpiry";
 import { ACCESS_SECRET, REFRESH_SECRET, signAccess, signRefresh, setTokenCookies, TfaClaims, clearImpersonationCookie, setPinDeviceCookie, deviceCookieName } from "../lib/tokens";
@@ -29,17 +31,12 @@ import type {
   AuthenticationResponseJSON,
   AuthenticatorTransportFuture,
 } from "@simplewebauthn/server";
-import {
-  PASSWORD_RESET_BY_ADMIN_EMAIL_HTML,
-  UID_RESET_BY_ADMIN_EMAIL_HTML, ACCOUNT_UPDATED_BY_ADMIN_EMAIL_HTML,
-} from "../lib/emailTemplates";
 import type { User } from "@prisma/client";
 import { TERMS_VERSION, PRIVACY_VERSION } from "../lib/legalVersions";
 import { generateConsentPdf } from "../services/consent/consentPdf";
 import { generateRecoveryToken, hashRecoveryToken } from "../lib/recoveryToken";
 import { setRecoveryCookie, clearRecoveryCookie, readRecoveryToken } from "../lib/recoveryCookie";
 import { SECURITY_QUESTIONS, SECURITY_QUESTION_KEYS, securityQuestionText, normalizeSecurityAnswer } from "../lib/securityQuestions";
-import { RECOVERY_OTP_EMAIL_HTML, PASSWORD_CHANGED_NOTIFICATION_EMAIL_HTML, EMAIL_VERIFICATION_EMAIL_HTML, SIGNIN_CODE_EMAIL_HTML } from "../lib/emailTemplates";
 import type { RecoverySession } from "@prisma/client";
 
 const router = Router();
@@ -112,13 +109,15 @@ function toUserJson(user: User) {
 }
 
 function isStrongPassword(pw: string): boolean {
-  return pw.length >= 8 && /[a-zA-Z]/.test(pw) && /[0-9]/.test(pw);
+  return pw.length >= platformConfig().minPasswordLength && /[a-zA-Z]/.test(pw) && /[0-9]/.test(pw);
 }
+
+const passwordRuleMessage = () => `Password must be at least ${platformConfig().minPasswordLength} characters and include a letter and a number`;
 
 function generateTempPassword(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$";
   let pw = "";
-  for (let i = 0; i < 12; i++) pw += chars[crypto.randomInt(chars.length)];
+  for (let i = 0; i < Math.max(12, platformConfig().minPasswordLength + 2); i++) pw += chars[crypto.randomInt(chars.length)];
   return pw;
 }
 
@@ -194,7 +193,7 @@ router.post(
       return;
     }
     if (!isStrongPassword(password)) {
-      res.status(400).json({ error: "Password must be at least 8 characters and include a letter and a number" });
+      res.status(400).json({ error: passwordRuleMessage() });
       return;
     }
     // Consent is enforced server-side — never trust the frontend's disabled-button state alone.
@@ -393,7 +392,7 @@ async function completeLogin(req: Request, res: Response, user: User, remember =
   // successful login ever (no existing field/flag was added for this; it
   // reuses the User model's existing lastLoginAt).
   const isFirstLogin = user.lastLoginAt === null;
-  void prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
+  await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
   void createNotification(user.id, "security", "New sign-in", "Your account was signed in from a new session.");
   // Remember who signed in last on this device (PIN or not) so the next visit greets them by name.
   setPinDeviceCookie(res, user.id, user.role !== "USER");
@@ -457,7 +456,7 @@ router.post(
       return;
     }
     if (user.failedLoginAttempts > 0 || user.lockedUntil) {
-      void prisma.user.update({ where: { id: user.id }, data: { failedLoginAttempts: 0, lockedUntil: null } });
+      await prisma.user.update({ where: { id: user.id }, data: { failedLoginAttempts: 0, lockedUntil: null } });
     }
 
     await completeLogin(req, res, user, rememberMe === true);
@@ -476,7 +475,7 @@ router.post(
       return;
     }
     if (!isStrongPassword(newPassword)) {
-      res.status(400).json({ error: "Password must be at least 8 characters and include a letter and a number" });
+      res.status(400).json({ error: passwordRuleMessage() });
       return;
     }
     let payload: { userId: string; purpose?: string };
@@ -510,7 +509,7 @@ router.post(
     const sessionExpiresAt = await computeSessionExpiryForUser(updated.id);
     setTokenCookies(res, signAccess(updated, sv, { sessionExpiresAt }), signRefresh(updated, sv, { sessionExpiresAt }));
     void logActivity(req, "password_changed", "Temporary password replaced on first login", user.id);
-    void notifySecurityEvent(user.id, "security", "Password changed", "Your temporary password was replaced with a new password.");
+    void notifySecurityEvent(user.id, "security", "Password changed", "Your temporary password was replaced with a new password.", { req, email: { key: "password_changed", vars: { name: user.name } } });
 
     if (justOnboarded) {
       const tips: [string, string][] = [
@@ -574,7 +573,7 @@ router.post(
     const tfa = { tfaEnabled: true, tfaVerifiedAt: Date.now(), sessionExpiresAt, sessionId, remember };
     const isFirstLogin = user.lastLoginAt === null;
     setTokenCookies(res, signAccess(user, sv, tfa), signRefresh(user, sv, tfa));
-    void prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
+    await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
     void createNotification(user.id, "security", "New sign-in", "Your account was signed in with two-factor authentication.");
     res.json({ user: toUserJson(user), sessionExpiresAt, isFirstLogin });
   })
@@ -626,8 +625,10 @@ router.post("/pin", authenticate, pinLimiter, asyncHandler(async (req: Request, 
     if (typeof password !== "string") { res.status(403).json({ error: "Enter your password to set a PIN", code: "PASSWORD_REQUIRED" }); return; }
     if (!(await bcrypt.compare(password, user.passwordHash))) { res.status(401).json({ error: "Incorrect password", code: "AUTH_INVALID" }); return; }
   }
+  const hadPin = Boolean(user.pinHash);
   await prisma.user.update({ where: { id: user.id }, data: { pinHash: await bcrypt.hash(pin, 10) } });
-  void logActivity(req, "pin_set", "Daily PIN set", user.id);
+  void logActivity(req, "pin_set", hadPin ? "PIN changed" : "PIN created", user.id);
+  if (hadPin) void notifySecurityEvent(user.id, "security", "PIN changed", "Your sign-in PIN was changed.", { req, email: { key: "pin_changed", vars: { name: user.name || "there" } } });
   setPinDeviceCookie(res, user.id, user.role !== "USER");
   res.json({ ok: true });
 }));
@@ -653,7 +654,9 @@ router.post("/pin/login", loginLimiter, asyncHandler(async (req: Request, res: R
   const { pin, portal, identifier, rememberMe } = req.body as { pin?: string; portal?: string; identifier?: string; rememberMe?: boolean };
   // Remembered device first; otherwise (new device) the user types their email / User ID.
   const id = req.signedCookies?.[deviceCookieName(portal === "admin")];
-  const user = typeof id === "string" ? await prisma.user.findUnique({ where: { id } }) : typeof identifier === "string" ? await findByIdentifier(identifier) : null;
+  // If the device cookie points at an account that no longer exists, fall back to the typed email / User ID.
+  const deviceUser = typeof id === "string" ? await prisma.user.findUnique({ where: { id } }) : null;
+  const user = deviceUser ?? (typeof identifier === "string" ? await findByIdentifier(identifier) : null);
   if (!user?.pinHash || !isPin(pin)) {
     // Burn the same bcrypt time as a real check so response timing does not reveal whether the account has a PIN.
     await bcrypt.compare(String(pin ?? ""), DUMMY_PIN_HASH);
@@ -676,7 +679,7 @@ router.post("/pin/login", loginLimiter, asyncHandler(async (req: Request, res: R
     return;
   }
   if (user.failedLoginAttempts > 0 || user.lockedUntil) {
-    void prisma.user.update({ where: { id: user.id }, data: { failedLoginAttempts: 0, lockedUntil: null } });
+    await prisma.user.update({ where: { id: user.id }, data: { failedLoginAttempts: 0, lockedUntil: null } });
   }
   await completeLogin(req, res, user, rememberMe === true);
 }));
@@ -743,7 +746,7 @@ router.post(
     const tfa = { tfaEnabled: true, tfaVerifiedAt: Date.now(), sessionExpiresAt: req.auth!.sessionExpiresAt };
     setTokenCookies(res, signAccess(user, sv, tfa), signRefresh(user, sv, tfa));
     void logActivity(req, "2fa_enabled", "Two-factor authentication enabled", user.id);
-    void notifySecurityEvent(user.id, "security", "2FA enabled", "Two-factor authentication was enabled on your account.");
+    void notifySecurityEvent(user.id, "security", "2FA enabled", "Two-factor authentication was enabled on your account.", { req });
     res.json({ ok: true, backupCodes });
   })
 );
@@ -787,7 +790,7 @@ router.post(
     const tfa = { tfaEnabled: false, sessionExpiresAt: req.auth!.sessionExpiresAt };
     setTokenCookies(res, signAccess(user, sv, tfa), signRefresh(user, sv, tfa));
     void logActivity(req, "2fa_disabled", "Two-factor authentication disabled", user.id);
-    void notifySecurityEvent(user.id, "security", "2FA disabled", "Two-factor authentication was disabled on your account.");
+    void notifySecurityEvent(user.id, "security", "2FA disabled", "Two-factor authentication was disabled on your account.", { req });
     res.json({ ok: true });
   })
 );
@@ -866,7 +869,7 @@ router.post(
     const tfa: TfaClaims = { tfaEnabled: req.auth!.tfaEnabled, tfaVerifiedAt: req.auth!.tfaVerifiedAt, sessionExpiresAt: req.auth!.sessionExpiresAt };
     setTokenCookies(res, signAccess(updated, sv, tfa), signRefresh(updated, sv, tfa));
     void logActivity(req, "uid_changed", `UID changed from ${user.uid} to ${trimmed}`, user.id);
-    void notifySecurityEvent(user.id, "security", "User ID changed", `Your sign-in User ID was changed to "${trimmed}".`);
+    void notifySecurityEvent(user.id, "security", "User ID changed", `Your sign-in User ID was changed to "${trimmed}".`, { req, email: { key: "uid_changed", vars: { name: user.name || "there", uid: trimmed, actor: "you" } } });
     res.json({ ok: true, uid: trimmed });
   })
 );
@@ -1021,12 +1024,7 @@ router.post(
         otpHash, otpExpiresAt, otpAttempts: 0, otpResendCount: 0, otpLastSentAt: new Date(),
       },
     });
-    void sendAutomatedEmail({
-      req, triggerKey: "recovery_otp", userId: user.id, to: user.email,
-      defaultSubject: "Your Penny Pilot password reset code",
-      defaultHtml: RECOVERY_OTP_EMAIL_HTML(user.name, otp),
-      vars: { name: user.name, code: otp },
-    });
+    void sendAutomatedEmail({ req, triggerKey: "recovery_otp", userId: user.id, to: user.email, vars: { name: user.name, code: otp } });
     void logActivity(req, "password_reset_requested", "Email OTP requested", user.id);
     res.json({ ok: true, method: "email_otp" });
   })
@@ -1063,12 +1061,7 @@ router.post(
       where: { id: session.id },
       data: { otpHash, otpExpiresAt, otpAttempts: 0, otpResendCount: { increment: 1 }, otpLastSentAt: new Date() },
     });
-    void sendAutomatedEmail({
-      req, triggerKey: "recovery_otp", userId: user.id, to: user.email,
-      defaultSubject: "Your Penny Pilot password reset code",
-      defaultHtml: RECOVERY_OTP_EMAIL_HTML(user.name, otp),
-      vars: { name: user.name, code: otp },
-    });
+    void sendAutomatedEmail({ req, triggerKey: "recovery_otp", userId: user.id, to: user.email, vars: { name: user.name, code: otp } });
     void logActivity(req, "password_reset_otp_resent", "Recovery OTP resent", user.id);
     res.json({ ok: true, message: "A new code has been sent." });
   })
@@ -1199,7 +1192,7 @@ router.post(
       return;
     }
     if (!isStrongPassword(newPassword)) {
-      res.status(400).json({ error: "Password must be at least 8 characters and include a letter and a number" });
+      res.status(400).json({ error: passwordRuleMessage() });
       return;
     }
     const user = await prisma.user.findUnique({ where: { id: session.userId } });
@@ -1218,13 +1211,7 @@ router.post(
     bumpSessionVersion(user.id); // sign out any existing sessions after a reset
     clearRecoveryCookie(res);
     void logActivity(req, "password_reset", `Password reset via account recovery (${session.method ?? "unknown"})`, user.id);
-    void notifySecurityEvent(user.id, "security", "Password reset", "Your password was reset via account recovery.");
-    void sendAutomatedEmail({
-      req, triggerKey: "password_changed", userId: user.id, to: user.email,
-      defaultSubject: "Your Penny Pilot password was changed",
-      defaultHtml: PASSWORD_CHANGED_NOTIFICATION_EMAIL_HTML(user.name),
-      vars: { name: user.name },
-    });
+    void notifySecurityEvent(user.id, "security", "Password reset", "Your password was reset via account recovery.", { req, email: { key: "password_changed", vars: { name: user.name } } });
     res.json({ ok: true, message: "Password reset successfully" });
   })
 );
@@ -1316,7 +1303,7 @@ router.patch(
       }),
     ]);
     void logActivity(req, "security_questions_updated", "Security questions configured/changed", user.id);
-    void notifySecurityEvent(user.id, "security", "Security questions updated", "Your account-recovery security questions were changed.");
+    void notifySecurityEvent(user.id, "security", "Security questions updated", "Your account-recovery security questions were changed.", { req });
     res.json({ ok: true });
   })
 );
@@ -1453,14 +1440,13 @@ async function issueEmailCode(req: Request, user: User, purpose: "email_verifica
     data: { emailOtpHash: await bcrypt.hash(code, 8), emailOtpExpiry: new Date(Date.now() + 10 * 60 * 1000), emailOtpAttempts: 0 },
   });
   const name = user.name || "there";
-  const sent = await sendAutomatedEmail({
-    req, triggerKey: purpose, userId: user.id, to: user.email,
-    defaultSubject: purpose === "signin_code" ? "Your Penny Pilot sign-in code" : "Verify your Penny Pilot email",
-    defaultHtml: purpose === "signin_code" ? SIGNIN_CODE_EMAIL_HTML(name, code) : EMAIL_VERIFICATION_EMAIL_HTML(name, code),
-    vars: { name, code },
-  });
-  // No mail provider configured (local development): surface the code in the server log instead.
-  if (!sent && process.env.NODE_ENV !== "production") console.log(`[dev] email code for ${user.email}: ${code}`);
+  const sent = await sendAutomatedEmail({ req, triggerKey: purpose, userId: user.id, to: user.email, vars: { name, code } });
+  if (!sent) {
+    // No mail provider configured (local development): surface the code in the server log instead.
+    if (process.env.NODE_ENV !== "production") console.log(`[dev] email code for ${user.email}: ${code}`);
+    // In production a code that was never sent must not look like it was: say so, so the person can retry.
+    else throw new ApiError(503, "We could not send the email right now. Please try again in a moment.", "EMAIL_SEND_FAILED");
+  }
 }
 
 async function checkEmailCode(user: User, code: unknown): Promise<"ok" | "bad" | "expired" | "locked"> {
@@ -1543,6 +1529,8 @@ router.post("/profile/complete", authenticate, asyncHandler(async (req: Request,
     return tx.user.update({ where: { id: user.id }, data: { name: name.trim(), phone: cleanPhone, profileCompletedAt: new Date(), pinHash: await bcrypt.hash(pin, 10) } });
   });
   setPinDeviceCookie(res, updated.id, updated.role !== "USER");
+  void sendAutomatedEmail({ req, triggerKey: "welcome", userId: updated.id, to: updated.email, vars: { name: updated.name, uid: updated.uid } });
+  void notifyAdminsOfSignup(req, { name: updated.name, email: updated.email });
   res.json({ user: toUserJson(updated) });
 }));
 
@@ -1581,7 +1569,7 @@ router.patch(
       return;
     }
     if (!isStrongPassword(newPassword)) {
-      res.status(400).json({ error: "Password must be at least 8 characters and include a letter and a number" });
+      res.status(400).json({ error: passwordRuleMessage() });
       return;
     }
     const user = await prisma.user.findUnique({ where: { id: req.auth!.userId } });
@@ -1592,7 +1580,7 @@ router.patch(
     const newHash = await bcrypt.hash(newPassword, 12);
     await prisma.user.update({ where: { id: user.id }, data: { passwordHash: newHash } });
     void logActivity(req, "password_changed", "Password changed from settings", user.id);
-    void notifySecurityEvent(user.id, "security", "Password changed", "Your account password was changed.");
+    void notifySecurityEvent(user.id, "security", "Password changed", "Your account password was changed.", { req, email: { key: "password_changed", vars: { name: user.name } } });
     res.json({ ok: true, message: "Password changed successfully" });
   })
 );
@@ -1665,6 +1653,7 @@ router.patch(
           return;
         }
         data.email = normalized;
+        data.emailVerifiedAt = null; // the new address has not been verified
         changes.push(`Email changed to ${normalized}`);
       }
     }
@@ -1713,12 +1702,7 @@ router.patch(
     const updated = await prisma.user.update({ where: { id }, data });
     if (typeof data.sessionVersion === "object") bumpSessionVersion(updated.id);
     void logActivity(req, "user_updated", `${changes.join(", ")} for ${updated.email}`, req.auth!.userId, updated.id);
-    void sendAutomatedEmail({
-      req, triggerKey: "account_updated", userId: updated.id, to: updated.email,
-      defaultSubject: "Your Penny Pilot account was updated",
-      defaultHtml: ACCOUNT_UPDATED_BY_ADMIN_EMAIL_HTML(updated.name, changes),
-      vars: { name: updated.name, changes: changes.join("; ") },
-    });
+    void sendAutomatedEmail({ req, triggerKey: "account_updated", userId: updated.id, to: updated.email, vars: { name: updated.name || "there", changes: changes.join("; ") } });
     res.json({ ok: true, message: "User updated successfully." });
   })
 );
@@ -1742,7 +1726,7 @@ router.post(
     }
     const finalPassword = password?.trim() || generateTempPassword();
     if (!isStrongPassword(finalPassword)) {
-      res.status(400).json({ error: "Password must be at least 8 characters and include a letter and a number" });
+      res.status(400).json({ error: passwordRuleMessage() });
       return;
     }
     const hash = await bcrypt.hash(finalPassword, 12);
@@ -1755,14 +1739,10 @@ router.post(
 
     let emailSent = false;
     if (shouldSendEmail !== false) {
-      emailSent = await sendAutomatedEmail({
-        req, triggerKey: "password_reset_by_admin", userId: updated.id, to: updated.email,
-        defaultSubject: "Your Penny Pilot password was reset",
-        defaultHtml: PASSWORD_RESET_BY_ADMIN_EMAIL_HTML(updated.name, updated.uid, finalPassword),
-        vars: { name: updated.name, uid: updated.uid, tempPassword: finalPassword },
-      });
+      emailSent = await sendAutomatedEmail({ req, triggerKey: "password_reset_by_admin", userId: updated.id, to: updated.email, vars: { name: updated.name || "there" } });
     }
-    res.json({ ok: true, emailSent, password: emailSent ? undefined : finalPassword });
+    // The email only says the password was reset; the new password is shown to the admin here, to hand over securely.
+    res.json({ ok: true, emailSent, password: finalPassword });
   })
 );
 
@@ -1801,12 +1781,7 @@ router.post(
 
     let emailSent = false;
     if (shouldSendEmail !== false) {
-      emailSent = await sendAutomatedEmail({
-        req, triggerKey: "uid_reset_by_admin", userId: updated.id, to: updated.email,
-        defaultSubject: "Your Penny Pilot User ID was changed",
-        defaultHtml: UID_RESET_BY_ADMIN_EMAIL_HTML(updated.name, trimmed),
-        vars: { name: updated.name, uid: trimmed },
-      });
+      emailSent = await sendAutomatedEmail({ req, triggerKey: "uid_changed", userId: updated.id, to: updated.email, vars: { name: updated.name || "there", uid: trimmed, actor: "an administrator" } });
     }
     res.json({ ok: true, emailSent, uid: trimmed });
   })
@@ -1993,7 +1968,7 @@ router.post(
       },
     });
     void logActivity(req, "passkey_registered", `Passkey "${name.trim().slice(0, 60)}" registered`, req.auth!.userId);
-    void notifySecurityEvent(req.auth!.userId, "security", "Passkey added", `A new passkey ("${name.trim().slice(0, 60)}") was registered on your account.`);
+    void notifySecurityEvent(req.auth!.userId, "security", "Passkey added", `A new passkey ("${name.trim().slice(0, 60)}") was registered on your account.`, { req });
     res.json({ ok: true });
   })
 );
@@ -2061,7 +2036,7 @@ router.delete(
     }
     await prisma.passkey.delete({ where: { id: passkey.id } });
     void logActivity(req, "passkey_removed", `Passkey "${passkey.name}" removed`, req.auth!.userId);
-    void notifySecurityEvent(req.auth!.userId, "security", "Passkey removed", `The passkey "${passkey.name}" was removed from your account.`);
+    void notifySecurityEvent(req.auth!.userId, "security", "Passkey removed", `The passkey "${passkey.name}" was removed from your account.`, { req });
     res.json({ ok: true });
   })
 );
@@ -2157,7 +2132,7 @@ router.post(
       : { tfaEnabled: false, sessionExpiresAt, sessionId };
     const isFirstLogin = user.lastLoginAt === null;
     setTokenCookies(res, signAccess(user, sv, tfa), signRefresh(user, sv, tfa));
-    void prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
+    await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
     void createNotification(user.id, "security", "New sign-in", "Your account was signed in with a passkey.");
     res.json({ user: toUserJson(user), sessionExpiresAt, isFirstLogin });
   })

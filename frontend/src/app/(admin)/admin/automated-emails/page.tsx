@@ -1,126 +1,97 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Zap, ShieldCheck, Power, RotateCcw, Info } from "lucide-react";
-import { Topbar } from "@/components/layout/Topbar";
-import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { Mail } from "lucide-react";
+import { Alert, Badge, Button, Column, DataTable, EmptyState, Modal, PageHeader, Panel, Switch, TextField } from "@/components/admin/ui";
 import { useToast } from "@/components/ui/Toast";
 import { api } from "@/lib/api";
+import { useAuth } from "@/lib/AuthContext";
+import { fmtDateTime } from "@/lib/adminFormat";
 
-interface AutomationRule {
-  key: string;
-  name: string;
-  securityCritical: boolean;
-  templateKey: string;
-  enabled: boolean;
-  updatedAt: string | null;
+interface Item {
+  key: string; name: string; description: string; audience: "user" | "admin"; locked: boolean; enabled: boolean; updatedAt: string | null;
+  design: { kind: "built-in" | "custom" | "legacy"; version?: number };
+  stats30d: { sent: number; failed: number; skipped: number };
 }
 
-/**
- * Communication → Automated Emails. Reflects the 6 real sendEmail(...) call sites in
- * auth.routes.ts (grouped as 5 triggers — the password-reset-OTP request and resend call sites
- * share one "recovery_otp" trigger since they're the same email). Only "Account Updated by
- * Admin" is actually disable-able — the other 4 are security-critical and always send
- * regardless of this toggle, disclosed per row rather than letting the switch imply otherwise.
- */
-export default function AdminAutomatedEmailsPage() {
+export default function AutomatedEmailsPage() {
+  const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const isSuper = user?.role === "SUPER_ADMIN";
   const [busyKey, setBusyKey] = useState<string | null>(null);
+  const [testing, setTesting] = useState<Item | null>(null);
+  const [to, setTo] = useState("");
+  const [sending, setSending] = useState(false);
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["admin-automated-emails"],
-    queryFn: () => api.get<{ items: AutomationRule[] }>("/api/admin/automated-emails"),
-  });
+  const { data, isLoading, isError, refetch } = useQuery({ queryKey: ["admin", "automated-emails"], queryFn: () => api.get<{ items: Item[] }>("/api/admin/automated-emails") });
+  const stale = () => void queryClient.invalidateQueries({ queryKey: ["admin", "automated-emails"] });
 
-  const toggle = async (rule: AutomationRule) => {
-    setBusyKey(rule.key);
+  const toggle = async (it: Item, enabled: boolean) => {
+    setBusyKey(it.key);
     try {
-      await api.patch(`/api/admin/automated-emails/${rule.key}`, { enabled: !rule.enabled });
-      toast(rule.enabled ? "Rule disabled" : "Rule enabled", "success");
-      queryClient.invalidateQueries({ queryKey: ["admin-automated-emails"] });
-    } catch (err) {
-      toast(err instanceof Error ? err.message : "Failed to update rule", "error");
-    } finally {
-      setBusyKey(null);
-    }
+      await api.patch(`/api/admin/automated-emails/${it.key}`, { enabled });
+      toast(`${it.name} is now ${enabled ? "on" : "off"}`, "success");
+      stale();
+    } catch (e) { toast(e instanceof Error ? e.message : "Couldn't change that setting", "error"); } finally { setBusyKey(null); }
   };
 
-  const reset = async (rule: AutomationRule) => {
-    setBusyKey(rule.key);
+  const sendTest = async () => {
+    if (!testing) return;
+    setSending(true);
     try {
-      await api.delete(`/api/admin/automated-emails/${rule.key}`);
-      toast("Reset to defaults", "success");
-      queryClient.invalidateQueries({ queryKey: ["admin-automated-emails"] });
-    } catch (err) {
-      toast(err instanceof Error ? err.message : "Failed to reset rule", "error");
-    } finally {
-      setBusyKey(null);
-    }
+      const r = await api.post<{ emailSent: boolean }>(`/api/admin/email-builder/${testing.key}/test`, { to });
+      if (r.emailSent) { toast(`Test email sent to ${to}`, "success"); setTesting(null); } else toast("The email could not be sent. Check the sender settings and Resend key.", "error");
+    } catch (e) { toast(e instanceof Error ? e.message : "Couldn't send the test", "error"); } finally { setSending(false); }
   };
 
-  const items = data?.items ?? [];
+  const columns: Column<Item>[] = [
+    { key: "name", header: "Email", primary: true, render: (i) => (
+      <div className="min-w-0">
+        <div className="font-semibold">{i.name} {i.audience === "admin" && <Badge tone="blue">Admins</Badge>}</div>
+        <div className="ad-faint text-xs">{i.description}</div>
+      </div>
+    ) },
+    { key: "on", header: "Status", render: (i) => (i.locked ? (
+      <span title="Needed to sign in or recover an account, so it cannot be turned off"><Badge tone="blue">Always on</Badge></span>
+    ) : (
+      <span className="inline-flex items-center gap-2">
+        <Switch label={`${i.name}: ${i.enabled ? "on" : "off"}`} checked={i.enabled} disabled={!isSuper || busyKey === i.key} onChange={(v) => void toggle(i, v)} />
+        <span className="ad-muted">{i.enabled ? "On" : "Off"}</span>
+      </span>
+    )) },
+    { key: "design", header: "Design", render: (i) => <Badge tone={i.design.kind === "custom" ? "accent" : i.design.kind === "legacy" ? "amber" : ""}>{i.design.kind === "custom" ? `Custom v${i.design.version}` : i.design.kind === "legacy" ? "Legacy HTML" : "Built-in"}</Badge> },
+    { key: "recent", header: "Last 30 days", render: (i) => (
+      <span className="text-[13px]"><span style={{ color: "var(--ad-green)" }}>{i.stats30d.sent} sent</span>{i.stats30d.failed > 0 && <span style={{ color: "var(--ad-red)" }}> · {i.stats30d.failed} failed</span>}{i.stats30d.skipped > 0 && <span className="ad-faint"> · {i.stats30d.skipped} skipped</span>}</span>
+    ) },
+    { key: "upd", header: "Last updated", render: (i) => (i.updatedAt ? fmtDateTime(i.updatedAt) : <span className="ad-faint">Never changed</span>) },
+    { key: "act", header: "Actions", hideLabelOnCard: true, align: "right", render: (i) => (
+      <span className="inline-flex flex-wrap justify-end gap-2">
+        {isSuper && <Link className="ad-btn sm" href={`/admin/email-builder/${i.key}`}>Edit</Link>}
+        {isSuper && <Button size="sm" onClick={() => { setTesting(i); setTo(user?.email ?? ""); }}>Send test</Button>}
+      </span>
+    ) },
+  ];
 
   return (
     <>
-      <Topbar title="Automated Emails" />
-      <main className="flex-1 overflow-y-auto p-4 lg:p-6">
-        <AdminPageHeader icon={Zap} title="Automated Emails" description="Real backend triggers only — every row below is a genuine sendEmail(...) call site." />
+      <PageHeader title="Email Automations" description="Every email Penny Pilot sends automatically. Turn them on or off, edit the design, and send yourself a test." />
+      <div className="mb-4 grid gap-2">
+        <Alert>Resend&apos;s free plan has a small daily limit, so an email that is switched off is never sent, queued or retried. Each event sends exactly one email.</Alert>
+        {!isSuper && <Alert tone="warn">Only a Super Admin can switch emails on or off, edit them, or send tests. You can see their status here.</Alert>}
+      </div>
+      <Panel padded={false}>
+        <DataTable<Item> caption="Automated emails" columns={columns} rows={data?.items} rowKey={(i) => i.key} loading={isLoading}
+          error={isError ? "Couldn't load email automations" : null} onRetry={() => void refetch()} empty={<EmptyState icon={Mail} title="No automated emails" />} />
+      </Panel>
 
-        <div className="cc-panel mb-4 flex items-start gap-2 p-3">
-          <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" style={{ color: "var(--cc-text-faint)" }} />
-          <p className="text-xs" style={{ color: "var(--cc-text-faint)" }}>
-            Security-critical triggers (password resets, security codes, admin-issued credential changes) always send
-            regardless of Enable/Disable — this cannot be turned off from here, by design. Disabling also respects each
-            recipient&apos;s Access &amp; Entitlements email-eligibility flag, except for security-critical triggers, which
-            are never suppressed.
-          </p>
-        </div>
-
-        <div className="space-y-2">
-          {isLoading ? (
-            Array.from({ length: 5 }).map((_, i) => <div key={i} className="cc-panel h-16 animate-pulse" />)
-          ) : (
-            items.map((rule) => (
-              <div key={rule.key} className="cc-panel flex flex-wrap items-center justify-between gap-3 p-4">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-semibold" style={{ color: "var(--cc-text)" }}>{rule.name}</p>
-                    {rule.securityCritical && (
-                      <span className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider" style={{ background: "rgba(52,211,153,0.12)", color: "var(--cc-green)" }}>
-                        <ShieldCheck className="h-3 w-3" /> Always Sends
-                      </span>
-                    )}
-                  </div>
-                  <p className="cc-mono mt-1 text-[10px]" style={{ color: "var(--cc-text-faint)" }}>
-                    trigger: {rule.key} · template: {rule.templateKey}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => toggle(rule)}
-                    disabled={busyKey === rule.key || rule.securityCritical}
-                    className="cc-mono flex min-h-[44px] items-center gap-1.5 rounded border px-3 py-1.5 text-xs disabled:opacity-40 sm:min-h-0"
-                    style={{ borderColor: "var(--cc-border)", color: rule.enabled ? "var(--cc-green)" : "var(--cc-text-faint)" }}
-                    title={rule.securityCritical ? "Security-critical — cannot be disabled" : undefined}
-                  >
-                    <Power className="h-3.5 w-3.5" /> {rule.enabled ? "Enabled" : "Disabled"}
-                  </button>
-                  <button
-                    onClick={() => reset(rule)}
-                    disabled={busyKey === rule.key}
-                    className="cc-mono flex min-h-[44px] items-center gap-1.5 rounded border px-3 py-1.5 text-xs disabled:opacity-40 sm:min-h-0"
-                    style={{ borderColor: "var(--cc-border)", color: "var(--cc-text-dim)" }}
-                  >
-                    <RotateCcw className="h-3.5 w-3.5" /> Reset
-                  </button>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      </main>
+      <Modal open={testing !== null} onClose={() => setTesting(null)} title={`Send a test: ${testing?.name ?? ""}`}
+        description="Sends the live version of this email with sample data. The subject starts with [Test]. Counts toward your Resend limit."
+        footer={<><Button onClick={() => setTesting(null)}>Cancel</Button><Button variant="primary" loading={sending} disabled={!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)} onClick={() => void sendTest()}>Send test email</Button></>}>
+        <TextField label="Send to" type="email" value={to} onChange={(e) => setTo(e.target.value)} data-autofocus />
+      </Modal>
     </>
   );
 }

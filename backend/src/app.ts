@@ -21,6 +21,7 @@ import driveRoutes from "./routes/drive.routes";
 import authRoutes from "./routes/auth.routes";
 import voiceGreetingRoutes from "./routes/voiceGreeting.routes";
 import activityRoutes from "./routes/activity.routes";
+import { platformConfig } from "./lib/platformConfig";
 import capitalRoutes from "./routes/capital.routes";
 import { requireLevelForWrites, requireLevel } from "./lib/authLevel";
 import adminRoutes from "./routes/admin.routes";
@@ -122,7 +123,7 @@ export function createApp() {
   // export/backup generation is CPU-heavy and had no throttling at all.
   app.use("/api", rateLimit({
     windowMs: 15 * 60 * 1000,
-    limit: 300,
+    limit: () => platformConfig().apiRateLimit, // System Settings -> API request limit
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: "Too many requests. Please slow down and try again shortly.", code: "RATE_LIMITED" },

@@ -1,5 +1,5 @@
 import { prisma } from "./prisma";
-import { renderTemplate } from "./emailTemplateRenderer";
+import { renderPlain, renderTemplate } from "./emailTemplateRenderer";
 
 /**
  * Resolves the real HTML to send for a given templateKey: an enabled EmailTemplateOverride row's
@@ -15,6 +15,9 @@ import { renderTemplate } from "./emailTemplateRenderer";
  */
 export async function resolveEmailHtml(templateKey: string, defaultHtml: string, vars?: Record<string, string>): Promise<string> {
   try {
+    // 1) A version published in the Email Builder wins; 2) a legacy pasted override; 3) the built-in design.
+    const published = await prisma.emailTemplateVersion.findFirst({ where: { templateKey, status: "PUBLISHED" }, select: { compiledHtml: true } });
+    if (published) return renderTemplate(templateKey, published.compiledHtml, vars ?? {});
     const override = await prisma.emailTemplateOverride.findUnique({ where: { templateKey } });
     if (override?.enabled && override.html) {
       return vars ? renderTemplate(templateKey, override.html, vars) : override.html;
@@ -25,10 +28,12 @@ export async function resolveEmailHtml(templateKey: string, defaultHtml: string,
   }
 }
 
-export async function resolveEmailSubject(templateKey: string, defaultSubject: string): Promise<string> {
+export async function resolveEmailSubject(templateKey: string, defaultSubject: string, vars?: Record<string, string>): Promise<string> {
   try {
+    const published = await prisma.emailTemplateVersion.findFirst({ where: { templateKey, status: "PUBLISHED" }, select: { subject: true } });
+    if (published) return renderPlain(templateKey, published.subject, vars ?? {});
     const override = await prisma.emailTemplateOverride.findUnique({ where: { templateKey } });
-    if (override?.enabled && override.subject) return override.subject;
+    if (override?.enabled && override.subject) return vars ? renderPlain(templateKey, override.subject, vars) : override.subject;
     return defaultSubject;
   } catch {
     return defaultSubject;

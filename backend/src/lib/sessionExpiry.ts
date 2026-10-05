@@ -1,4 +1,5 @@
 import { prisma } from "./prisma";
+import { platformConfig } from "./platformConfig";
 
 const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000; // UTC+5:30, no DST
 
@@ -28,7 +29,7 @@ export async function getSessionTimeoutMinutes(userId: string): Promise<number> 
   const raw = data?.security?.sessionTimeout;
   if (raw === 0) return 0; // explicit "Never"
   const minutes = Number(raw);
-  return Number.isFinite(minutes) && minutes > 0 ? minutes : 30;
+  return Number.isFinite(minutes) && minutes > 0 ? minutes : platformConfig().defaultSessionTimeoutMinutes;
 }
 
 /**

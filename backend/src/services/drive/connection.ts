@@ -1,4 +1,5 @@
 import type { BackupConnection } from "@prisma/client";
+import { emailDriveReauthRequired } from "./driveEmails";
 import { prisma } from "../../lib/prisma";
 import { encryptSecret, decryptSecret } from "../../lib/crypto";
 import { ApiError } from "../../middleware/errorHandler";
@@ -28,6 +29,7 @@ export async function getValidAccessToken(connection: BackupConnection): Promise
 
   if (connection.tokenExpiresAt && connection.tokenExpiresAt.getTime() < Date.now() + 60000) {
     if (!connection.refreshToken) {
+      void emailDriveReauthRequired(connection.id, connection.userId);
       throw new ApiError(401, "Google Drive session expired. Please reconnect.", "DRIVE_REAUTH_REQUIRED");
     }
     try {
@@ -40,6 +42,7 @@ export async function getValidAccessToken(connection: BackupConnection): Promise
     } catch {
       // Refresh token itself was revoked/invalidated (user revoked access in their Google
       // account, or it expired) — surface a clear reconnect prompt rather than a raw 500.
+      void emailDriveReauthRequired(connection.id, connection.userId);
       throw new ApiError(401, "Google Drive access was revoked. Please reconnect.", "DRIVE_REAUTH_REQUIRED");
     }
   }

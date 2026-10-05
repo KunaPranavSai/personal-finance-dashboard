@@ -1,4 +1,5 @@
 import { Router, Request, Response } from "express";
+import { emailDriveSetupCompleted, emailDriveSetupFailed } from "../services/drive/driveEmails";
 import crypto from "crypto";
 import { asyncHandler } from "../utils/asyncHandler";
 import { validateBody } from "../middleware/validate";
@@ -179,22 +180,26 @@ router.get(
       });
       const folders = await getOrCreatePennyPilotFolders(tokens.accessToken);
       const result = await setupWorkspace(pending.userId, tokens.accessToken, folders.rootId, tokens.accountEmail ?? null);
+      const before = await prisma.backupConnection.findUnique({ where: { userId_provider: { userId: pending.userId, provider: DRIVE_PROVIDER } }, select: { backupFolderId: true } });
       await prisma.backupConnection.update({
         where: { userId_provider: { userId: pending.userId, provider: DRIVE_PROVIDER } },
         data: { backupFolderId: folders.rootId, lastConnectError: null },
       });
+      void emailDriveSetupCompleted(pending.userId, Boolean(before?.backupFolderId));
       invalidateAllCachesForUser(pending.userId);
       res.redirect(`${base}?driveConnected=1&migrated=${result.migrated ? "1" : "0"}`);
     } catch (err) {
       console.error("Google Drive connect failed:", err);
       // Best-effort — surfaces in the admin Migration Status view; must never itself fail the
       // redirect back to the user.
+      const prev = await prisma.backupConnection.findUnique({ where: { userId_provider: { userId: pending.userId, provider: DRIVE_PROVIDER } }, select: { lastConnectError: true } }).catch(() => null);
       await prisma.backupConnection
         .update({
           where: { userId_provider: { userId: pending.userId, provider: DRIVE_PROVIDER } },
           data: { lastConnectError: (err instanceof Error ? err.message : "Unknown error").slice(0, 500) },
         })
         .catch(() => {});
+      void emailDriveSetupFailed(pending.userId, Boolean(prev?.lastConnectError));
       res.redirect(`${base}?driveError=connect_failed`);
     }
   })
@@ -228,20 +233,24 @@ router.post(
     });
     try {
       const result = await setupWorkspace(pending.userId, pending.accessToken, rootId, pending.accountEmail);
+      const before = await prisma.backupConnection.findUnique({ where: { userId_provider: { userId: pending.userId, provider: DRIVE_PROVIDER } }, select: { backupFolderId: true } });
       await prisma.backupConnection.update({
         where: { userId_provider: { userId: pending.userId, provider: DRIVE_PROVIDER } },
         data: { backupFolderId: rootId, lastConnectError: null },
       });
+      void emailDriveSetupCompleted(pending.userId, Boolean(before?.backupFolderId));
       invalidateAllCachesForUser(pending.userId);
       void logActivity(req, "drive_account_change_resolved", `Resolved account change: ${choice}`, pending.userId);
       res.json({ ok: true, migrated: result.migrated, counts: result.counts });
     } catch (err) {
+      const prev = await prisma.backupConnection.findUnique({ where: { userId_provider: { userId: pending.userId, provider: DRIVE_PROVIDER } }, select: { lastConnectError: true } }).catch(() => null);
       await prisma.backupConnection
         .update({
           where: { userId_provider: { userId: pending.userId, provider: DRIVE_PROVIDER } },
           data: { lastConnectError: (err instanceof Error ? err.message : "Unknown error").slice(0, 500) },
         })
         .catch(() => {});
+      void emailDriveSetupFailed(pending.userId, Boolean(prev?.lastConnectError));
       throw err;
     }
   })

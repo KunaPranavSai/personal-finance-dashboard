@@ -3,6 +3,7 @@ import { createApp } from "./app";
 import { initSessionVersion } from "./lib/sessionVersion";
 import { initSessionRevocations } from "./lib/sessionRevocation";
 import { checkEnv } from "./lib/envCheck";
+import { startPlatformConfig } from "./lib/platformConfig";
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 4000;
 
@@ -20,6 +21,8 @@ async function main() {
   } catch (err) {
     console.warn("Session revocation initialization skipped:", (err as Error).message);
   }
+
+  startPlatformConfig(); // System Settings values (email links, sender, rate limit, password rules...)
 
   const app = createApp();
   app.listen(PORT, () => {

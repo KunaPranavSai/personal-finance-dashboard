@@ -6,16 +6,19 @@ import { markSessionRevoked, markSessionsRevoked } from "../lib/sessionRevocatio
 import { logActivity } from "../lib/activityLog";
 import { sendEmail } from "../lib/notify";
 import { EMAIL_TEMPLATES } from "../lib/emailTemplates";
-import { resolveEmailHtml, resolveEmailSubject } from "../lib/emailTemplateOverrides";
-import { AUTOMATED_EMAIL_TRIGGERS } from "../services/email/automation";
-import { listMigrationStatuses, getMigrationSummary, deriveMigrationState, MigrationState } from "../services/admin/migrationStatus";
+import { AUTOMATED_EMAIL_TRIGGERS, sendAutomatedEmail } from "../services/email/automation";
+import { migrationStatesFor, listMigrationStatuses, getMigrationSummary, deriveMigrationState, MigrationState } from "../services/admin/migrationStatus";
 import { hasLegacyPostgresData } from "../services/drive/init";
 import { getSystemHealth } from "../services/admin/systemHealth";
 import { lookupGeo } from "../lib/geoip";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
-import { TEMPLATE_TAGS, GLOBAL_TAGS, missingRequiredTags, sampleVars } from "../lib/emailTemplateRenderer";
+import { refreshPlatformConfig } from "../lib/platformConfig";
 import { tableToCsv, tableToExcel, tableToPdf, TableReport } from "../services/export/tableExporter";
+import { requireRole } from "../middleware/auth";
+import emailBuilderRouter from "./emailBuilder.routes";
+import { compileHtmlMode } from "../lib/emailBlocks";
+import { esc } from "../lib/emailLayout";
 import { signImpersonation, setImpersonationCookie } from "../lib/tokens";
 
 const router = Router();
@@ -34,28 +37,33 @@ const ADMIN_ACTIVITY_EVENTS = [
 router.get(
   "/stats",
   asyncHandler(async (_req: Request, res: Response) => {
-    const now = new Date();
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const startOfWeek = new Date(startOfToday);
-    startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    // Admin time is fixed to IST (UTC+5:30, no DST). Day/week(Mon-start)/month boundaries are computed in IST so the
+    // cards, the trend charts and the session/email cutoffs all agree.
+    const IST_MS = 5.5 * 60 * 60 * 1000;
+    const istNow = new Date(Date.now() + IST_MS);
+    const istMidnight = Date.UTC(istNow.getUTCFullYear(), istNow.getUTCMonth(), istNow.getUTCDate());
+    const startOfToday = new Date(istMidnight - IST_MS);
+    const startOfWeek = new Date(istMidnight - ((istNow.getUTCDay() + 6) % 7) * 86400000 - IST_MS);
+    const startOfMonth = new Date(Date.UTC(istNow.getUTCFullYear(), istNow.getUTCMonth(), 1) - IST_MS);
+    const since30 = new Date(Date.now() - 30 * 86400000);
+
+    // A "real" user has verified their email and finished their profile; everyone else is an explorer (on-device only).
+    const real = { emailVerifiedAt: { not: null }, profileCompletedAt: { not: null } } as const;
+    const signedUp = (gte: Date) => prisma.user.count({ where: { ...real, profileCompletedAt: { gte } } });
 
     const [
-      totalUsers, activeUsers, pendingApprovals, suspendedUsers,
-      adminCount, superAdminCount,
+      totalUsers, explorers, activeUsers, suspendedUsers, adminCount, superAdminCount,
       signupsToday, signupsWeek, signupsMonth,
-      recentActivity, migrationSummary, driveConnectedCount, health,
-      recentFailedAuth,
+      recentActivity, migrationSummary, driveConnectedCount, health, recentFailedAuth,
+      errorActivityCount, emailFailureCount,
     ] = await Promise.all([
-      prisma.user.count(),
-      prisma.user.count({ where: { status: "ACTIVE" } }),
-      prisma.user.count({ where: { status: "PENDING" } }),
-      prisma.user.count({ where: { status: "SUSPENDED" } }),
+      prisma.user.count({ where: real }),
+      prisma.user.count({ where: { NOT: real } }),
+      prisma.user.count({ where: { ...real, status: "ACTIVE" } }),
+      prisma.user.count({ where: { ...real, status: "SUSPENDED" } }),
       prisma.user.count({ where: { role: "ADMIN" } }),
       prisma.user.count({ where: { role: "SUPER_ADMIN" } }),
-      prisma.user.count({ where: { createdAt: { gte: startOfToday } } }),
-      prisma.user.count({ where: { createdAt: { gte: startOfWeek } } }),
-      prisma.user.count({ where: { createdAt: { gte: startOfMonth } } }),
+      signedUp(startOfToday), signedUp(startOfWeek), signedUp(startOfMonth),
       prisma.activityLog.findMany({
         where: { event: { in: ADMIN_ACTIVITY_EVENTS } },
         orderBy: { createdAt: "desc" },
@@ -63,7 +71,8 @@ router.get(
         include: { user: { select: { name: true, email: true } } },
       }),
       getMigrationSummary(),
-      prisma.backupConnection.count({ where: { provider: "google_drive", backupFolderId: { not: null } } }),
+      // Same population as migrationSummary (role USER) so the two numbers can never disagree.
+      prisma.backupConnection.count({ where: { provider: "google_drive", backupFolderId: { not: null }, user: { role: "USER" } } }),
       getSystemHealth(),
       prisma.activityLog.findMany({
         where: { event: "login_failed" },
@@ -71,42 +80,38 @@ router.get(
         take: 10,
         include: { user: { select: { name: true, email: true } } },
       }),
+      // Product errors: any *_failed event except email delivery, which is reported separately.
+      prisma.activityLog.count({ where: { createdAt: { gte: since30 }, event: { endsWith: "_failed", not: { startsWith: "automated_email" } } } }),
+      prisma.activityLog.count({ where: { createdAt: { gte: since30 }, event: "automated_email_failed" } }),
     ]);
 
     const signupTrend = await prisma.$queryRaw<{ day: string; count: bigint }[]>`
-      SELECT to_char(date_trunc('day', "createdAt"), 'YYYY-MM-DD') as day, COUNT(*) as count
+      SELECT to_char(("profileCompletedAt" AT TIME ZONE 'Asia/Kolkata')::date, 'YYYY-MM-DD') as day, COUNT(*) as count
       FROM "User"
-      WHERE "createdAt" >= NOW() - INTERVAL '30 days'
+      WHERE "profileCompletedAt" >= ${since30} AND "emailVerifiedAt" IS NOT NULL
       GROUP BY 1
       ORDER BY 1 ASC
     `;
-    // User activity trend (any authenticated action, not just admin-visible ones) — powers the
-    // dashboard's "User Activity" Operations Monitor panel from real ActivityLog rows.
     const userActivityTrend = await prisma.$queryRaw<{ day: string; count: bigint }[]>`
-      SELECT to_char(date_trunc('day', "createdAt"), 'YYYY-MM-DD') as day, COUNT(*) as count
+      SELECT to_char(("createdAt" AT TIME ZONE 'Asia/Kolkata')::date, 'YYYY-MM-DD') as day, COUNT(*) as count
       FROM "ActivityLog"
-      WHERE "createdAt" >= NOW() - INTERVAL '30 days' AND "userId" IS NOT NULL
+      WHERE "createdAt" >= ${since30} AND "userId" IS NOT NULL
       GROUP BY 1
       ORDER BY 1 ASC
     `;
-    // Error activity — any event ending in _failed, over the same 30-day window, for the
-    // dashboard's Error Activity panel. No separate "error" table exists; this is the real
-    // signal already captured by every failure path that calls logActivity.
-    const errorActivityCount = await prisma.activityLog.count({
-      where: { createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) }, event: { endsWith: "_failed" } },
-    });
 
     res.json({
+      timezone: "Asia/Kolkata",
+      // `pending` is kept at 0 for older clients: sign-ups are no longer approved by an admin.
       users: {
-        total: totalUsers, active: activeUsers, pending: pendingApprovals, suspended: suspendedUsers,
+        total: totalUsers, explorers, active: activeUsers, pending: 0, suspended: suspendedUsers,
         admins: adminCount, superAdmins: superAdminCount,
       },
       signups: { today: signupsToday, week: signupsWeek, month: signupsMonth },
-      // No "records" (transactions/budgets/etc.) section — that data now lives in each user's
-      // own Google Drive, which the platform has no visibility into by design.
       signupTrend: signupTrend.map((r) => ({ day: r.day, count: Number(r.count) })),
       userActivityTrend: userActivityTrend.map((r) => ({ day: r.day, count: Number(r.count) })),
       errorActivityCount,
+      emailFailureCount,
       recentFailedAuth: recentFailedAuth.map((a) => ({
         id: a.id, detail: a.detail, createdAt: a.createdAt,
         user: a.user ? { name: a.user.name, email: a.user.email } : null,
@@ -122,16 +127,63 @@ router.get(
   })
 );
 
+// ─── GET /api/admin/users ─────────────────────────────────────────────────────
+// Server-side search / filter / sort / pagination for the Users table. Drive state is derived for the visible page only.
+router.get(
+  "/users",
+  asyncHandler(async (req: Request, res: Response) => {
+    const q = req.query as Record<string, string | undefined>;
+    const page = Math.max(1, parseInt(q.page ?? "1", 10) || 1);
+    const pageSize = Math.min(100, Math.max(1, parseInt(q.pageSize ?? "25", 10) || 25));
+    const where: Record<string, unknown> = {};
+    const and: Record<string, unknown>[] = [];
+    const term = q.q?.trim();
+    if (term) and.push({ OR: [
+      { name: { contains: term, mode: "insensitive" } }, { email: { contains: term, mode: "insensitive" } },
+      { uid: { contains: term, mode: "insensitive" } }, { phone: { contains: term } },
+    ] });
+    if (q.role && ["SUPER_ADMIN", "ADMIN", "USER"].includes(q.role)) where.role = q.role;
+    if (q.status && ["ACTIVE", "SUSPENDED"].includes(q.status)) where.status = q.status;
+    if (q.verification === "verified") and.push({ emailVerifiedAt: { not: null }, profileCompletedAt: { not: null } });
+    else if (q.verification === "explorer") and.push({ OR: [{ emailVerifiedAt: null }, { profileCompletedAt: null }] });
+    if (and.length) where.AND = and;
+    const sortable = ["createdAt", "lastLoginAt", "name", "email"];
+    const sort = sortable.includes(q.sort ?? "") ? (q.sort as string) : "createdAt";
+    const dir = q.dir === "asc" ? "asc" : "desc";
+
+    const [total, rows] = await Promise.all([
+      prisma.user.count({ where }),
+      prisma.user.findMany({
+        where, orderBy: [{ [sort]: dir }, { id: "asc" }], skip: (page - 1) * pageSize, take: pageSize,
+        select: {
+          id: true, uid: true, email: true, name: true, phone: true, role: true, status: true,
+          createdAt: true, lastLoginAt: true, twoFactorEnabled: true, emailVerifiedAt: true, profileCompletedAt: true,
+        },
+      }),
+    ]);
+    const migration = await migrationStatesFor(rows.filter((r) => r.role === "USER").map((r) => r.id));
+    res.json({
+      page, pageSize, total, totalPages: Math.max(1, Math.ceil(total / pageSize)),
+      items: rows.map((u) => ({
+        ...u,
+        accountType: u.emailVerifiedAt && u.profileCompletedAt ? "verified" : "explorer",
+        migrationState: migration.get(u.id) ?? null,
+      })),
+    });
+  })
+);
+
 // ─── GET /api/admin/export ────────────────────────────────────────────────────
 // Branded Users or Audit-log export (PDF / Excel / CSV). Same brand block as the user reports.
 router.get(
   "/export",
+  requireRole("SUPER_ADMIN"),
   asyncHandler(async (req: Request, res: Response) => {
     const { type = "users", format = "xlsx", from, to } = req.query as { type?: string; format?: string; from?: string; to?: string };
     if (!["users", "audit"].includes(type)) { res.status(400).json({ error: "type must be users or audit" }); return; }
     if (!["pdf", "xlsx", "csv"].includes(format)) { res.status(400).json({ error: "format must be pdf, xlsx or csv" }); return; }
-    const fromDate = from ? new Date(from) : undefined;
-    const toDate = to ? new Date(to + "T23:59:59.999Z") : undefined;
+    const fromDate = from ? new Date(`${from}T00:00:00+05:30`) : undefined;
+    const toDate = to ? new Date(`${to}T23:59:59.999+05:30`) : undefined;
     const range = {
       ...(fromDate && !isNaN(fromDate.getTime()) && { gte: fromDate }),
       ...(toDate && !isNaN(toDate.getTime()) && { lte: toDate }),
@@ -192,8 +244,10 @@ router.get(
 
     const where: Record<string, unknown> = {};
     if (userId) where.userId = userId;
-    const fromDate = from ? new Date(from) : undefined;
-    const toDate = to ? new Date(to) : undefined;
+    // Date-only filters are IST calendar days (admin time is IST); a full timestamp is used as given.
+    const dateOnly = (v: string) => /^\d{4}-\d{2}-\d{2}$/.test(v);
+    const fromDate = from ? new Date(dateOnly(from) ? `${from}T00:00:00+05:30` : from) : undefined;
+    const toDate = to ? new Date(dateOnly(to) ? `${to}T23:59:59.999+05:30` : to) : undefined;
     if ((fromDate && !isNaN(fromDate.getTime())) || (toDate && !isNaN(toDate.getTime()))) {
       where.createdAt = {
         ...(fromDate && !isNaN(fromDate.getTime()) && { gte: fromDate }),
@@ -244,7 +298,7 @@ router.get(
     });
 
     const trend = await prisma.$queryRaw<{ day: string; event: string; count: bigint }[]>`
-      SELECT to_char(date_trunc('day', "createdAt"), 'YYYY-MM-DD') as day, "event", COUNT(*) as count
+      SELECT to_char(("createdAt" AT TIME ZONE 'Asia/Kolkata')::date, 'YYYY-MM-DD') as day, "event", COUNT(*) as count
       FROM "ActivityLog"
       WHERE "createdAt" >= NOW() - INTERVAL '30 days' AND "event" IN ('login_failed', 'password_changed', 'password_reset', 'uid_changed', '2fa_enabled', '2fa_disabled')
       GROUP BY 1, 2
@@ -337,11 +391,7 @@ router.post(
       res.status(400).json({ error: "This account does not currently need a migration reminder." });
       return;
     }
-    const emailSent = await sendEmail(
-      user.email,
-      "Action needed: connect Google Drive to Penny Pilot",
-      `<p>Hi ${user.name},</p><p>Penny Pilot now stores your financial data in your own Google Drive. Please sign in and connect (or reconnect) Google Drive to continue using your account: your existing data is safe and has not been deleted.</p>`
-    );
+    const emailSent = await sendAutomatedEmail({ req, triggerKey: "migration_action_required", userId: user.id, to: user.email, vars: { name: user.name || "there" } });
     void logActivity(req, "migration_reminder_sent", `Sent a Drive-migration reminder to ${user.email}`, req.auth!.userId);
     res.json({ ok: true, emailSent });
   })
@@ -354,6 +404,7 @@ router.post(
 // are included since those are genuinely this platform's own data, not a user's financial data.
 router.get(
   "/backup",
+  requireRole("SUPER_ADMIN"),
   asyncHandler(async (req: Request, res: Response) => {
     const users = await prisma.user.findMany({
       select: {
@@ -381,115 +432,8 @@ router.get(
   })
 );
 
-// ─── GET /api/admin/email-templates ──────────────────────────────────────────
-// Merges each code-defined template (default/fallback content, with sample data filled in) with
-// its EmailTemplateOverride row, if any, so the admin sees exactly what would actually be sent.
-router.get(
-  "/email-templates",
-  asyncHandler(async (_req: Request, res: Response) => {
-    const overrides = await prisma.emailTemplateOverride.findMany();
-    const overrideByKey = new Map(overrides.map((o) => [o.templateKey, o]));
-    const items = EMAIL_TEMPLATES.map((t) => {
-      const override = overrideByKey.get(t.id);
-      return {
-        id: t.id,
-        name: t.name,
-        defaultHtml: t.html,
-        html: override?.enabled && override.html ? override.html : t.html,
-        subject: override?.enabled && override.subject ? override.subject : null,
-        hasOverride: Boolean(override),
-        enabled: override?.enabled ?? true,
-        // The editor's side panel: what this template can fill, which tags are mandatory, and sample values.
-        taggedHtml: t.tagged,
-        tags: TEMPLATE_TAGS[t.id] ?? [],
-        globalTags: GLOBAL_TAGS,
-      };
-    });
-    res.json({ items });
-  })
-);
-
-// ─── PATCH /api/admin/email-templates/:id ────────────────────────────────────
-// Upserts an EmailTemplateOverride row for a known registry templateKey. Only html/subject/
-// enabled are editable — nothing here lets an admin introduce a new {{placeholder}} the send
-// path would actually substitute; the code templates remain plain JS functions with real
-// arguments, so an enabled override's html/subject are sent VERBATIM to every recipient of that
-// template (no per-recipient name/uid/etc. interpolation). This is disclosed to the admin in the
-// response and must be surfaced in the UI, not hidden.
-router.patch(
-  "/email-templates/:id",
-  asyncHandler(async (req: Request, res: Response) => {
-    const templateKey = String(req.params.id);
-    if (!EMAIL_TEMPLATES.some((t) => t.id === templateKey)) {
-      res.status(404).json({ error: "Unknown template — overrides are scoped to existing registry templates only" });
-      return;
-    }
-    const { subject, html, enabled } = req.body as { subject?: string | null; html?: string | null; enabled?: boolean };
-    // Refuse content that would send a useless email (e.g. a sign-in code mail with no {{code}}).
-    if (typeof html === "string" && enabled !== false) {
-      const missing = missingRequiredTags(templateKey, html);
-      if (missing.length > 0) {
-        res.status(400).json({ error: `Missing required tag${missing.length > 1 ? "s" : ""}: ${missing.map((m) => `{{${m}}}`).join(", ")}`, missing });
-        return;
-      }
-    }
-    const data: Record<string, unknown> = { updatedById: req.auth!.userId };
-    if (subject !== undefined) data.subject = subject;
-    if (html !== undefined) data.html = html;
-    if (enabled !== undefined) data.enabled = Boolean(enabled);
-
-    const updated = await prisma.emailTemplateOverride.upsert({
-      where: { templateKey },
-      update: data,
-      create: { templateKey, ...data },
-    });
-    void logActivity(req, "email_template_override_updated", `Updated override for template "${templateKey}"`, req.auth!.userId);
-    res.json({
-      ...updated,
-      warning: "Overridden content is sent as-is to every recipient — it is not re-personalized per user.",
-    });
-  })
-);
-
-// ─── DELETE /api/admin/email-templates/:id ───────────────────────────────────
-// "Delete" for one of the 7 built-in registry templates means Restore Default — it removes the
-// override row so sends fall back to the code default, never removes send capability for that
-// template (there is no concept of a fully custom, non-registry template in this pass).
-router.delete(
-  "/email-templates/:id",
-  asyncHandler(async (req: Request, res: Response) => {
-    const templateKey = String(req.params.id);
-    const existing = await prisma.emailTemplateOverride.findUnique({ where: { templateKey } });
-    if (!existing) {
-      res.json({ ok: true, message: "Already using the default template." });
-      return;
-    }
-    await prisma.emailTemplateOverride.delete({ where: { templateKey } });
-    void logActivity(req, "email_template_override_restored", `Restored default for template "${templateKey}"`, req.auth!.userId);
-    res.json({ ok: true, message: "Restored to the built-in default template." });
-  })
-);
-
-// ─── POST /api/admin/email-templates/:id/test ────────────────────────────────
-router.post(
-  "/email-templates/:id/test",
-  asyncHandler(async (req: Request, res: Response) => {
-    const template = EMAIL_TEMPLATES.find((t) => t.id === req.params.id);
-    if (!template) {
-      res.status(404).json({ error: "Template not found" });
-      return;
-    }
-    const admin = await prisma.user.findUnique({ where: { id: req.auth!.userId } });
-    if (!admin) {
-      res.status(401).json({ error: "Account not found" });
-      return;
-    }
-    const subject = await resolveEmailSubject(template.id, `[Test] Penny Pilot — ${template.name}`);
-    const html = await resolveEmailHtml(template.id, template.html, sampleVars(template.id));
-    const emailSent = await sendEmail(admin.email, subject, html);
-    res.json({ emailSent });
-  })
-);
+// Editing, restoring and test-sending emails now lives in /api/admin/email-builder (emailBuilder.routes.ts).
+router.use("/email-builder", emailBuilderRouter);
 
 // ─── Automated Email Rules ───────────────────────────────────────────────────
 // The 6 real sendEmail(...) call sites found in auth.routes.ts (see
@@ -502,17 +446,43 @@ router.post(
 router.get(
   "/automated-emails",
   asyncHandler(async (_req: Request, res: Response) => {
-    const configs = await prisma.emailAutomationConfig.findMany();
+    const since = new Date(Date.now() - 30 * 86400000);
+    const [configs, published, overrides, events] = await Promise.all([
+      prisma.emailAutomationConfig.findMany(),
+      prisma.emailTemplateVersion.findMany({ where: { status: "PUBLISHED" }, select: { templateKey: true, version: true, publishedAt: true } }),
+      prisma.emailTemplateOverride.findMany({ where: { enabled: true, html: { not: null } }, select: { templateKey: true, updatedAt: true } }),
+      prisma.activityLog.groupBy({ by: ["event", "detail"], where: { event: { in: ["automated_email_sent", "automated_email_failed", "automated_email_skipped"] }, createdAt: { gte: since } }, _count: true }),
+    ]);
     const configByKey = new Map(configs.map((c) => [c.triggerKey, c]));
+    const pubByKey = new Map(published.map((v) => [v.templateKey, v]));
+    const overrideByKey = new Map(overrides.map((o) => [o.templateKey, o]));
+    // The audit detail is  Trigger "key"  or  Skipped "key" - reason.
+    const counts = new Map<string, { sent: number; failed: number; skipped: number }>();
+    for (const e of events) {
+      const k = /"([a-z_]+)"/.exec(e.detail ?? "")?.[1];
+      if (!k) continue;
+      const c = counts.get(k) ?? { sent: 0, failed: 0, skipped: 0 };
+      if (e.event === "automated_email_sent") c.sent += e._count;
+      else if (e.event === "automated_email_failed") c.failed += e._count;
+      else c.skipped += e._count;
+      counts.set(k, c);
+    }
     const items = AUTOMATED_EMAIL_TRIGGERS.map((t) => {
       const config = configByKey.get(t.key);
+      const pub = pubByKey.get(t.defaultTemplateKey);
+      const legacy = overrideByKey.get(t.defaultTemplateKey);
+      const dates = [config?.updatedAt, pub?.publishedAt, legacy?.updatedAt].filter((d): d is Date => !!d);
       return {
         key: t.key,
         name: t.name,
-        securityCritical: t.securityCritical,
+        description: t.description,
+        audience: t.audience,
+        locked: t.locked,
         templateKey: config?.templateKey ?? t.defaultTemplateKey,
         enabled: config?.enabled ?? true,
-        updatedAt: config?.updatedAt ?? null,
+        design: pub ? { kind: "custom", version: pub.version } : legacy ? { kind: "legacy" } : { kind: "built-in" },
+        stats30d: counts.get(t.key) ?? { sent: 0, failed: 0, skipped: 0 },
+        updatedAt: dates.length ? new Date(Math.max(...dates.map((d) => d.getTime()))) : null,
       };
     });
     res.json({ items });
@@ -533,6 +503,10 @@ router.patch(
       return;
     }
     const { enabled, templateKey } = req.body as { enabled?: boolean; templateKey?: string };
+    if (meta.locked && enabled === false) {
+      res.status(400).json({ error: "This email carries the code people need to sign in or recover their account, so it cannot be switched off." });
+      return;
+    }
     if (templateKey && !EMAIL_TEMPLATES.some((t) => t.id === templateKey)) {
       res.status(400).json({ error: "Unknown template key" });
       return;
@@ -549,10 +523,7 @@ router.patch(
     void logActivity(req, "automated_email_config_updated", `Updated automation rule "${triggerKey}"`, req.auth!.userId);
     res.json({
       ...updated,
-      securityCritical: meta.securityCritical,
-      warning: meta.securityCritical
-        ? "This trigger is security-critical and always sends regardless of this setting."
-        : undefined,
+      locked: meta.locked,
     });
   })
 );
@@ -585,6 +556,16 @@ const MAX_RECIPIENTS = 20;
 type ComposerRecipient = { type: "user"; userId: string } | { type: "email"; address: string };
 
 router.post(
+  "/email/preview",
+  requireRole("SUPER_ADMIN"),
+  asyncHandler(async (req: Request, res: Response) => {
+    const { subject, customHtml } = req.body as { subject?: string; customHtml?: string };
+    const body = String(customHtml ?? "").replace(/\{\{\s*name\s*\}\}/g, "Pranav");
+    res.json({ html: compileHtmlMode(body, "", String(subject ?? "Message").slice(0, 200)).html });
+  })
+);
+
+router.post(
   "/email/send",
   asyncHandler(async (req: Request, res: Response) => {
     if (req.auth!.role !== "SUPER_ADMIN") {
@@ -601,20 +582,21 @@ router.post(
       res.status(400).json({ error: "Subject is required" });
       return;
     }
-    const template = templateKey ? EMAIL_TEMPLATES.find((t) => t.id === templateKey) : undefined;
-    if (templateKey && !template) {
-      res.status(400).json({ error: "Unknown template key" });
+    // Built-in transactional emails (codes, security notices) are filled with real data by the system only. Sending
+    // one by hand would deliver sample values such as a made-up sign-in code, so the composer sends custom messages.
+    if (templateKey) {
+      res.status(400).json({ error: "System emails are sent automatically. Write a custom message instead." });
       return;
     }
-    if (!template && !customHtml?.trim()) {
-      res.status(400).json({ error: "Provide either a template or custom body content" });
+    const template = undefined as (typeof EMAIL_TEMPLATES)[number] | undefined;
+    if (!customHtml?.trim()) {
+      res.status(400).json({ error: "Write the message body" });
       return;
     }
 
-    // Security-critical parity with automated emails: a template flagged security-critical in
-    // the automation registry is never eligibility-gated here either, even sent manually.
+    // Locked (sign-in / recovery code) templates are never eligibility-gated here either, even sent manually.
     const triggerMeta = template ? AUTOMATED_EMAIL_TRIGGERS.find((t) => t.defaultTemplateKey === template.id) : undefined;
-    const securityCritical = triggerMeta?.securityCritical ?? false;
+    const securityCritical = triggerMeta?.locked ?? false;
 
     // Test mode is backend-enforced to the logged-in admin's own address — the submitted
     // recipient list is never used for a test send, so this can never reach another real user.
@@ -677,12 +659,10 @@ router.post(
         if (!r.eligible) {
           return { to: r.to, success: false, skipped: true, reason: "email-ineligible" };
         }
-        const vars: Record<string, string> = {};
-        if (r.name) vars.name = r.name;
-        const defaultHtml = template ? template.html : (customHtml as string);
-        const html = template ? await resolveEmailHtml(template.id, defaultHtml, vars) : defaultHtml;
-        const finalSubject = template ? await resolveEmailSubject(template.id, subject) : subject;
-        const sent = await sendEmail(r.to, finalSubject, html);
+        // The body is sanitised to email-safe markup and placed inside the standard branded frame.
+        const personalised = (customHtml as string).replace(/\{\{\s*name\s*\}\}/g, esc(r.name || "there"));
+        const html = compileHtmlMode(personalised, "", subject.trim()).html;
+        const sent = await sendEmail(r.to, subject.trim(), html);
         return { to: r.to, success: sent, skipped: false, reason: sent ? undefined : "delivery-failed" };
       })
     );
@@ -722,21 +702,44 @@ router.patch(
       res.status(403).json({ error: "Only a Super Admin can change platform settings" });
       return;
     }
-    const { siteName, supportEmail, defaultSessionTimeoutMinutes, minPasswordLength, require2FAForAdmins } = req.body as {
-      siteName?: string | null; supportEmail?: string | null; defaultSessionTimeoutMinutes?: number; minPasswordLength?: number; require2FAForAdmins?: boolean;
-    };
+    const b = req.body as Record<string, unknown>;
+    const str = (v: unknown) => (typeof v === "string" ? v.trim() : v === null ? "" : undefined);
+    const emailRe = /^[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]+$/;
+    const errors: string[] = [];
     const data: Record<string, unknown> = {};
-    if (siteName !== undefined) data.siteName = siteName?.trim() || "Penny Pilot";
-    if (supportEmail !== undefined) data.supportEmail = supportEmail?.trim() || null;
-    if (defaultSessionTimeoutMinutes !== undefined) data.defaultSessionTimeoutMinutes = Math.max(1, Number(defaultSessionTimeoutMinutes) || 30);
-    if (minPasswordLength !== undefined) data.minPasswordLength = Math.max(6, Math.min(64, Number(minPasswordLength) || 8));
-    if (require2FAForAdmins !== undefined) data.require2FAForAdmins = Boolean(require2FAForAdmins);
 
+    const siteName = str(b.siteName);
+    if (siteName !== undefined) data.siteName = siteName.slice(0, 60) || "Penny Pilot";
+
+    const appUrl = str(b.appUrl);
+    if (appUrl !== undefined) {
+      if (appUrl && !/^https?:\/\/[^\s"'<>]+$/i.test(appUrl)) errors.push("App URL must start with http:// or https:// and contain no spaces");
+      else data.appUrl = appUrl ? appUrl.replace(/\/+$/, "") : null;
+    }
+    for (const [key, label] of [["supportEmail", "Support email"], ["emailFromAddress", "Sender email"], ["superAdminEmail", "Super-admin alert email"]] as const) {
+      const v = str(b[key]);
+      if (v === undefined) continue;
+      if (v && !emailRe.test(v)) errors.push(`${label} is not a valid email address`);
+      else data[key] = v || null;
+    }
+    const fromName = str(b.emailFromName);
+    if (fromName !== undefined) data.emailFromName = fromName.replace(/[<>"\r\n]/g, "").slice(0, 60) || null;
+
+    if (b.defaultSessionTimeoutMinutes !== undefined) data.defaultSessionTimeoutMinutes = Math.min(10080, Math.max(1, Number(b.defaultSessionTimeoutMinutes) || 30));
+    if (b.minPasswordLength !== undefined) data.minPasswordLength = Math.max(6, Math.min(64, Number(b.minPasswordLength) || 8));
+    if (b.require2FAForAdmins !== undefined) data.require2FAForAdmins = Boolean(b.require2FAForAdmins);
+    if (b.apiRateLimit !== undefined) data.apiRateLimit = Math.min(100000, Math.max(30, Number(b.apiRateLimit) || 300));
+
+    if (errors.length > 0) {
+      res.status(400).json({ error: errors.join(". ") });
+      return;
+    }
     const settings = await prisma.platformSettings.upsert({
       where: { id: "singleton" },
       update: data,
       create: { id: "singleton", ...data },
     });
+    await refreshPlatformConfig(); // takes effect immediately on this server; others pick it up within a minute
     void logActivity(req, "platform_settings_updated", "Platform settings changed", req.auth!.userId);
     res.json(settings);
   })
@@ -756,7 +759,7 @@ router.get(
       select: {
         id: true, uid: true, email: true, name: true, phone: true, role: true, status: true,
         twoFactorEnabled: true, mustChangePassword: true, failedLoginAttempts: true, lockedUntil: true,
-        onboardedAt: true, approvedAt: true, rejectedAt: true, rejectionReason: true,
+        onboardedAt: true, emailVerifiedAt: true, profileCompletedAt: true, pinHash: true,
         lastLoginAt: true, createdAt: true, updatedAt: true,
       },
     });
@@ -764,6 +767,7 @@ router.get(
       res.status(404).json({ error: "User not found" });
       return;
     }
+    const { pinHash, ...userPublic } = user; // never send the hash itself, only whether a PIN exists
 
     // Admin-initiated events about this user set the real targetUserId column (see
     // logActivity/activityLog.ts) — no text/email matching, exact FK match only.
@@ -804,7 +808,7 @@ router.get(
     const lastSession = sessionsWithGeo[0] ?? null;
 
     res.json({
-      user,
+      user: { ...userPublic, hasPin: Boolean(pinHash), accountType: user.emailVerifiedAt && user.profileCompletedAt ? "verified" : "explorer" },
       overview: {
         registeredAt: user.createdAt,
         registeredIp: "Not recorded", // signup does not capture IP — see report
@@ -864,8 +868,10 @@ router.get(
     // covers every admin→this-user action logged since this column was added.
     const where: Record<string, unknown> = { OR: [{ userId: id }, { targetUserId: id }] };
     if (event) where.event = event;
-    const fromDate = from ? new Date(from) : undefined;
-    const toDate = to ? new Date(to) : undefined;
+    // Date-only filters are IST calendar days (admin time is IST); a full timestamp is used as given.
+    const dateOnly = (v: string) => /^\d{4}-\d{2}-\d{2}$/.test(v);
+    const fromDate = from ? new Date(dateOnly(from) ? `${from}T00:00:00+05:30` : from) : undefined;
+    const toDate = to ? new Date(dateOnly(to) ? `${to}T23:59:59.999+05:30` : to) : undefined;
     if ((fromDate && !isNaN(fromDate.getTime())) || (toDate && !isNaN(toDate.getTime()))) {
       where.createdAt = {
         ...(fromDate && !isNaN(fromDate.getTime()) && { gte: fromDate }),
@@ -1024,7 +1030,7 @@ router.get(
     const now = new Date();
     const withDerivedStatus = items.map((a) => ({
       ...a,
-      status: a.expireAt && a.expireAt < now ? "EXPIRED" : a.status,
+      status: a.expireAt && a.expireAt < now ? "EXPIRED" : a.status === "SCHEDULED" && a.publishAt && a.publishAt <= now ? "PUBLISHED" : a.status,
     }));
     res.json({ items: withDerivedStatus });
   })
@@ -1157,11 +1163,13 @@ router.post(
     const request = await prisma.impersonationRequest.create({
       data: { adminId: req.auth!.userId, targetUserId, otpHash, otpExpiresAt: new Date(Date.now() + IMPERSONATION_OTP_TTL_MS) },
     });
-    await sendEmail(
-      target.email,
-      "Penny Pilot — Admin access verification code",
-      `<p>An administrator (${req.auth!.uid}) has requested access to your account for support purposes.</p><p>Verification code: <strong>${otp}</strong></p><p>If you did not expect this, contact support immediately.</p>`
-    );
+    const codeSent = await sendAutomatedEmail({ req, triggerKey: "admin_access_code", userId: target.id, to: target.email, vars: { name: target.name || "there", code: otp } });
+    if (!codeSent && process.env.NODE_ENV !== "production") console.log(`[dev] admin access code for ${target.email}: ${otp}`);
+    if (!codeSent && process.env.NODE_ENV === "production") {
+      await prisma.impersonationRequest.delete({ where: { id: request.id } }).catch(() => {});
+      res.status(503).json({ error: "The verification email could not be sent. Please try again." });
+      return;
+    }
     void logActivity(req, "ADMIN_USER_ACCESS_REQUESTED", `Requested access to ${target.email}`, req.auth!.userId, targetUserId);
     res.json({ requestId: request.id, expiresAt: request.otpExpiresAt });
   })

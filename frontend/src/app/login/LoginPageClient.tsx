@@ -435,12 +435,7 @@ export function LoginPageClient({ embedded = false }: LoginPageClientProps = {})
         )}
       </AnimatePresence>
 
-      <div className="mt-6 flex items-center justify-center gap-2 text-xs text-white/30">
-        <ShieldCheck className="h-3 w-3" />
-        <span>Secured with JWT authentication</span>
-      </div>
-
-      <p className="mt-4 text-center text-xs text-white/40">
+      <p className="mt-6 text-center text-xs text-white/40">
         New here?{" "}
         <Link href="/signup" className="font-medium text-tiffany transition-colors hover:text-tiffany/80">
           Get started

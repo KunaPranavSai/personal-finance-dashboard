@@ -1,90 +1,47 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import { Activity, Mail, Database, HardDrive, Clock, Server, ArrowRight } from "lucide-react";
-import { Topbar } from "@/components/layout/Topbar";
-import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
-import { StatCard, StatCardSkeleton } from "@/components/admin/StatCard";
-import { api } from "@/lib/api";
+import { Clock, Database, HardDrive, Mail } from "lucide-react";
+import { Alert, Badge, ErrorState, PageHeader, Panel, Skeleton, Stat } from "@/components/admin/ui";
+import { useAdminStats } from "@/lib/adminHooks";
+import { fmtNumber, fmtUptime } from "@/lib/adminFormat";
 
-interface AdminStats {
-  systemHealth: {
-    database: { status: string; latencyMs: number | null };
-    email: { status: string };
-    driveApi: { status: string };
-    uptimeSeconds: number;
-  };
-}
-
-function formatUptime(seconds: number): string {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  if (h === 0) return `${m}m`;
-  return `${h}h ${m}m`;
-}
-
+/** System health and third-party integrations in one place (these used to be two pages showing the same checks). */
 export default function AdminSystemHealthPage() {
-  const { data: stats, isLoading: statsLoading } = useQuery({
-    queryKey: ["admin-stats", "system-health"],
-    queryFn: () => api.get<AdminStats>("/api/admin/stats"),
-    refetchInterval: 30_000,
-  });
+  const { data, isLoading, isError, refetch } = useAdminStats(30_000);
+  if (isError) return <><PageHeader title="Health & Integrations" /><ErrorState onRetry={() => void refetch()} /></>;
+  const h = data?.systemHealth;
+  const dbOk = h?.database.status === "ok";
+  const emailOk = h?.email.status === "configured";
+  const driveOk = h?.driveApi.status === "configured";
 
   return (
     <>
-      <Topbar title="System Health" />
-      <main className="flex-1 overflow-y-auto p-4 lg:p-6">
-        <AdminPageHeader icon={Activity} title="System Health" description="Live platform status, backed by real checks only." />
-
-        {statsLoading || !stats ? (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
-            {Array.from({ length: 4 }).map((_, i) => <StatCardSkeleton key={i} />)}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
-            <StatCard
-              label="Database"
-              value={stats.systemHealth.database.status === "ok" ? `Healthy${stats.systemHealth.database.latencyMs !== null ? ` (${stats.systemHealth.database.latencyMs}ms)` : ""}` : "Issue"}
-              icon={Database}
-              tone={stats.systemHealth.database.status === "ok" ? "emerald" : "red"}
-            />
-            <StatCard
-              label="Google Drive API"
-              value={stats.systemHealth.driveApi.status === "configured" ? "Configured" : "Not Configured"}
-              icon={HardDrive}
-              tone={stats.systemHealth.driveApi.status === "configured" ? "emerald" : "red"}
-            />
-            <StatCard
-              label="Email (Resend)"
-              value={stats.systemHealth.email.status === "configured" ? "Configured" : "Not Configured"}
-              icon={Mail}
-              tone={stats.systemHealth.email.status === "configured" ? "emerald" : "red"}
-            />
-            <StatCard label="Backend Uptime" value={formatUptime(stats.systemHealth.uptimeSeconds)} icon={Clock} />
-          </div>
-        )}
-
-        <div className="cc-panel mt-2 flex items-center gap-2 p-3">
-          <Server className="h-3.5 w-3.5" style={{ color: "var(--cc-text-faint)" }} />
-          <p className="cc-mono text-[10px]" style={{ color: "var(--cc-text-faint)" }}>
-            Migration service: derived (see Migration Status) · Background jobs: not monitored — no job runner is wired up yet, shown honestly rather than faked.
-          </p>
+      <PageHeader title="Health & Integrations" description="Live checks of the services Penny Pilot depends on. Refreshes every 30 seconds." />
+      {h && (!dbOk || !emailOk || !driveOk) && (
+        <div className="mb-4 grid gap-2">
+          {!dbOk && <Alert tone="error" title="Database check failed">The API could not reach the database.</Alert>}
+          {!emailOk && <Alert tone="warn" title="Email is not configured">No Resend API key is set on the server, so no emails can be sent.</Alert>}
+          {!driveOk && <Alert tone="warn" title="Google Drive is not configured">Google OAuth credentials are missing on the server, so users cannot connect Drive.</Alert>}
         </div>
-
-        <Link href="/admin/email-templates" className="cc-panel mt-6 flex items-center justify-between p-4 transition-shadow hover:shadow-lg">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg" style={{ background: "var(--cc-accent-dim)", color: "var(--cc-accent)" }}>
-              <Mail className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold" style={{ color: "var(--cc-text)" }}>Email Templates</p>
-              <p className="text-xs" style={{ color: "var(--cc-text-dim)" }}>Preview transactional templates and send yourself a test copy.</p>
-            </div>
-          </div>
-          <ArrowRight className="h-4 w-4" style={{ color: "var(--cc-text-faint)" }} />
-        </Link>
-      </main>
+      )}
+      <div className="ad-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))" }}>
+        {isLoading || !h ? Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} h={92} className="rounded-xl" />) : (
+          <>
+            <Stat label="Database" icon={Database} tone={dbOk ? "green" : "red"} value={dbOk ? "Healthy" : "Issue"} hint={h.database.latencyMs != null ? `${h.database.latencyMs} ms response` : undefined} />
+            <Stat label="Email (Resend)" icon={Mail} tone={emailOk ? "green" : "red"} value={emailOk ? "Configured" : "Not set"} href="/admin/automated-emails" hint="Open Email Automations" />
+            <Stat label="Google Drive API" icon={HardDrive} tone={driveOk ? "green" : "red"} value={driveOk ? "Configured" : "Not set"} hint={data ? `${fmtNumber(data.driveConnectedCount)} accounts connected` : undefined} href="/admin/migration" />
+            <Stat label="Backend uptime" icon={Clock} value={fmtUptime(h.uptimeSeconds)} hint="Since the last restart" />
+          </>
+        )}
+      </div>
+      <Panel title="Notes" className="mt-4">
+        <ul className="m-0 grid gap-2 pl-5">
+          <li>Google Drive tokens are never shown here, and administrators cannot open a user&apos;s Drive.</li>
+          <li>Background jobs are not monitored because no job runner exists yet. This page only shows checks that really run.</li>
+          <li>Sender address, support email and app URL are edited in <Link href="/admin/settings" className="underline">System Settings</Link>. Secrets such as API keys stay in the server environment. <Badge tone="blue">Read-only here</Badge></li>
+        </ul>
+      </Panel>
     </>
   );
 }

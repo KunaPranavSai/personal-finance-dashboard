@@ -71,6 +71,14 @@ const nextConfig: NextConfig = {
   // relies on inline styles from Tailwind/Framer Motion, and a CSP strict
   // enough to matter would need to be verified live against every page
   // before shipping, which is out of scope for this pass.
+  // Admin pages that were merged into others.
+  async redirects() {
+    return [
+      { source: "/admin/integrations", destination: "/admin/system-health", permanent: true },
+      { source: "/admin/more", destination: "/admin", permanent: false },
+      { source: "/admin/email-templates", destination: "/admin/automated-emails", permanent: true },
+    ];
+  },
   async headers() {
     return [
       {

@@ -1,305 +1,120 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Send, Search, X, Plus, Eye, Info, Loader2, CheckCircle, AlertTriangle } from "lucide-react";
-import { Topbar } from "@/components/layout/Topbar";
-import { Button } from "@/components/ui/Button";
+import { X } from "lucide-react";
+import { Alert, Badge, Button, ConfirmDialog, PageHeader, Panel, Skeleton, TextAreaField, TextField, useDebounced } from "@/components/admin/ui";
 import { useToast } from "@/components/ui/Toast";
-import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
-import { AdminActionConfirm } from "@/components/admin/AdminActionConfirm";
-import { ManagedUser } from "@/components/admin/UserManagementShared";
 import { api } from "@/lib/api";
+import { useAuth } from "@/lib/AuthContext";
 
-interface EmailTemplateItem {
-  id: string;
-  name: string;
-  html: string;
-  enabled: boolean;
-}
-
-interface SendResult {
-  to: string;
-  success: boolean;
-  skipped: boolean;
-  reason?: string;
-}
-
+interface UserHit { id: string; name: string; email: string }
+interface SendResult { to: string; success: boolean; skipped: boolean; reason?: string }
 const MAX_RECIPIENTS = 20;
-
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 type Recipient = { type: "user"; userId: string; label: string } | { type: "email"; address: string };
 
-/**
- * Communication → Send Email — a separate, manual-trigger action. Never writes to Announcement
- * or EmailAutomationConfig; those remain their own distinct systems. Reuses the Users list's
- * search pattern for recipient selection, the Email Templates registry (already override/
- * renderer-aware server-side) for template content, and AdminActionConfirm for the same
- * confirm-before-send pattern used everywhere else in the Command Center.
- */
+/** Manual, one-off messages. System emails (codes, security notices) are never sent from here: they carry real data only the system has. */
 export default function AdminEmailComposerPage() {
+  const { user } = useAuth();
   const { toast } = useToast();
-  const [userQuery, setUserQuery] = useState("");
-  const [selectedUsers, setSelectedUsers] = useState<{ id: string; label: string }[]>([]);
-  const [manualEmails, setManualEmails] = useState<string[]>([]);
-  const [manualInput, setManualInput] = useState("");
-  const [mode, setMode] = useState<"template" | "custom">("template");
-  const [templateId, setTemplateId] = useState("");
+  const [search, setSearch] = useState("");
+  const dq = useDebounced(search);
+  const [recipients, setRecipients] = useState<Recipient[]>([]);
+  const [manual, setManual] = useState("");
   const [subject, setSubject] = useState("");
-  const [customHtml, setCustomHtml] = useState("");
-  const [sending, setSending] = useState(false);
-  const [testing, setTesting] = useState(false);
+  const [body, setBody] = useState("<p>Hi {{name}},</p>\n<p></p>");
+  const [preview, setPreview] = useState<string | null>(null);
+  const [confirm, setConfirm] = useState(false);
   const [results, setResults] = useState<SendResult[] | null>(null);
-  const [confirming, setConfirming] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const dbody = useDebounced(body, 600);
+  const dsubject = useDebounced(subject, 600);
 
-  const { data: usersData } = useQuery({
-    queryKey: ["users-all", "email-composer"],
-    queryFn: () => api.get<{ items: ManagedUser[] }>("/api/auth/users"),
+  const hits = useQuery({
+    queryKey: ["admin", "users", "composer", dq],
+    queryFn: () => api.get<{ items: UserHit[] }>(`/api/admin/users?pageSize=6&q=${encodeURIComponent(dq.trim())}`),
+    enabled: dq.trim().length >= 2,
   });
-  const { data: templatesData } = useQuery({
-    queryKey: ["admin-email-templates", "composer"],
-    queryFn: () => api.get<{ items: EmailTemplateItem[] }>("/api/admin/email-templates"),
+  useEffect(() => {
+    let live = true;
+    api.post<{ html: string }>("/api/admin/email/preview", { subject: dsubject, customHtml: dbody }).then((r) => live && setPreview(r.html)).catch(() => live && setPreview(null));
+    return () => { live = false; };
+  }, [dsubject, dbody]);
+
+  if (user && user.role !== "SUPER_ADMIN") return <><PageHeader title="Send Email" /><Alert tone="warn">Only a Super Admin can send emails by hand.</Alert></>;
+
+  const add = (r: Recipient) => {
+    if (recipients.length >= MAX_RECIPIENTS) { toast(`You can send to at most ${MAX_RECIPIENTS} people at once.`, "error"); return; }
+    const dupe = recipients.some((x) => (x.type === "user" && r.type === "user" && x.userId === r.userId) || (x.type === "email" && r.type === "email" && x.address === r.address));
+    if (!dupe) setRecipients([...recipients, r]);
+  };
+  const label = (r: Recipient) => (r.type === "user" ? r.label : r.address);
+  const payload = (isTest: boolean) => ({
+    isTest, subject: subject.trim(), customHtml: body,
+    recipients: isTest ? [] : recipients.map((r) => (r.type === "user" ? { type: "user", userId: r.userId } : { type: "email", address: r.address })),
   });
-
-  const userMatches = useMemo(() => {
-    if (!userQuery.trim()) return [];
-    const q = userQuery.trim().toLowerCase();
-    return (usersData?.items ?? [])
-      .filter((u) => u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q))
-      .filter((u) => !selectedUsers.some((s) => s.id === u.id))
-      .slice(0, 8);
-  }, [usersData, userQuery, selectedUsers]);
-
-  const recipients: Recipient[] = [
-    ...selectedUsers.map((u) => ({ type: "user" as const, userId: u.id, label: u.label })),
-    ...manualEmails.map((e) => ({ type: "email" as const, address: e })),
-  ];
-  const totalRecipients = recipients.length;
-
-  const selectedTemplate = templatesData?.items.find((t) => t.id === templateId);
-  const previewHtml = mode === "template" ? (selectedTemplate?.html ?? "") : customHtml;
-  const contentSnippet = previewHtml.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 180);
-
-  const addManualEmail = () => {
-    const value = manualInput.trim();
-    if (!value) return;
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
-      toast("Not a valid email address", "error");
-      return;
-    }
-    if (totalRecipients >= MAX_RECIPIENTS) {
-      toast(`Capped at ${MAX_RECIPIENTS} recipients`, "error");
-      return;
-    }
-    setManualEmails((list) => [...list, value]);
-    setManualInput("");
-  };
-
-  const canSend = totalRecipients > 0 && subject.trim() && (mode === "template" ? Boolean(templateId) : customHtml.trim().length > 0);
-
-  const buildPayload = (isTest: boolean) => ({
-    isTest,
-    subject: subject.trim(),
-    templateKey: mode === "template" ? templateId : undefined,
-    customHtml: mode === "custom" ? customHtml : undefined,
-    recipients: isTest
-      ? []
-      : recipients.map((r) => (r.type === "user" ? { type: "user", userId: r.userId } : { type: "email", address: r.address })),
-  });
-
-  const sendTest = async () => {
-    setTesting(true);
-    setResults(null);
-    try {
-      const res = await api.post<{ results: SendResult[] }>("/api/admin/email/send", buildPayload(true));
-      setResults(res.results);
-      toast(res.results[0]?.success ? "Test email sent to your inbox" : "Test send failed", res.results[0]?.success ? "success" : "error");
-    } catch (err) {
-      toast(err instanceof Error ? err.message : "Failed to send test", "error");
-    } finally {
-      setTesting(false);
-    }
-  };
-
-  const sendProduction = async () => {
-    setSending(true);
-    try {
-      const res = await api.post<{ results: SendResult[]; successCount: number; totalCount: number }>("/api/admin/email/send", buildPayload(false));
-      setResults(res.results);
-      return { message: `Sent to ${res.successCount} of ${res.totalCount} recipient(s)` };
-    } finally {
-      setSending(false);
-    }
-  };
+  const ready = subject.trim() && body.replace(/<[^>]+>/g, "").trim().length > 0;
 
   return (
     <>
-      <Topbar title="Send Email" />
-      <main className="flex-1 overflow-y-auto p-4 lg:p-6">
-        <AdminPageHeader icon={Send} title="Send Email" description="Hand-authored, manual sends only — this never writes to Announcements or Automated Email rules." />
-
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <div className="space-y-4">
-            <div className="cc-panel p-4">
-              <p className="cc-mono mb-2 text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--cc-text-faint)" }}>Recipients ({totalRecipients}/{MAX_RECIPIENTS})</p>
-
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2" style={{ color: "var(--cc-text-faint)" }} />
-                <input
-                  value={userQuery}
-                  onChange={(e) => setUserQuery(e.target.value)}
-                  placeholder="Search users by name or email"
-                  className="cc-mono w-full rounded border bg-transparent py-2 pl-8 pr-2 text-sm"
-                  style={{ borderColor: "var(--cc-border)", color: "var(--cc-text)" }}
-                />
-              </div>
-              {userMatches.length > 0 && (
-                <div className="mt-1 cc-panel-alt max-h-40 overflow-y-auto p-1">
-                  {userMatches.map((u) => (
-                    <button
-                      key={u.id}
-                      onClick={() => {
-                        if (totalRecipients >= MAX_RECIPIENTS) { toast(`Capped at ${MAX_RECIPIENTS} recipients`, "error"); return; }
-                        setSelectedUsers((list) => [...list, { id: u.id, label: `${u.name} (${u.email})` }]);
-                        setUserQuery("");
-                      }}
-                      className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs hover:bg-white/5"
-                      style={{ color: "var(--cc-text-dim)" }}
-                    >
-                      {u.name} <span style={{ color: "var(--cc-text-faint)" }}>({u.email})</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              <div className="mt-2 flex gap-2">
-                <input
-                  value={manualInput}
-                  onChange={(e) => setManualInput(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addManualEmail(); } }}
-                  placeholder="or type a raw email address"
-                  className="cc-mono flex-1 rounded border bg-transparent px-3 py-2 text-sm"
-                  style={{ borderColor: "var(--cc-border)", color: "var(--cc-text)" }}
-                />
-                <button onClick={addManualEmail} className="flex items-center gap-1 rounded border px-3 py-2 text-xs" style={{ borderColor: "var(--cc-border)", color: "var(--cc-text-dim)" }}>
-                  <Plus className="h-3.5 w-3.5" /> Add
-                </button>
-              </div>
-
-              {totalRecipients > 0 && (
-                <div className="mt-3 flex flex-wrap gap-1.5">
-                  {selectedUsers.map((u) => (
-                    <span key={u.id} className="cc-mono flex items-center gap-1 rounded-full px-2 py-1 text-[11px]" style={{ background: "var(--cc-accent-dim)", color: "var(--cc-accent)" }}>
-                      {u.label}
-                      <button onClick={() => setSelectedUsers((list) => list.filter((x) => x.id !== u.id))} aria-label="Remove"><X className="h-3 w-3" /></button>
-                    </span>
-                  ))}
-                  {manualEmails.map((e) => (
-                    <span key={e} className="cc-mono flex items-center gap-1 rounded-full px-2 py-1 text-[11px]" style={{ background: "var(--cc-panel-alt)", color: "var(--cc-text-dim)" }}>
-                      {e}
-                      <button onClick={() => setManualEmails((list) => list.filter((x) => x !== e))} aria-label="Remove"><X className="h-3 w-3" /></button>
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="cc-panel p-4">
-              <p className="cc-mono mb-2 text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--cc-text-faint)" }}>Content</p>
-              <div className="mb-3 flex gap-2">
-                <button onClick={() => setMode("template")} className="cc-mono rounded px-3 py-1.5 text-xs" style={{ background: mode === "template" ? "var(--cc-accent-dim)" : "transparent", color: mode === "template" ? "var(--cc-accent)" : "var(--cc-text-faint)", border: "1px solid var(--cc-border)" }}>Template</button>
-                <button onClick={() => setMode("custom")} className="cc-mono rounded px-3 py-1.5 text-xs" style={{ background: mode === "custom" ? "var(--cc-accent-dim)" : "transparent", color: mode === "custom" ? "var(--cc-accent)" : "var(--cc-text-faint)", border: "1px solid var(--cc-border)" }}>Custom</button>
-              </div>
-
-              {mode === "template" && (
-                <select value={templateId} onChange={(e) => setTemplateId(e.target.value)} className="cc-mono mb-3 w-full rounded border bg-transparent px-3 py-2 text-sm" style={{ borderColor: "var(--cc-border)", color: "var(--cc-text)" }}>
-                  <option value="">Select a template…</option>
-                  {(templatesData?.items ?? []).map((t) => <option key={t.id} value={t.id}>{t.name}{!t.enabled ? " (override disabled — default used)" : ""}</option>)}
-                </select>
-              )}
-
-              <input
-                value={subject}
-                onChange={(e) => setSubject(e.target.value)}
-                placeholder="Subject"
-                className="cc-mono mb-3 w-full rounded border bg-transparent px-3 py-2 text-sm"
-                style={{ borderColor: "var(--cc-border)", color: "var(--cc-text)" }}
-              />
-
-              {mode === "custom" && (
-                <textarea
-                  value={customHtml}
-                  onChange={(e) => setCustomHtml(e.target.value)}
-                  rows={10}
-                  placeholder="HTML body"
-                  className="cc-mono w-full rounded border bg-transparent px-3 py-2 text-xs"
-                  style={{ borderColor: "var(--cc-border)", color: "var(--cc-text)" }}
-                />
-              )}
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              <Button size="sm" variant="secondary" onClick={sendTest} disabled={testing || !(mode === "template" ? templateId : customHtml.trim()) || !subject.trim()} className="min-h-[44px]">
-                {testing ? <Loader2 className="h-4 w-4 animate-spin" /> : null} {testing ? "Sending test…" : "Send Test to Myself"}
-              </Button>
-              <Button size="sm" onClick={() => setConfirming(true)} disabled={!canSend || sending} className="min-h-[44px]">
-                <Send className="h-4 w-4" /> Send
-              </Button>
-            </div>
-
-            {results && (
-              <div className="cc-panel p-4">
-                <p className="cc-mono mb-2 text-[10px] uppercase tracking-wider" style={{ color: "var(--cc-text-faint)" }}>Result</p>
-                <div className="space-y-1">
-                  {results.map((r, i) => (
-                    <div key={i} className="flex items-center justify-between text-xs">
-                      <span style={{ color: "var(--cc-text)" }}>{r.to}</span>
-                      {r.success ? (
-                        <span className="flex items-center gap-1" style={{ color: "var(--cc-green)" }}><CheckCircle className="h-3.5 w-3.5" /> Sent</span>
-                      ) : (
-                        <span className="flex items-center gap-1" style={{ color: r.skipped ? "var(--cc-amber)" : "var(--cc-red)" }}><AlertTriangle className="h-3.5 w-3.5" /> {r.skipped ? "Skipped (email-ineligible)" : "Failed"}</span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
+      <PageHeader title="Send Email" description="Write a one-off message to specific people. For automatic emails, use Email Automations." />
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+        <div className="grid min-w-0 gap-4">
+          <Panel title={`Recipients (${recipients.length}/${MAX_RECIPIENTS})`}>
+            <TextField label="Find a user" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Name or email, at least 2 letters" />
+            {dq.trim().length >= 2 && (
+              <ul className="m-0 mt-2 list-none p-0" aria-label="Matching users">
+                {hits.isLoading ? <li><Skeleton h={36} /></li> : (hits.data?.items ?? []).length === 0 ? <li className="ad-faint">No matching users</li> : hits.data!.items.map((u) => (
+                  <li key={u.id}><button type="button" className="ad-btn ghost" style={{ width: "100%", justifyContent: "flex-start" }} onClick={() => { add({ type: "user", userId: u.id, label: `${u.name} (${u.email})` }); setSearch(""); }}>{u.name} <span className="ad-faint">{u.email}</span></button></li>
+                ))}
+              </ul>
             )}
-          </div>
-
-          <div className="cc-panel p-4">
-            <p className="cc-mono mb-2 flex items-center gap-1.5 text-[10px] uppercase tracking-wider" style={{ color: "var(--cc-text-faint)" }}>
-              <Eye className="h-3.5 w-3.5" /> Live Preview
-            </p>
-            {previewHtml ? (
-              <iframe title="preview" srcDoc={previewHtml} sandbox="" className="h-[420px] w-full rounded bg-white" />
-            ) : (
-              <div className="flex h-[420px] items-center justify-center text-xs" style={{ color: "var(--cc-text-faint)" }}>
-                Select a template or write custom content to preview.
-              </div>
+            <form className="mt-3 flex items-end gap-2" onSubmit={(e) => { e.preventDefault(); const v = manual.trim().toLowerCase(); if (!EMAIL_RE.test(v)) { toast("That is not a valid email address", "error"); return; } add({ type: "email", address: v }); setManual(""); }}>
+              <div className="flex-1"><TextField label="Or add an email address" type="email" value={manual} onChange={(e) => setManual(e.target.value)} /></div>
+              <Button type="submit">Add</Button>
+            </form>
+            {recipients.length > 0 && (
+              <ul className="m-0 mt-3 flex list-none flex-wrap gap-2 p-0" aria-label="Selected recipients">
+                {recipients.map((r, i) => (
+                  <li key={label(r)}><span className="ad-badge accent" style={{ paddingRight: 4 }}>{label(r)}
+                    <button type="button" className="ad-btn ghost icon sm" style={{ width: 28, minHeight: 28 }} aria-label={`Remove ${label(r)}`} onClick={() => setRecipients(recipients.filter((_, j) => j !== i))}><X size={14} aria-hidden="true" /></button></span></li>
+                ))}
+              </ul>
             )}
-            <div className="mt-3 flex items-start gap-2 rounded p-2 text-[11px]" style={{ background: "var(--cc-panel-alt)", color: "var(--cc-text-faint)" }}>
-              <Info className="mt-0.5 h-3 w-3 shrink-0" />
-              Ineligible recipients (Access &amp; Entitlements → Email Eligible = off) are skipped and shown as such after sending — unless the selected template is security-critical, in which case it always sends.
+          </Panel>
+          <Panel title="Message">
+            <div className="grid gap-3">
+              <TextField label="Subject" value={subject} maxLength={200} onChange={(e) => setSubject(e.target.value)} />
+              <TextAreaField label="Body (HTML)" rows={10} value={body} onChange={(e) => setBody(e.target.value)} style={{ fontFamily: "ui-monospace, Menlo, Consolas, monospace", fontSize: 13 }}
+                hint="Use {{name}} for the person's name. Scripts, forms and non-https links are removed. The message goes inside the standard branded header and footer." />
             </div>
+          </Panel>
+          <div className="flex flex-wrap gap-2">
+            <Button loading={testing} disabled={!ready} onClick={async () => {
+              setTesting(true); setResults(null);
+              try { const r = await api.post<{ results: SendResult[] }>("/api/admin/email/send", payload(true)); setResults(r.results); toast(r.results[0]?.success ? "Test sent to your own inbox" : "The test email failed", r.results[0]?.success ? "success" : "error"); }
+              catch (e) { toast(e instanceof Error ? e.message : "Couldn't send the test", "error"); } finally { setTesting(false); }
+            }}>Send a test to myself</Button>
+            <Button variant="primary" disabled={!ready || recipients.length === 0} onClick={() => setConfirm(true)}>Send to {recipients.length || "…"} {recipients.length === 1 ? "person" : "people"}</Button>
           </div>
+          {results && (
+            <Panel title="Result">
+              <ul className="m-0 list-none p-0">{results.map((r, i) => <li key={i} className="ad-row"><span className="flex-1 break-all">{r.to}</span>{r.success ? <Badge tone="green">Sent</Badge> : r.skipped ? <Badge tone="amber">Skipped: email turned off for this user</Badge> : <Badge tone="red">Failed</Badge>}</li>)}</ul>
+            </Panel>
+          )}
         </div>
-      </main>
+        <Panel title="Preview" padded={false} className="lg:sticky lg:top-[72px]">
+          <div className="p-4">
+            {preview ? <iframe title="Email preview" sandbox="" srcDoc={preview} style={{ width: "100%", height: 560, border: "1px solid var(--ad-border)", borderRadius: 10, background: "#fff" }} /> : <Skeleton h={300} />}
+          </div>
+        </Panel>
+      </div>
 
-      {confirming && (
-        <AdminActionConfirm
-          title={totalRecipients > 3 ? `Send to ${totalRecipients} recipients` : "Send email"}
-          targetLabel={
-            recipients.length <= 3
-              ? recipients.map((r) => (r.type === "user" ? r.label : r.address)).join(", ")
-              : `${totalRecipients} recipients`
-          }
-          explanation={`Template: ${mode === "template" ? (selectedTemplate?.name ?? "—") : "Custom"} · Subject: "${subject}" · ${contentSnippet}${contentSnippet.length === 180 ? "…" : ""}`}
-          danger={totalRecipients > 3}
-          confirmLabel={sending ? "Sending…" : "Send Now"}
-          onClose={() => setConfirming(false)}
-          toast={toast}
-          onConfirm={sendProduction}
-        />
-      )}
+      <ConfirmDialog open={confirm} onClose={() => setConfirm(false)} title={`Send to ${recipients.length} ${recipients.length === 1 ? "person" : "people"}`} confirmLabel="Send email now" danger={recipients.length > 3}
+        target={recipients.length <= 3 ? recipients.map(label).join(", ") : `${recipients.length} recipients`}
+        description={`Subject: “${subject.trim()}”. Each person receives their own copy. This cannot be undone and counts toward your Resend limit.`}
+        onConfirm={async () => { const r = await api.post<{ results: SendResult[]; successCount: number; totalCount: number }>("/api/admin/email/send", payload(false)); setResults(r.results); toast(`Sent to ${r.successCount} of ${r.totalCount}`, r.successCount === r.totalCount ? "success" : "error"); }} />
     </>
   );
 }

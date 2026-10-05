@@ -30,3 +30,6 @@ frontend/public/fallback-*.js
 *.tsbuildinfo
 *.err
 Penny Pilot FOnt.txt
+
+# local test admin credentials (backend/scripts/devAdmin.ts)
+.dev-admin.local.json

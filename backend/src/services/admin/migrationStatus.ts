@@ -127,6 +127,22 @@ export async function listMigrationStatuses(page: number, pageSize: number, sear
   return { items, total };
 }
 
+/** Migration state for an arbitrary set of users (one page of the Users table). */
+export async function migrationStatesFor(userIds: string[]): Promise<Map<string, MigrationState>> {
+  const [connections, legacySet] = await Promise.all([
+    prisma.backupConnection.findMany({
+      where: { userId: { in: userIds }, provider: "google_drive" },
+      select: { userId: true, backupFolderId: true, lastConnectError: true },
+    }),
+    bulkHasLegacyData(userIds),
+  ]);
+  const byUser = new Map(connections.map((c) => [c.userId, c]));
+  return new Map(userIds.map((id) => {
+    const c = byUser.get(id);
+    return [id, deriveMigrationState({ hasLegacyData: legacySet.has(id), connected: Boolean(c), initialized: Boolean(c?.backupFolderId), hasError: Boolean(c?.lastConnectError) })];
+  }));
+}
+
 /** Platform-wide migration state counts, for the admin dashboard's summary cards. */
 export async function getMigrationSummary(): Promise<Record<MigrationState, number>> {
   const users = await prisma.user.findMany({ where: { role: "USER" }, select: { id: true } });

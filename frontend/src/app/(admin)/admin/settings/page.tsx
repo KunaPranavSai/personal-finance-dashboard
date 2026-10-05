@@ -1,165 +1,93 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Settings as SettingsIcon, Save, Info, Download, CheckCircle, Database } from "lucide-react";
-import { Topbar } from "@/components/layout/Topbar";
-import { Button } from "@/components/ui/Button";
+import { useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Alert, Button, ErrorState, PageHeader, Panel, Skeleton, Switch, TextField } from "@/components/admin/ui";
 import { useToast } from "@/components/ui/Toast";
-import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { api, API_BASE_URL } from "@/lib/api";
+import { useAuth } from "@/lib/AuthContext";
 
-interface PlatformSettings {
-  siteName: string;
-  supportEmail: string | null;
-  defaultSessionTimeoutMinutes: number;
-  minPasswordLength: number;
-  require2FAForAdmins: boolean;
+interface Settings {
+  siteName: string; supportEmail: string | null; defaultSessionTimeoutMinutes: number; minPasswordLength: number; require2FAForAdmins: boolean;
+  appUrl: string | null; emailFromName: string | null; emailFromAddress: string | null; superAdminEmail: string | null; apiRateLimit: number;
 }
 
-const inputCls = "cc-mono w-full rounded border bg-transparent px-3 py-2 text-sm";
-const inputStyle = { borderColor: "var(--cc-border)", color: "var(--cc-text)" };
-const sectionLabelCls = "cc-mono mb-3 text-[10px] font-semibold uppercase tracking-widest";
-const fieldLabelCls = "mb-1 block text-[10px] font-medium uppercase tracking-wider";
-
 export default function AdminSystemSettingsPage() {
+  const { user } = useAuth();
   const { toast } = useToast();
-  const { data, isLoading, refetch } = useQuery({
-    queryKey: ["platform-settings"],
-    queryFn: () => api.get<PlatformSettings>("/api/admin/platform-settings"),
-  });
-
-  const [form, setForm] = useState<PlatformSettings | null>(null);
+  const queryClient = useQueryClient();
+  const isSuper = user?.role === "SUPER_ADMIN";
+  const { data, isLoading, isError, refetch } = useQuery({ queryKey: ["admin", "platform-settings"], queryFn: () => api.get<Settings>("/api/admin/platform-settings") });
+  const [form, setForm] = useState<Settings | null>(null);
   const [saving, setSaving] = useState(false);
   const [downloading, setDownloading] = useState(false);
-  const [justDownloaded, setJustDownloaded] = useState(false);
+  useEffect(() => { if (data) setForm(data); }, [data]);
+  const dirty = Boolean(form && data && JSON.stringify(form) !== JSON.stringify(data));
 
-  const handleDownloadBackup = useCallback(async () => {
+  if (isError) return <><PageHeader title="System Settings" /><ErrorState onRetry={() => void refetch()} /></>;
+  if (isLoading || !form) return <><PageHeader title="System Settings" /><Skeleton h={300} /></>;
+  const set = (patch: Partial<Settings>) => setForm({ ...form, ...patch });
+  const text = (k: keyof Settings) => (form[k] as string | null) ?? "";
+
+  const save = async () => {
+    setSaving(true);
+    try { await api.patch("/api/admin/platform-settings", form); toast("Settings saved", "success"); await queryClient.invalidateQueries({ queryKey: ["admin", "platform-settings"] }); }
+    catch (e) { toast(e instanceof Error ? e.message : "Couldn't save the settings", "error"); } finally { setSaving(false); }
+  };
+  const backup = async () => {
     setDownloading(true);
     try {
       const res = await fetch(`${API_BASE_URL}/api/admin/backup`, { credentials: "include" });
-      if (!res.ok) throw new Error("Backup failed");
+      if (!res.ok) throw new Error("The backup could not be created");
       const blob = await res.blob();
-      const disposition = res.headers.get("Content-Disposition") ?? "";
-      const match = disposition.match(/filename="?(.+?)"?$/);
-      const filename = match ? match[1] : `pennypilot-backup-${new Date().toISOString().slice(0, 10)}.json`;
-      const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
-      a.href = url; a.download = filename;
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      setJustDownloaded(true);
-      toast("Account backup downloaded", "success");
-      setTimeout(() => setJustDownloaded(false), 3000);
-    } catch (err) {
-      toast(err instanceof Error ? err.message : "Backup failed", "error");
-    } finally {
-      setDownloading(false);
-    }
-  }, [toast]);
-
-  useEffect(() => {
-    if (data) setForm(data);
-  }, [data]);
-
-  const handleSave = useCallback(async () => {
-    if (!form) return;
-    setSaving(true);
-    try {
-      await api.patch("/api/admin/platform-settings", form);
-      toast("Platform settings saved", "success");
-      refetch();
-    } catch (err) {
-      toast(err instanceof Error ? err.message : "Failed to save settings", "error");
-    } finally {
-      setSaving(false);
-    }
-  }, [form, toast, refetch]);
+      a.href = URL.createObjectURL(blob);
+      a.download = /filename="?(.+?)"?$/.exec(res.headers.get("Content-Disposition") ?? "")?.[1] ?? `pennypilot-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click(); URL.revokeObjectURL(a.href);
+      toast("Backup downloaded", "success");
+    } catch (e) { toast(e instanceof Error ? e.message : "Backup failed", "error"); } finally { setDownloading(false); }
+  };
 
   return (
     <>
-      <Topbar title="System Settings" />
-      <main className="flex-1 overflow-y-auto p-4 lg:p-6">
-        <AdminPageHeader icon={SettingsIcon} title="System Settings" description="Platform-wide configuration (Super Admin only)." />
+      <PageHeader title="System Settings" description="Values used across the whole product: emails, links, sign-in rules and limits. Changes apply within a minute."
+        actions={isSuper ? <Button variant="primary" loading={saving} disabled={!dirty} onClick={() => void save()}>Save changes</Button> : undefined} />
+      {!isSuper && <div className="mb-4"><Alert tone="warn">You can view these settings. Only a Super Admin can change them.</Alert></div>}
+      <fieldset disabled={!isSuper} style={{ border: 0, margin: 0, padding: 0, minWidth: 0 }}>
+        <div className="grid gap-4" style={{ maxWidth: 760 }}>
+          <Panel title="Site identity and links"><div className="grid gap-4">
+            <TextField label="Site name" value={form.siteName} onChange={(e) => set({ siteName: e.target.value })} hint="Shown in the header, subject lines and text of every email." />
+            <TextField label="App URL" type="url" value={text("appUrl")} onChange={(e) => set({ appUrl: e.target.value })} placeholder="https://app.yourdomain.com" hint="Where buttons and links in emails point, and where the logo is loaded from. Sign-in, passkey and Google Drive security origins still come from the server's APP_URL setting." />
+            <TextField label="Support email" type="email" value={text("supportEmail")} onChange={(e) => set({ supportEmail: e.target.value })} placeholder="support@yourdomain.com" hint="Shown in the footer of every email as the place to get help." />
+          </div></Panel>
 
-        {isLoading || !form ? (
-          <div className="space-y-4">
-            <div className="cc-panel h-40 animate-pulse" />
-            <div className="cc-panel h-52 animate-pulse" />
-          </div>
-        ) : (
-          <div className="space-y-6">
-            <div className="cc-panel p-4">
-              <p className={sectionLabelCls} style={{ color: "var(--cc-text-faint)" }}>Site Identity</p>
-              <div className="space-y-4">
-                <div>
-                  <label className={fieldLabelCls} style={{ color: "var(--cc-text-faint)" }}>Site Name</label>
-                  <input value={form.siteName} onChange={(e) => setForm({ ...form, siteName: e.target.value })} className={inputCls} style={inputStyle} />
-                </div>
-                <div>
-                  <label className={fieldLabelCls} style={{ color: "var(--cc-text-faint)" }}>Support Email</label>
-                  <input type="email" value={form.supportEmail ?? ""} onChange={(e) => setForm({ ...form, supportEmail: e.target.value })} placeholder="support@yourdomain.com" className={inputCls} style={inputStyle} />
-                </div>
-                <div className="flex items-start gap-2 rounded p-3 text-xs" style={{ background: "var(--cc-panel-alt)", color: "var(--cc-text-faint)" }}>
-                  <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                  Stored for future use — not yet wired into outgoing email templates or branding.
-                </div>
-              </div>
+          <Panel title="Email sending"><div className="grid gap-4">
+            <TextField label="Sender name" value={text("emailFromName")} onChange={(e) => set({ emailFromName: e.target.value })} hint="The name people see as the sender. Empty uses the site name." />
+            <TextField label="Sender email" type="email" value={text("emailFromAddress")} onChange={(e) => set({ emailFromAddress: e.target.value })} placeholder="noreply@yourdomain.com" hint="Must be on a domain verified in Resend, or emails will not arrive. Empty uses the server default." />
+            <TextField label="Super-admin alert email" type="email" value={text("superAdminEmail")} onChange={(e) => set({ superAdminEmail: e.target.value })} hint="Receives security alerts about admin accounts." />
+            <Alert>The Resend API key is a secret, so it stays in the server environment and is not entered here.</Alert>
+          </div></Panel>
+
+          <Panel title="Security and limits"><div className="grid gap-4">
+            <div className="grid gap-4 sm:grid-cols-3">
+              <TextField label="Default session timeout (minutes)" type="number" min={1} max={10080} value={form.defaultSessionTimeoutMinutes} onChange={(e) => set({ defaultSessionTimeoutMinutes: Number(e.target.value) })} hint="For people who haven't chosen their own." />
+              <TextField label="Minimum password length" type="number" min={6} max={64} value={form.minPasswordLength} onChange={(e) => set({ minPasswordLength: Number(e.target.value) })} hint="Applies to every new password." />
+              <TextField label="API requests per 15 min per IP" type="number" min={30} max={100000} value={form.apiRateLimit} onChange={(e) => set({ apiRateLimit: Number(e.target.value) })} hint="Raise it if busy networks see “Too many requests”." />
             </div>
-
-            <div className="cc-panel p-4">
-              <p className={sectionLabelCls} style={{ color: "var(--cc-text-faint)" }}>Security Policy</p>
-              <div className="space-y-4">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div>
-                    <label className={fieldLabelCls} style={{ color: "var(--cc-text-faint)" }}>Default Session Timeout (minutes)</label>
-                    <input type="number" min={1} value={form.defaultSessionTimeoutMinutes} onChange={(e) => setForm({ ...form, defaultSessionTimeoutMinutes: Number(e.target.value) })} className={inputCls} style={inputStyle} />
-                  </div>
-                  <div>
-                    <label className={fieldLabelCls} style={{ color: "var(--cc-text-faint)" }}>Minimum Password Length</label>
-                    <input type="number" min={6} max={64} value={form.minPasswordLength} onChange={(e) => setForm({ ...form, minPasswordLength: Number(e.target.value) })} className={inputCls} style={inputStyle} />
-                  </div>
-                </div>
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input type="checkbox" checked={form.require2FAForAdmins} onChange={(e) => setForm({ ...form, require2FAForAdmins: e.target.checked })} className="h-4 w-4 rounded" />
-                  <span className="text-sm" style={{ color: "var(--cc-text)" }}>Require Two-Factor Authentication for Admins</span>
-                </label>
-                <div className="flex items-start gap-2 rounded p-3 text-xs" style={{ background: "rgba(251,191,36,0.08)", color: "var(--cc-amber)" }}>
-                  <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                  Saved here, but not yet enforced by login or password-change flows — enforcement wiring is a follow-up.
-                </div>
-              </div>
+            <div className="ad-row" style={{ border: 0, padding: 0 }}>
+              <div className="flex-1"><strong>Require two-factor for admins</strong><div className="ad-hint">Saved, but not enforced at sign-in yet.</div></div>
+              <Switch label="Require two-factor for admins" checked={form.require2FAForAdmins} onChange={(v) => set({ require2FAForAdmins: v })} />
             </div>
+          </div></Panel>
+        </div>
+      </fieldset>
 
-            <Button onClick={handleSave} disabled={saving}>
-              <Save className="h-4 w-4" /> {saving ? "Saving…" : "Save Settings"}
-            </Button>
-
-            <div className="cc-panel p-4">
-              <p className={sectionLabelCls} style={{ color: "var(--cc-text-faint)" }}>Account Backup</p>
-              <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="text-sm font-semibold" style={{ color: "var(--cc-text)" }}>Download Account Backup</p>
-                  <p className="mt-1 text-sm" style={{ color: "var(--cc-text-dim)" }}>
-                    Every account&apos;s role, status, and timestamps — as JSON.
-                  </p>
-                </div>
-                <Button onClick={handleDownloadBackup} disabled={downloading} className="min-h-[44px]">
-                  {justDownloaded ? <CheckCircle className="h-4 w-4" /> : <Download className="h-4 w-4" />}
-                  {downloading ? "Preparing…" : justDownloaded ? "Downloaded" : "Download Backup"}
-                </Button>
-              </div>
-              <div className="mt-4 flex items-start gap-2 rounded p-3 text-xs" style={{ background: "var(--cc-panel-alt)", color: "var(--cc-text-faint)" }}>
-                <Database className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                Never includes financial data (transactions, budgets, investments, bills, goals, categories,
-                accounts) — that lives solely in each user&apos;s own Google Drive, which the platform has no
-                access to. Only account metadata (role, status, timestamps) is included. Restore-from-file is
-                intentionally not available.
-              </div>
-            </div>
-          </div>
-        )}
-      </main>
+      {isSuper && (
+        <div className="mt-4" style={{ maxWidth: 760 }}>
+          <Panel title="Account backup"><p className="ad-muted mt-0">Downloads a JSON file with the platform&apos;s account records. It contains personal details, so store it securely. It never includes anyone&apos;s Google Drive data.</p>
+            <Button loading={downloading} onClick={() => void backup()}>Download backup</Button></Panel>
+        </div>
+      )}
     </>
   );
 }
