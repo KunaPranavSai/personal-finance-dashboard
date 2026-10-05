@@ -12,6 +12,9 @@ interface AuthUser {
   name: string;
   email: string;
   role: "SUPER_ADMIN" | "ADMIN" | "USER";
+  /** Progressive sign-up: false = explorer (email provided, not yet verified). Absent for admins. */
+  emailVerified?: boolean;
+  profileCompleted?: boolean;
 }
 
 export const POST_LOGIN_REDIRECT_KEY = "pfd-post-login-redirect";
@@ -109,7 +112,13 @@ interface AuthContextType {
   twoFactorEnabled: boolean;
   sessionTimeoutMinutes: number;
   login: (email: string, password: string, portal?: "admin", rememberMe?: boolean) => Promise<LoginResult>;
-  loginWithPin: (pin: string, identifier?: string) => Promise<LoginResult>;
+  loginWithPin: (pin: string, identifier?: string, portal?: "admin") => Promise<LoginResult>;
+  /** Get Started: new email -> explorer session ("explore"); known verified email -> a sign-in code was emailed ("code"). */
+  startWithEmail: (email: string) => Promise<"explore" | "code">;
+  loginWithCode: (email: string, code: string, rememberMe?: boolean) => Promise<LoginResult>;
+  sendEmailCode: () => Promise<void>;
+  verifyEmailCode: (code: string) => Promise<void>;
+  completeProfile: (data: { name: string; phone: string; pin: string; termsAccepted: boolean; privacyAccepted: boolean; signedName: string }) => Promise<void>;
   loginWithPasskey: () => Promise<{ isFirstLogin: boolean }>;
   signup: (input: SignupInput) => Promise<SignupResult>;
   verifyLogin2FA: (challengeToken: string, code: string) => Promise<{ isFirstLogin: boolean }>;
@@ -257,9 +266,61 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { requires2FA: false, requiresPasswordChange: false, isFirstLogin: Boolean(data.isFirstLogin) };
   }, [refreshTwoFactorStatus]);
 
+  const startWithEmail = useCallback(async (email: string): Promise<"explore" | "code"> => {
+    const res = await apiFetch("/api/auth/start", { method: "POST", body: JSON.stringify({ email }) });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || "Could not get started");
+    if (data.mode === "code") return "code";
+    if (data.user) {
+      setUser(data.user);
+      markLoggedInToday(data.user.uid);
+      setRememberSession(false);
+      markRecentLogin();
+      return "explore";
+    }
+    throw new Error("Could not get started");
+  }, []);
+
+  const loginWithCode = useCallback(async (email: string, code: string, rememberMe = false): Promise<LoginResult> => {
+    const res = await apiFetch("/api/auth/code/login", { method: "POST", body: JSON.stringify({ email, code, rememberMe }) });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || "Incorrect code");
+    if (data.requires2FA) {
+      setRememberSession(rememberMe);
+      return { requires2FA: true, requiresPasswordChange: false, challengeToken: data.challengeToken };
+    }
+    setUser(data.user);
+    markLoggedInToday(data.user.uid);
+    setRememberSession(rememberMe);
+    markRecentLogin();
+    refreshTwoFactorStatus();
+    return { requires2FA: false, requiresPasswordChange: false, isFirstLogin: Boolean(data.isFirstLogin) };
+  }, [refreshTwoFactorStatus]);
+
+  const sendEmailCode = useCallback(async () => {
+    const res = await apiFetch("/api/auth/email/send-code", { method: "POST" });
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Could not send the code");
+  }, []);
+
+  const verifyEmailCode = useCallback(async (code: string) => {
+    const res = await apiFetch("/api/auth/email/verify", { method: "POST", body: JSON.stringify({ code }) });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || "Incorrect code");
+    setUser(data.user);
+    markLoggedInToday(data.user.uid);
+    markRecentLogin();
+  }, []);
+
+  const completeProfile = useCallback(async (payload: { name: string; phone: string; pin: string; termsAccepted: boolean; privacyAccepted: boolean; signedName: string }) => {
+    const res = await apiFetch("/api/auth/profile/complete", { method: "POST", body: JSON.stringify(payload) });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || "Could not save your profile");
+    setUser(data.user);
+  }, []);
+
   /** PIN sign-in for an account this device remembers (server reads the pin_device cookie). */
-  const loginWithPin = useCallback(async (pin: string, identifier?: string): Promise<LoginResult> => {
-    const res = await apiFetch("/api/auth/pin/login", { method: "POST", body: JSON.stringify({ pin, identifier, rememberMe: isRememberSession() }) });
+  const loginWithPin = useCallback(async (pin: string, identifier?: string, portal?: "admin"): Promise<LoginResult> => {
+    const res = await apiFetch("/api/auth/pin/login", { method: "POST", body: JSON.stringify({ pin, identifier, portal, rememberMe: isRememberSession() }) });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
       throw new Error(data.error || "Login failed");
@@ -551,6 +612,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       sessionTimeoutMinutes: sessionTimeout,
       login,
       loginWithPin,
+      startWithEmail,
+      loginWithCode,
+      sendEmailCode,
+      verifyEmailCode,
+      completeProfile,
       loginWithPasskey,
       signup,
       verifyLogin2FA,

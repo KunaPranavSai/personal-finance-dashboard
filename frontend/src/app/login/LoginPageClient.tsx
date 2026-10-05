@@ -83,14 +83,20 @@ export function LoginPageClient({ embedded = false }: LoginPageClientProps = {})
   const [info, setInfo] = useState("");
   // Set when this device remembers an account with a PIN: PIN entry is the default view.
   const [pinDevice, setPinDevice] = useState<{ name: string; email: string } | null>(null);
+  // Last account that signed in here without a PIN: greeted by name, email not asked again.
+  const [knownUser, setKnownUser] = useState<{ name: string; email: string } | null>(null);
   const [usePassword, setUsePassword] = useState(false);
   const [pinChecked, setPinChecked] = useState(false);
   // New device: no remembered account, so the user types their email / User ID next to the PIN.
   const [pinManual, setPinManual] = useState(false);
 
   useEffect(() => {
-    api.get<{ device: boolean; name?: string; email?: string }>("/api/auth/pin/device")
-      .then((d) => { if (d.device && d.name && d.email) setPinDevice({ name: d.name, email: d.email }); })
+    api.get<{ device: boolean; name?: string; email?: string; hasPin?: boolean }>("/api/auth/pin/device")
+      .then((d) => {
+        if (!d.device || !d.name || !d.email) return;
+        if (d.hasPin) setPinDevice({ name: d.name, email: d.email });
+        else { setKnownUser({ name: d.name, email: d.email }); setEmail(d.email); }
+      })
       .catch(() => { /* no PIN view: password form stays */ })
       .finally(() => setPinChecked(true));
   }, []);
@@ -252,7 +258,8 @@ export function LoginPageClient({ embedded = false }: LoginPageClientProps = {})
   }
 
   if ((pinDevice || pinManual) && !usePassword && !passwordChangeToken) {
-    const switchToPassword = () => { if (pinDevice) setEmail(pinDevice.email); setPinManual(false); setUsePassword(true); };
+    const switchToPassword = () => { if (pinDevice) { setEmail(pinDevice.email); setKnownUser(pinDevice); } setPinManual(false); setUsePassword(true); };
+    const notYou = () => { setPinDevice(null); setKnownUser(null); setEmail(""); setPinManual(true); };
     return (
       <div className={cn("relative flex items-center justify-center overflow-hidden bg-noturno p-4", embedded ? "" : "min-h-screen")}>
         <div className="pointer-events-none absolute inset-0">
@@ -295,6 +302,11 @@ export function LoginPageClient({ embedded = false }: LoginPageClientProps = {})
           >
             <Mail className="h-4 w-4" /> Sign in with email &amp; password
           </button>
+          {pinDevice && (
+            <button type="button" onClick={notYou} className="min-h-[44px] text-sm text-white/50 transition hover:text-white/80">
+              Not {pinDevice.name.split(" ")[0]}? Use a different account
+            </button>
+          )}
         </div>
       </div>
     );
@@ -355,6 +367,15 @@ export function LoginPageClient({ embedded = false }: LoginPageClientProps = {})
             {info && <SuccessMessage>{info}</SuccessMessage>}
 
 
+            {knownUser ? (
+              <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-center">
+                <p className="text-base font-semibold text-white">Welcome back, {knownUser.name.split(" ")[0]}</p>
+                <p className="mt-0.5 text-xs text-white/50">{knownUser.email}</p>
+                <button type="button" onClick={() => { setKnownUser(null); setEmail(""); }} className="mt-2 min-h-[44px] text-xs text-white/50 transition hover:text-white/80">
+                  Not {knownUser.name.split(" ")[0]}? Use a different account
+                </button>
+              </div>
+            ) : (
             <div>
               <label htmlFor="email" className="mb-2 block text-xs font-semibold uppercase tracking-wider text-white/50">
                 Email Address
@@ -373,6 +394,7 @@ export function LoginPageClient({ embedded = false }: LoginPageClientProps = {})
                 />
               </div>
             </div>
+            )}
 
             <div>
               <label htmlFor="password" className="mb-2 block text-xs font-semibold uppercase tracking-wider text-white/50">
@@ -421,7 +443,7 @@ export function LoginPageClient({ embedded = false }: LoginPageClientProps = {})
       <p className="mt-4 text-center text-xs text-white/40">
         New here?{" "}
         <Link href="/signup" className="font-medium text-tiffany transition-colors hover:text-tiffany/80">
-          Create an account
+          Get started
         </Link>
       </p>
     </AuthPageShell>

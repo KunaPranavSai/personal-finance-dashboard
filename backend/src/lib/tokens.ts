@@ -80,10 +80,13 @@ export function clearImpersonationCookie(res: Response) {
 const PIN_DEVICE_TTL_MS = 180 * 24 * 60 * 60 * 1000;
 const pinDeviceOptions = { httpOnly: true, signed: true, secure: IS_PROD, sameSite: (IS_PROD ? "none" : "lax") as "none" | "lax", path: "/api/auth" };
 
-export function setPinDeviceCookie(res: Response, userId: string) {
-  res.cookie("pin_device", userId, { ...pinDeviceOptions, maxAge: PIN_DEVICE_TTL_MS });
+// Two cookies so the user sign-in and the admin sign-in each remember their own last account.
+export const deviceCookieName = (admin: boolean) => (admin ? "pin_device_admin" : "pin_device");
+
+export function setPinDeviceCookie(res: Response, userId: string, admin = false) {
+  res.cookie(deviceCookieName(admin), userId, { ...pinDeviceOptions, maxAge: PIN_DEVICE_TTL_MS });
 }
 
-export function clearPinDeviceCookie(res: Response) {
-  res.clearCookie("pin_device", pinDeviceOptions);
+export function clearPinDeviceCookie(res: Response, admin = false) {
+  res.clearCookie(deviceCookieName(admin), pinDeviceOptions);
 }

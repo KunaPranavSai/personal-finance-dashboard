@@ -22,6 +22,7 @@ import authRoutes from "./routes/auth.routes";
 import voiceGreetingRoutes from "./routes/voiceGreeting.routes";
 import activityRoutes from "./routes/activity.routes";
 import capitalRoutes from "./routes/capital.routes";
+import { requireLevelForWrites, requireLevel } from "./lib/authLevel";
 import adminRoutes from "./routes/admin.routes";
 import publicRoutes from "./routes/public.routes";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler";
@@ -149,16 +150,16 @@ export function createApp() {
 
   // Google Drive connection itself — must be reachable before a user is "connected", so this
   // is authenticated but NOT gated behind requireDriveConnected (that would be circular).
-  app.use("/api/drive", authenticate, driveRoutes);
+  app.use("/api/drive", authenticate, (req, res, next) => (req.method === "GET" ? next() : requireLevel(3)(req, res, next)), driveRoutes);
 
   // Protected finance routes — Drive is the only persistent store for this data, so every one
   // of these requires an initialized Drive connection in addition to being logged in.
-  app.use("/api/transactions", authenticate, requireDriveConnected, transactionsRoutes);
-  app.use("/api/budgets", authenticate, requireDriveConnected, budgetRoutes);
+  app.use("/api/transactions", authenticate, requireLevelForWrites, requireDriveConnected, transactionsRoutes);
+  app.use("/api/budgets", authenticate, requireLevelForWrites, requireDriveConnected, budgetRoutes);
   app.use("/api/dashboard", authenticate, requireDriveConnected, dashboardRoutes);
-  app.use("/api/investments", authenticate, requireDriveConnected, investmentsRoutes);
-  app.use("/api/bills", authenticate, requireDriveConnected, billsRoutes);
-  app.use("/api/goals", authenticate, requireDriveConnected, goalsRoutes);
+  app.use("/api/investments", authenticate, requireLevelForWrites, requireDriveConnected, investmentsRoutes);
+  app.use("/api/bills", authenticate, requireLevelForWrites, requireDriveConnected, billsRoutes);
+  app.use("/api/goals", authenticate, requireLevelForWrites, requireDriveConnected, goalsRoutes);
   app.use("/api/savings", authenticate, requireDriveConnected, savingsRoutes);
   app.use("/api/analytics", authenticate, requireDriveConnected, analyticsRoutes);
   app.use("/api/reports", authenticate, requireDriveConnected, reportsRoutes);
@@ -167,7 +168,7 @@ export function createApp() {
   // exactly like admins', so this route doesn't gate on Drive at all.
   app.use("/api/profile", authenticate, profileRoutes);
   app.use("/api/settings", authenticate, requireDriveConnected, settingsRoutes);
-  app.use("/api/export", authenticate, requireDriveConnected, exportRoutes);
+  app.use("/api/export", authenticate, requireLevel(3), requireDriveConnected, exportRoutes);
 
   // Not financial data — stays Postgres-backed, no Drive gate needed.
   app.use("/api/notifications", authenticate, notificationsRoutes);
@@ -182,7 +183,7 @@ export function createApp() {
   // path — so if this were registered earlier, its requireDriveConnected (applied inside
   // reference.routes.ts) would incorrectly run for every other /api/* request too, before ever
   // reaching their real, more specific handlers below.
-  app.use("/api", authenticate, referenceRoutes);
+  app.use("/api", authenticate, requireLevelForWrites, referenceRoutes);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

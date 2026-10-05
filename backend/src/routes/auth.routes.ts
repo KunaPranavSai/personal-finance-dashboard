@@ -17,7 +17,7 @@ import { sendAutomatedEmail } from "../services/email/automation";
 import { notifySecurityEvent, sendEmail, createNotification } from "../lib/notify";
 import { RP_ID, RP_NAME, RP_ORIGINS } from "../lib/webauthn";
 import { computeSessionExpiryForUser } from "../lib/sessionExpiry";
-import { ACCESS_SECRET, REFRESH_SECRET, signAccess, signRefresh, setTokenCookies, TfaClaims, clearImpersonationCookie, setPinDeviceCookie, clearPinDeviceCookie } from "../lib/tokens";
+import { ACCESS_SECRET, REFRESH_SECRET, signAccess, signRefresh, setTokenCookies, TfaClaims, clearImpersonationCookie, setPinDeviceCookie, deviceCookieName } from "../lib/tokens";
 import {
   generateRegistrationOptions,
   verifyRegistrationResponse,
@@ -108,7 +108,7 @@ const OTP_RESEND_COOLDOWN_MS = 60 * 1000;
 const RECOVERY_GENERIC_ERROR = "This recovery session is invalid or has expired. Please start over.";
 
 function toUserJson(user: User) {
-  return { uid: user.uid, name: user.name, email: user.email, role: user.role };
+  return { uid: user.uid, name: user.name, email: user.email, role: user.role, emailVerified: Boolean(user.emailVerifiedAt), profileCompleted: Boolean(user.profileCompletedAt) };
 }
 
 function isStrongPassword(pw: string): boolean {
@@ -395,7 +395,8 @@ async function completeLogin(req: Request, res: Response, user: User, remember =
   const isFirstLogin = user.lastLoginAt === null;
   void prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
   void createNotification(user.id, "security", "New sign-in", "Your account was signed in from a new session.");
-  if (user.pinHash) setPinDeviceCookie(res, user.id);
+  // Remember who signed in last on this device (PIN or not) so the next visit greets them by name.
+  setPinDeviceCookie(res, user.id, user.role !== "USER");
   res.json({ user: toUserJson(user), sessionExpiresAt, isFirstLogin });
 }
 
@@ -591,6 +592,21 @@ router.get(
 
 // ─── Daily PIN (unlock gate shown once per calendar day) ─────────────────────
 const pinLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 10, standardHeaders: true, legacyHeaders: false, message: { error: "Too many attempts. Please try again later.", code: "AUTH_RATE_LIMITED" } });
+// Rejects the PINs people guess first: one repeated digit (1111) or a straight run (1234, 4321).
+const isWeakPin = (pin: string) => {
+  const d = pin.split("").map(Number);
+  const step = d[1] - d[0];
+  return d.every((x) => x === d[0]) || ((step === 1 || step === -1) && d.every((x, i) => i === 0 || x - d[i - 1] === step));
+};
+
+/** True when this session was created in the last 15 minutes (the user has just proven who they are). */
+async function sessionIsFresh(req: Request): Promise<boolean> {
+  const id = req.auth?.sessionId;
+  if (!id) return false;
+  const s = await prisma.session.findUnique({ where: { id }, select: { createdAt: true } });
+  return Boolean(s && Date.now() - s.createdAt.getTime() < 15 * 60 * 1000);
+}
+
 const isPin = (v: unknown): v is string => typeof v === "string" && /^\d{4,6}$/.test(v);
 
 router.get("/pin", authenticate, asyncHandler(async (req: Request, res: Response) => {
@@ -600,12 +616,19 @@ router.get("/pin", authenticate, asyncHandler(async (req: Request, res: Response
 
 router.post("/pin", authenticate, pinLimiter, asyncHandler(async (req: Request, res: Response) => {
   const { pin, password } = req.body ?? {};
-  if (!isPin(pin) || typeof password !== "string") { res.status(400).json({ error: "PIN must be 4-6 digits and password is required" }); return; }
+  if (!isPin(pin)) { res.status(400).json({ error: "PIN must be 4-6 digits" }); return; }
+  if (isWeakPin(pin)) { res.status(400).json({ error: "Choose a PIN that is not a repeated digit or a straight run like 1234", code: "WEAK_PIN" }); return; }
   const user = await prisma.user.findUnique({ where: { id: req.auth!.userId } });
-  if (!user?.passwordHash || !(await bcrypt.compare(password, user.passwordHash))) { res.status(401).json({ error: "Incorrect password", code: "AUTH_INVALID" }); return; }
+  if (!user) { res.status(401).json({ error: "Account not found", code: "AUTH_EXPIRED" }); return; }
+  // A just-signed-in session may set its PIN without retyping the password; an older one must prove it. Accounts
+  // that never had a password (email-code sign-up) have nothing to retype.
+  if (user.passwordHash && !(await sessionIsFresh(req))) {
+    if (typeof password !== "string") { res.status(403).json({ error: "Enter your password to set a PIN", code: "PASSWORD_REQUIRED" }); return; }
+    if (!(await bcrypt.compare(password, user.passwordHash))) { res.status(401).json({ error: "Incorrect password", code: "AUTH_INVALID" }); return; }
+  }
   await prisma.user.update({ where: { id: user.id }, data: { pinHash: await bcrypt.hash(pin, 10) } });
   void logActivity(req, "pin_set", "Daily PIN set", user.id);
-  setPinDeviceCookie(res, user.id);
+  setPinDeviceCookie(res, user.id, user.role !== "USER");
   res.json({ ok: true });
 }));
 
@@ -618,16 +641,18 @@ router.post("/pin/verify", authenticate, pinLimiter, asyncHandler(async (req: Re
 
 // Which account (if any) PIN sign-in is offered for on this device.
 router.get("/pin/device", asyncHandler(async (req: Request, res: Response) => {
-  const id = req.signedCookies?.pin_device;
-  const user = typeof id === "string" ? await prisma.user.findUnique({ where: { id }, select: { name: true, email: true, pinHash: true, status: true } }) : null;
-  if (!user?.pinHash || user.status === "SUSPENDED") { res.json({ device: false }); return; }
-  res.json({ device: true, name: user.name, email: user.email });
+  // Each sign-in page only knows its own portal's last account (admins at /admin-login, users at /login).
+  const isAdminPortal = req.query.portal === "admin";
+  const id = req.signedCookies?.[deviceCookieName(isAdminPortal)];
+  const user = typeof id === "string" ? await prisma.user.findUnique({ where: { id }, select: { name: true, email: true, pinHash: true, status: true, role: true } }) : null;
+  if (!user || user.status === "SUSPENDED" || (user.role === "USER") === isAdminPortal) { res.json({ device: false }); return; }
+  res.json({ device: true, name: user.name || user.email, email: user.email, hasPin: Boolean(user.pinHash) });
 }));
 
 router.post("/pin/login", loginLimiter, asyncHandler(async (req: Request, res: Response) => {
   const { pin, portal, identifier, rememberMe } = req.body as { pin?: string; portal?: string; identifier?: string; rememberMe?: boolean };
   // Remembered device first; otherwise (new device) the user types their email / User ID.
-  const id = req.signedCookies?.pin_device;
+  const id = req.signedCookies?.[deviceCookieName(portal === "admin")];
   const user = typeof id === "string" ? await prisma.user.findUnique({ where: { id } }) : typeof identifier === "string" ? await findByIdentifier(identifier) : null;
   if (!user?.pinHash || !isPin(pin)) {
     // Burn the same bcrypt time as a real check so response timing does not reveal whether the account has a PIN.
@@ -659,7 +684,6 @@ router.post("/pin/login", loginLimiter, asyncHandler(async (req: Request, res: R
 router.delete("/pin", authenticate, asyncHandler(async (req: Request, res: Response) => {
   await prisma.user.update({ where: { id: req.auth!.userId }, data: { pinHash: null } });
   void logActivity(req, "pin_removed", "Daily PIN removed", req.auth!.userId);
-  clearPinDeviceCookie(res);
   res.json({ ok: true });
 }));
 
@@ -1417,6 +1441,104 @@ router.get(
     res.json({ items: rows.map((r) => ({ ...r, current: r.id === req.auth!.sessionId })) });
   })
 );
+
+// ─── Progressive sign-up: start, verify email, complete profile ──────────────
+const startLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 10, standardHeaders: true, legacyHeaders: false, message: { error: "Too many attempts. Please try again later.", code: "AUTH_RATE_LIMITED" } });
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+async function issueEmailCode(user: User): Promise<void> {
+  const code = generateOtp();
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { emailOtpHash: await bcrypt.hash(code, 8), emailOtpExpiry: new Date(Date.now() + 10 * 60 * 1000), emailOtpAttempts: 0 },
+  });
+  const sent = await sendEmail(user.email, "Your Penny Pilot verification code", RECOVERY_OTP_EMAIL_HTML(user.name || "there", code));
+  // No mail provider configured (local development): surface the code in the server log instead.
+  if (!sent && process.env.NODE_ENV !== "production") console.log(`[dev] email code for ${user.email}: ${code}`);
+}
+
+async function checkEmailCode(user: User, code: unknown): Promise<"ok" | "bad" | "expired" | "locked"> {
+  if (!user.emailOtpHash || !user.emailOtpExpiry || user.emailOtpExpiry < new Date()) return "expired";
+  if (user.emailOtpAttempts >= 5) return "locked";
+  if (typeof code !== "string" || !(await bcrypt.compare(code, user.emailOtpHash))) {
+    await prisma.user.update({ where: { id: user.id }, data: { emailOtpAttempts: { increment: 1 } } });
+    return "bad";
+  }
+  await prisma.user.update({ where: { id: user.id }, data: { emailOtpHash: null, emailOtpExpiry: null, emailOtpAttempts: 0 } });
+  return "ok";
+}
+
+const codeError = { bad: [401, "Incorrect code"], expired: [401, "That code expired. Request a new one."], locked: [429, "Too many wrong codes. Request a new one."] } as const;
+
+// New email -> explorer session straight away. Known verified email -> emailed sign-in code instead (never a session).
+router.post("/start", startLimiter, asyncHandler(async (req: Request, res: Response) => {
+  const email = String((req.body as { email?: string }).email ?? "").trim().toLowerCase();
+  if (!EMAIL_RE.test(email)) { res.status(400).json({ error: "Please enter a valid email address" }); return; }
+  let user = await prisma.user.findUnique({ where: { email } });
+  if (user?.emailVerifiedAt) {
+    if (user.status === "SUSPENDED") { res.status(403).json({ error: "Your account has been suspended. Contact support.", code: "AUTH_FORBIDDEN" }); return; }
+    await issueEmailCode(user);
+    res.json({ mode: "code" });
+    return;
+  }
+  if (!user) {
+    user = await prisma.user.create({ data: { uid: email, email, name: "", role: "USER", status: "ACTIVE", mustChangePassword: false } });
+  }
+  await completeLogin(req, res, user, false);
+}));
+
+// Passwordless sign-in for verified accounts.
+router.post("/code/login", loginLimiter, asyncHandler(async (req: Request, res: Response) => {
+  const { email, code, rememberMe } = req.body as { email?: string; code?: string; rememberMe?: boolean };
+  const user = typeof email === "string" ? await prisma.user.findUnique({ where: { email: email.trim().toLowerCase() } }) : null;
+  if (!user?.emailVerifiedAt) { res.status(401).json({ error: "Incorrect code", code: "AUTH_INVALID" }); return; }
+  if (user.status === "SUSPENDED") { res.status(403).json({ error: "Your account has been suspended. Contact support.", code: "AUTH_FORBIDDEN" }); return; }
+  if (await isRestricted(user.id)) { res.status(403).json({ error: "Your account access has been restricted. Contact support.", code: "AUTH_FORBIDDEN" }); return; }
+  const result = await checkEmailCode(user, code);
+  if (result !== "ok") { res.status(codeError[result][0]).json({ error: codeError[result][1], code: "AUTH_INVALID" }); return; }
+  await completeLogin(req, res, user, rememberMe === true);
+}));
+
+router.post("/email/send-code", authenticate, startLimiter, asyncHandler(async (req: Request, res: Response) => {
+  const user = await prisma.user.findUnique({ where: { id: req.auth!.userId } });
+  if (!user) { res.status(401).json({ error: "Account not found", code: "AUTH_EXPIRED" }); return; }
+  if (user.emailVerifiedAt) { res.status(400).json({ error: "Email is already verified" }); return; }
+  await issueEmailCode(user);
+  res.json({ ok: true, to: user.email.replace(/^(.).*(@.*)$/, "$1***$2") });
+}));
+
+router.post("/email/verify", authenticate, loginLimiter, asyncHandler(async (req: Request, res: Response) => {
+  const user = await prisma.user.findUnique({ where: { id: req.auth!.userId } });
+  if (!user) { res.status(401).json({ error: "Account not found", code: "AUTH_EXPIRED" }); return; }
+  const result = await checkEmailCode(user, (req.body as { code?: string }).code);
+  if (result !== "ok") { res.status(codeError[result][0]).json({ error: codeError[result][1], code: "AUTH_INVALID" }); return; }
+  const verified = await prisma.user.update({ where: { id: user.id }, data: { emailVerifiedAt: new Date() } });
+  // Fresh session for the verifier only: every other session minted while this email was unverified is ended.
+  await completeLogin(req, res, verified, req.auth!.remember === true);
+}));
+
+router.post("/profile/complete", authenticate, asyncHandler(async (req: Request, res: Response) => {
+  const { name, phone, termsAccepted, privacyAccepted, signedName, pin } = req.body as { name?: string; phone?: string; termsAccepted?: boolean; privacyAccepted?: boolean; signedName?: string; pin?: string };
+  const user = await prisma.user.findUnique({ where: { id: req.auth!.userId } });
+  if (!user) { res.status(401).json({ error: "Account not found", code: "AUTH_EXPIRED" }); return; }
+  if (!user.emailVerifiedAt) { res.status(403).json({ error: "Verify your email first", code: "STEP_UP", needed: 2, have: 1 }); return; }
+  const cleanPhone = String(phone ?? "").replace(/[^0-9+]/g, "");
+  if (!name?.trim()) { res.status(400).json({ error: "Please enter your name" }); return; }
+  if (cleanPhone.replace(/\D/g, "").length < 7 || cleanPhone.replace(/\D/g, "").length > 15) { res.status(400).json({ error: "Please enter a valid phone number" }); return; }
+  if (!isPin(pin)) { res.status(400).json({ error: "Please choose a 4-digit PIN" }); return; }
+  if (isWeakPin(pin)) { res.status(400).json({ error: "Choose a PIN that is not a repeated digit or a straight run like 1234", code: "WEAK_PIN" }); return; }
+  if (termsAccepted !== true) { res.status(400).json({ error: "You must accept the Terms of Service" }); return; }
+  if (privacyAccepted !== true) { res.status(400).json({ error: "You must acknowledge the Privacy Policy" }); return; }
+  if (!isValidSignatureName(signedName)) { res.status(400).json({ error: "Please type your full name as your electronic signature" }); return; }
+  const updated = await prisma.$transaction(async (tx) => {
+    await tx.consentRecord.create({
+      data: { userId: user.id, signedName: (signedName as string).trim(), termsAccepted: true, privacyAccepted: true, termsVersion: TERMS_VERSION, privacyVersion: PRIVACY_VERSION },
+    });
+    return tx.user.update({ where: { id: user.id }, data: { name: name.trim(), phone: cleanPhone, profileCompletedAt: new Date(), pinHash: await bcrypt.hash(pin, 10) } });
+  });
+  setPinDeviceCookie(res, updated.id, updated.role !== "USER");
+  res.json({ user: toUserJson(updated) });
+}));
 
 // ─── GET /api/auth/me ────────────────────────────────────────────────────────
 router.get(

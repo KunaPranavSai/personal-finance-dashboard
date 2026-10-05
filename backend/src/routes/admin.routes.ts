@@ -14,6 +14,7 @@ import { getSystemHealth } from "../services/admin/systemHealth";
 import { lookupGeo } from "../lib/geoip";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
+import { tableToCsv, tableToExcel, tableToPdf, TableReport } from "../services/export/tableExporter";
 import { signImpersonation, setImpersonationCookie } from "../lib/tokens";
 
 const router = Router();
@@ -117,6 +118,64 @@ router.get(
       driveConnectedCount,
       systemHealth: health,
     });
+  })
+);
+
+// ─── GET /api/admin/export ────────────────────────────────────────────────────
+// Branded Users or Audit-log export (PDF / Excel / CSV). Same brand block as the user reports.
+router.get(
+  "/export",
+  asyncHandler(async (req: Request, res: Response) => {
+    const { type = "users", format = "xlsx", from, to } = req.query as { type?: string; format?: string; from?: string; to?: string };
+    if (!["users", "audit"].includes(type)) { res.status(400).json({ error: "type must be users or audit" }); return; }
+    if (!["pdf", "xlsx", "csv"].includes(format)) { res.status(400).json({ error: "format must be pdf, xlsx or csv" }); return; }
+    const fromDate = from ? new Date(from) : undefined;
+    const toDate = to ? new Date(to + "T23:59:59.999Z") : undefined;
+    const range = {
+      ...(fromDate && !isNaN(fromDate.getTime()) && { gte: fromDate }),
+      ...(toDate && !isNaN(toDate.getTime()) && { lte: toDate }),
+    };
+    const day = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : "");
+    let report: TableReport;
+    if (type === "users") {
+      const users = await prisma.user.findMany({
+        where: Object.keys(range).length ? { createdAt: range } : undefined,
+        orderBy: { createdAt: "desc" },
+        take: 10000,
+        select: { name: true, email: true, uid: true, role: true, status: true, phone: true, createdAt: true, lastLoginAt: true, twoFactorEnabled: true, emailVerifiedAt: true },
+      });
+      report = {
+        title: "Users", meta: { from, to },
+        columns: [
+          { header: "Name", key: "name", width: 22 }, { header: "Email", key: "email", width: 30 }, { header: "UID", key: "uid", width: 16 },
+          { header: "Role", key: "role", width: 12 }, { header: "Status", key: "status", width: 11 }, { header: "Phone", key: "phone", width: 15 },
+          { header: "Email verified", key: "verified", width: 12 }, { header: "2FA", key: "tfa", width: 6 },
+          { header: "Created", key: "created", width: 12 }, { header: "Last login", key: "last", width: 12 },
+        ],
+        rows: users.map((u) => ({ name: u.name, email: u.email, uid: u.uid, role: u.role, status: u.status, phone: u.phone ?? "", verified: u.emailVerifiedAt ? "Yes" : "No", tfa: u.twoFactorEnabled ? "On" : "Off", created: day(u.createdAt), last: day(u.lastLoginAt) })),
+      };
+    } else {
+      const logs = await prisma.activityLog.findMany({
+        where: Object.keys(range).length ? { createdAt: range } : undefined,
+        orderBy: { createdAt: "desc" },
+        take: 10000,
+        include: { user: { select: { email: true } } },
+      });
+      report = {
+        title: "Audit log", meta: { from, to },
+        columns: [
+          { header: "Time", key: "time", width: 20 }, { header: "Event", key: "event", width: 24 }, { header: "User", key: "user", width: 28 },
+          { header: "Detail", key: "detail", width: 40 }, { header: "IP", key: "ip", width: 16 },
+        ],
+        rows: logs.map((l) => ({ time: l.createdAt.toISOString().replace("T", " ").slice(0, 19), event: l.event, user: l.user?.email ?? "", detail: l.detail ?? "", ip: l.ip ?? "" })),
+      };
+    }
+    const stamp = new Date().toISOString().slice(0, 10);
+    if (format === "csv") { res.setHeader("Content-Type", "text/csv; charset=utf-8"); res.setHeader("Content-Disposition", `attachment; filename="${type}-${stamp}.csv"`); res.send(tableToCsv(report)); return; }
+    if (format === "xlsx") { res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"); res.setHeader("Content-Disposition", `attachment; filename="${type}-${stamp}.xlsx"`); res.send(await tableToExcel(report)); return; }
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="${type}-${stamp}.pdf"`);
+    res.send(await tableToPdf(report));
   })
 );
 

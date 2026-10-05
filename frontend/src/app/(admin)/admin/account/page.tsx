@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Image from "next/image";
+import { PinSettings } from "@/components/auth/pin";
+import Link from "next/link";
 import { UserCog, ShieldCheck, ShieldOff, KeyRound, Save } from "lucide-react";
 import { Topbar } from "@/components/layout/Topbar";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -247,6 +249,19 @@ export default function AdminAccountPage() {
             </div>
           )}
         </div>
+
+        <div className="cc-panel mt-4 p-4">
+          <p className="cc-mono mb-3 text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--cc-text-faint)" }}>Sign-in PIN</p>
+          <PinSettings variant="desktop" userId={user?.uid ?? ""} />
+        </div>
+
+        <Link href="/admin/sessions" className="cc-panel mt-4 flex min-h-[56px] items-center justify-between p-4">
+          <span>
+            <span className="block text-sm font-medium" style={{ color: "var(--cc-text)" }}>Sessions</span>
+            <span className="block text-xs" style={{ color: "var(--cc-text-dim)" }}>Where you are signed in</span>
+          </span>
+          <span aria-hidden="true" style={{ color: "var(--cc-text-dim)" }}>›</span>
+        </Link>
       </main>
     </>
   );

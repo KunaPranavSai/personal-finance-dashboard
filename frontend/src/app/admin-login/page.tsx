@@ -6,7 +6,8 @@ import Link from "next/link";
 import { useAuth } from "@/lib/AuthContext";
 import { PasswordInput } from "@/components/ui/PasswordInput";
 import { AnimatedCodeVerification } from "@/components/ui/AnimatedCodeVerification";
-import { ShieldAlert, Lock, Mail, AlertCircle, ArrowLeft } from "lucide-react";
+import { ShieldAlert, Lock, Mail, AlertCircle, ArrowLeft, KeyRound } from "lucide-react";
+import { api } from "@/lib/api";
 
 const inputBase =
   "w-full rounded-lg border border-white/10 bg-white/[0.03] py-2.5 pl-10 pr-4 text-sm text-slate-100 placeholder:text-slate-500 outline-none transition-colors focus:border-teal-500/50 focus:ring-1 focus:ring-teal-500/30";
@@ -22,7 +23,7 @@ const primaryButton =
  * the same authentication system, not a separate one.
  */
 export default function AdminLoginPage() {
-  const { user, login, verifyLogin2FA, forceChangePassword, logout, isAuthenticated, isLoading } = useAuth();
+  const { user, login, loginWithPin, verifyLogin2FA, forceChangePassword, logout, isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -33,6 +34,24 @@ export default function AdminLoginPage() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [rejecting, setRejecting] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
+  // PIN sign-in: default view on a device that remembers an account with a PIN; "PIN instead" elsewhere.
+  const [pinDevice, setPinDevice] = useState<{ name: string; email: string } | null>(null);
+  const [knownUser, setKnownUser] = useState<{ name: string; email: string } | null>(null);
+  const [pinManual, setPinManual] = useState(false);
+  const [usePassword, setUsePassword] = useState(false);
+  const [pinChecked, setPinChecked] = useState(false);
+
+  useEffect(() => {
+    api.get<{ device: boolean; name?: string; email?: string; hasPin?: boolean }>("/api/auth/pin/device?portal=admin")
+      .then((d) => {
+        if (!d.device || !d.name || !d.email) return;
+        if (d.hasPin) setPinDevice({ name: d.name, email: d.email });
+        else { setKnownUser({ name: d.name, email: d.email }); setEmail(d.email); }
+      })
+      .catch(() => { /* password form stays */ })
+      .finally(() => setPinChecked(true));
+  }, []);
 
   useEffect(() => {
     if (isLoading || rejecting) return;
@@ -57,7 +76,7 @@ export default function AdminLoginPage() {
     setError("");
     setIsPending(true);
     try {
-      const result = await login(email.trim().toLowerCase(), password, "admin");
+      const result = await login(email.trim(), password, "admin", rememberMe);
       if (result.requiresPasswordChange && result.passwordChangeToken) {
         setPasswordChangeToken(result.passwordChangeToken);
       } else if (result.requires2FA && result.challengeToken) {
@@ -93,10 +112,54 @@ export default function AdminLoginPage() {
     }
   };
 
-  if (isLoading) {
+  if (isLoading || !pinChecked) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-950">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-700 border-t-teal-500" />
+      </div>
+    );
+  }
+
+  if ((pinDevice || pinManual) && !usePassword && !challengeToken && !passwordChangeToken) {
+    const toPassword = () => { if (pinDevice) { setEmail(pinDevice.email); setKnownUser(pinDevice); } setPinManual(false); setUsePassword(true); };
+    const notYou = () => { setPinDevice(null); setKnownUser(null); setEmail(""); setPinManual(true); };
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-950 p-4">
+        <div className="flex w-full max-w-sm flex-col gap-3">
+          {!pinDevice && (
+            <input
+              type="text"
+              autoComplete="username"
+              aria-label="Administrator email or User ID"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Email or User ID required"
+              className={inputBase.replace("pl-10", "pl-4")}
+            />
+          )}
+          <AnimatedCodeVerification
+            length={4}
+            title={pinDevice ? `Welcome back, ${pinDevice.name.split(" ")[0]}` : "Sign in with PIN"}
+            subtitle={pinDevice ? `Enter your 4-digit PIN to open the admin console as ${pinDevice.email}` : "Enter your administrator email or User ID, then your 4-digit PIN"}
+            tip="Locked out? Use your email and password below"
+            successTitle="Verified"
+            successSubtitle="Opening the admin console…"
+            onVerify={async (pin) => {
+              if (!pinDevice && !email.trim()) throw new Error("Enter your email or User ID first");
+              const result = await loginWithPin(pin, pinDevice ? undefined : email.trim(), "admin");
+              if (result.requires2FA && result.challengeToken) setChallengeToken(result.challengeToken);
+              else if (result.requiresPasswordChange && result.passwordChangeToken) setPasswordChangeToken(result.passwordChangeToken);
+            }}
+          />
+          <button type="button" onClick={toPassword} className="flex min-h-[48px] items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-4 text-sm font-medium text-slate-200 hover:bg-white/[0.06]">
+            <Mail className="h-4 w-4" /> Sign in with email &amp; password
+          </button>
+          {pinDevice && (
+            <button type="button" onClick={notYou} className="min-h-[44px] text-sm text-slate-500 hover:text-slate-300">
+              Not {pinDevice.name.split(" ")[0]}? Use a different account
+            </button>
+          )}
+        </div>
       </div>
     );
   }
@@ -183,6 +246,15 @@ export default function AdminLoginPage() {
 
         <div className="rounded-xl border border-white/10 bg-slate-900 p-6">
           <form onSubmit={handleSubmit} className="space-y-4" aria-label="Administrator sign-in">
+            {knownUser ? (
+              <div className="rounded-lg border border-white/10 bg-white/[0.03] p-4 text-center">
+                <p className="text-sm font-semibold text-slate-100">Welcome back, {knownUser.name.split(" ")[0]}</p>
+                <p className="mt-0.5 text-xs text-slate-500">{knownUser.email}</p>
+                <button type="button" onClick={() => { setKnownUser(null); setEmail(""); }} className="mt-2 min-h-[44px] text-xs text-slate-500 hover:text-slate-300">
+                  Not {knownUser.name.split(" ")[0]}? Use a different account
+                </button>
+              </div>
+            ) : (
             <div>
               <label htmlFor="admin-email" className="mb-1.5 block text-xs font-medium text-slate-400">
                 Administrator Email
@@ -191,17 +263,18 @@ export default function AdminLoginPage() {
                 <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
                 <input
                   id="admin-email"
-                  type="email"
-                  autoComplete="email"
+                  type="text"
+                  autoComplete="username"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
+                  placeholder="Email or User ID required"
                   required
                   autoFocus
                   className={inputBase}
                 />
               </div>
             </div>
+            )}
 
             <div>
               <label htmlFor="admin-password" className="mb-1.5 block text-xs font-medium text-slate-400">
@@ -227,6 +300,11 @@ export default function AdminLoginPage() {
               </div>
             </div>
 
+            <label className="flex min-h-[44px] cursor-pointer items-center gap-3 text-sm text-slate-300">
+              <input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} className="h-5 w-5 rounded border-white/20 bg-white/[0.03] accent-teal-500" />
+              Remember me on this device
+            </label>
+
             {error && (
               <div role="alert" className="flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-300">
                 <AlertCircle className="h-4 w-4 shrink-0" /> {error}
@@ -236,6 +314,10 @@ export default function AdminLoginPage() {
             <button type="submit" disabled={isPending || !email || !password} className={primaryButton}>
               {isPending ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" /> : <ShieldAlert className="h-4 w-4" />}
               {isPending ? "Signing in…" : "Sign In to Admin Console"}
+            </button>
+
+            <button type="button" onClick={() => { setError(""); setUsePassword(false); setPinManual(true); }} className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-4 text-sm font-medium text-slate-200 hover:bg-white/[0.06]">
+              <KeyRound className="h-4 w-4" /> Sign in with PIN instead
             </button>
           </form>
         </div>

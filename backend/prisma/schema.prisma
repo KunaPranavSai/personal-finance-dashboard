@@ -63,6 +63,12 @@ model User {
   twoFactorPendingSecret String?
   twoFactorBackupCodes   String[]   @default([])
   pinHash                String?
+  // Progressive auth: "email provided" is not "email owned". Levels are derived from these.
+  emailVerifiedAt        DateTime?
+  profileCompletedAt     DateTime?
+  emailOtpHash           String?
+  emailOtpExpiry         DateTime?
+  emailOtpAttempts       Int        @default(0)
   sessionVersion         Int        @default(0)
   resetOtpHash           String?
   resetOtpExpiry         DateTime?

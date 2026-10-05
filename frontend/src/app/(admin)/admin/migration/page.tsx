@@ -142,7 +142,28 @@ export default function AdminMigrationPage() {
             <EmptyState icon={ShieldQuestion} title="No accounts found" description="Try a different search or state filter." />
           ) : (
             <>
-              <div className="overflow-x-auto">
+              <ul className="space-y-2 md:hidden">
+                {items.map((row) => (
+                  <li key={row.userId} className="rounded-xl border p-3" style={{ borderColor: "var(--cc-border)" }}>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold" style={{ color: "var(--cc-text)" }}>{row.name}</p>
+                        <p className="truncate text-xs" style={{ color: "var(--cc-text-faint)" }}>{row.email}</p>
+                      </div>
+                      <StateBadge state={row.state} />
+                    </div>
+                    <p className="mt-2 text-xs" style={{ color: "var(--cc-text-dim)" }}>Drive: {row.accountEmail ?? "—"}</p>
+                    {row.lastConnectAttemptAt && <p className="text-xs" style={{ color: "var(--cc-text-dim)" }}>Last attempt: {new Date(row.lastConnectAttemptAt).toLocaleString()}</p>}
+                    {row.lastConnectError && <p className="mt-1 break-words text-xs" style={{ color: "var(--cc-red)" }}>{row.lastConnectError}</p>}
+                    {NOTIFIABLE.includes(row.state) && (
+                      <Button type="button" size="sm" variant="secondary" onClick={() => handleNotify(row)} disabled={notifying === row.userId} className="mt-3 min-h-[44px] w-full">
+                        <Mail className="h-3.5 w-3.5" /> {notifying === row.userId ? "Sending…" : "Notify User"}
+                      </Button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+              <div className="hidden overflow-x-auto md:block">
                 <table className="w-full min-w-[720px] text-sm">
                   <thead>
                     <tr className="border-b text-left" style={{ borderColor: "var(--cc-border)", color: "var(--cc-text-faint)" }}>

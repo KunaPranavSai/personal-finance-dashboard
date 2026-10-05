@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter, usePathname } from "next/navigation";
 import { Sidebar } from "@/components/layout/Sidebar";
@@ -14,10 +14,14 @@ import { PpToastProvider } from "@/components/ui/PpToast";
 import { PpConfirmProvider } from "@/components/ui/PpConfirm";
 import { useAuth } from "@/lib/AuthContext";
 import { useDriveStatus, isDriveReady } from "@/lib/driveStatus";
-import { getStorageMode } from "@/lib/storage";
+import { getStorageMode, setStorageMode } from "@/lib/storage";
+import { seedLocalDefaultsIfEmpty } from "@/lib/storage/localSeed";
+import { setExplorer } from "@/lib/stepUp";
+import { StepUpHost } from "@/components/auth/StepUpHost";
 import { useIsMobile } from "@/lib/DeviceContext";
 import { useDailyLogin } from "@/lib/useDailyLogin";
 import { PinGate } from "@/components/auth/pin";
+import { PinSetupGate } from "@/components/auth/PinSetupGate";
 
 export function AppShellLayoutClient({ children }: { children: React.ReactNode }) {
   const { user, isAuthenticated, isLoading } = useAuth();
@@ -36,12 +40,34 @@ export function AppShellLayoutClient({ children }: { children: React.ReactNode }
   // below must not apply to them. This is a per-browser preference (not
   // server-known), which matches Local-Only mode's own nature: the data
   // itself never leaves this device either.
-  const isLocalOnly = getStorageMode() === "local";
+  // Explorer = email not verified or profile not completed yet: browses an empty on-device workspace; saving asks them to verify (StepUpHost).
+  const isExplorer = user?.role === "USER" && (user.emailVerified === false || user.profileCompleted === false);
+  const [, bumpMode] = useState(0);
+  const isLocalOnly = getStorageMode() === "local" || isExplorer;
   const requiresDrive = Boolean(user && user.role === "USER" && !isLocalOnly);
   const { data: driveStatus, isLoading: driveStatusLoading } = useDriveStatus();
   const driveReady = !requiresDrive || isDriveReady(driveStatus);
   const queryClient = useQueryClient();
   useDailyLogin();
+
+  useEffect(() => {
+    if (!user) return;
+    const FLAG = "pp_explorer_local";
+    if (isExplorer) {
+      setExplorer(true);
+      if (getStorageMode() !== "local") {
+        setStorageMode("local");
+        try { localStorage.setItem(FLAG, "1"); } catch { /* ignore */ }
+      }
+      seedLocalDefaultsIfEmpty().finally(() => { queryClient.invalidateQueries(); bumpMode((n) => n + 1); });
+    } else if (user.role === "USER") {
+      setExplorer(false);
+      let wasExplorerLocal = false;
+      try { wasExplorerLocal = localStorage.getItem(FLAG) === "1"; localStorage.removeItem(FLAG); } catch { /* ignore */ }
+      // Verified now: leave the throwaway playground; the Drive gate below takes over from here.
+      if (wasExplorerLocal) { setStorageMode("drive"); queryClient.invalidateQueries(); bumpMode((n) => n + 1); }
+    }
+  }, [user, isExplorer, queryClient]);
 
   // Reconcile financial state when the tab regains focus/visibility — the
   // same data may have changed from another device/tab/session since Drive
@@ -82,7 +108,7 @@ export function AppShellLayoutClient({ children }: { children: React.ReactNode }
     }
   }, [isAuthenticated, isLoading, user, isSelfServiceRoute, requiresDrive, driveStatusLoading, driveReady, router, pathname]);
 
-  if (isLoading || (user && user.role !== "USER" && !isSelfServiceRoute) || (requiresDrive && (driveStatusLoading || !driveReady))) {
+  if (isLoading || (isExplorer && getStorageMode() !== "local") || (user && user.role !== "USER" && !isSelfServiceRoute) || (requiresDrive && (driveStatusLoading || !driveReady))) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-pp-surface ">
         <div className="flex flex-col items-center gap-4">
@@ -108,6 +134,8 @@ export function AppShellLayoutClient({ children }: { children: React.ReactNode }
             <DataInit />
             {children}
             <TwoFactorReverifyDialog />
+          <StepUpHost />
+          <PinSetupGate />
           </div>
         </PpConfirmProvider>
       </PpToastProvider></PinGate>
@@ -128,6 +156,8 @@ export function AppShellLayoutClient({ children }: { children: React.ReactNode }
             <Footer />
           </div>
           <TwoFactorReverifyDialog />
+          <StepUpHost />
+          <PinSetupGate />
         </div>
       </PpConfirmProvider>
     </PpToastProvider></PinGate>

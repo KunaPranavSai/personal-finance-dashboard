@@ -437,8 +437,18 @@ html.dark .ppm-sheet-portal {
 .ppm-load-more { display: block; width: 100%; min-height: 48px; margin: 14px 0 4px; border-radius: 14px; border: 1px solid var(--ppm-border); background: var(--ppm-surface); color: var(--ppm-accent); font-weight: 700; font-size: .85rem; font-family: inherit; cursor: pointer; }
 .ppm-load-more:disabled { opacity: .6; }
 .ppm-checks { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; }
-.ppm-check { display: flex !important; align-items: center; gap: 8px; min-height: 40px; text-transform: none !important; letter-spacing: 0 !important; font-size: .85rem !important; color: var(--ppm-text) !important; margin: 0 !important; }
-.ppm-check input { width: 18px; height: 18px; flex-shrink: 0; }
+.ppm-check { display: flex !important; align-items: center; gap: 10px; min-height: 44px; text-transform: none !important; letter-spacing: 0 !important; font-size: .85rem !important; color: var(--ppm-text) !important; margin: 0 !important; }
+/* Beats ".ppm-field input" (full-width text-input look) so checkboxes stay small and show a tick when checked. */
+.ppm-field .ppm-check input[type="checkbox"], .ppm-check input[type="checkbox"] {
+  -webkit-appearance: none; appearance: none; flex: 0 0 22px; width: 22px; height: 22px; min-height: 0; padding: 0; margin: 0;
+  border-radius: 7px; border: 1.5px solid var(--ppm-text-dim); background: var(--ppm-surface) center / 14px no-repeat; cursor: pointer;
+}
+.ppm-field .ppm-check input[type="checkbox"]:checked, .ppm-check input[type="checkbox"]:checked {
+  background-color: var(--ppm-accent); border-color: var(--ppm-accent);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E");
+}
+.ppm-check input[type="checkbox"]:focus-visible { outline: 2px solid var(--ppm-accent); outline-offset: 2px; }
+.ppm-check { min-height: 44px !important; cursor: pointer; }
 @media (max-width: 380px) { .ppm-filter-label { display: none; } }
 
 /* Capital cards */
@@ -463,3 +473,7 @@ html.dark .ppm-sheet-portal {
 .ppm-spin { animation: ppm-spin .9s linear infinite; }
 .ppm-iconbtn:disabled { opacity: .7; cursor: progress; }
 @media (prefers-reduced-motion: reduce) { .ppm-spin { animation-duration: 2.5s; } }
+
+/* Admin on phones: the shell supplies the app bar, so the per-page desktop Topbar header is hidden. */
+.ppm-admin-content > header { display: none; }
+.ppm-admin-content main { overflow-y: visible; }

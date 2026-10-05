@@ -5,6 +5,7 @@ import { LocalStorageProvider } from "./localStorageProvider";
 export * from "./types";
 export { DriveStorageProvider } from "./driveStorageProvider";
 export { LocalStorageProvider } from "./localStorageProvider";
+import { isExplorer, requestStepUp } from "../stepUp";
 
 const STORAGE_MODE_KEY = "pp-storage-mode";
 
@@ -37,10 +38,29 @@ let cachedMode: StorageMode | null = null;
 
 /** Resolves the active StorageProvider for the current session. Cached per
  * mode so callers don't each construct a new adapter instance. */
+/** Explorer sessions (email not yet verified) can browse but not save: writes ask them to verify first. */
+function guardExplorerWrites(inner: StorageProvider): StorageProvider {
+  return new Proxy(inner, {
+    get(target, prop, receiver) {
+      const value = Reflect.get(target, prop, receiver);
+      if ((prop === "create" || prop === "update" || prop === "remove") && typeof value === "function") {
+        return (...args: unknown[]) => {
+          if (isExplorer()) {
+            requestStepUp();
+            return Promise.resolve({ status: "failure", code: "STEP_UP", message: "Verify your email to save your data." });
+          }
+          return (value as (...a: unknown[]) => unknown).apply(target, args);
+        };
+      }
+      return typeof value === "function" ? value.bind(target) : value;
+    },
+  });
+}
+
 export function getStorageProvider(): StorageProvider {
   const mode = getStorageMode();
   if (cachedProvider && cachedMode === mode) return cachedProvider;
-  cachedProvider = mode === "local" ? new LocalStorageProvider() : new DriveStorageProvider();
+  cachedProvider = mode === "local" ? guardExplorerWrites(new LocalStorageProvider()) : new DriveStorageProvider();
   cachedMode = mode;
   return cachedProvider;
 }

@@ -12,6 +12,7 @@ import { useToast } from "@/components/ui/Toast";
 import { useAuth } from "@/lib/AuthContext";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/format";
+import { AdminExportMenu } from "@/components/admin/AdminExportMenu";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminActionConfirm } from "@/components/admin/AdminActionConfirm";
 import {
@@ -71,6 +72,8 @@ export default function AdminUsersPage() {
   const [sortBy, setSortBy] = useState<"name" | "createdAt" | "lastLoginAt">("createdAt");
   const [page, setPage] = useState(1);
   const pageSize = 15;
+  // Phones show cards with "Load more" instead of the wide table + page buttons.
+  const [mobileCount, setMobileCount] = useState(15);
 
   const { data: allUsers, isLoading, refetch } = useQuery({
     queryKey: ["users-all"],
@@ -113,11 +116,11 @@ export default function AdminUsersPage() {
     <>
       <Topbar title="All Users" />
       <main className="flex-1 overflow-y-auto p-4 lg:p-6">
-        <AdminPageHeader icon={Users} title="All Users" description={`${allUsers?.items.length ?? 0} total accounts across the platform.`} />
+        <AdminPageHeader icon={Users} title="All Users" description={`${allUsers?.items.length ?? 0} total accounts across the platform.`} action={<AdminExportMenu type="users" />} />
         <Card className="mb-4">
           <CardContent className="pt-5">
             <div className="flex flex-wrap items-end gap-3">
-              <div className="flex-1 min-w-[200px]">
+              <div className="min-w-[200px] flex-1 max-md:basis-full">
                 <label className="mb-1 block text-xs font-medium text-navy/50 dark:text-white/50">Search</label>
                 <div className="relative">
                   <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-navy/30 dark:text-white/30" />
@@ -162,7 +165,49 @@ export default function AdminUsersPage() {
             ) : pageItems.length === 0 ? (
               <EmptyState icon={Search} title="No users match these filters" description="Try adjusting your search, role, or status filters." />
             ) : (
-              <div className="overflow-x-auto">
+              <>
+              <div className="md:hidden">
+                <ul className="space-y-2">
+                  {filtered.slice(0, mobileCount).map((u) => {
+                    const isSelf = u.uid === currentUser?.uid;
+                    return (
+                      <li key={u.id} className="flex items-stretch gap-1 rounded-xl border border-black/5 dark:border-white/10">
+                        <Link href={`/admin/users/${u.id}`} className="flex min-h-[64px] min-w-0 flex-1 items-center gap-3 p-3">
+                          <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold", avatarColor(u.id))}>{initials(u.name)}</div>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-semibold text-navy dark:text-white">{u.name}{isSelf && <span className="ml-1.5 text-xs font-normal text-navy/40 dark:text-white/40">(you)</span>}</p>
+                            <p className="truncate text-xs text-navy/60 dark:text-white/60">{u.email}</p>
+                            <p className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-navy/50 dark:text-white/50">
+                              <span className={cn("rounded-full px-2 py-0.5 font-medium", STATUS_STYLES[u.status])}>{u.status}</span>
+                              <span>{u.role.replace("_", " ")}</span>
+                              <span>· {u.lastLoginAt ? `seen ${new Date(u.lastLoginAt).toLocaleDateString()}` : "never signed in"}</span>
+                            </p>
+                          </div>
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            if (openMenuId === u.id) { setOpenMenuId(null); return; }
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            setMenuPos({ top: rect.bottom + 4, left: Math.max(8, rect.right - 192) });
+                            setOpenMenuId(u.id);
+                          }}
+                          className="flex w-12 shrink-0 items-center justify-center rounded-r-xl text-navy/50 hover:bg-black/5 dark:text-white/50 dark:hover:bg-white/10"
+                          aria-label={`Actions for ${u.name}`}
+                        >
+                          <MoreVertical className="h-4 w-4" />
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+                {filtered.length > mobileCount && (
+                  <button type="button" onClick={() => setMobileCount((n) => n + 15)} className="mt-3 flex min-h-[48px] w-full items-center justify-center rounded-xl border border-black/10 text-sm font-semibold text-teal dark:border-white/10">
+                    Load more ({filtered.length - mobileCount} left)
+                  </button>
+                )}
+              </div>
+              <div className="hidden overflow-x-auto md:block">
                 <table className="w-full min-w-[900px] text-sm">
                   <thead>
                     <tr className="border-b border-black/5 dark:border-white/10 text-left text-navy/50 dark:text-white/50">
@@ -277,9 +322,10 @@ export default function AdminUsersPage() {
                   </tbody>
                 </table>
               </div>
+              </>
             )}
             {totalPages > 1 && (
-              <div className="mt-4 flex items-center justify-between text-sm">
+              <div className="mt-4 hidden items-center justify-between text-sm md:flex">
                 <button type="button" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1} className="rounded-lg px-3 py-1.5 text-navy/60 hover:bg-black/5 disabled:opacity-40 dark:text-white/60 dark:hover:bg-white/5">Previous</button>
                 <span className="text-navy/50 dark:text-white/50">Page {page} of {totalPages}</span>
                 <button type="button" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="rounded-lg px-3 py-1.5 text-navy/60 hover:bg-black/5 disabled:opacity-40 dark:text-white/60 dark:hover:bg-white/5">Next</button>

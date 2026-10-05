@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { History, AlertTriangle, KeyRound, IdCard, ShieldCheck, ShieldOff, Mail } from "lucide-react";
 import { Topbar } from "@/components/layout/Topbar";
@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/format";
+import { AdminExportMenu } from "@/components/admin/AdminExportMenu";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { StatCard, StatCardSkeleton } from "@/components/admin/StatCard";
 import { EVENT_META, TONE_COLOR } from "@/components/admin/Timeline";
@@ -63,18 +64,21 @@ export default function AdminActivityPage() {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [severity, setSeverity] = useState<"" | "high" | "normal">("");
-  const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<AdminActivityItem | null>(null);
 
-  const params = new URLSearchParams({ page: String(page), pageSize: "25" });
-  if (event) params.set("event", event);
-  if (from) params.set("from", from);
-  if (to) params.set("to", to);
-  if (severity) params.set("severity", severity);
-
-  const { data, isLoading } = useQuery({
-    queryKey: ["admin-activity", event, from, to, severity, page],
-    queryFn: () => api.get<{ items: AdminActivityItem[]; pagination: { page: number; totalPages: number; total: number } }>(`/api/admin/activity?${params.toString()}`),
+  // 20 at a time; "Load more" appends below what is already on screen.
+  const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
+    queryKey: ["admin-activity", event, from, to, severity],
+    initialPageParam: 1,
+    queryFn: ({ pageParam }) => {
+      const params = new URLSearchParams({ page: String(pageParam), pageSize: "20" });
+      if (event) params.set("event", event);
+      if (from) params.set("from", from);
+      if (to) params.set("to", to);
+      if (severity) params.set("severity", severity);
+      return api.get<{ items: AdminActivityItem[]; pagination: { page: number; totalPages: number; total: number } }>(`/api/admin/activity?${params.toString()}`);
+    },
+    getNextPageParam: (last) => (last.pagination.page < last.pagination.totalPages ? last.pagination.page + 1 : undefined),
   });
 
   const { data: securityData, isLoading: securityLoading } = useQuery({
@@ -84,8 +88,7 @@ export default function AdminActivityPage() {
 
   // Severity filtering is applied server-side (GET /api/admin/activity `severity` param) so
   // pagination stays correct — severityOf() below is only used for the row badge, not filtering.
-  const items = data?.items ?? [];
-  const totalPages = data?.pagination.totalPages ?? 1;
+  const items = data?.pages.flatMap((p) => p.items) ?? [];
   const securityTrend = securityData ? pivotTrend(securityData.trend) : [];
   const securityEvents = Object.keys(SECURITY_EVENT_META);
 
@@ -93,7 +96,7 @@ export default function AdminActivityPage() {
     <>
       <Topbar title="Activity & Audit Logs" />
       <main className="flex-1 overflow-y-auto p-4 lg:p-6">
-        <AdminPageHeader icon={History} title="Activity & Audit Logs" description="Account-security signals and every account-change event across the platform." />
+        <AdminPageHeader icon={History} title="Activity & Audit Logs" description="Account-security signals and every account-change event across the platform." action={<AdminExportMenu type="audit" from={from || undefined} to={to || undefined} />} />
 
         {securityLoading || !securityData ? (
           <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
@@ -133,25 +136,25 @@ export default function AdminActivityPage() {
 
         <Card className="mb-4">
           <CardContent className="pt-5">
-            <div className="flex flex-wrap items-end gap-3">
-              <div>
+            <div className="grid grid-cols-2 items-end gap-3 md:flex md:flex-wrap">
+              <div className="col-span-2 md:col-span-1">
                 <label className="mb-1 block text-xs font-medium text-navy/50 dark:text-white/50">Event Type</label>
-                <select value={event} onChange={(e) => { setEvent(e.target.value); setPage(1); }} className={selectCls}>
+                <select value={event} onChange={(e) => { setEvent(e.target.value); }} className={cn(selectCls, "w-full md:w-auto")}>
                   <option value="">All Events</option>
                   {Object.entries(EVENT_META).map(([id, meta]) => <option key={id} value={id}>{meta.label}</option>)}
                 </select>
               </div>
               <div>
                 <label className="mb-1 block text-xs font-medium text-navy/50 dark:text-white/50">From</label>
-                <input type="date" value={from} onChange={(e) => { setFrom(e.target.value); setPage(1); }} className={selectCls} />
+                <input type="date" value={from} onChange={(e) => { setFrom(e.target.value); }} className={cn(selectCls, "w-full md:w-auto")} />
               </div>
               <div>
                 <label className="mb-1 block text-xs font-medium text-navy/50 dark:text-white/50">To</label>
-                <input type="date" value={to} onChange={(e) => { setTo(e.target.value); setPage(1); }} className={selectCls} />
+                <input type="date" value={to} onChange={(e) => { setTo(e.target.value); }} className={cn(selectCls, "w-full md:w-auto")} />
               </div>
               <div>
                 <label className="mb-1 block text-xs font-medium text-navy/50 dark:text-white/50">Severity</label>
-                <select value={severity} onChange={(e) => { setSeverity(e.target.value as typeof severity); setPage(1); }} className={selectCls}>
+                <select value={severity} onChange={(e) => { setSeverity(e.target.value as typeof severity); }} className={cn(selectCls, "w-full md:w-auto")}>
                   <option value="">All Severities</option>
                   <option value="high">High</option>
                   <option value="normal">Normal</option>
@@ -169,7 +172,30 @@ export default function AdminActivityPage() {
               <EmptyState icon={History} title="No activity found" description="Try widening your date range or clearing filters." />
             ) : (
               <>
-                <div className="overflow-x-auto">
+                <ul className="space-y-2 md:hidden">
+                  {items.map((a) => {
+                    const meta = EVENT_META[a.event] ?? { label: a.event, icon: ActivityIcon, tone: "navy" };
+                    const color = TONE_COLOR[meta.tone];
+                    return (
+                      <li key={a.id}>
+                        <button type="button" onClick={() => setSelected(a)} className="flex min-h-[64px] w-full items-center gap-3 rounded-xl border border-black/5 p-3 text-left dark:border-white/10">
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full" style={{ background: `color-mix(in srgb, ${color} 14%, transparent)`, color }}>
+                            <meta.icon className="h-4 w-4" />
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="flex items-center gap-1.5 text-sm font-semibold text-navy dark:text-white">
+                              <span className="truncate">{meta.label}</span>
+                              {severityOf(a.event) === "high" && <span className="rounded-full bg-red-500/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-red-500">High</span>}
+                            </span>
+                            <span className="block truncate text-xs text-navy/60 dark:text-white/60">{a.user ? a.user.email : "System"}{a.detail ? ` · ${a.detail}` : ""}</span>
+                            <span className="block text-[11px] text-navy/40 dark:text-white/40">{new Date(a.createdAt).toLocaleString()}</span>
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+                <div className="hidden overflow-x-auto md:block">
                   <table className="w-full min-w-[700px] text-sm">
                     <thead>
                       <tr className="border-b border-black/5 dark:border-white/10 text-left text-navy/50 dark:text-white/50">
@@ -211,12 +237,10 @@ export default function AdminActivityPage() {
                     </tbody>
                   </table>
                 </div>
-                {totalPages > 1 && (
-                  <div className="mt-4 flex items-center justify-between text-sm">
-                    <button type="button" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1} className="rounded-lg px-3 py-1.5 text-navy/60 hover:bg-black/5 disabled:opacity-40 dark:text-white/60 dark:hover:bg-white/5">Previous</button>
-                    <span className="text-navy/50 dark:text-white/50">Page {page} of {totalPages}</span>
-                    <button type="button" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="rounded-lg px-3 py-1.5 text-navy/60 hover:bg-black/5 disabled:opacity-40 dark:text-white/60 dark:hover:bg-white/5">Next</button>
-                  </div>
+                {hasNextPage && (
+                  <button type="button" disabled={isFetchingNextPage} onClick={() => fetchNextPage()} className="mt-3 flex min-h-[48px] w-full items-center justify-center rounded-xl border border-black/10 text-sm font-semibold text-teal disabled:opacity-60 dark:border-white/10">
+                    {isFetchingNextPage ? "Loading…" : "Load more"}
+                  </button>
                 )}
               </>
             )}
