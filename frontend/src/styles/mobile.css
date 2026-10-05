@@ -137,7 +137,7 @@ html.dark .ppm-sheet-portal {
   width: 100%;
   max-width: 640px;
   margin: 0 auto;
-  padding: 12px 16px calc(96px + env(safe-area-inset-bottom, 0px));
+  padding: 12px 16px calc(150px + env(safe-area-inset-bottom, 0px));
 }
 
 .ppm-page-title { padding: 6px 0 14px; }
@@ -422,9 +422,44 @@ html.dark .ppm-sheet-portal {
   }
 }
 
+/* Add Transaction workspace: same segmented look as .ppm-type-toggle, but swipeable with 7 tiles */
+.ppm-type-rail { display: flex; gap: 4px; background: var(--ppm-surface-2); border-radius: 12px; padding: 4px; margin-bottom: 16px; overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.ppm-type-rail::-webkit-scrollbar { display: none; }
+.ppm-type-rail button { flex: 0 0 auto; min-width: 118px; scroll-snap-align: center; border: none; background: none; padding: 10px 14px; border-radius: 9px; font-weight: 700; font-size: .8rem; color: var(--ppm-text-dim); cursor: pointer; min-height: 44px; white-space: nowrap; font-family: inherit; }
+.ppm-type-rail button.on { background: var(--ppm-accent); color: var(--ppm-accent-ink); }
+.ppm-back { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; margin-left: -10px; border: none; background: none; color: var(--ppm-text); cursor: pointer; border-radius: 12px; }
+.ppm-inline-form .ppm-sheet-actions { position: static; padding: 0; margin-top: 8px; background: none; }
+
+/* Activity ledger */
+.ppm-head-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 0 12px; }
+.ppm-head-row h2 { font-size: 1.3rem; font-weight: 800; letter-spacing: -.01em; }
+.ppm-day { margin: 14px 2px 8px; }
+.ppm-load-more { display: block; width: 100%; min-height: 48px; margin: 14px 0 4px; border-radius: 14px; border: 1px solid var(--ppm-border); background: var(--ppm-surface); color: var(--ppm-accent); font-weight: 700; font-size: .85rem; font-family: inherit; cursor: pointer; }
+.ppm-load-more:disabled { opacity: .6; }
+.ppm-checks { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; }
+.ppm-check { display: flex !important; align-items: center; gap: 8px; min-height: 40px; text-transform: none !important; letter-spacing: 0 !important; font-size: .85rem !important; color: var(--ppm-text) !important; margin: 0 !important; }
+.ppm-check input { width: 18px; height: 18px; flex-shrink: 0; }
+@media (max-width: 380px) { .ppm-filter-label { display: none; } }
+
+/* Capital cards */
+.ppm-cap-card { display: block; color: inherit; text-decoration: none; transition: transform .12s ease; }
+.ppm-cap-card:active { transform: scale(.985); }
+.ppm-cap-card:focus-visible { outline: 2px solid var(--ppm-accent); outline-offset: 2px; }
+.ppm-cap-head { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+.ppm-cap-head .ppm-name { flex: 1; }
+.ppm-cap-row { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; font-size: .85rem; border-top: 1px solid var(--ppm-border); }
+.ppm-cap-row:first-of-type { margin-top: 8px; }
+.ppm-cap-row > span:first-child { color: var(--ppm-text-dim); }
+
 /* More hub: whole card is the tap target (≥64px), arrow is decorative only. */
 .ppm-hub { display: grid; gap: 10px; margin-top: 14px; }
 .ppm-hub-card, .ppm-profile-card { display: flex; align-items: center; gap: 12px; min-height: 64px; color: inherit; text-decoration: none; transition: transform .12s ease; }
 .ppm-hub-card:active, .ppm-profile-card:active { transform: scale(.985); }
 .ppm-hub-card:focus-visible, .ppm-profile-card:focus-visible { outline: 2px solid var(--ppm-accent); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { .ppm-hub-card, .ppm-profile-card { transition: none; } }
+
+/* Header refresh spinner */
+@keyframes ppm-spin { to { transform: rotate(360deg); } }
+.ppm-spin { animation: ppm-spin .9s linear infinite; }
+.ppm-iconbtn:disabled { opacity: .7; cursor: progress; }
+@media (prefers-reduced-motion: reduce) { .ppm-spin { animation-duration: 2.5s; } }

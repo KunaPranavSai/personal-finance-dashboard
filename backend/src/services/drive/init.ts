@@ -17,33 +17,36 @@ import {
 } from "./dataService";
 import { DriveRecord } from "./types";
 
+// Default list for new accounts (spec); display order is always A-Z at render time.
 const expenseCategories: Record<string, string[]> = {
-  Home: ["Mortgage", "Rent", "Utilities", "Repairs"],
-  "Daily Living": ["Groceries", "Dining Out", "Pet Care"],
-  Transportation: ["Fuel", "Public Transport", "Parking"],
-  Entertainment: ["Streaming Services", "Movies", "Concerts"],
-  Health: ["Prescriptions", "Medical Expenses", "Health Club"],
-  Personal: ["Clothing", "Salon", "Gifts"],
-  "Dues & Subscriptions": ["Internet", "Memberships"],
-  "Financial Obligations": ["Credit Cards", "Loans", "Taxes"],
-  EMI: ["Home Loan EMI", "Car Loan EMI", "Personal Loan EMI"],
-  Shopping: ["Electronics", "Home Goods"],
-  Travel: ["Flights", "Hotels"],
-  Education: ["Tuition", "Courses"],
-  Insurance: ["Life", "Health", "Vehicle"],
-  Investments: ["Mutual Funds", "Stocks", "SIPs"],
-  Miscellaneous: ["Uncategorized"],
+  "Bills & Utilities": [],
+  Education: [],
+  Entertainment: [],
+  Food: [],
+  Gifts: [],
+  Groceries: [],
+  Health: [],
+  Housing: [],
+  Other: [],
+  "Personal Care": [],
+  Shopping: [],
+  Subscriptions: [],
+  Transportation: [],
+  Travel: [],
 };
 
+// Default list for new accounts (spec); display order is always A-Z at render time.
 const incomeCategories: Record<string, string[]> = {
-  Salary: ["Base Salary", "Bonus"],
-  Freelancing: ["Freelance Project"],
-  "Business Income": ["Side Business"],
-  Interest: ["Savings Interest", "FD Interest"],
-  Dividends: ["Stock Dividends"],
-  "Rental Income": ["Property Rent"],
-  Refunds: ["Tax Refund", "Purchase Refund"],
-  "Other Income": ["Gifts", "Other"],
+  Bonus: [],
+  Business: [],
+  Commission: [],
+  Dividend: [],
+  Freelance: [],
+  Gift: [],
+  Interest: [],
+  Other: [],
+  "Rental Income": [],
+  Salary: [],
 };
 
 const defaultAccountNames = ["Bank Account", "Cash", "Credit Card", "Digital Wallet", "Other"];

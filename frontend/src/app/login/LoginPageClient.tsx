@@ -162,7 +162,7 @@ export function LoginPageClient({ embedded = false }: LoginPageClientProps = {})
     setError("");
     setIsPending(true);
     try {
-      const result = await login(email.trim(), password);
+      const result = await login(email.trim(), password, undefined, rememberMe);
       try {
         // Remembering a sign-in email is a "Functional" (non-essential)
         // cookie-consent category — see lib/cookieConsent.ts and /cookie-notice.

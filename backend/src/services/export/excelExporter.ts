@@ -66,10 +66,38 @@ function addSheet(workbook: ExcelJS.Workbook, name: string, columns: { header: s
   }
 }
 
+import { REPORT_BRAND, periodLabel } from "../../lib/reportBrand";
+
 export async function generateExcel(data: ExportData): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook();
-  workbook.creator = "Penny Pilot";
+  workbook.creator = REPORT_BRAND.name;
   workbook.created = new Date();
+
+  const summary = workbook.addWorksheet("Summary", { views: [{ showGridLines: false }] });
+  summary.columns = [{ width: 4 }, { width: 28 }, { width: 40 }];
+  try {
+    const logoId = workbook.addImage({ filename: REPORT_BRAND.logoPath, extension: "png" });
+    summary.addImage(logoId, { tl: { col: 1, row: 1 }, ext: { width: 72, height: 72 } });
+  } catch {
+    // logo missing: text brand below still identifies the workbook
+  }
+  summary.getCell("B6").value = REPORT_BRAND.name;
+  summary.getCell("B6").font = { bold: true, size: 20, color: { argb: "FF1F2A44" } };
+  summary.getCell("B7").value = REPORT_BRAND.title;
+  summary.getCell("B7").font = { size: 13, color: { argb: "FF555555" } };
+  summary.getCell("B9").value = "Period";
+  summary.getCell("C9").value = periodLabel(data.meta);
+  summary.getCell("B10").value = "Generated";
+  summary.getCell("C10").value = new Date().toLocaleString("en-IN");
+  summary.getCell("B11").value = "Included";
+  summary.getCell("C11").value = [
+    data.transactions.length ? `Transactions (${data.transactions.length})` : "",
+    data.bills.length ? `Bills (${data.bills.length})` : "",
+    data.budgets.length ? `Budgets (${data.budgets.length})` : "",
+    data.investments.length ? `Investments (${data.investments.length})` : "",
+    data.goals.length ? `Goals (${data.goals.length})` : "",
+  ].filter(Boolean).join(", ") || "Nothing selected";
+  for (const r of [9, 10, 11]) summary.getCell(`B${r}`).font = { bold: true };
 
   addSheet(workbook, "Transactions", [
     { header: "Date", key: "date", width: 14 },

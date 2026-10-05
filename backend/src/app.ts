@@ -21,6 +21,7 @@ import driveRoutes from "./routes/drive.routes";
 import authRoutes from "./routes/auth.routes";
 import voiceGreetingRoutes from "./routes/voiceGreeting.routes";
 import activityRoutes from "./routes/activity.routes";
+import capitalRoutes from "./routes/capital.routes";
 import adminRoutes from "./routes/admin.routes";
 import publicRoutes from "./routes/public.routes";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler";
@@ -171,6 +172,7 @@ export function createApp() {
   // Not financial data — stays Postgres-backed, no Drive gate needed.
   app.use("/api/notifications", authenticate, notificationsRoutes);
   app.use("/api/activity", authenticate, activityRoutes);
+  app.use("/api/capital", authenticate, requireDriveConnected, capitalRoutes);
   app.use("/api/admin", authenticate, requireRole("SUPER_ADMIN", "ADMIN"), adminRoutes);
 
   // referenceRoutes is mounted at the bare "/api" prefix (its own routes are /categories,

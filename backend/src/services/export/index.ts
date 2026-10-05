@@ -13,6 +13,8 @@ export interface ExportData {
   categories: Record<string, unknown>[];
   analytics: Record<string, unknown> | null;
   dashboard: Record<string, unknown> | null;
+  /** Set by the export route: selected period, for report headers. */
+  meta?: { from?: string; to?: string };
 }
 
 export interface ExportDateRange {

@@ -44,7 +44,9 @@ export function MiniFinancialChart({ income, expense, savings, format, formatCom
 
   const TRACK_HEIGHT = 76;
   const BAR_WIDTH = 16;
-  const GAP = 10;
+  // Each column is wider than its bar so compact values like "₹12.5L" never touch the neighbouring bar.
+  const COL = 36;
+  const GAP = 6;
   const DEPTH = 4; // px, size of the simulated top/side 3D faces
   const max = Math.max(income, expense, Math.abs(savings), 1);
   const bars: { label: string; value: number; color: string; delayMs: number }[] = [
@@ -63,8 +65,8 @@ export function MiniFinancialChart({ income, expense, savings, format, formatCom
         {bars.map((b) => {
           const pct = Math.max(6, Math.min(100, (Math.abs(b.value) / max) * 100));
           return (
-            <div key={b.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end", height: "100%", width: BAR_WIDTH }}>
-              <span style={{ fontSize: 8, fontWeight: 700, color: b.color, marginBottom: 2, whiteSpace: "nowrap" }}>{formatCompact(b.value)}</span>
+            <div key={b.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end", height: "100%", width: COL }}>
+              <span style={{ fontSize: 9, fontWeight: 700, color: b.color, marginBottom: 2, whiteSpace: "nowrap" }}>{formatCompact(b.value)}</span>
               <div
                 style={{
                   position: "relative",
@@ -96,10 +98,10 @@ export function MiniFinancialChart({ income, expense, savings, format, formatCom
           );
         })}
       </div>
-      <div style={{ width: BAR_WIDTH * 3 + GAP * 2 + DEPTH, borderTop: "1px solid var(--ppm-border)", marginTop: 4 }} />
+      <div style={{ width: COL * 3 + GAP * 2 + DEPTH, borderTop: "1px solid var(--ppm-border)", marginTop: 4 }} />
       <div style={{ display: "flex", gap: GAP, marginTop: 3, paddingRight: DEPTH }}>
         {bars.map((b) => (
-          <span key={b.label} style={{ width: BAR_WIDTH, fontSize: 8, fontWeight: 700, color: "var(--ppm-text-dim)", textAlign: "center" }}>{b.label}</span>
+          <span key={b.label} style={{ width: COL, fontSize: 9, fontWeight: 700, color: "var(--ppm-text-dim)", textAlign: "center" }}>{b.label}</span>
         ))}
       </div>
     </div>

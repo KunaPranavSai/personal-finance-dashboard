@@ -9,6 +9,8 @@ interface MobileSheetProps {
   onClose: () => void;
   title: string;
   children: ReactNode;
+  /** Render the content directly in the page (full-page forms) instead of as a bottom sheet. */
+  inline?: boolean;
 }
 
 /** Spring bottom sheet matching the approved artifact's interaction pattern.
@@ -18,7 +20,7 @@ interface MobileSheetProps {
  * not letting the keyboard cover its own action buttons) instead of the
  * "jumps"/mispositioned-sheet behavior plain `position: fixed; bottom: 0`
  * gets on iOS/Android when the keyboard opens. */
-export function MobileSheet({ open, onClose, title, children }: MobileSheetProps) {
+export function MobileSheet({ open, onClose, title, children, inline }: MobileSheetProps) {
   const keyboardInset = useKeyboardInset();
 
   useEffect(() => {
@@ -28,6 +30,7 @@ export function MobileSheet({ open, onClose, title, children }: MobileSheetProps
     return () => document.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
+  if (inline) return <div className="ppm-inline-form">{children}</div>;
   if (typeof document === "undefined") return null;
 
   return createPortal(

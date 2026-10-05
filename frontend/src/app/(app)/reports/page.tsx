@@ -12,23 +12,11 @@ import { getLocalMonthlyReport, getLocalCategoryReport, getLocalBudgetReport } f
 import { formatCurrency } from "@/lib/format";
 import { useSettingsContext } from "@/lib/SettingsContext";
 import { ReportItem } from "@/types";
+import { CustomExportSheet } from "@/components/reports/CustomExportSheet";
 import { FileText, Download, TrendingUp, TrendingDown, Printer } from "lucide-react";
 import { cn } from "@/lib/format";
 import { useIsMobile } from "@/lib/DeviceContext";
 import { MobileReportsView } from "@/components/mobile/MobileReportsView";
-
-/** Client-side CSV export — no server round-trip or new dependency needed
- * for a simple tabular dump of what's already loaded. */
-function downloadCsv(filename: string, rows: (string | number)[][]) {
-  const csv = rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n");
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
-}
 
 function DeltaBadge({ label, pct }: { label: string; pct: number | null }) {
   if (pct === null || !Number.isFinite(pct)) return null;
@@ -47,6 +35,7 @@ function DeltaBadge({ label, pct }: { label: string; pct: number | null }) {
 }
 
 export default function ReportsPage() {
+  const [exportOpen, setExportOpen] = useState(false);
   const { settings } = useSettingsContext();
   const cur = settings.currency;
   const isMobile = useIsMobile();
@@ -82,14 +71,6 @@ export default function ReportsPage() {
     };
   })();
 
-  const exportMonthlyCsv = () => {
-    if (!monthly?.items?.length) return;
-    downloadCsv("penny-pilot-monthly-report.csv", [
-      ["Month", "Income", "Expense", "Net Savings", "Transactions"],
-      ...monthly.items.map((r) => [r.month, r.income, r.expense, r.income - r.expense, r.count]),
-    ]);
-  };
-
   const { data: categories, isLoading: loadingCats } = useQuery({
     queryKey: ["reports-categories"],
     queryFn: () =>
@@ -119,27 +100,21 @@ export default function ReportsPage() {
   return (
     <>
       <Topbar title="Reports" />
+      <CustomExportSheet open={exportOpen} onClose={() => setExportOpen(false)} />
       <main className="flex-1 overflow-y-auto p-4 lg:p-6 2xl:px-10">
         <div className="mb-6 flex flex-wrap justify-end gap-2">
           <button
             onClick={() => window.print()}
             className="flex items-center gap-1.5 rounded-lg border border-pp-border px-3 py-2 text-xs font-medium text-pp-text transition-all hover:border-pp-accent/50 "
           >
-            <Printer className="h-3.5 w-3.5" /> Download Monthly Flight Summary (PDF)
+            <Printer className="h-3.5 w-3.5" /> Print summary
           </button>
           <button
-            onClick={exportMonthlyCsv}
-            disabled={!monthly?.items?.length}
-            className="flex items-center gap-1.5 rounded-lg border border-pp-border px-3 py-2 text-xs font-medium text-pp-text transition-all hover:border-pp-accent/50 disabled:opacity-40 "
+            onClick={() => setExportOpen(true)}
+            className="flex items-center gap-1.5 rounded-lg bg-pp-accent px-3 py-2 text-xs font-semibold text-white transition-all hover:opacity-90"
           >
-            <Download className="h-3.5 w-3.5" /> Export Raw Ledger (CSV)
+            <Download className="h-3.5 w-3.5" /> Custom Export
           </button>
-          <Link
-            href="/settings?tab=export"
-            className="flex items-center gap-1.5 rounded-lg border border-pp-border px-3 py-2 text-xs font-medium text-pp-text transition-all hover:border-pp-accent/50 "
-          >
-            <Download className="h-3.5 w-3.5" /> Export data
-          </Link>
         </div>
 
         {/* Executive summary: this month's headline figures plus MoM/YoY

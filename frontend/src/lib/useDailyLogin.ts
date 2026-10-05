@@ -3,10 +3,10 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/AuthContext";
-import { markLoggedInToday, pinToday, readLoginDay } from "@/lib/pinDay";
+import { isRememberSession, markLoggedInToday, pinToday, readLoginDay } from "@/lib/pinDay";
 
 /**
- * Sign-in is required once per local calendar day on a device: when the day rolls over
+ * Without "Remember me", sign-in is required once per local calendar day on a device: when the day rolls over
  * (checked on load, on focus, and every minute for tabs left open overnight) the session ends
  * and the login page (PIN or email/User ID) takes over. Sessions that predate this rule are
  * stamped as today's rather than logged out.
@@ -17,7 +17,8 @@ export function useDailyLogin(loginPath = "/login") {
   const uid = user?.uid;
 
   useEffect(() => {
-    if (!uid) return;
+    // Remembered sessions are persistent until logout; the server ends them, and PinGate handles the daily unlock.
+    if (!uid || isRememberSession()) return;
     const check = () => {
       const day = readLoginDay(uid);
       if (day === null) { markLoggedInToday(uid); return; }

@@ -30,8 +30,8 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/dashboard", label: "Home", icon: LayoutDashboard },
       { href: "/transactions", label: "Activity", icon: Receipt },
-      { href: "/budget", label: "Budget", icon: Wallet },
-      { href: "/investments", label: "Invest", icon: Landmark },
+      { href: "/capital", label: "Capital", icon: Wallet },
+      { href: "/analytics", label: "Analysis", icon: BarChart3 },
     ],
   },
   {
@@ -46,6 +46,8 @@ const NAV_GROUPS: NavGroup[] = [
     id: "planning",
     label: "Planning",
     items: [
+      { href: "/budget", label: "Budgets", icon: Wallet },
+      { href: "/investments", label: "Investments", icon: Landmark },
       { href: "/bills", label: "Bills & EMI", icon: FileText },
       { href: "/savings", label: "Savings", icon: PiggyBank },
       { href: "/goals", label: "Financial Goals", icon: Target },
@@ -55,7 +57,6 @@ const NAV_GROUPS: NavGroup[] = [
     id: "analytics",
     label: "Analytics",
     items: [
-      { href: "/analytics", label: "Analytics", icon: BarChart3 },
       { href: "/reports", label: "Reports", icon: FileText },
     ],
   },

@@ -15,6 +15,8 @@ interface BudgetFormSheetProps {
   open: boolean;
   onClose: () => void;
   periodKey: string;
+  /** Full-page mode (Add Transaction workspace). */
+  inline?: boolean;
 }
 
 /**
@@ -24,7 +26,7 @@ interface BudgetFormSheetProps {
  * createLocalBudget, matching backend/src/schemas/budget.schema.ts
  * (categoryId required, amount coerced nonnegative).
  */
-export function BudgetFormSheet({ open, onClose, periodKey }: BudgetFormSheetProps) {
+export function BudgetFormSheet({ open, onClose, inline, periodKey }: BudgetFormSheetProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { data: categoriesData } = useExpenseCategories();
@@ -76,7 +78,7 @@ export function BudgetFormSheet({ open, onClose, periodKey }: BudgetFormSheetPro
   const categories = categoriesData?.items ?? [];
 
   return (
-    <MobileSheet open={open} onClose={handleClose} title="Add Budget">
+    <MobileSheet inline={inline} open={open} onClose={handleClose} title="Add Budget">
       <form onSubmit={handleSubmit} noValidate>
         <div className="ppm-field">
           <label htmlFor="ppm-budget-category">Category</label>
@@ -96,7 +98,7 @@ export function BudgetFormSheet({ open, onClose, periodKey }: BudgetFormSheetPro
 
         <div className="ppm-sheet-actions">
           <button type="submit" className="ppm-sheet-submit" disabled={mutation.isPending}>
-            {mutation.isPending ? "Saving…" : "Add Budget"}
+            {mutation.isPending ? "Saving…" : "Save Budget"}
           </button>
           <button type="button" className="ppm-sheet-cancel" onClick={handleClose} disabled={mutation.isPending}>Cancel</button>
         </div>

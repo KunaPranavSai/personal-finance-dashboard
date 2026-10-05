@@ -1,6 +1,6 @@
 "use client";
 
-import { markLoggedInToday } from "@/lib/pinDay";
+import { markLoggedInToday, setRememberSession, isRememberSession } from "@/lib/pinDay";
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
 import { API_BASE_URL } from "./api";
 import { clearClientSensitiveStorage } from "./clientDataCleanup";
@@ -108,7 +108,7 @@ interface AuthContextType {
   exitImpersonation: () => Promise<void>;
   twoFactorEnabled: boolean;
   sessionTimeoutMinutes: number;
-  login: (email: string, password: string, portal?: "admin") => Promise<LoginResult>;
+  login: (email: string, password: string, portal?: "admin", rememberMe?: boolean) => Promise<LoginResult>;
   loginWithPin: (pin: string, identifier?: string) => Promise<LoginResult>;
   loginWithPasskey: () => Promise<{ isFirstLogin: boolean }>;
   signup: (input: SignupInput) => Promise<SignupResult>;
@@ -232,10 +232,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [user]);
 
-  const login = useCallback(async (email: string, password: string, portal?: "admin"): Promise<LoginResult> => {
+  const login = useCallback(async (email: string, password: string, portal?: "admin", rememberMe = false): Promise<LoginResult> => {
     const res = await apiFetch("/api/auth/login", {
       method: "POST",
-      body: JSON.stringify({ email, password, portal }),
+      body: JSON.stringify({ email, password, portal, rememberMe }),
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
@@ -246,10 +246,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { requires2FA: false, requiresPasswordChange: true, passwordChangeToken: data.passwordChangeToken };
     }
     if (data.requires2FA) {
+      setRememberSession(rememberMe);
       return { requires2FA: true, requiresPasswordChange: false, challengeToken: data.challengeToken };
     }
     setUser(data.user);
     markLoggedInToday(data.user.uid);
+    setRememberSession(rememberMe);
     markRecentLogin();
     refreshTwoFactorStatus();
     return { requires2FA: false, requiresPasswordChange: false, isFirstLogin: Boolean(data.isFirstLogin) };
@@ -257,7 +259,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   /** PIN sign-in for an account this device remembers (server reads the pin_device cookie). */
   const loginWithPin = useCallback(async (pin: string, identifier?: string): Promise<LoginResult> => {
-    const res = await apiFetch("/api/auth/pin/login", { method: "POST", body: JSON.stringify({ pin, identifier }) });
+    const res = await apiFetch("/api/auth/pin/login", { method: "POST", body: JSON.stringify({ pin, identifier, rememberMe: isRememberSession() }) });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
       throw new Error(data.error || "Login failed");

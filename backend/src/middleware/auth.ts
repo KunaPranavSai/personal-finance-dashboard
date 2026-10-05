@@ -24,6 +24,8 @@ export interface AuthPayload {
   sessionExpiresAt?: number;
   /** The Session row this token was issued for, when created at login (see lib/tokens.ts). */
   sessionId?: string;
+  /** See TfaClaims.remember in lib/tokens.ts. */
+  remember?: boolean;
   iat?: number;
   exp?: number;
 }
@@ -132,7 +134,7 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
     try {
       const sessionExpiresAt = await computeSessionExpiryForUser(payload.userId);
       if (sessionExpiresAt !== undefined) {
-        const tfa = { tfaEnabled: payload.tfaEnabled, tfaVerifiedAt: payload.tfaVerifiedAt, sessionExpiresAt, sessionId: payload.sessionId };
+        const tfa = { tfaEnabled: payload.tfaEnabled, tfaVerifiedAt: payload.tfaVerifiedAt, sessionExpiresAt, sessionId: payload.sessionId, remember: payload.remember };
         const user = { id: payload.userId, uid: payload.uid, role: payload.role };
         setTokenCookies(res, signAccess(user, payload.sv, tfa), signRefresh(user, payload.sv, tfa));
         req.auth = { ...payload, sessionExpiresAt };

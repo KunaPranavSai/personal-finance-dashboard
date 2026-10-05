@@ -4,6 +4,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { ReactNode, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/components/ui/Toast";
 import { Search, Bell } from "lucide-react";
 import { useNotifications } from "@/lib/reference";
 import { useKeyboardInset } from "./useKeyboardInset";
@@ -16,8 +18,8 @@ import { QuickActions } from "@/components/layout/QuickActions";
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Home", icon: "⌂" },
   { href: "/transactions", label: "Activity", icon: "≡" },
-  { href: "/budget", label: "Budget", icon: "◧" },
-  { href: "/investments", label: "Invest", icon: "↗" },
+  { href: "/capital", label: "Capital", icon: "◧" },
+  { href: "/analytics", label: "Analysis", icon: "↗" },
   { href: "/more", label: "More", icon: "⋯" },
 ] as const;
 
@@ -50,6 +52,20 @@ export function MobileShell({ title, subtitle, children }: MobileShellProps) {
   const { data: notifications } = useNotifications();
   const unreadCount = (notifications?.items ?? []).filter((n) => !n.read).length;
   const [searchOpen, setSearchOpen] = useState(false);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [refreshing, setRefreshing] = useState(false);
+  // Refresh = re-fetch the data behind the current screen. It never navigates anywhere.
+  const refresh = async () => {
+    setRefreshing(true);
+    try {
+      await queryClient.refetchQueries({ type: "active" }, { throwOnError: true });
+    } catch {
+      toast("Couldn't refresh your data. Tap refresh to try again.", "error");
+    } finally {
+      setRefreshing(false);
+    }
+  };
   // Hide the fixed bottom nav while the on-screen keyboard is open (e.g.
   // typing in the full-page Profile form) instead of letting it float in
   // the wrong place or get covered — the standard mobile pattern, and
@@ -76,14 +92,14 @@ export function MobileShell({ title, subtitle, children }: MobileShellProps) {
           <button type="button" className="ppm-iconbtn" aria-label="Search" onClick={() => setSearchOpen(true)}>
             <Search size={18} aria-hidden="true" />
           </button>
-          <Link href="/settings/storage" className="ppm-iconbtn" aria-label="Sync" title="Sync">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <button type="button" className="ppm-iconbtn" aria-label={refreshing ? "Refreshing" : "Refresh"} title="Refresh" aria-busy={refreshing} disabled={refreshing} onClick={refresh}>
+            <svg className={refreshing ? "ppm-spin" : undefined} width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M21 12a9 9 0 0 1-15.5 6.3L3 16" />
               <path d="M3 12a9 9 0 0 1 15.5-6.3L21 8" />
               <path d="M3 21v-5h5" />
               <path d="M21 3v5h-5" />
             </svg>
-          </Link>
+          </button>
           <Link href="/notifications" className="ppm-iconbtn" aria-label={`Notifications${unreadCount ? `, ${unreadCount} unread` : ""}`}>
             <Bell size={18} aria-hidden="true" />
             {unreadCount > 0 && <span className="ppm-dot" />}

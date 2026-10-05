@@ -20,7 +20,7 @@ import { formatCurrency, cn } from "@/lib/format";
 import { useSettingsContext } from "@/lib/SettingsContext";
 import { useCategories, useAccounts, usePaymentMethods } from "@/lib/reference";
 import { AnalyticsSummary } from "@/types";
-import { BarChart3, TrendingUp, TrendingDown, Hash, Download, Wallet, Sparkles } from "lucide-react";
+import { BarChart3, TrendingUp, TrendingDown, Hash, Download, Wallet, Sparkles, FileText } from "lucide-react";
 
 // Approved Penny Pilot palette only — Cypress/Tiffany/Mantis/Turmeric/Vulcanico
 // plus tinted variants for additional series, never ad hoc hex.
@@ -477,6 +477,11 @@ export default function AnalyticsPage() {
     <>
       <Topbar title="Analytics" />
       <main className="flex-1 overflow-y-auto p-4 lg:p-6 2xl:px-10">
+        <div className="mb-4 flex justify-end">
+          <Link href="/reports" className="flex items-center gap-1.5 rounded-lg border border-pp-border px-3 py-2 text-xs font-medium text-pp-text transition-all hover:border-pp-accent/50">
+            <FileText className="h-3.5 w-3.5" /> View Reports
+          </Link>
+        </div>
         {/* Controls */}
         <Card className="mb-6">
           <CardContent className="pt-5">

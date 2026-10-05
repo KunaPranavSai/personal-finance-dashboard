@@ -271,10 +271,12 @@ export function TransactionFormModal({
                 {sortAlpha(accounts?.items ?? [], (a) => a.name).map((a) => <option key={a.id} value={`account:${a.id}`}>{a.name}</option>)}
                 <option value={NEW_ACCOUNT_OPTION}>+ Add {sourceLabel}</option>
               </optgroup>
+              {(paymentMethods?.items ?? []).length > 0 && (
               <optgroup label="Payment Methods">
                 {sortAlpha(paymentMethods?.items ?? [], (pm) => pm.name).map((pm) => <option key={pm.id} value={`pm:${pm.id}`}>{pm.name}</option>)}
                 <option value={NEW_PM_OPTION}>+ Add Payment Method</option>
               </optgroup>
+              )}
             </select>
           </div>
 

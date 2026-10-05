@@ -10,7 +10,7 @@ import { prisma } from "../lib/prisma";
 import { authenticate, requireRole, requireRecent2FA, AuthPayload, ImpersonationPayload } from "../middleware/auth";
 import { getSessionVersion, bumpSessionVersion } from "../lib/sessionVersion";
 import { logActivity, createSessionRecord } from "../lib/activityLog";
-import { isSessionRevoked } from "../lib/sessionRevocation";
+import { isSessionRevoked, markSessionsRevoked } from "../lib/sessionRevocation";
 import { enforcePortalOrReject } from "../lib/portal";
 import { isRestricted } from "../services/entitlements";
 import { sendAutomatedEmail } from "../services/email/automation";
@@ -357,9 +357,19 @@ async function findByIdentifier(raw: string): Promise<User | null> {
     : prisma.user.findUnique({ where: { uid: id } });
 }
 
+// Single active login: a new sign-in marks every older Session row revoked (the sessionVersion
+// bump already rejects their tokens; this keeps the sessions list truthful and per-device revoke consistent).
+async function revokeOtherSessions(userId: string) {
+  const old = await prisma.session.findMany({ where: { userId, revokedAt: null }, select: { id: true } });
+  if (old.length === 0) return;
+  const ids = old.map((s) => s.id);
+  await prisma.session.updateMany({ where: { id: { in: ids } }, data: { revokedAt: new Date() } });
+  markSessionsRevoked(ids);
+}
+
 // Shared by password and PIN login once the first factor is verified: password-change gate,
 // 2FA challenge, then session issue.
-async function completeLogin(req: Request, res: Response, user: User) {
+async function completeLogin(req: Request, res: Response, user: User, remember = false) {
   if (user.mustChangePassword) {
     const passwordChangeToken = jwt.sign({ userId: user.id, purpose: "change-password" }, ACCESS_SECRET, { expiresIn: PASSWORD_CHANGE_TOKEN_TTL });
     res.json({ requiresPasswordChange: true, passwordChangeToken });
@@ -367,15 +377,17 @@ async function completeLogin(req: Request, res: Response, user: User) {
   }
 
   if (user.twoFactorEnabled) {
-    const challengeToken = jwt.sign({ userId: user.id, twoFactor: true }, ACCESS_SECRET, { expiresIn: CHALLENGE_TOKEN_TTL });
+    const challengeToken = jwt.sign({ userId: user.id, twoFactor: true, remember }, ACCESS_SECRET, { expiresIn: CHALLENGE_TOKEN_TTL });
     res.json({ requires2FA: true, challengeToken });
     return;
   }
 
   const sv = bumpSessionVersion(user.id);
-  const sessionExpiresAt = await computeSessionExpiryForUser(user.id);
+  await revokeOtherSessions(user.id);
+  const sessionExpiresAt = remember ? undefined : await computeSessionExpiryForUser(user.id);
   const sessionId = (await createSessionRecord(req, user.id)) ?? undefined;
-  setTokenCookies(res, signAccess(user, sv, { sessionExpiresAt, sessionId }), signRefresh(user, sv, { sessionExpiresAt, sessionId }));
+  const claims = { sessionExpiresAt, sessionId, remember };
+  setTokenCookies(res, signAccess(user, sv, claims), signRefresh(user, sv, claims));
   // Captured before the update fires, so this reflects the account's real
   // login history — a null value here means this is genuinely the first
   // successful login ever (no existing field/flag was added for this; it
@@ -392,7 +404,7 @@ router.post(
   "/login",
   loginLimiter,
   asyncHandler(async (req: Request, res: Response) => {
-    const { email, password, portal } = req.body as { email?: string; password?: string; portal?: string };
+    const { email, password, portal, rememberMe } = req.body as { email?: string; password?: string; portal?: string; rememberMe?: boolean };
     if (!email || !password) {
       res.status(400).json({ error: "Email and password are required" });
       return;
@@ -447,7 +459,7 @@ router.post(
       void prisma.user.update({ where: { id: user.id }, data: { failedLoginAttempts: 0, lockedUntil: null } });
     }
 
-    await completeLogin(req, res, user);
+    await completeLogin(req, res, user, rememberMe === true);
   })
 );
 
@@ -531,9 +543,9 @@ router.post(
       res.status(400).json({ error: "Challenge token and code are required" });
       return;
     }
-    let payload: { userId: string; twoFactor?: boolean };
+    let payload: { userId: string; twoFactor?: boolean; remember?: boolean };
     try {
-      payload = jwt.verify(challengeToken, ACCESS_SECRET) as { userId: string; twoFactor?: boolean };
+      payload = jwt.verify(challengeToken, ACCESS_SECRET) as { userId: string; twoFactor?: boolean; remember?: boolean };
     } catch {
       res.status(401).json({ error: "Invalid or expired challenge. Please log in again.", code: "AUTH_EXPIRED" });
       return;
@@ -554,9 +566,11 @@ router.post(
       return;
     }
     const sv = bumpSessionVersion(user.id);
-    const sessionExpiresAt = await computeSessionExpiryForUser(user.id);
+    await revokeOtherSessions(user.id);
+    const remember = payload.remember === true;
+    const sessionExpiresAt = remember ? undefined : await computeSessionExpiryForUser(user.id);
     const sessionId = (await createSessionRecord(req, user.id)) ?? undefined;
-    const tfa = { tfaEnabled: true, tfaVerifiedAt: Date.now(), sessionExpiresAt, sessionId };
+    const tfa = { tfaEnabled: true, tfaVerifiedAt: Date.now(), sessionExpiresAt, sessionId, remember };
     const isFirstLogin = user.lastLoginAt === null;
     setTokenCookies(res, signAccess(user, sv, tfa), signRefresh(user, sv, tfa));
     void prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
@@ -611,7 +625,7 @@ router.get("/pin/device", asyncHandler(async (req: Request, res: Response) => {
 }));
 
 router.post("/pin/login", loginLimiter, asyncHandler(async (req: Request, res: Response) => {
-  const { pin, portal, identifier } = req.body as { pin?: string; portal?: string; identifier?: string };
+  const { pin, portal, identifier, rememberMe } = req.body as { pin?: string; portal?: string; identifier?: string; rememberMe?: boolean };
   // Remembered device first; otherwise (new device) the user types their email / User ID.
   const id = req.signedCookies?.pin_device;
   const user = typeof id === "string" ? await prisma.user.findUnique({ where: { id } }) : typeof identifier === "string" ? await findByIdentifier(identifier) : null;
@@ -639,7 +653,7 @@ router.post("/pin/login", loginLimiter, asyncHandler(async (req: Request, res: R
   if (user.failedLoginAttempts > 0 || user.lockedUntil) {
     void prisma.user.update({ where: { id: user.id }, data: { failedLoginAttempts: 0, lockedUntil: null } });
   }
-  await completeLogin(req, res, user);
+  await completeLogin(req, res, user, rememberMe === true);
 }));
 
 router.delete("/pin", authenticate, asyncHandler(async (req: Request, res: Response) => {
@@ -1373,10 +1387,10 @@ router.post(
       // ("Stay Logged In") — is itself a signal of user activity, so it always
       // slides the inactivity deadline forward. Continuous inactivity is what
       // lets the deadline lapse; there is no longer a fixed absolute cutoff.
-      const sessionExpiresAt = await computeSessionExpiryForUser(user.id);
+      const sessionExpiresAt = payload.remember ? undefined : await computeSessionExpiryForUser(user.id);
       // Re-derive tfaEnabled from the DB for freshness, but carry forward
       // tfaVerifiedAt from the old token so refreshing never resets the 12h clock.
-      const tfa: TfaClaims = { tfaEnabled: user.twoFactorEnabled, tfaVerifiedAt: payload.tfaVerifiedAt, sessionExpiresAt, sessionId: payload.sessionId };
+      const tfa: TfaClaims = { tfaEnabled: user.twoFactorEnabled, tfaVerifiedAt: payload.tfaVerifiedAt, sessionExpiresAt, sessionId: payload.sessionId, remember: payload.remember };
       setTokenCookies(res, signAccess(user, payload.sv, tfa), signRefresh(user, payload.sv, tfa));
       res.json({ user: toUserJson(user), sessionExpiresAt });
     } catch (err) {
@@ -1385,6 +1399,22 @@ router.post(
       const code = err instanceof jwt.TokenExpiredError ? "AUTH_EXPIRED" : "AUTH_INVALID";
       res.status(401).json({ error: "Invalid or expired refresh token", code });
     }
+  })
+);
+
+// ─── GET /api/auth/sessions ──────────────────────────────────────────────────
+// The signed-in user's own recent sessions (single active login, so normally one live + history).
+router.get(
+  "/sessions",
+  authenticate,
+  asyncHandler(async (req: Request, res: Response) => {
+    const rows = await prisma.session.findMany({
+      where: { userId: req.auth!.userId },
+      orderBy: { createdAt: "desc" },
+      take: 10,
+      select: { id: true, browser: true, os: true, device: true, ip: true, createdAt: true, lastSeenAt: true, revokedAt: true },
+    });
+    res.json({ items: rows.map((r) => ({ ...r, current: r.id === req.auth!.sessionId })) });
   })
 );
 

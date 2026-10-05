@@ -4,7 +4,8 @@ import { useCallback, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { useToast } from "@/components/ui/Toast";
-import { markLoggedInToday } from "@/lib/pinDay";
+import { AnimatedCodeVerification } from "@/components/ui/AnimatedCodeVerification";
+import { isRememberSession, markLoggedInToday, pinToday, readPinDay } from "@/lib/pinDay";
 
 const PIN_LENGTH = 4;
 
@@ -15,6 +16,31 @@ export function usePinStatus(enabledFlag = true) {
     enabled: enabledFlag,
     staleTime: 60000,
   });
+}
+
+/** Remembered sessions skip the daily sign-in; the PIN is asked once per local day instead. */
+export function PinGate({ userId, children }: { userId: string; children: React.ReactNode }) {
+  const { data, isLoading } = usePinStatus();
+  const [unlockedDay, setUnlockedDay] = useState(() => readPinDay(userId));
+  const needsPin = isRememberSession() && Boolean(data?.enabled) && unlockedDay !== pinToday();
+
+  if (isRememberSession() && isLoading) return null;
+  if (!needsPin) return <>{children}</>;
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-pp-surface p-4">
+      <AnimatedCodeVerification
+        length={PIN_LENGTH}
+        title="Enter your PIN"
+        subtitle="Daily check — you'll only be asked once today"
+        tip="Forgot it? Sign out and back in with your password"
+        successTitle="Welcome back!"
+        successSubtitle="Unlocking your dashboard…"
+        onVerify={async (pin) => { await api.post("/api/auth/pin/verify", { pin }); }}
+        onSuccess={() => { markLoggedInToday(userId); setUnlockedDay(pinToday()); }}
+      />
+    </div>
+  );
 }
 
 /** Set / remove the daily PIN. `variant` only swaps the class set so mobile and desktop share one implementation. */

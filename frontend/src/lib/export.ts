@@ -4,13 +4,15 @@ export async function downloadExport(
   format: string,
   toast?: (msg: string, type: "success" | "error") => void,
   range?: { from?: string; to?: string },
-  types?: string[]
+  types?: string[],
+  kinds?: string[]
 ) {
   try {
     const params = new URLSearchParams({ format: format === "excel" ? "xlsx" : format });
     if (range?.from) params.set("from", range.from);
     if (range?.to) params.set("to", range.to);
     if (types && types.length > 0) params.set("types", types.join(","));
+    if (kinds && kinds.length > 0) params.set("kinds", kinds.join(","));
     const res = await fetch(
       `${API_BASE_URL}/api/export?${params.toString()}`,
       { credentials: "include" }

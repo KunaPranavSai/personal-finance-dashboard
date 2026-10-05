@@ -17,6 +17,7 @@ import { useDriveStatus, isDriveReady } from "@/lib/driveStatus";
 import { getStorageMode } from "@/lib/storage";
 import { useIsMobile } from "@/lib/DeviceContext";
 import { useDailyLogin } from "@/lib/useDailyLogin";
+import { PinGate } from "@/components/auth/pin";
 
 export function AppShellLayoutClient({ children }: { children: React.ReactNode }) {
   const { user, isAuthenticated, isLoading } = useAuth();
@@ -101,7 +102,7 @@ export function AppShellLayoutClient({ children }: { children: React.ReactNode }
   // implementation now instead of a duplicated one.
   if (isMobile) {
     return (
-      <PpToastProvider>
+      <PinGate userId={user?.uid ?? ""}><PpToastProvider>
         <PpConfirmProvider>
           <div className="pp-mobile">
             <DataInit />
@@ -109,12 +110,12 @@ export function AppShellLayoutClient({ children }: { children: React.ReactNode }
             <TwoFactorReverifyDialog />
           </div>
         </PpConfirmProvider>
-      </PpToastProvider>
+      </PpToastProvider></PinGate>
     );
   }
 
   return (
-    <PpToastProvider>
+    <PinGate userId={user?.uid ?? ""}><PpToastProvider>
       <PpConfirmProvider>
         <div className="flex min-h-screen bg-pp-surface ">
           <DataInit />
@@ -129,6 +130,6 @@ export function AppShellLayoutClient({ children }: { children: React.ReactNode }
           <TwoFactorReverifyDialog />
         </div>
       </PpConfirmProvider>
-    </PpToastProvider>
+    </PpToastProvider></PinGate>
   );
 }

@@ -75,6 +75,11 @@ router.get(
         to: to && !isNaN(to.getTime()) ? to : undefined,
       });
 
+      data.meta = { from: (req.query.from as string) || undefined, to: (req.query.to as string) || undefined };
+      // "kinds" narrows transactions to income and/or expense (both = all transactions).
+      const kinds = new Set(((req.query.kinds as string) || "").split(",").map((k) => k.trim().toUpperCase()).filter(Boolean));
+      if (kinds.size > 0 && kinds.size < 2) data.transactions = data.transactions.filter((t: Record<string, unknown>) => kinds.has(String(t.type)));
+
       const typesParam = (req.query.types as string) || "";
       const selectedTypes = typesParam ? new Set(typesParam.split(",").map((t) => t.trim())) : null;
       if (selectedTypes) {

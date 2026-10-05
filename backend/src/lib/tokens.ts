@@ -16,6 +16,7 @@ const IS_PROD = process.env.NODE_ENV === "production";
 
 export const ACCESS_TOKEN_TTL = 60 * 60; // 1 hour
 export const REFRESH_TOKEN_TTL = 7 * 24 * 60 * 60; // 7 days
+export const REMEMBER_REFRESH_TOKEN_TTL = 365 * 24 * 60 * 60; // remember-me sessions
 
 export interface TfaClaims {
   tfaEnabled?: boolean;
@@ -31,6 +32,8 @@ export interface TfaClaims {
    * was created at login — lets authenticate() enforce a single revoked device instead of only
    * the whole-account sessionVersion bump. Absent on tokens issued before this existed. */
   sessionId?: string;
+  /** "Remember me": no inactivity/daily deadline; refresh cookie lasts a year and rolls on every refresh. Ends on explicit logout, revoke, or sign-in elsewhere. */
+  remember?: boolean;
 }
 
 export function signAccess(user: Pick<User, "id" | "uid" | "role">, sv: number, tfa?: TfaClaims) {
@@ -38,7 +41,7 @@ export function signAccess(user: Pick<User, "id" | "uid" | "role">, sv: number, 
 }
 
 export function signRefresh(user: Pick<User, "id" | "uid" | "role">, sv: number, tfa?: TfaClaims) {
-  return jwt.sign({ userId: user.id, uid: user.uid, role: user.role, sv, ...tfa }, REFRESH_SECRET, { expiresIn: REFRESH_TOKEN_TTL });
+  return jwt.sign({ userId: user.id, uid: user.uid, role: user.role, sv, ...tfa }, REFRESH_SECRET, { expiresIn: tfa?.remember ? REMEMBER_REFRESH_TOKEN_TTL : REFRESH_TOKEN_TTL });
 }
 
 export function setTokenCookies(res: Response, accessToken: string, refreshToken: string) {
@@ -49,7 +52,8 @@ export function setTokenCookies(res: Response, accessToken: string, refreshToken
     sameSite: (IS_PROD ? "none" : "lax") as "none" | "lax",
   };
   res.cookie("access_token", accessToken, { ...cookieOptions, maxAge: ACCESS_TOKEN_TTL * 1000, path: "/" });
-  res.cookie("refresh_token", refreshToken, { ...cookieOptions, maxAge: REFRESH_TOKEN_TTL * 1000, path: "/api/auth" });
+  const remember = (jwt.decode(refreshToken) as { remember?: boolean } | null)?.remember === true;
+  res.cookie("refresh_token", refreshToken, { ...cookieOptions, maxAge: (remember ? REMEMBER_REFRESH_TOKEN_TTL : REFRESH_TOKEN_TTL) * 1000, path: "/api/auth" });
 }
 
 // "Access as User" — separate, short-lived, never overwrites access_token/refresh_token.

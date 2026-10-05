@@ -21,6 +21,10 @@ interface AddTransactionSheetProps {
    * one — same PATCH /api/transactions/:id (or updateLocalTransaction) the
    * desktop TransactionFormModal uses for edits. */
   editing?: Transaction | null;
+  /** Full-page mode (Add Transaction workspace). */
+  inline?: boolean;
+  /** The page-level selector owns the Expense/Income choice, so the in-form toggle is hidden. */
+  forcedType?: EntryType;
 }
 
 const todayIso = localToday;
@@ -35,7 +39,7 @@ const ADD = "__add__";
  * (getStorageMode()), so a transaction added here shows up identically in
  * the existing desktop Transactions/Expenses/Income pages.
  */
-export function AddTransactionSheet({ open, onClose, editing }: AddTransactionSheetProps) {
+export function AddTransactionSheet({ open, onClose, editing, inline, forcedType }: AddTransactionSheetProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { data: categoriesData } = useCategories();
@@ -67,7 +71,7 @@ export function AddTransactionSheet({ open, onClose, editing }: AddTransactionSh
   useEffect(() => { if (adding) addNameRef.current?.focus(); }, [adding]);
 
   const reset = () => {
-    setType("EXPENSE");
+    setType(forcedType ?? "EXPENSE");
     setDescription("");
     setAmount("");
     setDate(todayIso());
@@ -96,6 +100,16 @@ export function AddTransactionSheet({ open, onClose, editing }: AddTransactionSh
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, editing]);
+
+  // Switching the page-level selector between Expense and Income swaps the type and clears type-specific picks.
+  useEffect(() => {
+    if (!forcedType) return;
+    setType(forcedType);
+    setCategoryId("");
+    setCategoryTouched(false);
+    setAccountId("");
+    setPaymentMethodTypeId("");
+  }, [forcedType]);
 
   // Stable for the life of one create attempt — reused across manual retries
   // of the same submission, regenerated only when the sheet opens fresh or
@@ -216,16 +230,16 @@ export function AddTransactionSheet({ open, onClose, editing }: AddTransactionSh
   };
 
   return (
-    <MobileSheet open={open} onClose={handleClose} title={isEditing ? "Edit Transaction" : "Add Transaction"}>
+    <MobileSheet inline={inline} open={open} onClose={handleClose} title={isEditing ? "Edit Transaction" : "Add Transaction"}>
       <form onSubmit={handleSubmit} noValidate>
-        <div className="ppm-type-toggle">
+        {!forcedType && <div className="ppm-type-toggle">
           <button type="button" className={type === "EXPENSE" ? "on" : ""} onClick={() => { setType("EXPENSE"); setCategoryId(""); setCategoryTouched(false); setAccountId(""); setPaymentMethodTypeId(""); }}>
             Expense
           </button>
           <button type="button" className={type === "INCOME" ? "on" : ""} onClick={() => { setType("INCOME"); setCategoryId(""); setCategoryTouched(false); setAccountId(""); setPaymentMethodTypeId(""); }}>
             Income
           </button>
-        </div>
+        </div>}
 
         <div className="ppm-field">
           <label htmlFor="ppm-txn-desc">Description</label>

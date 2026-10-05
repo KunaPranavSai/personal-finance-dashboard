@@ -16,6 +16,8 @@ interface BillFormSheetProps {
   open: boolean;
   onClose: () => void;
   editing: Bill | null;
+  /** Full-page mode (Add Transaction workspace). */
+  inline?: boolean;
 }
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
@@ -29,7 +31,7 @@ const todayIso = () => new Date().toISOString().slice(0, 10);
  * explicit instruction not to invent recurrence/EMI behavior for other
  * types), notes (<=500).
  */
-export function BillFormSheet({ open, onClose, editing }: BillFormSheetProps) {
+export function BillFormSheet({ open, onClose, inline, editing }: BillFormSheetProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const isEditing = Boolean(editing);
@@ -123,7 +125,7 @@ export function BillFormSheet({ open, onClose, editing }: BillFormSheetProps) {
   const handleClose = () => { if (!mutation.isPending) onClose(); };
 
   return (
-    <MobileSheet open={open} onClose={handleClose} title={isEditing ? "Edit Bill" : "Add Bill"}>
+    <MobileSheet inline={inline} open={open} onClose={handleClose} title={isEditing ? "Edit Bill" : "Add Bill"}>
       <form onSubmit={handleSubmit} noValidate>
         <div className="ppm-field">
           <label htmlFor="ppm-bill-name">Name</label>
@@ -182,7 +184,7 @@ export function BillFormSheet({ open, onClose, editing }: BillFormSheetProps) {
 
         <div className="ppm-sheet-actions">
           <button type="submit" className="ppm-sheet-submit" disabled={mutation.isPending}>
-            {mutation.isPending ? "Saving…" : isEditing ? "Save Changes" : "Add Bill"}
+            {mutation.isPending ? "Saving…" : isEditing ? "Save Changes" : "Save Bill"}
           </button>
           <button type="button" className="ppm-sheet-cancel" onClick={handleClose} disabled={mutation.isPending}>Cancel</button>
         </div>

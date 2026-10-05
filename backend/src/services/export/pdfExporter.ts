@@ -14,6 +14,8 @@ function truncate(str: string, max: number): string {
   return str.length > max ? str.slice(0, max - 1) + "…" : str;
 }
 
+import { REPORT_BRAND, periodLabel } from "../../lib/reportBrand";
+
 export async function generatePDF(data: ExportData): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ margin: 50, size: "A4", bufferPages: true });
@@ -26,9 +28,17 @@ export async function generatePDF(data: ExportData): Promise<Buffer> {
     let y = 50;
 
     // Cover page
-    doc.fontSize(28).font("Helvetica-Bold").fillColor("#1F2A44").text("Penny Pilot", 50, y, { align: "center" });
+    try {
+      doc.image(REPORT_BRAND.logoPath, (doc.page.width - 72) / 2, y, { width: 72 });
+    } catch {
+      // logo missing: the text brand below still identifies the report
+    }
+    y += 84;
+    doc.fontSize(28).font("Helvetica-Bold").fillColor(REPORT_BRAND.color).text(REPORT_BRAND.name, 50, y, { align: "center" });
     y += 50;
-    doc.fontSize(16).font("Helvetica").fillColor("#555").text("Financial Report", { align: "center" });
+    doc.fontSize(16).font("Helvetica").fillColor("#555").text(REPORT_BRAND.title, { align: "center" });
+    y += 24;
+    doc.fontSize(12).fillColor("#555").text(periodLabel(data.meta), { align: "center" });
     y += 30;
     const now = new Date();
     doc.fontSize(12).fillColor("#333").text(`Generated: ${now.toLocaleDateString("en-IN", { year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })}`, { align: "center" });
@@ -182,7 +192,7 @@ export async function generatePDF(data: ExportData): Promise<Buffer> {
     for (let i = 0; i < totalPages; i++) {
       doc.switchToPage(i);
       doc.fontSize(8).fillColor("#999");
-      doc.text(`Penny Pilot - Page ${i + 1} of ${totalPages}`, 50, doc.page.height - 40, { align: "center", width: pageWidth });
+      doc.text(`${REPORT_BRAND.name} - Page ${i + 1} of ${totalPages}`, 50, doc.page.height - 40, { align: "center", width: pageWidth });
     }
 
     doc.end();

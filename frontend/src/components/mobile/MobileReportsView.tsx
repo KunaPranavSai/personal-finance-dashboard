@@ -10,7 +10,8 @@ import { getLocalMonthlyReport, getLocalCategoryReport, getLocalBudgetReport } f
 import { useSettingsContext } from "@/lib/SettingsContext";
 import { formatCurrency } from "@/lib/format";
 import type { ReportItem } from "@/types";
-import { FileText, Download, Printer } from "lucide-react";
+import { FileText, Download, Printer, ChevronLeft } from "lucide-react";
+import { CustomExportSheet } from "@/components/reports/CustomExportSheet";
 
 type Tab = "monthly" | "categories" | "budgets";
 const TABS: { id: Tab; label: string }[] = [
@@ -47,12 +48,14 @@ function downloadCsv(filename: string, rows: (string | number)[][]) {
 export function MobileReportsView() {
   const { settings } = useSettingsContext();
   const f = (v: number) => formatCurrency(v, settings.currency);
-  const [tab, setTab] = useState<Tab>("monthly");
+  // null = overview of brief report cards; a value = that report in full detail.
+  const [tab, setTab] = useState<Tab | null>(null);
+  const [exportOpen, setExportOpen] = useState(false);
 
   const { data: monthly, isLoading: loadingMonthly, isError: errorMonthly, refetch: refetchMonthly } = useQuery({
     queryKey: ["reports-monthly"],
     queryFn: () => (getStorageMode() === "local" ? getLocalMonthlyReport() : api.get<{ items: ReportItem[] }>("/api/reports/monthly")),
-    enabled: tab === "monthly",
+    enabled: true,
   });
 
   const { data: categories, isLoading: loadingCategories, isError: errorCategories, refetch: refetchCategories } = useQuery({
@@ -61,7 +64,7 @@ export function MobileReportsView() {
       getStorageMode() === "local"
         ? getLocalCategoryReport()
         : api.get<{ items: { category: string; total: number; count: number }[] }>("/api/reports/categories"),
-    enabled: tab === "categories",
+    enabled: true,
   });
 
   const { data: budgets, isLoading: loadingBudgets, isError: errorBudgets, refetch: refetchBudgets } = useQuery({
@@ -70,7 +73,7 @@ export function MobileReportsView() {
       getStorageMode() === "local"
         ? getLocalBudgetReport()
         : api.get<{ items: { category: string; budgeted: number; actual: number; variance: number }[] }>("/api/reports/budgets"),
-    enabled: tab === "budgets",
+    enabled: true,
   });
 
   const exportMonthlyCsv = () => {
@@ -88,13 +91,32 @@ export function MobileReportsView() {
         <p>Monthly, category &amp; budget performance</p>
       </div>
 
-      <div className="ppm-filters" role="tablist">
-        {TABS.map((t) => (
-          <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} className={`ppm-chip${tab === t.id ? " on" : ""}`} onClick={() => setTab(t.id)}>
-            {t.label}
-          </button>
-        ))}
-      </div>
+      {tab === null ? (
+        <div className="ppm-hub">
+          {(() => {
+            const latest = [...(monthly?.items ?? [])].sort((x, y) => y.month.localeCompare(x.month))[0];
+            const topCat = categories?.items?.[0];
+            const over = (budgets?.items ?? []).filter((b) => b.variance < 0).length;
+            const cards: { id: Tab; title: string; lines: [string, string][] }[] = [
+              { id: "monthly", title: "Financial Overview", lines: latest ? [["Month", latest.month], ["Income", f(latest.income)], ["Expenses", f(latest.expense)], ["Net savings", f(latest.income - latest.expense)]] : [["Status", "No data yet"]] },
+              { id: "categories", title: "Expense Report", lines: topCat ? [["Top category", topCat.category], ["Spent", f(topCat.total)], ["Categories", String(categories?.items?.length ?? 0)]] : [["Status", "No data yet"]] },
+              { id: "budgets", title: "Budget vs Actual", lines: (budgets?.items?.length ?? 0) > 0 ? [["Budgets", String(budgets!.items.length)], ["Over budget", String(over)]] : [["Status", "No budgets set"]] },
+            ];
+            return cards.map((c) => (
+              <button key={c.id} type="button" className="ppm-card ppm-cap-card" style={{ textAlign: "left", width: "100%", cursor: "pointer", font: "inherit" }} onClick={() => setTab(c.id)}>
+                <div className="ppm-cap-head"><div className="ppm-ic" aria-hidden="true"><FileText size={20} /></div><div className="ppm-name">{c.title}</div><span className="ppm-chev" aria-hidden="true">›</span></div>
+                {c.lines.map(([k, v]) => <div className="ppm-cap-row" key={k}><span>{k}</span><span>{v}</span></div>)}
+                <div className="ppm-meta" style={{ marginTop: 8 }}>View details</div>
+              </button>
+            ));
+          })()}
+          <button type="button" className="ppm-sheet-submit" onClick={() => setExportOpen(true)}>Custom Export</button>
+        </div>
+      ) : (
+        <button type="button" className="ppm-link-btn" style={{ marginBottom: 12, minHeight: 44 }} onClick={() => setTab(null)}>
+          <ChevronLeft size={14} style={{ display: "inline", verticalAlign: "-2px" }} /> All reports · {TABS.find((t) => t.id === tab)?.label}
+        </button>
+      )}
 
       {tab === "monthly" && (
         <>
@@ -164,6 +186,7 @@ export function MobileReportsView() {
           )}
         </>
       )}
+      <CustomExportSheet open={exportOpen} onClose={() => setExportOpen(false)} />
     </MobileShell>
   );
 }

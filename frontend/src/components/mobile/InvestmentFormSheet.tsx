@@ -16,6 +16,8 @@ interface InvestmentFormSheetProps {
   open: boolean;
   onClose: () => void;
   editing: Investment | null;
+  /** Full-page mode (Add Transaction workspace). */
+  inline?: boolean;
 }
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
@@ -29,7 +31,7 @@ const todayIso = () => new Date().toISOString().slice(0, 10);
  * default 0), annualReturnPct (plain number, can be negative), platform/notes
  * (optional).
  */
-export function InvestmentFormSheet({ open, onClose, editing }: InvestmentFormSheetProps) {
+export function InvestmentFormSheet({ open, onClose, inline, editing }: InvestmentFormSheetProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const isEditing = Boolean(editing);
@@ -124,7 +126,7 @@ export function InvestmentFormSheet({ open, onClose, editing }: InvestmentFormSh
   const handleClose = () => { if (!mutation.isPending) onClose(); };
 
   return (
-    <MobileSheet open={open} onClose={handleClose} title={isEditing ? "Edit Investment" : "Add Investment"}>
+    <MobileSheet inline={inline} open={open} onClose={handleClose} title={isEditing ? "Edit Investment" : "Add Investment"}>
       <form onSubmit={handleSubmit} noValidate>
         <div className="ppm-field">
           <label htmlFor="ppm-inv-instrument">Instrument</label>
@@ -181,7 +183,7 @@ export function InvestmentFormSheet({ open, onClose, editing }: InvestmentFormSh
 
         <div className="ppm-sheet-actions">
           <button type="submit" className="ppm-sheet-submit" disabled={mutation.isPending}>
-            {mutation.isPending ? "Saving…" : isEditing ? "Save Changes" : "Add Investment"}
+            {mutation.isPending ? "Saving…" : isEditing ? "Save Changes" : "Save Investment"}
           </button>
           <button type="button" className="ppm-sheet-cancel" onClick={handleClose} disabled={mutation.isPending}>Cancel</button>
         </div>

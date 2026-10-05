@@ -10,7 +10,8 @@ import { getStorageMode } from "@/lib/storage";
 import { getLocalAnalyticsSummary, AnalyticsFilters } from "@/lib/services/analyticsService";
 import { getGroupedChartData, getYearToDateChartData, ChartPoint } from "@/lib/services/customChartService";
 import { useCategories, useAccounts, usePaymentMethods } from "@/lib/reference";
-import { TrendingUp, Sparkles, SlidersHorizontal } from "lucide-react";
+import Link from "next/link";
+import { TrendingUp, Sparkles, SlidersHorizontal, FileText } from "lucide-react";
 import { useSettingsContext } from "@/lib/SettingsContext";
 import { formatCurrency, formatCompactCurrency } from "@/lib/format";
 import type { AnalyticsSummary } from "@/types";
@@ -282,6 +283,10 @@ export function MobileAnalyticsView() {
           <button type="button" className="ppm-sheet-cancel" onClick={() => { setCategoryId(""); setAccountId(""); setPaymentMethodTypeId(""); setFilterSheetOpen(false); }}>Clear All</button>
         </div>
       </MobileSheet>
+      <Link href="/reports" className="ppm-card ppm-cap-card" style={{ marginTop: 14 }}>
+        <div className="ppm-cap-head"><div className="ppm-ic" aria-hidden="true"><FileText size={20} /></div><div className="ppm-name">Reports</div><span className="ppm-chev" aria-hidden="true">›</span></div>
+        <div className="ppm-meta">View and explore your financial reports, or export them</div>
+      </Link>
     </MobileShell>
   );
 }

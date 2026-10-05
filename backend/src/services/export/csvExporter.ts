@@ -25,8 +25,15 @@ function n(val: unknown): string {
   return Number.isNaN(v) ? "0.00" : v.toFixed(2);
 }
 
+import { REPORT_BRAND, periodLabel } from "../../lib/reportBrand";
+
 export function generateCSV(data: ExportData): Buffer {
   const parts: string[] = [];
+
+  parts.push(`# ${REPORT_BRAND.name} - ${REPORT_BRAND.title}`);
+  parts.push(`# Period: ${periodLabel(data.meta)}`);
+  parts.push(`# Generated: ${new Date().toISOString()}`);
+  parts.push("");
 
   const pr = data.profile ?? {};
   parts.push("# Profile");

@@ -22,3 +22,15 @@ export function markLoggedInToday(userId: string) {
   try { localStorage.setItem(loginKey(userId), pinToday()); } catch { /* ignore */ }
   markPinUnlockedToday(userId);
 }
+
+// "Remember me" is enforced by the server (long-lived session, no daily logout); this mirror only lets the UI
+// skip the daily-login redirect and show the once-a-day PIN unlock instead.
+const REMEMBER_KEY = "pp_remember";
+
+export function setRememberSession(on: boolean) {
+  try { localStorage.setItem(REMEMBER_KEY, on ? "1" : "0"); } catch { /* ignore */ }
+}
+
+export function isRememberSession(): boolean {
+  try { return localStorage.getItem(REMEMBER_KEY) === "1"; } catch { return false; }
+}

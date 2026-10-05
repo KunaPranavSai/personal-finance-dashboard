@@ -16,11 +16,13 @@ interface GoalFormSheetProps {
   open: boolean;
   onClose: () => void;
   editing: Goal | null;
+  /** Full-page mode (Add Transaction workspace). */
+  inline?: boolean;
 }
 
 /** No targetDate field exists on Goal server-side (flagged as missing in the
  * design spec) — this form never invents one, matching the desktop form. */
-export function GoalFormSheet({ open, onClose, editing }: GoalFormSheetProps) {
+export function GoalFormSheet({ open, onClose, inline, editing }: GoalFormSheetProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const isEditing = Boolean(editing);
@@ -98,7 +100,7 @@ export function GoalFormSheet({ open, onClose, editing }: GoalFormSheetProps) {
   const handleClose = () => { if (!mutation.isPending) onClose(); };
 
   return (
-    <MobileSheet open={open} onClose={handleClose} title={isEditing ? "Edit Goal" : "Add Goal"}>
+    <MobileSheet inline={inline} open={open} onClose={handleClose} title={isEditing ? "Edit Goal" : "Add Goal"}>
       <form onSubmit={handleSubmit} noValidate>
         <div className="ppm-field">
           <label htmlFor="ppm-goal-name">Name</label>
@@ -133,7 +135,7 @@ export function GoalFormSheet({ open, onClose, editing }: GoalFormSheetProps) {
 
         <div className="ppm-sheet-actions">
           <button type="submit" className="ppm-sheet-submit" disabled={mutation.isPending}>
-            {mutation.isPending ? "Saving…" : isEditing ? "Save Changes" : "Add Goal"}
+            {mutation.isPending ? "Saving…" : isEditing ? "Save Changes" : "Create Goal"}
           </button>
           <button type="button" className="ppm-sheet-cancel" onClick={handleClose} disabled={mutation.isPending}>Cancel</button>
         </div>

@@ -275,15 +275,18 @@ function DashboardContent() {
         </div>
 
         <div className="ppm-card">
-          <div style={{ display: "flex", gap: 10 }}>
-            <div style={{ flex: 1, minWidth: 0 }}>
+          {/* Wraps instead of squeezing: a long amount pushes the chart below it, never underneath. */}
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", justifyContent: "space-between", gap: 12 }}>
+            <div style={{ flex: "1 1 150px", minWidth: 0 }}>
               <div className="ppm-section-label">Total Net Worth</div>
               <div className="ppm-figure" style={{ fontSize: "1.5rem" }}>
                 {f(k.netWorth)}
               </div>
               <span className={`ppm-delta${netWorthUp ? "" : " down"}`} style={{ display: "inline-block", marginTop: 6 }}>{netWorthUp ? "+" : ""}{formatPercent(incomeChange)} {netWorthUp ? "↗" : "↘"}</span>
             </div>
-            <MiniFinancialChart income={k.currentMonth.income} expense={k.currentMonth.expense} savings={monthNet} format={f} formatCompact={fCompact} />
+            <div style={{ flex: "0 0 auto", marginLeft: "auto" }}>
+              <MiniFinancialChart income={k.currentMonth.income} expense={k.currentMonth.expense} savings={monthNet} format={f} formatCompact={fCompact} />
+            </div>
           </div>
 
           <div style={{ borderTop: "1px dashed var(--ppm-border)", margin: "14px 0" }} />

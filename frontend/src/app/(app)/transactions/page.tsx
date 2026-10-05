@@ -1,29 +1,23 @@
 "use client";
 
-import { Suspense, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 import { useIsMobile } from "@/lib/DeviceContext";
-import { MobileTransactionsView } from "@/components/mobile/MobileTransactionsView";
+import { Topbar } from "@/components/layout/AppTopbar";
+import { MobileActivityView } from "@/components/mobile/MobileActivityView";
+import { ActivityFeed } from "@/components/activity/ActivityFeed";
 
-function TransactionsRedirectContent() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
+export default function ActivityPage() {
   const isMobile = useIsMobile();
-
-  useEffect(() => {
-    if (isMobile) return;
-    const qs = searchParams.toString();
-    router.replace(qs ? `/expenses?${qs}` : "/expenses");
-  }, [router, searchParams, isMobile]);
-
-  if (isMobile) return <MobileTransactionsView initialType="" />;
-  return null;
-}
-
-export default function TransactionsRedirectPage() {
+  if (isMobile) return <Suspense><MobileActivityView /></Suspense>;
   return (
-    <Suspense>
-      <TransactionsRedirectContent />
-    </Suspense>
+    <>
+      <Topbar title="Activity" />
+      <main className="flex-1 overflow-y-auto p-4 lg:p-6 2xl:px-10">
+        {/* Same ledger and styling as mobile: .pp-mobile supplies the --ppm tokens. */}
+        <div className="pp-mobile mx-auto w-full max-w-3xl" style={{ minHeight: 0, background: "transparent" }}>
+          <Suspense><ActivityFeed /></Suspense>
+        </div>
+      </main>
+    </>
   );
 }

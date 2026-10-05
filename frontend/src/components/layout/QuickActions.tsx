@@ -1,32 +1,19 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
-import { Plus, TrendingDown, TrendingUp, Wallet, LineChart, Target, X } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useUiStore } from "@/store/uiStore";
 import { TransactionFormModal } from "@/components/transactions/TransactionFormModal";
 import { AddTransactionSheet } from "@/components/mobile/AddTransactionSheet";
 import { useIsMobile } from "@/lib/DeviceContext";
-import { cn } from "@/lib/format";
-
-const ACTIONS = [
-  { key: "expense", label: "Expense", icon: TrendingDown, color: "bg-vulcanico" },
-  { key: "income", label: "Income", icon: TrendingUp, color: "bg-mantis" },
-  { key: "budget", label: "Budget", icon: Wallet, color: "bg-turmeric" },
-  { key: "investment", label: "Investment", icon: LineChart, color: "bg-pp-accent" },
-  { key: "goals", label: "Goals", icon: Target, color: "bg-pp-accent" },
-] as const;
 
 export function QuickActions() {
   const router = useRouter();
   const isMobile = useIsMobile();
   const { quickAddType, openQuickAdd } = useUiStore();
-  const [fabOpen, setFabOpen] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
 
   // The topbar this renders inside uses backdrop-blur, which (per spec)
   // creates a new containing block for fixed-position descendants — without
@@ -35,63 +22,22 @@ export function QuickActions() {
   // of the screen on mobile instead of floating over the page.
   useEffect(() => setMounted(true), []);
 
-  useEffect(() => {
-    if (!menuOpen) return;
-    const handleClick = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
-    };
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [menuOpen]);
-
-  const handleAction = (key: (typeof ACTIONS)[number]["key"]) => {
-    setFabOpen(false);
-    setMenuOpen(false);
-    if (key === "expense") openQuickAdd("EXPENSE");
-    else if (key === "income") openQuickAdd("INCOME");
-    else if (key === "budget") router.push("/budget");
-    else if (key === "investment") router.push("/investments");
-    else router.push("/goals");
-  };
+  const openAdd = () => router.push("/add");
 
   const floatingUi = (
     <>
-      {/* Mobile: expandable FAB. Offset clears the fixed bottom nav (~60px)
+      {/* Mobile: FAB opens the Add Transaction page. Offset clears the fixed bottom nav (~60px)
           plus safe-area inset — a flat bottom-6 would sit under/behind it
           on an actual mobile route (.pp-mobile), which is where this now
           also renders (see MobileShell) alongside its original desktop-
           narrow-window use inside Topbar. */}
-      <div
-        className="fixed right-6 z-40 flex flex-col items-end gap-3 lg:hidden"
-        style={{ bottom: "calc(76px + env(safe-area-inset-bottom, 0px))" }}
-      >
-        <AnimatePresence>
-          {fabOpen &&
-            ACTIONS.map((action, i) => (
-              <motion.button
-                key={action.key}
-                initial={{ opacity: 0, y: 10, scale: 0.9 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 10, scale: 0.9 }}
-                transition={{ delay: i * 0.03 }}
-                onClick={() => handleAction(action.key)}
-                className="flex items-center gap-2 rounded-full bg-pp-surface py-2 pl-3 pr-4 text-sm font-semibold text-pp-text shadow-lg "
-              >
-                <span className={cn("flex h-8 w-8 items-center justify-center rounded-full text-white", action.color)}>
-                  <action.icon className="h-4 w-4" />
-                </span>
-                {action.label}
-              </motion.button>
-            ))}
-        </AnimatePresence>
+      <div className="fixed right-6 z-40 lg:hidden" style={{ bottom: "calc(76px + env(safe-area-inset-bottom, 0px))" }}>
         <button
-          onClick={() => setFabOpen((v) => !v)}
-          aria-label={fabOpen ? "Close quick actions" : "Open quick actions"}
-          className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-teal to-pp-accent text-white shadow-xl shadow-pp-accent/25 backdrop-blur-md transition-transform active:scale-95"
+          onClick={openAdd}
+          aria-label="Add transaction"
+          className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-teal to-pp-accent text-white shadow-xl shadow-pp-accent/25"
         >
-          <motion.span animate={{ rotate: fabOpen ? 135 : 0 }} transition={{ duration: 0.2 }}>
-            {fabOpen ? <X className="h-6 w-6" /> : <Plus className="h-6 w-6" />}
-          </motion.span>
+          <Plus className="h-6 w-6" />
         </button>
       </div>
 
@@ -109,43 +55,14 @@ export function QuickActions() {
 
   return (
     <>
-      {/* Desktop: single expandable "+" button, same idea as the mobile FAB */}
-      <div ref={menuRef} className="relative hidden lg:block">
-        <button
-          onClick={() => setMenuOpen((v) => !v)}
-          aria-label={menuOpen ? "Close quick actions" : "Open quick actions"}
-          aria-expanded={menuOpen}
-          className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-teal to-pp-accent text-white shadow-md shadow-pp-accent/20 transition-transform hover:brightness-110 active:scale-95"
-        >
-          <motion.span animate={{ rotate: menuOpen ? 135 : 0 }} transition={{ duration: 0.2 }}>
-            <Plus className="h-4.5 w-4.5" />
-          </motion.span>
-        </button>
-        <AnimatePresence>
-          {menuOpen && (
-            <motion.div
-              initial={{ opacity: 0, y: -6, scale: 0.96 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -6, scale: 0.96 }}
-              transition={{ duration: 0.15 }}
-              className="absolute right-0 top-full z-40 mt-2 w-44 overflow-hidden rounded-xl border border-pp-border bg-pp-surface py-1 shadow-xl "
-            >
-              {ACTIONS.map((action) => (
-                <button
-                  key={action.key}
-                  onClick={() => handleAction(action.key)}
-                  className="flex w-full items-center gap-2.5 px-3 py-2 text-sm font-medium text-pp-text transition-colors hover:bg-pp-surface-2"
-                >
-                  <span className={cn("flex h-7 w-7 items-center justify-center rounded-full text-white", action.color)}>
-                    <action.icon className="h-3.5 w-3.5" />
-                  </span>
-                  {action.label}
-                </button>
-              ))}
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+      {/* Desktop: the same single entry point, no menu */}
+      <button
+        onClick={openAdd}
+        aria-label="Add transaction"
+        className="hidden h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-teal to-pp-accent text-white shadow-md shadow-pp-accent/20 transition-transform hover:scale-105 lg:flex"
+      >
+        <Plus className="h-4.5 w-4.5" />
+      </button>
 
       {mounted ? createPortal(floatingUi, document.body) : null}
     </>
