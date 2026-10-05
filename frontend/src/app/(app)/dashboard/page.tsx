@@ -269,6 +269,7 @@ function DashboardContent() {
 
     return (
       <MobileShell title="Penny Pilot" subtitle="Smart Money Management">
+        <MonthlyAuditBanner />
         <div style={{ fontSize: "1.15rem", fontWeight: 800, color: "var(--ppm-text)", marginBottom: 12 }}>
           {homeGreeting}
         </div>

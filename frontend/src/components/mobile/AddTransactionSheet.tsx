@@ -62,6 +62,9 @@ export function AddTransactionSheet({ open, onClose, editing }: AddTransactionSh
   const [adding, setAdding] = useState<"category" | "wallet" | null>(null);
   const [newName, setNewName] = useState("");
   const [addBusy, setAddBusy] = useState(false);
+  const addNameRef = useRef<HTMLInputElement>(null);
+  // MobileSheet keeps children mounted while closed, so bare autoFocus would fire (and open the keyboard) on page load.
+  useEffect(() => { if (adding) addNameRef.current?.focus(); }, [adding]);
 
   const reset = () => {
     setType("EXPENSE");
@@ -301,7 +304,7 @@ export function AddTransactionSheet({ open, onClose, editing }: AddTransactionSh
         <form onSubmit={(e: FormEvent) => { e.preventDefault(); void addEntity(); }}>
           <div className="ppm-field">
             <label htmlFor="ppm-add-name">Name</label>
-            <input id="ppm-add-name" value={newName} maxLength={60} autoFocus placeholder="Name required" onChange={(e) => setNewName(e.target.value)} />
+            <input id="ppm-add-name" value={newName} maxLength={60} ref={addNameRef} placeholder="Name required" onChange={(e) => setNewName(e.target.value)} />
           </div>
           <div className="ppm-sheet-actions">
             <button type="submit" className="ppm-sheet-submit" disabled={addBusy || !newName.trim()}>{addBusy ? "Adding…" : "Add"}</button>

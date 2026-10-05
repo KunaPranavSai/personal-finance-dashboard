@@ -13,9 +13,7 @@ import { PasswordInput } from "@/components/ui/PasswordInput";
 import { AuthPageShell } from "@/components/ui/AuthPageShell";
 import { AnimatedCheckbox } from "@/components/ui/AnimatedCheckbox";
 import { AnimatedCodeVerification } from "@/components/ui/AnimatedCodeVerification";
-import { ShieldCheck, Lock, Fingerprint, Mail, AlertCircle } from "lucide-react";
-import { browserSupportsWebAuthn } from "@simplewebauthn/browser";
-import { PREFER_BIOMETRIC_KEY } from "@/lib/passkeyPrefs";
+import { ShieldCheck, Lock, Mail, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/format";
 import { api } from "@/lib/api";
 import { hasFunctionalConsent } from "@/lib/cookieConsent";
@@ -69,7 +67,7 @@ interface LoginPageClientProps {
 }
 
 export function LoginPageClient({ embedded = false }: LoginPageClientProps = {}) {
-  const { user, login, loginWithPin, loginWithPasskey, verifyLogin2FA, forceChangePassword, isAuthenticated, isLoading } = useAuth();
+  const { user, login, loginWithPin, verifyLogin2FA, forceChangePassword, isAuthenticated, isLoading } = useAuth();
   const { settings } = useSettingsContext();
   const { toast } = useToast();
   const router = useRouter();
@@ -82,9 +80,6 @@ export function LoginPageClient({ embedded = false }: LoginPageClientProps = {})
   const [passwordChangeToken, setPasswordChangeToken] = useState<string | null>(null);
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
-  const [webAuthnSupported, setWebAuthnSupported] = useState(false);
-  const [mode, setMode] = useState<"password" | "biometric">("password");
-  const [biometricPending, setBiometricPending] = useState(false);
   const [info, setInfo] = useState("");
   // Set when this device remembers an account with a PIN: PIN entry is the default view.
   const [pinDevice, setPinDevice] = useState<{ name: string; email: string } | null>(null);
@@ -101,11 +96,6 @@ export function LoginPageClient({ embedded = false }: LoginPageClientProps = {})
   }, []);
 
   useEffect(() => {
-    const supported = browserSupportsWebAuthn();
-    setWebAuthnSupported(supported);
-    if (supported && localStorage.getItem(PREFER_BIOMETRIC_KEY) === "1") {
-      setMode("biometric");
-    }
     const params = new URLSearchParams(window.location.search);
     const remembered = localStorage.getItem(REMEMBERED_EMAIL_KEY);
     const registeredEmail = params.get("registered") === "1" ? params.get("email") : null;
@@ -143,26 +133,6 @@ export function LoginPageClient({ embedded = false }: LoginPageClientProps = {})
     const enabled = isVoiceGreetingsEnabled(settings.preferences);
     playVoiceGreeting(key, { enabled });
     toast(VOICE_GREETINGS[key], "success");
-  };
-
-  const handleBiometricLogin = async () => {
-    setError("");
-    setBiometricPending(true);
-    try {
-      const { isFirstLogin } = await loginWithPasskey();
-      greetLogin(isFirstLogin);
-      // The auth-state effect below redirects once `user` is populated.
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Biometric sign-in failed";
-      // Same backend-enforced portal separation as password sign-in (see handleSubmit).
-      if (message === "Administrators sign in at the Admin Console.") {
-        router.replace("/admin-login");
-        return;
-      }
-      setError(message);
-    } finally {
-      setBiometricPending(false);
-    }
   };
 
   const resolveDestination = (role: string, justOnboarded?: boolean) => {
@@ -380,46 +350,10 @@ export function LoginPageClient({ embedded = false }: LoginPageClientProps = {})
       footer={embedded ? undefined : <Footer variant="dark" />}
     >
       <AnimatePresence mode="wait">
-        {mode === "biometric" ? (
-          <motion.div key="biometric" initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -12 }} transition={{ duration: 0.25 }} className="space-y-5">
-            <div className="flex flex-col items-center gap-3 py-4 text-center">
-              <div className="relative flex h-14 w-14 items-center justify-center">
-                <div className="absolute inset-0 rounded-full bg-tiffany/20 blur-lg" />
-                <div className="relative flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-white/5">
-                  <Fingerprint className="h-7 w-7 text-tiffany" />
-                </div>
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-white">Sign in with biometrics</p>
-                <p className="mt-1 text-xs text-[#94A3B8]">Use Windows Hello, Touch ID, Face ID, or a security key registered on this account.</p>
-              </div>
-            </div>
-
-            {error && <ErrorMessage>{error}</ErrorMessage>}
-
-            <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} type="button" onClick={handleBiometricLogin} disabled={biometricPending} className={primaryButton}>
-              {biometricPending ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" /> : <Fingerprint className="h-4 w-4" />}
-              {biometricPending ? "Waiting for biometrics…" : "Continue with Biometrics"}
-            </motion.button>
-
-            <button type="button" onClick={() => { setMode("password"); setError(""); }} className="w-full text-center text-xs text-white/40 transition-colors hover:text-white/60">
-              Continue with Password
-            </button>
-          </motion.div>
-        ) : (
+        {(
           <motion.form key="password" initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 12 }} transition={{ duration: 0.25 }} onSubmit={handleSubmit} className="space-y-5">
             {info && <SuccessMessage>{info}</SuccessMessage>}
 
-            {webAuthnSupported && (
-              <button
-                type="button"
-                onClick={() => { setMode("biometric"); setError(""); }}
-                className="mb-1 flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-medium text-white/80 backdrop-blur-sm transition-all hover:-translate-y-0.5 hover:bg-white/10"
-              >
-                <Fingerprint className="h-4 w-4 text-tiffany" />
-                Continue with Biometrics
-              </button>
-            )}
 
             <div>
               <label htmlFor="email" className="mb-2 block text-xs font-semibold uppercase tracking-wider text-white/50">
