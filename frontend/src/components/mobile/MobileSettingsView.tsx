@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { MobileShell } from "@/components/mobile/MobileShell";
 import { MobileSheet } from "@/components/mobile/MobileSheet";
 import { useSettingsContext } from "@/lib/SettingsContext";
@@ -79,6 +80,15 @@ export function MobileSettingsView() {
   const [notifsOpen, setNotifsOpen] = useState(false);
   const [privacyOpen, setPrivacyOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+  // Deep links from the More hub: each one lands on its own section or opens its own sheet.
+  const tab = useSearchParams().get("tab");
+  useEffect(() => {
+    if (tab === "regional") setPrefsOpen(true);
+    else if (tab === "notifications") setNotifsOpen(true);
+    else if (tab === "privacy") setPrivacyOpen(true);
+    else if (tab === "export") setExportOpen(true);
+    else if (tab === "appearance") document.getElementById("settings-appearance")?.scrollIntoView({ block: "start" });
+  }, [tab]);
   const [exportTypes, setExportTypes] = useState<string[]>(EXPORT_TYPES.map((t) => t.key));
   const [exporting, setExporting] = useState(false);
 
@@ -110,7 +120,7 @@ export function MobileSettingsView() {
         <p>Account, storage &amp; preferences</p>
       </div>
 
-      <div className="ppm-card">
+      <div className="ppm-card" id="settings-appearance" style={{ scrollMarginTop: 72 }}>
         <div className="ppm-section-label">Appearance</div>
         <div className="ppm-list-item" style={{ cursor: "default" }}>
           <div className="ppm-ic" aria-hidden="true"><Moon size={18} /></div>

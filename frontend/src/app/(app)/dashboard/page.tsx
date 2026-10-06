@@ -282,7 +282,7 @@ function DashboardContent() {
               <div className="ppm-figure" style={{ fontSize: "1.5rem" }}>
                 {f(k.netWorth)}
               </div>
-              <span className={`ppm-delta${netWorthUp ? "" : " down"}`} style={{ display: "inline-block", marginTop: 6 }}>{netWorthUp ? "+" : ""}{formatPercent(incomeChange)} {netWorthUp ? "↗" : "↘"}</span>
+              <span className={`ppm-delta${netWorthUp ? "" : " down"}`} style={{ marginTop: 6 }}>{netWorthUp ? "+" : ""}{formatPercent(incomeChange)} {netWorthUp ? <TrendingUp size={13} aria-hidden="true" /> : <TrendingDown size={13} aria-hidden="true" />}</span>
             </div>
             <div style={{ flex: "0 0 auto", marginLeft: "auto" }}>
               <MiniFinancialChart income={k.currentMonth.income} expense={k.currentMonth.expense} savings={monthNet} format={f} formatCompact={fCompact} />
@@ -439,7 +439,7 @@ function DashboardContent() {
                       <p className="text-xs font-semibold uppercase tracking-wider text-pp-text-dim">Total Net Worth</p>
                       <p className="mt-1 text-3xl font-extrabold text-pp-text">{f(home.k.netWorth)}</p>
                       <span className={cn("mt-2 inline-flex items-center gap-1 text-xs font-semibold", home.netWorthUp ? "text-mantis" : "text-vulcanico")}>
-                        {home.netWorthUp ? "+" : ""}{formatPercent(home.incomeChange)} {home.netWorthUp ? "↗" : "↘"}
+                        {home.netWorthUp ? "+" : ""}{formatPercent(home.incomeChange)} {home.netWorthUp ? <TrendingUp size={13} aria-hidden="true" className="inline" /> : <TrendingDown size={13} aria-hidden="true" className="inline" />}
                       </span>
                     </div>
                     <MiniFinancialChart income={home.k.currentMonth.income} expense={home.k.currentMonth.expense} savings={home.monthNet} format={f} formatCompact={fCompact} />

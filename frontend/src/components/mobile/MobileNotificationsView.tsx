@@ -8,7 +8,7 @@ import { ConfirmSheet } from "@/components/mobile/ConfirmSheet";
 import { api } from "@/lib/api";
 import { useNotifications } from "@/lib/reference";
 import { formatDateIN } from "@/lib/format";
-import { AlertTriangle, Receipt, Target, Lightbulb, Bell, Trash2, Megaphone } from "lucide-react";
+import { AlertTriangle, Receipt, Target, Lightbulb, Bell, Trash2, Megaphone, Check } from "lucide-react";
 
 const TYPE_ICON: Record<string, React.ReactNode> = {
   budget_alert: <AlertTriangle size={18} />,
@@ -124,7 +124,7 @@ export function MobileNotificationsView() {
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                 {!n.read && (
-                  <button type="button" className="ppm-row-action" aria-label="Mark as read" onClick={() => markReadMutation.mutate(n.id)}>✓</button>
+                  <button type="button" className="ppm-row-action" aria-label="Mark as read" onClick={() => markReadMutation.mutate(n.id)}><Check size={15} aria-hidden="true" /></button>
                 )}
                 <button type="button" className="ppm-row-action" aria-label="Delete" onClick={() => deleteMutation.mutate(n.id)}><Trash2 size={15} /></button>
               </div>

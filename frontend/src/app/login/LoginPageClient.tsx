@@ -82,7 +82,7 @@ export function LoginPageClient({ embedded = false }: LoginPageClientProps = {})
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [info, setInfo] = useState("");
   // Set when this device remembers an account with a PIN: PIN entry is the default view.
-  const [pinDevice, setPinDevice] = useState<{ name: string; email: string } | null>(null);
+  const [pinDevice, setPinDevice] = useState<{ name: string; email: string; uid: string } | null>(null);
   // Last account that signed in here without a PIN: greeted by name, email not asked again.
   const [knownUser, setKnownUser] = useState<{ name: string; email: string } | null>(null);
   const [usePassword, setUsePassword] = useState(false);
@@ -91,10 +91,10 @@ export function LoginPageClient({ embedded = false }: LoginPageClientProps = {})
   const [pinManual, setPinManual] = useState(false);
 
   useEffect(() => {
-    api.get<{ device: boolean; name?: string; email?: string; hasPin?: boolean }>("/api/auth/pin/device")
+    api.get<{ device: boolean; uid?: string; name?: string; email?: string; hasPin?: boolean }>("/api/auth/pin/device")
       .then((d) => {
         if (!d.device || !d.name || !d.email) return;
-        if (d.hasPin) setPinDevice({ name: d.name, email: d.email });
+        if (d.hasPin) setPinDevice({ name: d.name, email: d.email, uid: d.uid || d.email });
         else { setKnownUser({ name: d.name, email: d.email }); setEmail(d.email); }
       })
       .catch(() => { /* no PIN view: password form stays */ })
@@ -282,8 +282,8 @@ export function LoginPageClient({ embedded = false }: LoginPageClientProps = {})
           )}
           <AnimatedCodeVerification
             length={4}
-            title={pinDevice ? `Welcome back, ${pinDevice.name.split(" ")[0]}` : "Sign in with PIN"}
-            subtitle={pinDevice ? `Enter your 4-digit PIN to sign in as ${pinDevice.email}` : "Enter your email or User ID, then your 4-digit PIN"}
+            title={pinDevice ? "Welcome back" : "Sign in with PIN"}
+            subtitle={pinDevice ? <><span className="mb-1 block break-all text-base font-semibold text-white">{pinDevice.uid}</span>Enter your 4-digit PIN</> : "Enter your email or User ID, then your 4-digit PIN"}
             tip="Locked out? Use your email and password below"
             successTitle="Signed In Successfully!"
             successSubtitle="Redirecting to your dashboard…"
@@ -304,7 +304,7 @@ export function LoginPageClient({ embedded = false }: LoginPageClientProps = {})
           </button>
           {pinDevice && (
             <button type="button" onClick={notYou} className="min-h-[44px] text-sm text-white/50 transition hover:text-white/80">
-              Not {pinDevice.name.split(" ")[0]}? Use a different account
+              Not you? Switch account
             </button>
           )}
         </div>

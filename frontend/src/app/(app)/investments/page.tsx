@@ -14,7 +14,7 @@ import { getRecoveryAction } from "@/lib/errorActions";
 import { formatCurrency, formatPercent } from "@/lib/format";
 import { useSettingsContext } from "@/lib/SettingsContext";
 import { Investment } from "@/types";
-import { TrendingUp, Plus, Pencil, Trash2, X, Landmark, Search, ArrowUpDown } from "lucide-react";
+import { TrendingUp, TrendingDown, Plus, Pencil, Trash2, X, Landmark, Search, ArrowUpDown } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -300,7 +300,7 @@ export default function InvestmentsPage() {
         {isError && !isLoading && <ErrorCard onRetry={() => refetch()} />}
 
         {!isLoading && !isError && items.length === 0 && (
-          <EmptyCard icon="↗" title="No investments tracked yet" subtitle="Tap + Add to track a holding." />
+          <EmptyCard icon={<TrendingUp size={22} />} title="No investments tracked yet" subtitle="Tap + Add to track a holding." />
         )}
 
         {!isLoading && !isError && items.length > 0 && (
@@ -309,7 +309,7 @@ export default function InvestmentsPage() {
               <div className="ppm-section-label">Current Value</div>
               <div className="ppm-figure" style={{ justifyContent: "space-between" }}>
                 {formatCurrency(mCurrentValue, cur)}
-                <span className={`ppm-delta${mGainPct < 0 ? " down" : ""}`}>{mGainPct >= 0 ? "+" : ""}{formatPercent(mGainPct)} {mGainPct >= 0 ? "↗" : "↘"}</span>
+                <span className={`ppm-delta${mGainPct < 0 ? " down" : ""}`}>{mGainPct >= 0 ? "+" : ""}{formatPercent(mGainPct)} {mGainPct >= 0 ? <TrendingUp size={13} aria-hidden="true" /> : <TrendingDown size={13} aria-hidden="true" />}</span>
               </div>
             </div>
 

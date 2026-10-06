@@ -645,9 +645,9 @@ router.get("/pin/device", asyncHandler(async (req: Request, res: Response) => {
   // Each sign-in page only knows its own portal's last account (admins at /admin-login, users at /login).
   const isAdminPortal = req.query.portal === "admin";
   const id = req.signedCookies?.[deviceCookieName(isAdminPortal)];
-  const user = typeof id === "string" ? await prisma.user.findUnique({ where: { id }, select: { name: true, email: true, pinHash: true, status: true, role: true } }) : null;
+  const user = typeof id === "string" ? await prisma.user.findUnique({ where: { id }, select: { uid: true, name: true, email: true, pinHash: true, status: true, role: true } }) : null;
   if (!user || user.status === "SUSPENDED" || (user.role === "USER") === isAdminPortal) { res.json({ device: false }); return; }
-  res.json({ device: true, name: user.name || user.email, email: user.email, hasPin: Boolean(user.pinHash) });
+  res.json({ device: true, uid: user.uid, name: user.name || user.email, email: user.email, hasPin: Boolean(user.pinHash) });
 }));
 
 router.post("/pin/login", loginLimiter, asyncHandler(async (req: Request, res: Response) => {

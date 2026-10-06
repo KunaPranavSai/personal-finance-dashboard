@@ -7,7 +7,7 @@ import { BudgetTable } from "@/components/budget/BudgetTable";
 import { BudgetFormModal } from "@/components/budget/BudgetFormModal";
 import { Button } from "@/components/ui/PpButton";
 import { Card, CardContent } from "@/components/ui/PpCard";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, PieChart } from "lucide-react";
 import { MobileShell } from "@/components/mobile/MobileShell";
 import { LoadingCard, ErrorCard, EmptyCard } from "@/components/mobile/MobileStates";
 import { BudgetFormSheet } from "@/components/mobile/BudgetFormSheet";
@@ -85,7 +85,7 @@ export default function BudgetPage() {
         {isLoading && <LoadingCard lines={4} />}
         {isError && !isLoading && <ErrorCard onRetry={() => refetch()} />}
         {!isLoading && !isError && items.length === 0 && (
-          <EmptyCard icon="◧" title="No budgets set for this month" subtitle="Tap + Add to set a budget for a category." />
+          <EmptyCard icon={<PieChart size={22} />} title="No budgets set for this month" subtitle="Tap + Add to set a budget for a category." />
         )}
 
         {!isLoading && !isError && items.map((b) => {

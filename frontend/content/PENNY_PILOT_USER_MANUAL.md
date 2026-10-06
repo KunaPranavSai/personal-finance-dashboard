@@ -92,24 +92,26 @@ Follow these steps the first time you use Penny Pilot.
 
 **1. Open Penny Pilot.** Visit the Penny Pilot website in your browser, on desktop or mobile.
 
-**2. Create an account.** Select **Get Started** or **Sign Up**. Enter your name, email address, and a password. Your account becomes active immediately. There is no waiting period or admin approval step.
+**2. Create an account.** Select **Get Started** or **Sign Up** and enter your email address. Sign-up happens in steps: you can look around right away as an *explorer* (data stays on this device), then verify your email with the 6-digit code Penny Pilot emails you and complete your profile (name and, optionally, phone). Until both are done, actions that change your saved account ask you to finish verification first. There is no admin approval step.
 
-**3. Sign in.** After creating your account, sign in with your email and password. You may also add a security question and set up extra protection at this stage.
+**3. Set your PIN.** You will be asked to create a 4-digit PIN (avoid repeats like 1111 or runs like 1234). The PIN is your quick sign-in on this device. It is never emailed and Penny Pilot stores only a one-way hash of it.
 
-**4. Complete the initial setup.** Penny Pilot will briefly walk you through where its main features live.
+**4. Sign in next time.** After you have signed in once on a device, Penny Pilot remembers the last account there and opens straight to **Welcome back**, showing your User ID and four PIN boxes. Not you? Select **Not you? Switch account**. You can always choose **Sign in with email & password** instead, or request an emailed sign-in code.
 
-**5. Choose your storage option.** You will be asked how you want your financial data stored:
+**5. Complete the initial setup.** Penny Pilot will briefly walk you through where its main features live.
+
+**6. Choose your storage option.** You will be asked how you want your financial data stored:
 
 - **Google Drive**, your data is stored as files inside your own Google Drive.
 - **This Device Only (Local-Only)**, your data stays only in this browser, with no external account connection.
 
 You can change this choice later in Settings.
 
-**6. Connect Google Drive (if selected).** If you choose Google Drive, you will be asked to sign in with your Google account and grant Penny Pilot permission to create and use its own dedicated folder in your Drive. See [Part 21: Storage](#part-21-storage) for full details.
+**7. Connect Google Drive (if selected).** If you choose Google Drive, you will be asked to sign in with your Google account and grant Penny Pilot permission to create and use its own dedicated folder in your Drive. See [Part 21: Storage](#part-21-storage) for full details.
 
-**7. Start adding financial information.** Begin by adding an expense or income entry, a wallet/account, and a money source, so your categories and totals have real data to work with.
+**8. Start adding financial information.** Begin by adding an expense or income entry, a wallet/account, and a money source, so your categories and totals have real data to work with.
 
-**8. Review the dashboard.** Open Home/Dashboard to see your totals, cash flow, and category breakdown update immediately as you add information.
+**9. Review the dashboard.** Open Home/Dashboard to see your totals, cash flow, and category breakdown update immediately as you add information.
 
 > **Tip:** You do not need to set up budgets, bills, goals, or investments before you start. You can add these at any time, Penny Pilot works with whatever information you give it.
 
@@ -510,7 +512,7 @@ Penny Pilot generates a small set of notification types based on your activity:
 
 **Clearing/dismissing:** You can delete an individual notification, or clear all notifications at once, from the Notifications screen.
 
-Penny Pilot also has a separate **Announcements** tab for platform-wide messages (such as maintenance notices), separate from your personal notifications.
+Penny Pilot also has a separate **Announcements** tab on the Notifications screen (on phones and on desktop) for platform-wide messages such as maintenance notices. Announcements are shown only inside the app. They are not emailed, and they have no read or dismissed state: they stay until they expire or an administrator removes them.
 
 ---
 
@@ -580,16 +582,21 @@ Penny Pilot never stores your financial data in its own central database by defa
 
 | Area | What it covers |
 |---|---|
-| **Account** | Your name, email, and profile details |
-| **Security** | Password changes, two-factor authentication, passkeys |
+| **Profile** | Your name, phone and profile details |
+| **Login & Security** | Daily PIN, password, two-factor authentication, passkeys |
+| **Sessions** | Where you are signed in |
 | **Account Recovery** | Security questions and recovery options |
 | **Storage** | Switching between Google Drive and Local-Only, backup/export/import, restore |
-| **Preferences** | Appearance (light/dark), currency, and similar display preferences |
+| **Appearance** | Light or dark theme |
+| **Currency, Date & Language** | Regional display preferences |
+| **Notification Preferences** | Which reminders and alerts you receive |
+| **Data Management** | Exporting your data |
+| **Privacy** | Privacy options for your data |
 | **Voice Greetings** | Turning spoken greetings on or off |
 | **Privacy** | Options such as sharing anonymous usage data or analytics |
 | **Legal information** | Links to the Privacy Policy and Terms of Service |
 
-Each area is reached from the Settings screen's own tabs, and every change is saved immediately when you select Save on that section.
+On a phone, open **More** and pick a group (Personal, Preferences, Security & Privacy, Backup & Data, Notifications, Help & Support, About); each entry opens its own screen or sheet. On desktop, each area is a tab in Settings. Changes are saved when you confirm them.
 
 ---
 
@@ -599,7 +606,16 @@ Each area is reached from the Settings screen's own tabs, and every change is sa
 Your password is never stored in plain text, it is stored using one-way hashing, so even Penny Pilot cannot see your actual password. This protects your account if the stored data were ever exposed.
 
 ### Sessions
-Signing in creates a session that keeps you signed in for a period of inactivity you can configure (Session Timeout, in Settings → Security). This protects your account if you step away from a signed-in device.
+Signing in creates a session. Only one device stays signed in at a time: signing in on another device ends the previous session. Without "Remember me", your session ends after a period of inactivity and at the end of the day, after which you sign in again. You can see your sessions under **More → Security & Privacy → Sessions**.
+
+### Remember me
+Tick **Remember me** on the sign-in screen to stay signed in on that device with no daily or inactivity sign-out; the session lasts up to one year or until you sign out. You are still asked for your PIN once a day. Use it only on devices you control. Your password and PIN are never saved in the browser.
+
+### Sign-in PIN
+Your 4-digit PIN is a quick sign-in for a device that remembers you. Too many wrong attempts lock the account for a while, the same as password attempts. If you change your PIN you receive a security email; the PIN itself is never emailed.
+
+### Emailed sign-in codes
+Instead of a password you can ask for a one-time code sent to your email. Codes work once and expire (10 minutes for sign-in and email verification, 5 minutes for password recovery).
 
 ### Logout
 Signing out ends your current session immediately.
@@ -618,7 +634,8 @@ If you lose access to your password or 2FA method, Penny Pilot provides a recove
 | Feature | Protects against |
 |---|---|
 | Hashed passwords | Your password being exposed even if stored data is compromised |
-| Session timeout | Unauthorized use of an unattended signed-in device |
+| Session timeout and daily sign-out | Unauthorized use of an unattended signed-in device |
+| PIN with lockout | Someone casually using a device that remembers you |
 | Two-factor authentication | Account access using only a stolen or guessed password |
 | Passkeys | Password theft and phishing, since there is no password to steal |
 
@@ -630,7 +647,7 @@ If you lose access to your password or 2FA method, Penny Pilot provides a recove
 
 **How to begin:** Select **Forgot password?** on the sign-in screen and enter your account email.
 
-**Verification:** Penny Pilot verifies your request before allowing a password reset.
+**Verification:** Penny Pilot emails you a 6-digit recovery code (valid for 5 minutes) and verifies it before allowing a password reset. Penny Pilot never emails your password or PIN.
 
 **Two-factor recovery:** If you have 2FA enabled and cannot access your authenticator app, use one of the backup codes provided when you first set up 2FA, in place of the 6-digit code.
 
@@ -669,11 +686,11 @@ On mobile, Penny Pilot uses a bottom navigation bar with:
 |---|---|
 | **Home** | Your dashboard overview |
 | **Activity** | Your transactions (income and expenses together) |
-| **Budget** | Your budgets |
-| **Invest** | Your investments |
-| **More** | Everything else, Bills, Savings, Goals, Analytics, Reports, Customizations, Notifications, Profile, and Settings |
+| **Capital** | Your overall financial position |
+| **Analysis** | Analytics and reports |
+| **More** | Everything else, grouped: Personal, Preferences, Security & Privacy, Backup & Data, Notifications, Help & Support, and About |
 
-**Adding a transaction:** A floating **+** button is available from most screens for quickly adding an expense, income, budget, investment, or goal.
+**Adding a transaction:** A floating **+** button sits just above the bottom bar on most screens and opens the Add Transaction page, where you choose what you want to record.
 
 **Search:** Reached from the search icon, with the same behavior described in [Part 19](#part-19-search).
 

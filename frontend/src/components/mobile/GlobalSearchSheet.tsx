@@ -13,10 +13,10 @@ import {
 } from "@/lib/search";
 import { useSettingsContext } from "@/lib/SettingsContext";
 import { formatCurrency } from "@/lib/format";
-import { Receipt, BarChart3, TrendingUp, Target, Landmark, CreditCard, Tag, Search, Lock } from "lucide-react";
+import { Receipt, BarChart3, TrendingUp, Target, Landmark, CreditCard, Tag, Search, Lock, ArrowRight, ArrowLeft, X, ListChecks, PieChart } from "lucide-react";
 
 const RESULT_ICON: Record<SearchResult["kind"], React.ReactNode> = {
-  page: "→",
+  page: <ArrowRight size={16} aria-hidden="true" />,
   transaction: <Receipt size={16} aria-hidden="true" />,
   budget: <BarChart3 size={16} aria-hidden="true" />,
   investment: <TrendingUp size={16} aria-hidden="true" />,
@@ -156,10 +156,10 @@ export function GlobalSearchSheet({ open, onClose }: { open: boolean; onClose: (
       >
         <div className="ppm-search-top">
           <button type="button" className="ppm-search-back" aria-label="Close search" onClick={onClose}>
-            ←
+            <ArrowLeft size={20} aria-hidden="true" />
           </button>
           <div className="ppm-search-input-wrap">
-            <span aria-hidden="true" style={{ color: "var(--ppm-text-dim)", fontSize: 15 }}>⌕</span>
+            <Search size={16} aria-hidden="true" style={{ color: "var(--ppm-text-dim)", flexShrink: 0 }} />
             <input
               ref={inputRef}
               type="search"
@@ -171,7 +171,7 @@ export function GlobalSearchSheet({ open, onClose }: { open: boolean; onClose: (
             />
             {query && (
               <button type="button" className="ppm-search-clear" aria-label="Clear search" onClick={handleClear}>
-                ×
+                <X size={16} aria-hidden="true" />
               </button>
             )}
           </div>
@@ -190,9 +190,9 @@ export function GlobalSearchSheet({ open, onClose }: { open: boolean; onClose: (
                     href === "/bills" ? "Bills & EMIs" :
                     "2FA, Passkeys & Password";
                   const icon =
-                    href === "/transactions" ? "≡" :
-                    href === "/budget" ? "◧" :
-                    href === "/investments" ? "↗" :
+                    href === "/transactions" ? <ListChecks size={16} aria-hidden="true" /> :
+                    href === "/budget" ? <PieChart size={16} aria-hidden="true" /> :
+                    href === "/investments" ? <TrendingUp size={16} aria-hidden="true" /> :
                     href === "/bills" ? <Receipt size={16} aria-hidden="true" /> :
                     <Lock size={16} aria-hidden="true" />;
                   return (

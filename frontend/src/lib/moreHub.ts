@@ -10,11 +10,10 @@ const SUPPORT_EMAIL = process.env.NEXT_PUBLIC_SUPPORT_EMAIL;
 export const HUB_FAMILIES: HubFamily[] = [
   { slug: "personal", label: "Personal", desc: "Profile and account", icon: User, items: [
     { href: "/profile", label: "Profile", desc: "Manage your personal information" },
-    { href: "/settings/security", label: "Account", desc: "Email, login & account settings" },
   ] },
   { slug: "preferences", label: "Preferences", desc: "Customize your experience", icon: SlidersHorizontal, items: [
     { href: "/settings?tab=appearance", label: "Appearance", desc: "Theme and display" },
-    { href: "/settings", label: "Currency, Date & Language", desc: "Regional settings" },
+    { href: "/settings?tab=regional", label: "Currency, Date & Language", desc: "Regional settings" },
     { href: "/customizations", label: "App Preferences", desc: "Dashboard and default views" },
     { href: "/accounts", label: "Wallets & Categories", desc: "Manage money sources and categories" },
   ] },
@@ -25,7 +24,7 @@ export const HUB_FAMILIES: HubFamily[] = [
   ] },
   { slug: "backup", label: "Backup & Data", desc: "Manage your financial data", icon: HardDrive, items: [
     { href: "/settings/storage", label: "Backup & Storage", desc: "Backup status and restore" },
-    { href: "/settings?tab=backup", label: "Data Management", desc: "Export and manage stored data" },
+    { href: "/settings?tab=export", label: "Data Management", desc: "Export your data" },
   ] },
   { slug: "notifications", label: "Notifications", desc: "Alerts and reminders", icon: Bell, items: [
     { href: "/notifications", label: "Notifications", desc: "Your alerts" },

@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/privacy-policy" },
 };
 
-const LAST_UPDATED = "September 19, 2026";
+const LAST_UPDATED = "October 6, 2026";
 const PLACEHOLDER_EMAIL = "superadminpennypilot@gmail.com";
 const PLACEHOLDER_ENTITY = "Pranav Sai Kuna. No physical mailing address provided.";
 
@@ -34,6 +34,13 @@ export default function PrivacyPolicyPage() {
         backup codes, or passkey credential data) needed to verify future sign-ins. Your account is active as soon as
         you complete signup; there is no admin-approval step that delays account activation.
       </p>
+      <p>
+        Sign-up is progressive. Until you verify your email address (with a one-time code we email you) and complete
+        your profile, your account is an <strong>explorer</strong> account: you can look around and keep data on this
+        device only, and actions that change your saved account are held back until verification is finished. You
+        also set a 4-digit sign-in <strong>PIN</strong>. Penny Pilot stores only a one-way hash of your PIN, never the PIN
+        itself, and never sends your password, PIN or sign-in codes by email.
+      </p>
       <h3>1.2 Financial Data</h3>
       <p>
         Penny Pilot lets you record and manage income, expenses, transactions, budgets, savings, investments, bills/EMIs,
@@ -48,7 +55,28 @@ export default function PrivacyPolicyPage() {
       <p>
         We keep a limited activity log tied to your account (e.g. login events, password/2FA changes, Google Drive
         connect/disconnect events) so that you and, where applicable, an administrator can review recent account
-        activity for security purposes.
+        activity for security purposes. For sign-ins and sessions this log and your session list record technical
+        details such as the date and time, IP address, browser, operating system and device type, and an approximate
+        location derived from the IP address. We use them only to secure accounts and detect misuse.
+      </p>
+      <h3>1.4 Administrator Access</h3>
+      <p>
+        Penny Pilot administrators can see account-level information needed to run and secure the service: your name,
+        email, User ID, phone number (if provided), role and status, verification state, sign-in history, active
+        sessions, and the status of your Google Drive connection (for example connected, setup needed or failed).
+        Administrators <strong>cannot</strong> open your Google Drive or read your financial data. In rare support
+        cases a Super Administrator may ask to view your account; this requires a one-time code sent to your own email
+        address that you must choose to share, the access expires after 20 minutes, and it is recorded in the audit log.
+        Administrators can also suspend or delete an account, reset a password or User ID, and sign you out of all
+        devices; you are emailed when these affect you.
+      </p>
+      <h3>1.5 Messages From Us</h3>
+      <p>
+        We send transactional emails only: verification, sign-in and password-recovery codes; notices when your password,
+        PIN, User ID or other security settings change; welcome and Google Drive status emails; and notices of changes
+        an administrator makes to your account. We do not send marketing email. Platform announcements are shown inside
+        the app (Notifications &rarr; Announcements) and are not emailed. Some non-essential emails can be switched off by
+        an administrator; codes you need to sign in or recover your account are always sent.
       </p>
 
       <h2>2. Google OAuth &amp; Google Drive Access</h2>
@@ -145,7 +173,7 @@ export default function PrivacyPolicyPage() {
       <p>
         You can currently request deletion of your Penny Pilot account and its associated account data (name, email,
         password hash, security settings, and activity log) by contacting Penny Pilot support at the email address
-        listed in Section 11 (Contact). Self-service account deletion is not yet available within the App itself and
+        listed in Section 11 (Contact); an administrator can then delete the account. Self-service account deletion is not yet available within the App itself and
         is planned for a future update.
       </p>
       <p>
@@ -178,7 +206,7 @@ export default function PrivacyPolicyPage() {
       <p>Penny Pilot relies on the following third-party services to operate:</p>
       <ul>
         <li><strong>Google (OAuth &amp; Google Drive)</strong> — used to authenticate your Drive connection and to store your financial data, as described above. See Google&apos;s own Privacy Policy for how Google handles data within your Google account.</li>
-        <li><strong>Resend</strong> — an email-delivery provider used to send account-related transactional emails (e.g. security notifications), where email sending is configured.</li>
+        <li><strong>Resend</strong> — an email-delivery provider used to send the transactional emails described in Section 1.5 (your email address and the message content are processed by Resend to deliver them).</li>
         <li><strong>Hosting providers</strong> — the Penny Pilot backend and frontend are hosted on third-party cloud infrastructure providers, who process data only as needed to run the application (e.g. serving requests, storing the account database).</li>
       </ul>
       <p>
@@ -189,7 +217,10 @@ export default function PrivacyPolicyPage() {
       <h2>9. Cookies</h2>
       <p>
         Penny Pilot uses strictly necessary, first-party cookies to keep you signed in (signed, HTTP-only session
-        cookies) and to remember basic preferences such as your light/dark theme. These cookies are not used for
+        cookies), to remember which account last signed in on this device so the PIN screen can open directly (for up
+        to 180 days; it contains only an internal account reference, never your PIN or password), and to remember basic
+        preferences such as your light/dark theme. If you choose &quot;Remember me&quot;, your session cookie lasts up to one
+        year or until you sign out; otherwise your session ends after a period of inactivity and at the end of the day. These cookies are not used for
         advertising or cross-site tracking. See the{" "}
         <a href="/cookie-notice" className="font-medium text-pp-accent underline underline-offset-2 hover:opacity-80">
           Cookie Notice
@@ -218,7 +249,7 @@ export default function PrivacyPolicyPage() {
       <h2>12. Changes to This Policy</h2>
       <p>
         We may update this Privacy Policy from time to time as the App evolves. Material changes will be reflected by
-        updating the &quot;Last updated&quot; date at the top of this page.
+        updating the &quot;Last updated&quot; date and version number at the top of this page.
       </p>
     </LegalPageShell>
   );

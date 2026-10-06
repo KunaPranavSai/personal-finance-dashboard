@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/terms" },
 };
 
-const LAST_UPDATED = "September 19, 2026";
+const LAST_UPDATED = "October 6, 2026";
 const PLACEHOLDER_EMAIL = "superadminpennypilot@gmail.com";
 const PLACEHOLDER_ENTITY = "Pranav Sai Kuna";
 const GOVERNING_JURISDICTION = "India";
@@ -27,7 +27,9 @@ export default function TermsOfServicePage() {
       <ul>
         <li>You must provide accurate registration information (name, email, and optionally phone number) when creating an account.</li>
         <li>Your account is active as soon as you complete signup — there is no separate admin-approval step required before you can use the App.</li>
-        <li>You are responsible for maintaining the confidentiality of your password and any two-factor authentication or passkey credentials associated with your account, and for all activity that occurs under your account.</li>
+        <li>Sign-up is progressive: you can explore with an unverified &quot;explorer&quot; account, but you must verify your email address and complete your profile before changes to your saved account are accepted.</li>
+        <li>You are responsible for maintaining the confidentiality of your password, your sign-in PIN, any sign-in or verification codes we email you, and any two-factor authentication or passkey credentials associated with your account, and for all activity that occurs under your account. We will never ask you for them by email or phone.</li>
+        <li>Only one device stays signed in at a time: signing in elsewhere ends your previous session. If you choose &quot;Remember me&quot;, you stay signed in on that device until you sign out, so use it only on devices you control.</li>
         <li>You must notify us promptly of any unauthorized use of your account that you become aware of.</li>
       </ul>
 
@@ -61,7 +63,7 @@ export default function TermsOfServicePage() {
       <ul>
         <li>Use Penny Pilot for any unlawful purpose or in violation of any applicable law or regulation.</li>
         <li>Attempt to gain unauthorized access to another user&apos;s account, data, or Google Drive contents.</li>
-        <li>Interfere with, disrupt, or attempt to bypass the App&apos;s security, authentication, or rate-limiting mechanisms.</li>
+        <li>Interfere with, disrupt, or attempt to bypass the App&apos;s security, authentication, PIN, or rate-limiting mechanisms.</li>
         <li>Use the App to store or transmit malicious code, or to misrepresent your identity.</li>
         <li>Reverse-engineer, scrape, or resell access to the App except as expressly permitted by us in writing.</li>
       </ul>
@@ -78,6 +80,13 @@ export default function TermsOfServicePage() {
         you or others take directly within your Google Drive (such as manually editing, moving, or deleting Penny
         Pilot&apos;s data files), which are outside Penny Pilot&apos;s control. In This Device Only mode, you are
         responsible for the security of this device/browser and for maintaining your own backups.
+      </p>
+
+      <h2>4A. Communications</h2>
+      <p>
+        By using the App you agree to receive the transactional emails described in the Privacy Policy (for example
+        verification and sign-in codes and security notices). We do not send marketing email. Platform announcements
+        appear inside the App.
       </p>
 
       <h2>5. Service Availability</h2>
@@ -100,7 +109,7 @@ export default function TermsOfServicePage() {
       <h2>7. Termination</h2>
       <ul>
         <li>You may stop using Penny Pilot at any time, and may disconnect Google Drive, clear your local browser data, or request account deletion as described in Section 8 below.</li>
-        <li>We may suspend or terminate your account if we reasonably believe you have violated these Terms, engaged in fraudulent or abusive behavior, or where required by law.</li>
+        <li>We may suspend or terminate your account if we reasonably believe you have violated these Terms, engaged in fraudulent or abusive behavior, or where required by law. A suspended account cannot sign in until an administrator restores it.</li>
         <li>Terminating your Penny Pilot account does not delete data already stored in your own Google Drive — that data remains yours and under your control, separate from your Penny Pilot account. This Device Only data is likewise unaffected by account termination unless you clear it yourself.</li>
       </ul>
 
@@ -142,7 +151,7 @@ export default function TermsOfServicePage() {
       <h2>12. Changes to These Terms</h2>
       <p>
         We may update these Terms from time to time as the App evolves. Material changes will be reflected by updating
-        the &quot;Last updated&quot; date at the top of this page. Continued use of the App after changes take effect
+        the &quot;Last updated&quot; date and version number at the top of this page. Continued use of the App after changes take effect
         constitutes acceptance of the revised Terms.
       </p>
 

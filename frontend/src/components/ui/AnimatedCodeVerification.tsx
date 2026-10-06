@@ -10,7 +10,7 @@ interface AnimatedCodeVerificationProps {
   /** Number of digit boxes for the primary code (TOTP codes in this app are 6 digits). */
   length?: number;
   title: string;
-  subtitle: string;
+  subtitle: React.ReactNode;
   tip?: string;
   successTitle?: string;
   successSubtitle?: string;

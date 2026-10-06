@@ -13,7 +13,7 @@ import { getStorageMode } from "@/lib/storage";
 import { listLocalTransactions, deleteLocalTransaction } from "@/lib/services/transactionsService";
 import { useCategories, useAccounts, usePaymentMethods } from "@/lib/reference";
 import { useSettingsContext } from "@/lib/SettingsContext";
-import { Receipt, Wallet, SlidersHorizontal, Trash2 } from "lucide-react";
+import { Receipt, Wallet, SlidersHorizontal, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import { formatCurrency, formatDateIN } from "@/lib/format";
 import type { Transaction, PaginatedResponse, EntryType } from "@/types";
 
@@ -152,7 +152,7 @@ export function MobileTransactionsView({ initialType = "" }: { initialType?: "" 
       {isError && !isLoading && <ErrorCard onRetry={() => refetch()} />}
 
       {!isLoading && !isError && items.length === 0 && (
-        <EmptyCard icon={<Receipt size={22} />} title="No transactions found" subtitle={search || type ? "Try a different search or filter." : "Tap the ＋ Add button on Home to log your first transaction."} />
+        <EmptyCard icon={<Receipt size={22} />} title="No transactions found" subtitle={search || type ? "Try a different search or filter." : "Tap the + Add button on Home to log your first transaction."} />
       )}
 
       {!isLoading && !isError && items.length > 0 && (
@@ -182,9 +182,9 @@ export function MobileTransactionsView({ initialType = "" }: { initialType?: "" 
 
       {!isLoading && !isError && data && data.pagination.totalPages > 1 && (
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 12, padding: "0 2px" }}>
-          <button type="button" className="ppm-link-btn" disabled={page <= 1} style={page <= 1 ? { opacity: .4 } : undefined} onClick={() => setPage((p) => Math.max(1, p - 1))}>← Prev</button>
+          <button type="button" className="ppm-link-btn" disabled={page <= 1} style={page <= 1 ? { opacity: .4 } : undefined} onClick={() => setPage((p) => Math.max(1, p - 1))}><ChevronLeft size={14} aria-hidden="true" style={{ display: "inline", verticalAlign: "-2px" }} /> Prev</button>
           <span style={{ fontSize: 12, color: "var(--ppm-text-dim)" }}>Page {data.pagination.page} of {data.pagination.totalPages} · {data.pagination.total} total</span>
-          <button type="button" className="ppm-link-btn" disabled={page >= data.pagination.totalPages} style={page >= data.pagination.totalPages ? { opacity: .4 } : undefined} onClick={() => setPage((p) => p + 1)}>Next →</button>
+          <button type="button" className="ppm-link-btn" disabled={page >= data.pagination.totalPages} style={page >= data.pagination.totalPages ? { opacity: .4 } : undefined} onClick={() => setPage((p) => p + 1)}>Next <ChevronRight size={14} aria-hidden="true" style={{ display: "inline", verticalAlign: "-2px" }} /></button>
         </div>
       )}
 

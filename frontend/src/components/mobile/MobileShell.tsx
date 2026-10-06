@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { ReactNode, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/components/ui/Toast";
-import { Search, Bell } from "lucide-react";
+import { Search, Bell, Home, ListChecks, PieChart, TrendingUp, Menu } from "lucide-react";
 import { useNotifications } from "@/lib/reference";
 import { useKeyboardInset } from "./useKeyboardInset";
 import { GlobalSearchSheet } from "./GlobalSearchSheet";
@@ -16,11 +16,11 @@ import { QuickActions } from "@/components/layout/QuickActions";
 // responsively in place (desktop UI for desktop UAs, this mobile UI for
 // phone UAs) from the same route, no separate route tree or rewrite.
 const NAV_ITEMS = [
-  { href: "/dashboard", label: "Home", icon: "⌂" },
-  { href: "/transactions", label: "Activity", icon: "≡" },
-  { href: "/capital", label: "Capital", icon: "◧" },
-  { href: "/analytics", label: "Analysis", icon: "↗" },
-  { href: "/more", label: "More", icon: "⋯" },
+  { href: "/dashboard", label: "Home", Icon: Home },
+  { href: "/transactions", label: "Activity", Icon: ListChecks },
+  { href: "/capital", label: "Capital", Icon: PieChart },
+  { href: "/analytics", label: "Analysis", Icon: TrendingUp },
+  { href: "/more", label: "More", Icon: Menu },
 ] as const;
 
 interface MobileShellProps {
@@ -119,7 +119,7 @@ export function MobileShell({ title, subtitle, children }: MobileShellProps) {
           const active = pathname === item.href;
           return (
             <Link key={item.href} href={item.href} className={`ppm-navbtn${active ? " active" : ""}`} aria-current={active ? "page" : undefined}>
-              <span className="ic" aria-hidden="true">{item.icon}</span>
+              <span className="ic" aria-hidden="true"><item.Icon /></span>
               {item.label}
             </Link>
           );
