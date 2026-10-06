@@ -100,9 +100,9 @@ html.dark .ppm-sheet-portal {
   /* See .pp-mobile above: `svh` not `dvh`, so this doesn't keep growing
      the document (and the scrollable range) as the browser chrome collapses
      on scroll — that was the source of the excess/over-scrolling.
-     --ppm-vp-gap (iOS installed apps only) adds the missing viewport height so the page, and the nav at its end,
-     reach the true bottom of the screen. */
-  min-height: calc(100svh + var(--ppm-vp-gap, 0px));
+     The extra pixels keep even a short page scrollable: iOS installed web apps size the viewport to the full screen
+     for scrollable pages, while on non-scrolling pages the fixed bottom bar was measured ~55pt above the real edge. */
+  min-height: calc(100svh + 4px);
   display: flex;
   flex-direction: column;
 }
@@ -152,7 +152,7 @@ html.dark .ppm-sheet-portal {
   max-width: 640px;
   margin: 0 auto;
   /* Clear the bottom nav (+ safe area) and the floating Add button so the last item scrolls fully into view. */
-  padding: 14px 16px calc(var(--ppm-fab-gap) + var(--ppm-fab-size) + 12px);
+  padding: 14px 16px calc(var(--ppm-nav-total) + var(--ppm-fab-gap) + var(--ppm-fab-size) + 12px);
 }
 
 .ppm-page-title { padding: 6px 0 14px; }
@@ -295,12 +295,9 @@ html.dark .ppm-sheet-portal {
 
 /* Bottom nav */
 .ppm-bottomnav {
-  /* In-flow and sticky (not fixed): the bar is the last item of the page, pinned to the bottom while scrolling.
-     --ppm-vp-gap is set by MobileShell only inside an installed iOS app, where the layout viewport can be shorter than
-     the screen; a negative sticky offset lets the bar reach the real bottom edge instead of floating above it.
-     (A fixed bar is clipped to that short viewport, which is why it floated and why shifting it cut its labels off.) */
-  position: sticky; bottom: calc(-1 * var(--ppm-vp-gap, 0px)); width: 100%; max-width: 640px; margin: 0 auto;
-  flex-shrink: 0;
+  /* Fixed to the bottom. Nothing here depends on JavaScript or on viewport measurements: a bar whose position was
+     recomputed while scrolling made the footer jitter on iOS. */
+  position: fixed; left: 0; right: 0; bottom: 0; max-width: 640px; margin: 0 auto;
   background: var(--ppm-nav-bg); display: flex; z-index: 20;
   padding-bottom: env(safe-area-inset-bottom, 0px);
   border-top: 1px solid rgba(255, 255, 255, .06);
