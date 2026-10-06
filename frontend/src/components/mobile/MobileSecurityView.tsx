@@ -1,5 +1,6 @@
 "use client";
 
+import { PasswordInput } from "@/components/ui/PasswordInput";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Key, Shield, Pencil, Trash2 } from "lucide-react";
@@ -336,7 +337,7 @@ export function MobileSecurityView() {
       <MobileSheet open={twoFaSheet === "disable"} onClose={resetTwoFaSheet} title="Disable Two-Factor Authentication">
         <div className="ppm-field">
           <label htmlFor="ppm-sec-disable-pw">Password</label>
-          <input id="ppm-sec-disable-pw" type="password" autoComplete="current-password" value={disablePassword} onChange={(e) => setDisablePassword(e.target.value)} />
+          <PasswordInput id="ppm-sec-disable-pw" autoComplete="current-password" value={disablePassword} onChange={(e) => setDisablePassword(e.target.value)} />
         </div>
         <div className="ppm-field">
           <label htmlFor="ppm-sec-disable-code">Verification Code</label>
@@ -355,7 +356,7 @@ export function MobileSecurityView() {
           <>
             <div className="ppm-field">
               <label htmlFor="ppm-sec-add-pw">Password</label>
-              <input id="ppm-sec-add-pw" type="password" autoComplete="current-password" value={addPassword} onChange={(e) => setAddPassword(e.target.value)} />
+              <PasswordInput id="ppm-sec-add-pw" autoComplete="current-password" value={addPassword} onChange={(e) => setAddPassword(e.target.value)} />
             </div>
             {twoFactorEnabled && (
               <div className="ppm-field">
@@ -389,7 +390,7 @@ export function MobileSecurityView() {
         <p style={{ fontSize: 13, color: "var(--ppm-text-dim)", marginBottom: 12 }}>Confirm your password to remove &quot;{deleteTarget?.name}&quot;.</p>
         <div className="ppm-field">
           <label htmlFor="ppm-sec-del-pw">Password</label>
-          <input id="ppm-sec-del-pw" type="password" autoComplete="current-password" value={deletePassword} onChange={(e) => setDeletePassword(e.target.value)} />
+          <PasswordInput id="ppm-sec-del-pw" autoComplete="current-password" value={deletePassword} onChange={(e) => setDeletePassword(e.target.value)} />
         </div>
         {twoFactorEnabled && (
           <div className="ppm-field">
@@ -409,11 +410,11 @@ export function MobileSecurityView() {
       <MobileSheet open={pwSheet} onClose={() => setPwSheet(false)} title="Change Password">
         <div className="ppm-field">
           <label htmlFor="ppm-sec-cur-pw">Current Password</label>
-          <input id="ppm-sec-cur-pw" type="password" autoComplete="current-password" value={currentPw} onChange={(e) => setCurrentPw(e.target.value)} />
+          <PasswordInput id="ppm-sec-cur-pw" autoComplete="current-password" value={currentPw} onChange={(e) => setCurrentPw(e.target.value)} />
         </div>
         <div className="ppm-field">
           <label htmlFor="ppm-sec-new-pw">New Password</label>
-          <input id="ppm-sec-new-pw" type="password" autoComplete="new-password" value={newPw} onChange={(e) => setNewPw(e.target.value)} />
+          <PasswordInput id="ppm-sec-new-pw" autoComplete="new-password" value={newPw} onChange={(e) => setNewPw(e.target.value)} />
         </div>
         {error && <div className="err" style={{ marginBottom: 10 }}>{error}</div>}
         <div className="ppm-sheet-actions">

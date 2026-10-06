@@ -1,5 +1,6 @@
 "use client";
 
+import { PasswordInput } from "@/components/ui/PasswordInput";
 import { useState } from "react";
 import { KeyRound, X } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -77,10 +78,10 @@ export function PinSetupGate() {
           <h2 className="text-lg font-bold text-white">Create your PIN</h2>
           <p className="mt-1 text-sm text-white/60">You will use this {PIN_LENGTH}-digit PIN to sign in quickly. Avoid repeats like 1111 or runs like 1234.</p>
         </div>
-        <input aria-label="New PIN" type="password" inputMode="numeric" autoComplete="off" className={pinField} placeholder="PIN required" value={pin} onChange={(e) => setPin(digitsOnly(e.target.value))} />
-        <input aria-label="Confirm PIN" type="password" inputMode="numeric" autoComplete="off" className={pinField} placeholder="Confirm PIN required" value={again} onChange={(e) => setAgain(digitsOnly(e.target.value))} />
+        <PasswordInput aria-label="New PIN" inputMode="numeric" autoComplete="off" className={pinField} placeholder="PIN required" value={pin} onChange={(e) => setPin(digitsOnly(e.target.value))} />
+        <PasswordInput aria-label="Confirm PIN" inputMode="numeric" autoComplete="off" className={pinField} placeholder="Confirm PIN required" value={again} onChange={(e) => setAgain(digitsOnly(e.target.value))} />
         {needPassword && (
-          <input aria-label="Account password" type="password" autoComplete="current-password" className={`${base} text-sm`} placeholder="Password required" value={password} onChange={(e) => setPassword(e.target.value)} />
+          <PasswordInput aria-label="Account password" autoComplete="current-password" className={`${base} text-sm`} placeholder="Password required" value={password} onChange={(e) => setPassword(e.target.value)} />
         )}
         {error && <p role="alert" className="text-sm text-red-300">{error}</p>}
         <button type="submit" disabled={busy || pin.length !== PIN_LENGTH || again.length !== PIN_LENGTH} className="min-h-[48px] w-full rounded-xl bg-tiffany px-4 text-sm font-semibold text-noturno hover:opacity-90 disabled:opacity-50">

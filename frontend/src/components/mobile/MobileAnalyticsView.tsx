@@ -134,12 +134,18 @@ export function MobileAnalyticsView() {
         </button>
       </div>
 
-      <div className="ppm-filters" role="tablist">
-        {RANGES.map((r) => (
-          <button key={r.value} type="button" role="tab" aria-selected={range === r.value} className={`ppm-chip${range === r.value ? " on" : ""}`} onClick={() => setRange(r.value)}>
-            {r.label}
-          </button>
-        ))}
+      {/* "Custom" is pinned outside the scrolling chip row so it is always visible. */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div className="ppm-filters" role="tablist" style={{ flex: 1, minWidth: 0 }}>
+          {RANGES.filter((r) => r.value !== "custom").map((r) => (
+            <button key={r.value} type="button" role="tab" aria-selected={range === r.value} className={`ppm-chip${range === r.value ? " on" : ""}`} onClick={() => setRange(r.value)}>
+              {r.label}
+            </button>
+          ))}
+        </div>
+        <button type="button" role="tab" aria-selected={range === "custom"} className={`ppm-chip${range === "custom" ? " on" : ""}`} style={{ flex: "none" }} onClick={() => setRange("custom")}>
+          Custom…
+        </button>
       </div>
 
       {range === "custom" && (

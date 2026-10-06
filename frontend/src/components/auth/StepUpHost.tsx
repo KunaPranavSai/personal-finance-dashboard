@@ -1,5 +1,6 @@
 "use client";
 
+import { PasswordInput } from "@/components/ui/PasswordInput";
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/AuthContext";
@@ -92,8 +93,8 @@ export function StepUpHost() {
         </div>
         <input aria-label="Full name" className={field} placeholder="Full name required" autoComplete="name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
         <input aria-label="Phone number" className={field} placeholder="Phone number required" inputMode="tel" autoComplete="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-        <input aria-label="Create a 4-digit PIN (optional)" className={field} type="password" inputMode="numeric" autoComplete="off" placeholder="4-digit PIN (optional)" value={form.pin} onChange={(e) => setForm({ ...form, pin: e.target.value.replace(/[^0-9]/g, "").slice(0, 4) })} />
-        <input aria-label="Confirm PIN" className={field} type="password" inputMode="numeric" autoComplete="off" placeholder="Confirm PIN (optional)" value={form.pin2} onChange={(e) => setForm({ ...form, pin2: e.target.value.replace(/[^0-9]/g, "").slice(0, 4) })} />
+        <PasswordInput aria-label="Create a 4-digit PIN (optional)" className={field} inputMode="numeric" autoComplete="off" placeholder="4-digit PIN (optional)" value={form.pin} onChange={(e) => setForm({ ...form, pin: e.target.value.replace(/[^0-9]/g, "").slice(0, 4) })} />
+        <PasswordInput aria-label="Confirm PIN" className={field} inputMode="numeric" autoComplete="off" placeholder="Confirm PIN (optional)" value={form.pin2} onChange={(e) => setForm({ ...form, pin2: e.target.value.replace(/[^0-9]/g, "").slice(0, 4) })} />
         <label className="flex min-h-[44px] items-start gap-3 text-sm text-white/80">
           <input type="checkbox" className="mt-1 h-5 w-5 shrink-0" checked={form.terms} onChange={(e) => setForm({ ...form, terms: e.target.checked })} />
           <span>I accept the <a href="/terms" target="_blank" rel="noreferrer" className="text-tiffany underline">Terms of Service</a></span>

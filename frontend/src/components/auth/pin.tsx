@@ -1,5 +1,6 @@
 "use client";
 
+import { PasswordInput } from "@/components/ui/PasswordInput";
 import { useCallback, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
@@ -94,12 +95,12 @@ export function PinSettings({ variant, userId }: { variant: "mobile" | "desktop"
         <div className="mt-3 w-full">
           <div className={field}>
             <label htmlFor="pin-new" className={m ? undefined : "text-xs text-pp-text-dim"}>New {PIN_LENGTH}-digit PIN</label>
-            <input id="pin-new" type="password" inputMode="numeric" autoComplete="off" maxLength={PIN_LENGTH} value={pin} placeholder="PIN required"
+            <PasswordInput id="pin-new" inputMode="numeric" autoComplete="off" maxLength={PIN_LENGTH} value={pin} placeholder="PIN required"
               onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))} className={m ? undefined : "w-full rounded-lg border border-pp-border bg-pp-surface px-3 py-2 text-sm"} />
           </div>
           <div className={field}>
             <label htmlFor="pin-pw" className={m ? undefined : "text-xs text-pp-text-dim"}>Account password</label>
-            <input id="pin-pw" type="password" autoComplete="current-password" value={password} placeholder="Password required"
+            <PasswordInput id="pin-pw" autoComplete="current-password" value={password} placeholder="Password required"
               onChange={(e) => setPassword(e.target.value)} className={m ? undefined : "w-full rounded-lg border border-pp-border bg-pp-surface px-3 py-2 text-sm"} />
           </div>
           <button type="button" disabled={busy || !pin || !password} onClick={save}

@@ -11,6 +11,7 @@ import { initClientDataLifecycle } from "@/lib/clientDataCleanup";
 import { CookieConsentProvider } from "@/components/consent/CookieConsentContext";
 import { CookieConsentGate } from "@/components/consent/CookieConsentGate";
 import { useAuth } from "@/lib/AuthContext";
+import { LivePlaceholders } from "@/components/ui/LivePlaceholders";
 
 /** Persistent banner while an admin's "Access as User" session is active. */
 function ImpersonationBanner() {
@@ -55,6 +56,7 @@ export function Providers({ children, isMobile }: { children: React.ReactNode; i
                   <ImpersonationBanner />
                   {children}
                   <CookieConsentGate />
+                  <LivePlaceholders />
                 </CookieConsentProvider>
               </SessionManagerProvider>
             </ToastProvider>

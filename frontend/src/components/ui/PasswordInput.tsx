@@ -18,14 +18,15 @@ export function PasswordInput({ className, toggleClassName, ...props }: Password
         {...props}
         type={show ? "text" : "password"}
         className={cn("pr-12", className)}
+        style={{ paddingRight: 48, ...props.style }}
       />
       <button
         type="button"
-        tabIndex={-1}
         onClick={() => setShow((s) => !s)}
         aria-label={show ? "Hide password" : "Show password"}
+        aria-pressed={show}
         className={cn(
-          "absolute right-3 top-1/2 -translate-y-1/2 overflow-hidden text-navy/30 transition-colors hover:text-navy/60 dark:text-white/30 dark:hover:text-white/60",
+          "absolute right-1 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center overflow-hidden rounded-lg text-current opacity-70 transition hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pp-accent",
           toggleClassName
         )}
       >
@@ -38,7 +39,7 @@ export function PasswordInput({ className, toggleClassName, ...props }: Password
             transition={{ duration: 0.15 }}
             className="block"
           >
-            {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            {show ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
           </motion.span>
         </AnimatePresence>
       </button>

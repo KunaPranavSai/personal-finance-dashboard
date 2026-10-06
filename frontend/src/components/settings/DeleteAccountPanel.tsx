@@ -1,5 +1,6 @@
 "use client";
 
+import { PasswordInput } from "@/components/ui/PasswordInput";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Check, ChevronRight, Loader2, ShieldAlert, Trash2 } from "lucide-react";
 import { api, ApiClientError } from "@/lib/api";
@@ -94,12 +95,12 @@ export function DeleteAccountPanel() {
         <ol className="mt-3 space-y-2 p-0" style={{ listStyle: "none" }}>
           {status.required.pin && <Step done={Boolean(proofs.pin)} title="PIN">
             {<>
-              <input className={input} inputMode="numeric" type="password" maxLength={4} autoComplete="off" placeholder="4-digit PIN" aria-label="PIN" value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))} />
+              <PasswordInput className={input} inputMode="numeric" maxLength={4} autoComplete="off" placeholder="4-digit PIN" aria-label="PIN" value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))} />
               <button type="button" className={btn} disabled={busy || pin.length !== 4} onClick={() => run(async () => { const r = await api.post<{ proof: string }>("/api/account/deletion/pin", { pin }); setProofs((p) => ({ ...p, pin: r.proof })); setPin(""); })}>Verify PIN</button>
             </>}
           </Step>}
           {status.required.password && <Step done={Boolean(proofs.password)} title="Password">
-            <input className={input} type="password" autoComplete="current-password" placeholder="Current password" aria-label="Password" value={password} onChange={(e) => setPassword(e.target.value)} />
+            <PasswordInput className={input} autoComplete="current-password" placeholder="Current password" aria-label="Password" value={password} onChange={(e) => setPassword(e.target.value)} />
             <button type="button" className={btn} disabled={busy || !password} onClick={() => run(async () => { const r = await api.post<{ proof: string }>("/api/account/deletion/password", { password }); setProofs((p) => ({ ...p, password: r.proof })); setPassword(""); })}>Verify password</button>
           </Step>}
           {status.required.twofa && <Step done={Boolean(proofs.twofa)} title="Two-factor authentication">
