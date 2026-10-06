@@ -293,7 +293,7 @@ html.dark .ppm-sheet-portal {
 
 /* Bottom nav */
 .ppm-bottomnav {
-  position: fixed; left: 0; right: 0; bottom: 0; max-width: 640px; margin: 0 auto;
+  position: fixed; left: 0; right: 0; bottom: calc(-1 * var(--ppm-vp-gap, 0px)); max-width: 640px; margin: 0 auto;
   background: var(--ppm-nav-bg); display: flex; z-index: 20;
   padding-bottom: env(safe-area-inset-bottom, 0px);
   border-top: 1px solid rgba(255, 255, 255, .06);

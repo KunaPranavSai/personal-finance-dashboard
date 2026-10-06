@@ -64,7 +64,7 @@ export default function ManualPage() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <ManualHeader />
 
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
+      <main className="mx-auto w-full max-w-6xl min-w-0 flex-1 px-4 py-8 pb-24 sm:px-6 lg:px-8">
         <ManualBreadcrumb headings={headings} />
 
         <div className="mb-8">

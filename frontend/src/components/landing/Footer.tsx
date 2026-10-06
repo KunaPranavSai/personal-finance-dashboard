@@ -6,7 +6,7 @@ import { CookiePreferencesLink } from "@/components/consent/CookiePreferencesLin
 export async function LandingFooter() {
   const supportEmail = await getSupportEmail();
   return (
-    <footer id="support" className="border-t border-pp-border px-4 py-8 sm:px-6 lg:px-8">
+    <footer id="support" className="border-t border-pp-border px-4 py-8 pb-[max(2rem,env(safe-area-inset-bottom))] sm:px-6 lg:px-8">
       <div className="mx-auto flex max-w-6xl flex-col items-center gap-4 sm:flex-row sm:justify-between">
         <Link href="/" className="flex items-center gap-2" aria-label="Penny Pilot Home">
           <Image src="/logo.png" alt="Penny Pilot" width={24} height={24} className="h-6 w-6 shrink-0 rounded-md object-cover" />

@@ -82,13 +82,22 @@ export function MobileSettingsView() {
   const [exportOpen, setExportOpen] = useState(false);
   // Deep links from the More hub: each one lands on its own section or opens its own sheet.
   const tab = useSearchParams().get("tab");
+  // Opened from the More hub with ?tab=…: show only that entry (its own page), not the whole settings list.
+  const FOCUS: Record<string, { title: string; sub: string }> = {
+    appearance: { title: "Appearance", sub: "Theme and display" },
+    regional: { title: "Currency, Date & Language", sub: "Regional settings" },
+    notifications: { title: "Notification Preferences", sub: "Reminders and alerts" },
+    privacy: { title: "Privacy", sub: "Control your data" },
+    export: { title: "Data Management", sub: "Export your data" },
+  };
+  const focus = tab && FOCUS[tab] ? tab : null;
+  const show = (...ids: string[]) => !focus || ids.includes(focus);
   useEffect(() => {
-    if (tab === "regional") setPrefsOpen(true);
-    else if (tab === "notifications") setNotifsOpen(true);
-    else if (tab === "privacy") setPrivacyOpen(true);
-    else if (tab === "export") setExportOpen(true);
-    else if (tab === "appearance") document.getElementById("settings-appearance")?.scrollIntoView({ block: "start" });
-  }, [tab]);
+    if (focus === "regional") setPrefsOpen(true);
+    else if (focus === "notifications") setNotifsOpen(true);
+    else if (focus === "privacy") setPrivacyOpen(true);
+    else if (focus === "export") setExportOpen(true);
+  }, [focus]);
   const [exportTypes, setExportTypes] = useState<string[]>(EXPORT_TYPES.map((t) => t.key));
   const [exporting, setExporting] = useState(false);
 
@@ -114,28 +123,35 @@ export function MobileSettingsView() {
   };
 
   return (
-    <MobileShell title="Settings">
+    <MobileShell title={focus ? FOCUS[focus].title : "Settings"}>
       <div className="ppm-page-title">
-        <h2>Settings</h2>
-        <p>Account, storage &amp; preferences</p>
+        <h2>{focus ? FOCUS[focus].title : "Settings"}</h2>
+        <p>{focus ? FOCUS[focus].sub : "Account, storage & preferences"}</p>
       </div>
 
-      <div className="ppm-card" id="settings-appearance" style={{ scrollMarginTop: 72 }}>
-        <div className="ppm-section-label">Appearance</div>
+      {show("appearance", "regional") && (
+      <div className="ppm-card" id="settings-appearance">
+        {!focus && <div className="ppm-section-label">Appearance</div>}
+        {show("appearance") && (
         <div className="ppm-list-item" style={{ cursor: "default" }}>
           <div className="ppm-ic" aria-hidden="true"><Moon size={18} /></div>
           <div className="ppm-info"><div className="ppm-name">Dark Mode</div></div>
           <button type="button" className={`ppm-toggle${resolvedTheme === "dark" ? " on" : ""}`} role="switch" aria-checked={resolvedTheme === "dark"} aria-label="Toggle dark mode" onClick={toggleDarkMode} />
         </div>
+        )}
+        {show("regional") && (
         <button type="button" className="ppm-list-item" onClick={() => setPrefsOpen(true)}>
           <div className="ppm-ic" aria-hidden="true"><Palette size={18} /></div>
           <div className="ppm-info"><div className="ppm-name">Currency, Date &amp; Language</div></div>
           <span className="ppm-chev" aria-hidden="true">›</span>
         </button>
+        )}
       </div>
+      )}
 
+      {show("appearance") && (
       <div className="ppm-card" style={{ marginTop: 14 }}>
-        <div className="ppm-section-label">Preferences</div>
+        {!focus && <div className="ppm-section-label">Preferences</div>}
         <div className="ppm-list-item" style={{ cursor: "default" }}>
           <div className="ppm-ic" aria-hidden="true"><Volume2 size={18} /></div>
           <div className="ppm-info">
@@ -152,18 +168,23 @@ export function MobileSettingsView() {
           />
         </div>
       </div>
+      )}
 
+      {show("notifications") && (
       <div className="ppm-card" style={{ marginTop: 14 }}>
-        <div className="ppm-section-label">Notifications</div>
+        {!focus && <div className="ppm-section-label">Notifications</div>}
         <button type="button" className="ppm-list-item" onClick={() => setNotifsOpen(true)}>
           <div className="ppm-ic" aria-hidden="true"><Bell size={18} /></div>
           <div className="ppm-info"><div className="ppm-name">Notification Preferences</div></div>
           <span className="ppm-chev" aria-hidden="true">›</span>
         </button>
       </div>
+      )}
 
+      {show("export") && (
       <div className="ppm-card" style={{ marginTop: 14 }}>
-        <div className="ppm-section-label">Storage</div>
+        {!focus && <div className="ppm-section-label">Storage</div>}
+        {!focus && (<>
         {isLocalOnly ? (
           <div className="ppm-list-item" style={{ cursor: "default" }}>
             <div className="ppm-ic" aria-hidden="true"><HardDrive size={18} /></div>
@@ -195,15 +216,19 @@ export function MobileSettingsView() {
             <span className="ppm-chev" aria-hidden="true">›</span>
           </Link>
         )}
+        </>)}
         <button type="button" className="ppm-list-item" onClick={() => setExportOpen(true)}>
           <div className="ppm-ic" aria-hidden="true"><Download size={18} /></div>
           <div className="ppm-info"><div className="ppm-name">Export Data</div></div>
           <span className="ppm-chev" aria-hidden="true">›</span>
         </button>
       </div>
+      )}
 
+      {show("privacy") && (
       <div className="ppm-card" style={{ marginTop: 14 }}>
-        <div className="ppm-section-label">Security &amp; Account</div>
+        {!focus && <div className="ppm-section-label">Security &amp; Account</div>}
+        {!focus && (<>
         <Link href="/settings/security" className="ppm-list-item">
           <div className="ppm-ic" aria-hidden="true"><Lock size={18} /></div>
           <div className="ppm-info"><div className="ppm-name">2FA, Passkeys &amp; Password</div></div>
@@ -214,13 +239,16 @@ export function MobileSettingsView() {
           <div className="ppm-info"><div className="ppm-name">Account Recovery</div></div>
           <span className="ppm-chev" aria-hidden="true">›</span>
         </Link>
+        </>)}
         <button type="button" className="ppm-list-item" onClick={() => setPrivacyOpen(true)}>
           <div className="ppm-ic" aria-hidden="true"><EyeOff size={18} /></div>
           <div className="ppm-info"><div className="ppm-name">Privacy</div></div>
           <span className="ppm-chev" aria-hidden="true">›</span>
         </button>
       </div>
+      )}
 
+      {!focus && (<>
       <div className="ppm-card" style={{ marginTop: 14 }}>
         <div className="ppm-section-label">Help &amp; Documentation</div>
         <Link href="/manual" className="ppm-list-item">
@@ -246,6 +274,7 @@ export function MobileSettingsView() {
           <span className="ppm-chev" aria-hidden="true">›</span>
         </Link>
       </div>
+      </>)}
 
       <MobileSheet open={prefsOpen} onClose={() => setPrefsOpen(false)} title="Currency, Date & Language">
         <div className="ppm-field">

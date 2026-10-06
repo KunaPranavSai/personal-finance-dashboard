@@ -25,13 +25,13 @@ interface LegalPageShellProps {
 export function LegalPageShell({ title, lastUpdated, version, active, children }: LegalPageShellProps) {
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="sticky top-0 z-10 border-b border-pp-border bg-pp-surface/70 backdrop-blur-xl dark:bg-pp-surface/70">
-        <div className="mx-auto flex max-w-4xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
+      <header className="sticky top-0 z-10 border-b border-pp-border bg-pp-surface/70 pt-[env(safe-area-inset-top)] backdrop-blur-xl dark:bg-pp-surface/70">
+        <div className="mx-auto flex max-w-4xl flex-wrap items-center justify-between gap-x-3 gap-y-1 px-4 py-3 sm:px-6">
           <Link href="/login" className="flex min-w-0 items-center gap-2">
             <Image src="/logo.png" alt="Penny Pilot" width={32} height={32} className="h-8 w-8 shrink-0 rounded-lg object-cover" />
             <span className="truncate text-sm font-bold text-pp-text">Penny Pilot</span>
           </Link>
-          <nav aria-label="Legal pages" className="flex items-center gap-1">
+          <nav aria-label="Legal pages" className="-mx-2 flex min-w-0 max-w-full items-center gap-0.5 overflow-x-auto whitespace-nowrap [scrollbar-width:none] sm:mx-0 sm:gap-1">
             <Link href="/privacy-policy" className={cn(navLink, active === "privacy" && navLinkActive)}>
               Privacy Policy
             </Link>
@@ -45,7 +45,7 @@ export function LegalPageShell({ title, lastUpdated, version, active, children }
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-4xl flex-1 px-4 py-10 sm:px-6 sm:py-14">
+      <main className="mx-auto w-full max-w-4xl flex-1 px-4 py-8 pb-12 sm:px-6 sm:py-14">
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-pp-text sm:text-3xl">{title}</h1>
           <p className="mt-2 text-sm text-pp-text-dim ">
@@ -56,7 +56,7 @@ export function LegalPageShell({ title, lastUpdated, version, active, children }
 
         <div
           className={cn(
-            "rounded-xl2 border border-pp-border bg-pp-surface p-6 shadow-pp backdrop-blur-2xl sm:p-10",
+            "min-w-0 break-words rounded-xl2 border border-pp-border bg-pp-surface p-5 shadow-pp backdrop-blur-2xl sm:p-10",
             "prose-legal"
           )}
         >

@@ -4,7 +4,7 @@ import { ArrowLeft } from "lucide-react";
 
 export function ManualHeader() {
   return (
-    <header className="sticky top-0 z-40 border-b border-pp-border bg-pp-surface/80 backdrop-blur-xl">
+    <header className="sticky top-0 z-40 border-b border-pp-border bg-pp-surface/80 pt-[env(safe-area-inset-top)] backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6 lg:px-8">
         <Link href="/manual" className="flex min-w-0 items-center gap-2">
           <Image src="/logo.png" alt="Penny Pilot" width={28} height={28} className="h-7 w-7 shrink-0 rounded-lg object-cover" />
