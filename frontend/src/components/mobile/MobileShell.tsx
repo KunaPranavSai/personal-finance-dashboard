@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { ReactNode, useEffect, useRef, useState } from "react";
+import { ReactNode, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/components/ui/Toast";
 import { Search, Bell, Home, ListChecks, PieChart, TrendingUp, Menu } from "lucide-react";
@@ -72,33 +72,9 @@ export function MobileShell({ title, subtitle, children }: MobileShellProps) {
   // simpler/less jarring than repositioning a whole tab bar mid-keystroke.
   const keyboardInset = useKeyboardInset();
 
-  // iOS installed web apps can report a layout viewport a few dozen points shorter than the screen on pages that don't
-  // scroll yet, which leaves the fixed bottom bar floating above the real bottom edge ("jumping" once the page scrolls).
-  // Measure that shortfall and let the bar and the Add button shift down by it. Does nothing outside an installed app.
-  const shellRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const el = shellRef.current;
-    const standalone = (navigator as unknown as { standalone?: boolean }).standalone === true || window.matchMedia("(display-mode: standalone)").matches;
-    if (!el || !standalone) return;
-    const update = () => {
-      const portrait = window.innerHeight >= window.innerWidth;
-      const full = portrait ? Math.max(screen.width, screen.height) : Math.min(screen.width, screen.height);
-      const gap = full - window.innerHeight;
-      el.style.setProperty("--ppm-vp-gap", `${gap > 0 && gap <= 80 ? gap : 0}px`);
-    };
-    update();
-    window.addEventListener("resize", update);
-    window.addEventListener("orientationchange", update);
-    window.visualViewport?.addEventListener("resize", update);
-    return () => {
-      window.removeEventListener("resize", update);
-      window.removeEventListener("orientationchange", update);
-      window.visualViewport?.removeEventListener("resize", update);
-    };
-  }, []);
 
   return (
-    <div className="ppm-shell" ref={shellRef}>
+    <div className="ppm-shell">
       <header className="ppm-appbar">
         <div className="ppm-brand">
           {/* Same /logo.png already used by the desktop Sidebar/AdminSidebar

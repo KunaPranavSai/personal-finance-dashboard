@@ -99,8 +99,11 @@ html.dark .ppm-sheet-portal {
 .ppm-shell {
   /* See .pp-mobile above: `svh` not `dvh`, so this doesn't keep growing
      the document (and the scrollable range) as the browser chrome collapses
-     on scroll — that was the source of the excess/over-scrolling. */
-  min-height: 100svh;
+     on scroll — that was the source of the excess/over-scrolling.
+     The extra 2px keeps every page (even an empty one) technically scrollable. iOS installed web apps only size the
+     viewport to the full screen once the page can scroll; on short, non-scrolling pages the fixed bottom bar was
+     clipped ~55pt above the real bottom edge. */
+  min-height: calc(100svh + 2px);
   display: flex;
   flex-direction: column;
 }
@@ -293,7 +296,7 @@ html.dark .ppm-sheet-portal {
 
 /* Bottom nav */
 .ppm-bottomnav {
-  position: fixed; left: 0; right: 0; bottom: calc(-1 * var(--ppm-vp-gap, 0px)); max-width: 640px; margin: 0 auto;
+  position: fixed; left: 0; right: 0; bottom: 0; max-width: 640px; margin: 0 auto;
   background: var(--ppm-nav-bg); display: flex; z-index: 20;
   padding-bottom: env(safe-area-inset-bottom, 0px);
   border-top: 1px solid rgba(255, 255, 255, .06);

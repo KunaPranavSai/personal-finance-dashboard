@@ -86,7 +86,7 @@ export function Topbar({ title }: { title: string }) {
   const avatarSrc = profile?.avatar || null;
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between border-b border-pp-border bg-pp-surface/90 px-3 backdrop-blur-xl sm:h-16 lg:px-6">
+    <header className="sticky top-0 z-30 flex min-h-14 shrink-0 items-center justify-between border-b border-pp-border bg-pp-surface/90 px-3 pt-[env(safe-area-inset-top)] backdrop-blur-xl sm:min-h-16 lg:px-6">
       <div className="flex items-center gap-2 min-w-0 sm:gap-3">
         <button
           onClick={toggleSidebar}

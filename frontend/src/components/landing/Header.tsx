@@ -23,7 +23,7 @@ export function Header() {
   };
 
   return (
-    <header className="sticky top-3 z-50 px-3 sm:px-6">
+    <header className="sticky top-0 z-50 px-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-6">
       <nav
         className="mx-auto flex h-14 max-w-6xl items-center justify-between rounded-full border border-white/10 bg-noturno/60 px-3 pl-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-xl"
         aria-label="Main navigation"
