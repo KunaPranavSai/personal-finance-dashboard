@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
+import { Geist } from "next/font/google";
 import "./globals.css";
 import "@/styles/mobile.css";
 import { Providers } from "./providers";
@@ -12,6 +13,9 @@ import { SITE_URL } from "@/lib/siteUrl";
 
 const DESCRIPTION =
   "Penny Pilot is a personal finance dashboard for tracking income, expenses, budgets, bills, savings, and investments in one secure place.";
+
+// One UI typeface for the whole product (public pages, sign-in and dashboard).
+const geist = Geist({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -110,7 +114,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           }}
         />
       </head>
-      <body>
+      <body className={geist.variable}>
         <Preloader />
         <AntiTamperGuard />
         <PwaInstallCapture />

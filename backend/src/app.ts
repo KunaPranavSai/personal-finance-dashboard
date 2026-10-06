@@ -103,7 +103,7 @@ export function createApp() {
     // set of response headers by default) — file-download filenames (consent
     // PDF, data export) silently fall back to a generic name instead of the
     // server-provided one.
-    exposedHeaders: ["Content-Disposition"],
+    exposedHeaders: ["Content-Disposition", "Retry-After"],
   }));
 
   // CSRF defense-in-depth: the frontend and backend are cross-origin

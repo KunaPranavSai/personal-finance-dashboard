@@ -20,6 +20,22 @@ export interface ExportData {
 export interface ExportDateRange {
   from?: Date;
   to?: Date;
+  /** Narrow transactions (and the totals built from them) to these choices. */
+  type?: "INCOME" | "EXPENSE";
+  categoryId?: string;
+  accountId?: string;
+  paymentMethodTypeId?: string;
+}
+
+/** The [start, end] a budget covers, from its period key ("2026-07", "2026-Q2", "2026"). */
+function budgetWindow(key: string): { start: Date; end: Date } | null {
+  let m = /^(\d{4})-(\d{2})$/.exec(key);
+  if (m) { const y = +m[1], mo = +m[2] - 1; return { start: new Date(Date.UTC(y, mo, 1)), end: new Date(Date.UTC(y, mo + 1, 0, 23, 59, 59, 999)) }; }
+  m = /^(\d{4})-Q([1-4])$/.exec(key);
+  if (m) { const y = +m[1], q = +m[2] - 1; return { start: new Date(Date.UTC(y, q * 3, 1)), end: new Date(Date.UTC(y, q * 3 + 3, 0, 23, 59, 59, 999)) }; }
+  m = /^(\d{4})$/.exec(key);
+  if (m) { const y = +m[1]; return { start: new Date(Date.UTC(y, 0, 1)), end: new Date(Date.UTC(y, 11, 31, 23, 59, 59, 999)) }; }
+  return null;
 }
 
 interface TransactionRecord extends DriveRecord {
@@ -64,21 +80,31 @@ export async function fetchAllExportData(userId: string, range?: ExportDateRange
   const bills = collections.bills as BillRecord[];
   const goals = collections.goals as GoalRecord[];
 
-  let transactions = collections.transactions as TransactionRecord[];
-  if (range?.from) transactions = transactions.filter((t) => new Date(t.date) >= range.from!);
-  if (range?.to) transactions = transactions.filter((t) => new Date(t.date) <= range.to!);
-  transactions = [...transactions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 10000);
+  const allTransactions = collections.transactions as TransactionRecord[];
+  // Every choice (period, type, category, wallet, source) narrows the rows AND the totals built from them.
+  const filtered = allTransactions.filter((t) => {
+    const d = new Date(t.date);
+    if (range?.from && d < range.from) return false;
+    if (range?.to && d > range.to) return false;
+    if (range?.type && t.type !== range.type) return false;
+    if (range?.categoryId && t.categoryId !== range.categoryId) return false;
+    if (range?.accountId && t.accountId !== range.accountId) return false;
+    if (range?.paymentMethodTypeId && t.paymentMethodTypeId !== range.paymentMethodTypeId) return false;
+    return true;
+  });
+  // Totals use every matching row; only the detail listing is capped.
+  const transactions = [...filtered].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 10000);
 
   const categoryMap = new Map(categories.map((c) => [c.id, c]));
   const accountMap = new Map(accounts.map((a) => [a.id, a]));
   const paymentMethodMap = new Map(paymentMethods.map((p) => [p.id, p]));
 
-  const totalIncome = transactions.filter((t) => t.type === "INCOME").reduce((s, t) => s + t.amount, 0);
-  const totalExpenses = transactions.filter((t) => t.type === "EXPENSE").reduce((s, t) => s + t.amount, 0);
+  const totalIncome = filtered.filter((t) => t.type === "INCOME").reduce((s, t) => s + t.amount, 0);
+  const totalExpenses = filtered.filter((t) => t.type === "EXPENSE").reduce((s, t) => s + t.amount, 0);
   const portfolioValue = investments.reduce((s, i) => s + Number(i.currentValue), 0);
 
   const expenseByCategory = new Map<string, { total: number; count: number }>();
-  for (const t of transactions) {
+  for (const t of filtered) {
     if (t.type !== "EXPENSE") continue;
     const entry = expenseByCategory.get(t.categoryId) ?? { total: 0, count: 0 };
     entry.total += t.amount; entry.count += 1;
@@ -106,9 +132,14 @@ export async function fetchAllExportData(userId: string, range?: ExportDateRange
       period: b.period,
       periodKey: b.periodKey,
       amount: Number(b.amount),
-      actual: 0,
-      remaining: 0,
-      status: "UNDER_BUDGET",
+      ...(() => {
+        const win = budgetWindow(b.periodKey);
+        const actual = allTransactions
+          .filter((t) => t.type === "EXPENSE" && t.categoryId === b.categoryId && (!win || (new Date(t.date) >= win.start && new Date(t.date) <= win.end)))
+          .reduce((s, t) => s + t.amount, 0);
+        const remaining = Number(b.amount) - actual;
+        return { actual, remaining, status: remaining < 0 ? "OVER_BUDGET" : "UNDER_BUDGET" };
+      })(),
     })),
     investments: investments.map((inv) => ({
       id: inv.id,
@@ -161,7 +192,7 @@ export async function fetchAllExportData(userId: string, range?: ExportDateRange
         cashFlow: totalIncome - totalExpenses,
         netWorth: totalIncome - totalExpenses + portfolioValue,
         portfolioValue,
-        transactionCount: transactions.length,
+        transactionCount: filtered.length,
       },
     },
   };

@@ -47,7 +47,7 @@ function Reactivate() {
       ) : !challenge ? (
         <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); void run(async () => { const r = await api.post<{ challenge: string }>("/api/account/reactivate/start", { email, password, phone }); setChallenge(r.challenge); }); }}>
           <div><label className="mb-1 block text-sm font-medium text-pp-text" htmlFor="r-email">Registered email</label><input id="r-email" type="email" autoComplete="email" className={input} value={email} onChange={(e) => setEmail(e.target.value)} /></div>
-          <div><label className="mb-1 block text-sm font-medium text-pp-text" htmlFor="r-pw">Account password</label><PasswordInput id="r-pw" autoComplete="current-password" className={input} value={password} onChange={(e) => setPassword(e.target.value)} /></div>
+          <div><label className="mb-1 block text-sm font-medium text-pp-text" htmlFor="r-pw">Account password</label><PasswordInput id="r-pw" placeholder="Your account password" autoComplete="current-password" className={input} value={password} onChange={(e) => setPassword(e.target.value)} /></div>
           <div><label className="mb-1 block text-sm font-medium text-pp-text" htmlFor="r-phone">Registered phone number</label><input id="r-phone" inputMode="tel" autoComplete="tel" className={input} value={phone} onChange={(e) => setPhone(e.target.value)} /></div>
           <p className="text-xs text-pp-text-dim">We then email a 6-digit code to your registered email address to confirm it is you.</p>
           <button className={btn} disabled={busy || !email || !password || phone.replace(/\D/g, "").length < 6}>Send confirmation code</button>
@@ -63,7 +63,7 @@ function Reactivate() {
         </form>
       )}
 
-      {err && <p role="alert" className="text-sm font-medium text-red-600">{err}</p>}
+      {err && <p role="alert" className="text-sm font-medium text-pp-critical">{err}</p>}
       <Link href="/login" className="text-center text-sm text-pp-text-dim underline">Back to sign in</Link>
     </main>
   );

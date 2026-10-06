@@ -61,7 +61,7 @@ export function Features() {
                 {[inc, exp].map((h, k) => (
                   <motion.div
                     key={k}
-                    className={cn("h-full flex-1 origin-bottom rounded-t-md", k === 0 ? "bg-tiffany" : "bg-white/20")}
+                    className={cn("h-full flex-1 origin-bottom rounded-t-md", k === 0 ? "bg-pp-accent" : "bg-pp-text-dim/30")}
                     initial={{ scaleY: 0 }}
                     whileInView={{ scaleY: reduce ? h : [h, h * 0.55 + 0.3, h] }}
                     viewport={{ once: true }}
@@ -74,28 +74,28 @@ export function Features() {
         </Cell>
 
         <Cell
-          className="min-h-[340px] bg-gradient-to-br from-cypress/60 to-white/[0.04] md:col-span-2"
+          className="min-h-[340px] bg-pp-chip-bg md:col-span-2"
           title="Plan"
           icon={Target}
           text="Create budgets, goals and financial plans."
         >
           <div className="absolute -bottom-10 -right-10 h-48 w-48 sm:h-56 sm:w-56" aria-hidden="true">
             <svg viewBox="0 0 120 120" className="h-full w-full -rotate-90">
-              <circle cx="60" cy="60" r="46" fill="none" stroke="rgba(255,253,241,0.1)" strokeWidth="8" />
+              <circle cx="60" cy="60" r="46" fill="none" stroke="var(--pp-border)" strokeWidth="8" />
               <motion.circle
-                cx="60" cy="60" r="46" fill="none" stroke="#21F1A8" strokeWidth="8" strokeLinecap="round"
+                cx="60" cy="60" r="46" fill="none" stroke="var(--pp-accent)" strokeWidth="8" strokeLinecap="round"
                 initial={{ pathLength: 0 }}
                 whileInView={{ pathLength: 0.72 }}
                 viewport={{ once: true }}
                 transition={{ duration: 1.8, ease: EASE }}
               />
             </svg>
-            <div className="lp-spin-slow absolute inset-3 rounded-full border border-dashed border-white/20" />
+            <div className="lp-spin-slow absolute inset-3 rounded-full border border-dashed border-pp-border" />
           </div>
         </Cell>
 
         <Cell
-          className="min-h-[300px] bg-gradient-to-r from-white/[0.04] to-cypress/50 md:col-span-5"
+          className="min-h-[300px] bg-pp-chip-bg md:col-span-5"
           title="Understand"
           icon={LineChart}
           text="See your financial picture through meaningful insights and reports."
@@ -103,8 +103,8 @@ export function Features() {
           <svg viewBox="0 0 600 140" preserveAspectRatio="none" className="absolute inset-x-0 bottom-0 h-40 w-full sm:h-48" aria-hidden="true">
             <defs>
               <linearGradient id="ft-area" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0" stopColor="#21F1A8" stopOpacity="0.28" />
-                <stop offset="1" stopColor="#21F1A8" stopOpacity="0" />
+                <stop offset="0" stopColor="var(--pp-accent)" stopOpacity="0.28" />
+                <stop offset="1" stopColor="var(--pp-accent)" stopOpacity="0" />
               </linearGradient>
             </defs>
             <motion.path
@@ -117,14 +117,14 @@ export function Features() {
             />
             <motion.path
               d={CHART}
-              fill="none" stroke="#21F1A8" strokeWidth="2.5" strokeLinecap="round" vectorEffect="non-scaling-stroke"
+              fill="none" stroke="var(--pp-accent)" strokeWidth="2.5" strokeLinecap="round" vectorEffect="non-scaling-stroke"
               initial={{ pathLength: 0 }}
               whileInView={{ pathLength: 1 }}
               viewport={{ once: true }}
               transition={{ duration: 2, ease: EASE }}
             />
             {!reduce && (
-              <circle r="5" fill="#FFFDF1">
+              <circle r="5" fill="var(--pp-text)">
                 <animateMotion dur="7s" repeatCount="indefinite" path={CHART} />
               </circle>
             )}

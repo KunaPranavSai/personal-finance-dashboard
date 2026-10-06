@@ -81,7 +81,7 @@ export function PpToastProvider({ children }: { children: ReactNode }) {
     (message: string, status: "success" | "error" = "success") => {
       const id = Date.now() + Math.random();
       setItems((prev) => [...prev, { id, status, message }]);
-      setTimeout(() => remove(id), AUTO_DISMISS_MS);
+      setTimeout(() => remove(id), status === "error" ? Math.min(12000, 5000 + message.length * 40) : AUTO_DISMISS_MS);
     },
     [remove]
   );

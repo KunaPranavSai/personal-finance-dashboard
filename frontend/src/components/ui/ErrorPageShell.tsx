@@ -13,10 +13,10 @@ interface ErrorPageShellProps {
  */
 export function ErrorPageShell({ children }: ErrorPageShellProps) {
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-noturno p-4">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-pp-bg p-4">
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute -top-32 -left-32 h-[28rem] w-[28rem] rounded-full bg-pp-accent/20 blur-[100px]" />
-        <div className="absolute -bottom-32 -right-32 h-[28rem] w-[28rem] rounded-full bg-tiffany/15 blur-[100px]" />
+        <div className="absolute -bottom-32 -right-32 h-[28rem] w-[28rem] rounded-full bg-pp-accent/15 blur-[100px]" />
       </div>
 
       <AnimatePresence mode="wait">
@@ -26,7 +26,7 @@ export function ErrorPageShell({ children }: ErrorPageShellProps) {
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.96 }}
           transition={{ duration: 0.4, ease: "easeOut" }}
-          className="relative w-full max-w-lg rounded-2xl border border-white/10 bg-[rgba(0,22,33,0.65)] px-6 py-10 text-center shadow-[0_8px_40px_rgba(33,241,168,0.15)] backdrop-blur-xl sm:px-10"
+          className="relative w-full max-w-lg rounded-2xl border border-pp-border bg-pp-surface px-6 py-10 text-center shadow-pp sm:px-10"
         >
           {children}
         </motion.div>
@@ -36,7 +36,7 @@ export function ErrorPageShell({ children }: ErrorPageShellProps) {
 }
 
 export const errorPrimaryButton =
-  "inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-pp-accent to-pp-accent px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-pp-accent/25 transition-all hover:shadow-pp-accent/40";
+  "inline-flex items-center justify-center gap-2 rounded-full bg-pp-accent px-6 py-3 text-sm font-semibold text-pp-accent-ink shadow-pp transition hover:opacity-90 active:scale-[0.98]";
 
 export const errorGhostButton =
-  "inline-flex items-center justify-center gap-2 rounded-full border border-white/10 bg-white/5 px-6 py-3 text-sm font-semibold text-white/80 backdrop-blur-sm transition-all hover:bg-white/10";
+  "inline-flex items-center justify-center gap-2 rounded-full border border-pp-border bg-pp-surface-2 px-6 py-3 text-sm font-semibold text-pp-text backdrop-blur-sm transition-all hover:bg-pp-chip-bg";

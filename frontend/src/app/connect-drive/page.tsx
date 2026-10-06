@@ -18,9 +18,9 @@ import { useIsMobile } from "@/lib/DeviceContext";
 import { MobileConnectDriveView } from "@/components/mobile/MobileConnectDriveView";
 
 const primaryButton =
-  "flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-pp-accent to-pp-accent px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-pp-accent/25 transition-all hover:shadow-pp-accent/40 disabled:opacity-50 disabled:cursor-not-allowed";
+  "flex w-full items-center justify-center gap-2 rounded-xl bg-pp-accent px-4 py-3 text-sm font-semibold text-pp-accent-ink shadow-pp transition hover:opacity-90 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed";
 const secondaryButton =
-  "flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white/80 transition-all hover:bg-white/10";
+  "flex w-full items-center justify-center gap-2 rounded-xl border border-pp-border bg-pp-surface-2 px-4 py-3 text-sm font-medium text-pp-text transition-all hover:bg-pp-chip-bg";
 
 type ViewState = "storageChoice" | "localWarning" | "connect" | "connecting" | "success" | "localReady" | "accountChoice" | "error";
 
@@ -136,8 +136,8 @@ export default function ConnectDrivePage() {
 
   if (authLoading || !isAuthenticated) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#0B0F19]">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-pp-accent/30 border-t-purple-400" />
+      <div className="flex min-h-screen items-center justify-center bg-pp-bg">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-pp-accent/30 border-t-pp-accent" />
       </div>
     );
   }
@@ -146,11 +146,11 @@ export default function ConnectDrivePage() {
     return (
       <AuthPageShell icon={HardDrive} title="Choose how you want to store your data" subtitle="You can change this later in Settings" footer={<Footer variant="dark" />}>
         <div className="space-y-4">
-          <div className={`rounded-xl border border-white/10 bg-white/5 p-4 ${policy.drive ? "" : "opacity-50"}`}>
-            <h3 className="flex items-center gap-2 text-sm font-semibold text-white">
+          <div className={`rounded-xl border border-pp-border bg-pp-surface-2 p-4 ${policy.drive ? "" : "opacity-50"}`}>
+            <h3 className="flex items-center gap-2 text-sm font-semibold text-pp-text">
               <HardDrive className="h-4 w-4 text-pp-accent/40" /> Google Drive — Recommended
             </h3>
-            <p className="mt-1.5 text-xs text-[#94A3B8]">Store Penny Pilot data in your own Google Drive, backed up and accessible from any device.</p>
+            <p className="mt-1.5 text-xs text-pp-text-dim">Store Penny Pilot data in your own Google Drive, backed up and accessible from any device.</p>
             <motion.button
               whileHover={policy.drive ? { scale: 1.02 } : undefined} whileTap={policy.drive ? { scale: 0.98 } : undefined} type="button"
               disabled={!policy.drive} aria-disabled={!policy.drive} title={policy.drive ? undefined : DRIVE_DISABLED_TEXT}
@@ -158,21 +158,21 @@ export default function ConnectDrivePage() {
             >
               Connect Google Drive
             </motion.button>
-            {!policy.drive && <p role="status" className="mt-2 text-center text-xs font-medium text-amber-300">{DRIVE_DISABLED_TEXT}</p>}
+            {!policy.drive && <p role="status" className="mt-2 text-center text-xs font-medium text-pp-warning">{DRIVE_DISABLED_TEXT}</p>}
           </div>
-          <div className={`rounded-xl border border-white/10 bg-white/5 p-4 ${policy.device ? "" : "opacity-50"}`}>
-            <h3 className="flex items-center gap-2 text-sm font-semibold text-white">
-              <Laptop className="h-4 w-4 text-white/60" /> This Device Only
+          <div className={`rounded-xl border border-pp-border bg-pp-surface-2 p-4 ${policy.device ? "" : "opacity-50"}`}>
+            <h3 className="flex items-center gap-2 text-sm font-semibold text-pp-text">
+              <Laptop className="h-4 w-4 text-pp-text-dim" /> This Device Only
             </h3>
-            <p className="mt-1.5 text-xs text-[#94A3B8]">Keep Penny Pilot data locally in this browser/device without connecting Google Drive.</p>
+            <p className="mt-1.5 text-xs text-pp-text-dim">Keep Penny Pilot data locally in this browser/device without connecting Google Drive.</p>
             <motion.button
               whileHover={policy.device ? { scale: 1.02 } : undefined} whileTap={policy.device ? { scale: 0.98 } : undefined} type="button"
               disabled={!policy.device} aria-disabled={!policy.device} title={policy.device ? undefined : DEVICE_DISABLED_TEXT}
-              onClick={() => policy.device && setView("localWarning")} className={`${secondaryButton} mt-3 ${policy.device ? "" : "cursor-not-allowed hover:bg-white/5"}`}
+              onClick={() => policy.device && setView("localWarning")} className={`${secondaryButton} mt-3 ${policy.device ? "" : "cursor-not-allowed hover:bg-pp-surface-2"}`}
             >
               Continue on this Device
             </motion.button>
-            {!policy.device && <p role="status" className="mt-2 text-center text-xs font-medium text-amber-300">{DEVICE_DISABLED_TEXT}</p>}
+            {!policy.device && <p role="status" className="mt-2 text-center text-xs font-medium text-pp-warning">{DEVICE_DISABLED_TEXT}</p>}
           </div>
         </div>
       </AuthPageShell>
@@ -193,7 +193,7 @@ export default function ConnectDrivePage() {
             </p>
           </div>
           {error && (
-            <div className="flex items-center gap-2 rounded-lg border border-vulcanico/20 bg-vulcanico/10 px-3 py-2 text-sm text-vulcanico/40">
+            <div className="flex items-center gap-2 rounded-lg border border-vulcanico/20 bg-vulcanico/10 px-3 py-2 text-sm text-pp-critical">
               <AlertCircle className="h-4 w-4 shrink-0" /> {error}
             </div>
           )}
@@ -209,7 +209,7 @@ export default function ConnectDrivePage() {
           >
             {activatingLocal ? "Setting up…" : "Continue on this Device"}
           </motion.button>
-          <button type="button" onClick={() => setView("storageChoice")} className="w-full text-center text-xs text-white/40 hover:text-white/60">
+          <button type="button" onClick={() => setView("storageChoice")} className="w-full text-center text-xs text-pp-text-dim hover:text-pp-text">
             Back
           </button>
         </div>
@@ -221,7 +221,7 @@ export default function ConnectDrivePage() {
     return (
       <AuthPageShell icon={CheckCircle2} title="Local Storage Ready" subtitle="Your data will stay on this device" footer={<Footer variant="dark" />}>
         <div className="space-y-5 text-center">
-          <p className="text-sm text-[#94A3B8]">
+          <p className="text-sm text-pp-text-dim">
             Penny Pilot will now store your financial data locally in this browser. You can export a backup or switch to
             Google Drive anytime from Settings → Data &amp; Storage.
           </p>
@@ -237,7 +237,7 @@ export default function ConnectDrivePage() {
     return (
       <AuthPageShell icon={CheckCircle2} title="Google Drive Connected ✓" subtitle="Your Penny Pilot workspace is ready" footer={<Footer variant="dark" />}>
         <div className="space-y-5 text-center">
-          <p className="text-sm text-[#94A3B8]">
+          <p className="text-sm text-pp-text-dim">
             {migrated
               ? "Your existing Penny Pilot data has been moved into your Google Drive."
               : "Your financial workspace is ready. Start by adding your first transaction."}
@@ -254,12 +254,12 @@ export default function ConnectDrivePage() {
     return (
       <AuthPageShell icon={FolderGit2} title="Different Google Account" subtitle="We found existing Penny Pilot data in this Google Drive account" footer={<Footer variant="dark" />}>
         <div className="space-y-5">
-          <p className="text-sm text-[#94A3B8]">
+          <p className="text-sm text-pp-text-dim">
             This Google account already has a Penny Pilot workspace in its Drive — possibly from a previous connection.
             Choose what to do:
           </p>
           {error && (
-            <div className="flex items-center gap-2 rounded-lg border border-vulcanico/20 bg-vulcanico/10 px-3 py-2 text-sm text-vulcanico/40">
+            <div className="flex items-center gap-2 rounded-lg border border-vulcanico/20 bg-vulcanico/10 px-3 py-2 text-sm text-pp-critical">
               <AlertCircle className="h-4 w-4 shrink-0" /> {error}
             </div>
           )}
@@ -290,28 +290,28 @@ export default function ConnectDrivePage() {
   return (
     <AuthPageShell icon={HardDrive} title={title} subtitle={subtitle} footer={<Footer variant="dark" />}>
       <div className="space-y-5 text-center">
-        <p className="text-sm text-[#94A3B8]">{description}</p>
+        <p className="text-sm text-pp-text-dim">{description}</p>
         {error && (
-          <div className="flex items-center gap-2 rounded-lg border border-vulcanico/20 bg-vulcanico/10 px-3 py-2 text-left text-sm text-vulcanico/40">
+          <div className="flex items-center gap-2 rounded-lg border border-vulcanico/20 bg-vulcanico/10 px-3 py-2 text-left text-sm text-pp-critical">
             <AlertCircle className="h-4 w-4 shrink-0" /> {error}
           </div>
         )}
         {error && (
-          <p className="text-xs text-white/40">
+          <p className="text-xs text-pp-text-dim">
             Nothing was lost — your data is safe. You can retry the connection below.
           </p>
         )}
         <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} type="button" disabled={view === "connecting"} onClick={handleConnect} className={primaryButton}>
           {view === "connecting" ? (
-            <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-pp-border border-t-pp-accent" />
           ) : (
             <HardDrive className="h-4 w-4" />
           )}
           {view === "connecting" ? connectingLabel : error ? "Retry Connection" : connectLabel}
         </motion.button>
-        <p className="text-xs text-white/30">Your data remains under your Google account.</p>
+        <p className="text-xs text-pp-text-dim">Your data remains under your Google account.</p>
         {!isLegacyAccount && view !== "connecting" && (
-          <button type="button" onClick={() => setView("storageChoice")} className="w-full text-center text-xs text-white/40 hover:text-white/60">
+          <button type="button" onClick={() => setView("storageChoice")} className="w-full text-center text-xs text-pp-text-dim hover:text-pp-text">
             Back
           </button>
         )}

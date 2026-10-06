@@ -25,6 +25,18 @@ class ApiClientError extends Error {
   }
 }
 
+const REQUEST_TIMEOUT_MS = 45_000;
+
+function defaultMessageFor(status: number): string {
+  if (status === 413) return "That is too large to send. Try a smaller file or less data.";
+  if (status === 429) return "You're going a bit fast. Please wait a moment and try again.";
+  if (status === 401) return "Your session has ended. Please sign in again.";
+  if (status === 403) return "You don't have permission to do that.";
+  if (status === 404) return "We couldn't find what you were looking for.";
+  if (status >= 500) return "Something went wrong on our side. Please try again.";
+  return "That didn't work. Check what you entered and try again.";
+}
+
 let refreshInFlight: Promise<boolean> | null = null;
 
 /** Silent token refresh, shared across concurrent 401s so a burst of requests
@@ -49,14 +61,23 @@ async function request<T>(path: string, options: RequestInit = {}, isRetry = fal
   }
   Object.assign(headers, options.headers);
 
+  // A request that never answers must end with a clear message, not a spinner that never stops.
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   let res: Response;
   try {
     res = await fetch(`${API_BASE_URL}${path}`, {
       ...options,
       credentials: "include",
       headers,
+      signal: options.signal ?? controller.signal,
     });
-  } catch {
+  } catch (e) {
+    clearTimeout(timer);
+    if (controller.signal.aborted) {
+      throw new ApiClientError(0, "That took too long to respond. Check your connection and try again.", { code: "NETWORK_TIMEOUT" });
+    }
+    void e;
     // fetch() itself throwing (not an HTTP error status) means the request
     // never reached the server at all — offline, DNS failure, connection
     // refused, etc. Previously this propagated as a raw, unclassified
@@ -66,10 +87,12 @@ async function request<T>(path: string, options: RequestInit = {}, isRetry = fal
     const online = typeof navigator === "undefined" || navigator.onLine;
     const code = online ? "NETWORK_TIMEOUT" : "NETWORK_OFFLINE";
     const message = online
-      ? "Couldn't reach the server. Please try again."
+      ? "Couldn't reach the server. Check your connection and try again."
       : "You're currently offline. Check your connection and try again.";
     throw new ApiClientError(0, message, { code });
   }
+
+  clearTimeout(timer);
 
   if (!res.ok) {
     // A 401 on an ordinary API call (as opposed to /api/auth/*) might just
@@ -89,8 +112,10 @@ async function request<T>(path: string, options: RequestInit = {}, isRetry = fal
     } catch {
       body = undefined;
     }
-    const message =
-      (body as { error?: string })?.error ?? `Request failed with status ${res.status}`;
+    const retryHeader = Number(res.headers.get("Retry-After"));
+    if (Number.isFinite(retryHeader) && retryHeader > 0) body = { ...((body as object) ?? {}), retryAfterSeconds: retryHeader };
+    // Never show "Request failed with status N": an unreadable body gets the status's plain-language text.
+    const message = (body as { error?: string })?.error ?? defaultMessageFor(res.status);
     if (res.status === 403 && (body as { code?: string })?.code === "2FA_REVERIFICATION_REQUIRED") {
       if (typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent(TWO_FA_REVERIFY_EVENT));

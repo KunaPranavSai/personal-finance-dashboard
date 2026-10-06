@@ -112,7 +112,7 @@ function MobileSetupTwoFactorContent() {
               <label htmlFor="ppm-2fa-code">Verification Code</label>
               <input id="ppm-2fa-code" type="text" inputMode="numeric" autoComplete="one-time-code" value={code} onChange={(e) => setCode(e.target.value)} placeholder="123456" style={{ textAlign: "center", letterSpacing: 4, fontSize: 18 }} />
             </div>
-            {error && <div className="err" style={{ marginBottom: 10 }}>{error}</div>}
+            {error && <div role="alert" className="err" style={{ marginBottom: 10 }}>{error}</div>}
             <button type="button" className="ppm-sheet-submit" disabled={busy || !code} onClick={handleConfirm}>{busy ? "Verifying…" : "Verify & Enable"}</button>
             <button type="button" className="ppm-sheet-cancel" onClick={goToDashboard}>Skip for now</button>
           </div>

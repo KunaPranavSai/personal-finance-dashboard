@@ -3,7 +3,7 @@ import { API_BASE_URL } from "./api";
 export async function downloadExport(
   format: string,
   toast?: (msg: string, type: "success" | "error") => void,
-  range?: { from?: string; to?: string },
+  range?: { from?: string; to?: string; categoryId?: string; accountId?: string; paymentMethodTypeId?: string },
   types?: string[],
   kinds?: string[]
 ) {
@@ -11,6 +11,9 @@ export async function downloadExport(
     const params = new URLSearchParams({ format: format === "excel" ? "xlsx" : format });
     if (range?.from) params.set("from", range.from);
     if (range?.to) params.set("to", range.to);
+    if (range?.categoryId) params.set("categoryId", range.categoryId);
+    if (range?.accountId) params.set("accountId", range.accountId);
+    if (range?.paymentMethodTypeId) params.set("paymentMethodTypeId", range.paymentMethodTypeId);
     if (types && types.length > 0) params.set("types", types.join(","));
     if (kinds && kinds.length > 0) params.set("kinds", kinds.join(","));
     const res = await fetch(

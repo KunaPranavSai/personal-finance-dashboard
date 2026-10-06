@@ -76,7 +76,7 @@ html {
 body {
   background-color: var(--pp-bg);
   color: var(--pp-text);
-  font-family: "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-sans), "Segoe UI", ui-sans-serif, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   transition: background-color 0.25s ease, color 0.25s ease;
@@ -182,24 +182,24 @@ body {
     @apply mt-8 mb-3 text-lg font-bold text-navy first:mt-0 dark:text-white sm:text-xl;
   }
   .prose-legal h3 {
-    @apply mt-5 mb-2 text-base font-semibold text-navy dark:text-white;
+    @apply mt-5 mb-2 text-base font-semibold text-pp-text;
   }
   .prose-legal p {
-    @apply mb-4 text-sm leading-relaxed text-navy/70 dark:text-white/70 sm:text-[0.95rem];
+    @apply mb-4 text-sm leading-relaxed text-pp-text-dim sm:text-[0.95rem];
   }
   .prose-legal ul {
-    @apply mb-4 list-disc space-y-1.5 pl-5 text-sm leading-relaxed text-navy/70 dark:text-white/70 sm:text-[0.95rem];
+    @apply mb-4 list-disc space-y-1.5 pl-5 text-sm leading-relaxed text-pp-text-dim sm:text-[0.95rem];
   }
   .prose-legal li strong {
-    @apply text-navy dark:text-white;
+    @apply text-pp-text;
   }
   .prose-legal a {
-    @apply font-medium text-teal underline underline-offset-2 hover:opacity-80;
+    @apply font-medium text-pp-accent underline underline-offset-2 hover:opacity-80;
   }
   .prose-legal strong {
-    @apply font-semibold text-navy dark:text-white;
+    @apply font-semibold text-pp-text;
   }
   .prose-legal hr {
-    @apply my-8 border-black/10 dark:border-white/10;
+    @apply my-8 border-pp-border;
   }
 }

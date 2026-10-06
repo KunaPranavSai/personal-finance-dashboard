@@ -20,7 +20,7 @@ export function ConfirmSheet({ open, onClose, onConfirm, title, message, confirm
     <MobileSheet open={open} onClose={onClose} title={title}>
       <div className="ppm-confirm-sheet">
         <p>{message}</p>
-        {errorMessage && <div className="err" style={{ marginBottom: 14 }}>{errorMessage}</div>}
+        {errorMessage && <div role="alert" className="err" style={{ marginBottom: 14 }}>{errorMessage}</div>}
         <div className="ppm-confirm-actions">
           <button type="button" className="ppm-sheet-cancel" style={{ marginTop: 0 }} onClick={onClose} disabled={isPending}>
             Cancel

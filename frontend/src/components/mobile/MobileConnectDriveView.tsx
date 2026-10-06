@@ -138,7 +138,7 @@ export function MobileConnectDriveView() {
     </div>
   );
 
-  const ErrorBanner = () => error ? <div className="err" style={{ background: "rgba(255,65,3,.1)", padding: 12, borderRadius: 11, marginBottom: 14 }}>{error}</div> : null;
+  const ErrorBanner = () => error ? <div role="alert" className="err" style={{ background: "rgba(255,65,3,.1)", padding: 12, borderRadius: 11, marginBottom: 14 }}>{error}</div> : null;
 
   if (authLoading || !isAuthenticated) {
     return (

@@ -105,7 +105,7 @@ export function GoalFormSheet({ open, onClose, inline, editing }: GoalFormSheetP
         <div className="ppm-field">
           <label htmlFor="ppm-goal-name">Name</label>
           <input id="ppm-goal-name" value={name} maxLength={100} placeholder="Name required" onChange={(e) => setName(e.target.value)} />
-          {errors.name && <div className="err">{errors.name}</div>}
+          {errors.name && <div role="alert" className="err">{errors.name}</div>}
         </div>
 
         <div className="ppm-field">
@@ -118,14 +118,14 @@ export function GoalFormSheet({ open, onClose, inline, editing }: GoalFormSheetP
         <div className="ppm-field">
           <label htmlFor="ppm-goal-target">Target Amount (₹)</label>
           <input id="ppm-goal-target" inputMode="decimal" placeholder="Target amount required" value={targetAmount} onChange={(e) => setTargetAmount(e.target.value)} />
-          {errors.targetAmount && <div className="err">{errors.targetAmount}</div>}
+          {errors.targetAmount && <div role="alert" className="err">{errors.targetAmount}</div>}
         </div>
 
         <div className="ppm-field-row">
           <div className="ppm-field">
             <label htmlFor="ppm-goal-current">Current Amount (₹)</label>
             <input id="ppm-goal-current" inputMode="decimal" value={currentAmount} onChange={(e) => setCurrentAmount(e.target.value)} />
-            {errors.currentAmount && <div className="err">{errors.currentAmount}</div>}
+            {errors.currentAmount && <div role="alert" className="err">{errors.currentAmount}</div>}
           </div>
           <div className="ppm-field">
             <label htmlFor="ppm-goal-contrib">Monthly Contribution (₹)</label>

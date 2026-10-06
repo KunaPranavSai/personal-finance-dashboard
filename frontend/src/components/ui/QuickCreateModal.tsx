@@ -20,6 +20,7 @@ export function QuickCreateModal({
   error?: string | null;
 }) {
   const [name, setName] = useState("");
+  const [localErr, setLocalErr] = useState("");
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4 animate-popup-backdrop" role="dialog" aria-modal="true" aria-label={title} onClick={onClose}>
@@ -29,21 +30,29 @@ export function QuickCreateModal({
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              if (name.trim()) onSave(name.trim());
+              const v = name.trim();
+              if (!v) { setLocalErr("Enter a name."); return; }
+              if (v.length > 50) { setLocalErr("Keep the name under 50 characters."); return; }
+              setLocalErr("");
+              onSave(v);
             }}
             className="mt-3"
           >
             <input
               autoFocus
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => { setName(e.target.value); setLocalErr(""); }}
               placeholder={placeholder}
-              className="w-full rounded-lg border border-pp-border px-3 py-2 text-sm dark:bg-white/5 "
+              maxLength={50}
+              aria-label={title}
+              aria-invalid={localErr || error ? true : undefined}
+              aria-describedby={localErr || error ? "qc-err" : undefined}
+              className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm text-pp-text aria-[invalid=true]:border-pp-critical"
             />
-            {error && <p className="mt-1 text-xs text-vulcanico">{error}</p>}
+            {(localErr || error) && <p id="qc-err" role="alert" className="mt-1 text-xs font-medium text-pp-critical">{localErr || error}</p>}
             <div className="mt-4 flex justify-end gap-2">
               <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
-              <Button type="submit" disabled={isPending || !name.trim()}>
+              <Button type="submit" disabled={isPending}>
                 {isPending ? "Saving…" : "Save"}
               </Button>
             </div>

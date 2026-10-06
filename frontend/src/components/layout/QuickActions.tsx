@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { useUiStore } from "@/store/uiStore";
 import { TransactionFormModal } from "@/components/transactions/TransactionFormModal";
@@ -11,6 +11,9 @@ import { useIsMobile } from "@/lib/DeviceContext";
 
 export function QuickActions() {
   const router = useRouter();
+  const pathname = usePathname() ?? "";
+  // Pure settings/account screens have nothing to add to, so the floating "+" stays off them.
+  const hideFab = /^\/(settings|more|profile)(\/|$)/.test(pathname);
   const isMobile = useIsMobile();
   const { quickAddType, openQuickAdd } = useUiStore();
   const [mounted, setMounted] = useState(false);
@@ -31,7 +34,7 @@ export function QuickActions() {
           on an actual mobile route (.pp-mobile), which is where this now
           also renders (see MobileShell) alongside its original desktop-
           narrow-window use inside Topbar. */}
-      <div className="fixed right-6 z-40 lg:hidden" style={{ bottom: "calc(var(--ppm-nav-total, calc(56px + env(safe-area-inset-bottom, 0px))) + var(--ppm-fab-gap, 16px))" }}>
+      {!hideFab && <div className="fixed right-6 z-40 lg:hidden" style={{ bottom: "calc(var(--ppm-nav-total, calc(56px + env(safe-area-inset-bottom, 0px))) + var(--ppm-fab-gap, 16px))" }}>
         <button
           onClick={openAdd}
           aria-label="Add transaction"
@@ -39,7 +42,7 @@ export function QuickActions() {
         >
           <Plus className="h-6 w-6" />
         </button>
-      </div>
+      </div>}
 
       {isMobile ? (
         <AddTransactionSheet open={quickAddType !== null} onClose={() => openQuickAdd(null)} />

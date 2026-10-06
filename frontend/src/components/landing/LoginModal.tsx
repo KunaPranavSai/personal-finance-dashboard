@@ -64,7 +64,7 @@ export function LoginModal() {
                   type="button"
                   onClick={closeLoginModal}
                   aria-label="Close login"
-                  className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/30 text-white/80 backdrop-blur-sm transition-colors hover:bg-black/50 hover:text-white"
+                  className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/30 text-pp-text backdrop-blur-sm transition-colors hover:bg-pp-chip-bg hover:text-pp-text"
                 >
                   <X className="h-4 w-4" />
                 </button>

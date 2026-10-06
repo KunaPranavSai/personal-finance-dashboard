@@ -37,7 +37,7 @@ export function WhyPennyPilot() {
           Everything you need to understand your money
         </h2>
 
-        <ul className="divide-y divide-white/10">
+        <ul className="divide-y divide-pp-border">
           {BLOCKS.map((block) => (
             <motion.li
               key={block.title}
@@ -48,7 +48,7 @@ export function WhyPennyPilot() {
               whileHover={{ x: 8 }}
               className="group flex items-start gap-5 py-8 first:pt-0"
             >
-              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.05] transition-colors group-hover:bg-pp-accent">
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-pp-border bg-pp-surface-2 transition-colors group-hover:bg-pp-accent">
                 <block.icon className="h-5 w-5 text-pp-accent transition-colors group-hover:text-pp-accent-ink" strokeWidth={1.75} aria-hidden="true" />
               </span>
               <div>

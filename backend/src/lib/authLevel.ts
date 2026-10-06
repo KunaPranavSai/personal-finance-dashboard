@@ -11,11 +11,18 @@ export function levelOf(u: { emailVerifiedAt: Date | null; profileCompletedAt: D
 
 const SAFE = new Set(["GET", "HEAD", "OPTIONS"]);
 
+// A user who reached the top level never drops back, so only that result is cached (no per-write DB lookup).
+const reachedTop = new Map<string, number>();
+const TOP_TTL_MS = 5 * 60_000;
+
 async function enforce(req: Request, res: Response, next: NextFunction, needed: AuthLevel) {
   // Admin/staff accounts are not part of the progressive flow.
   if (req.auth!.role !== "USER") return next();
-  const u = await prisma.user.findUnique({ where: { id: req.auth!.userId }, select: { emailVerifiedAt: true, profileCompletedAt: true } });
+  const id = req.auth!.userId;
+  if ((reachedTop.get(id) ?? 0) > Date.now()) return next();
+  const u = await prisma.user.findUnique({ where: { id }, select: { emailVerifiedAt: true, profileCompletedAt: true } });
   const have = u ? levelOf(u) : 1;
+  if (have >= 3) reachedTop.set(id, Date.now() + TOP_TTL_MS);
   if (have >= needed) return next();
   res.status(403).json({ error: have < 2 ? "Verify your email to continue" : "Complete your profile to continue", code: "STEP_UP", needed, have });
 }

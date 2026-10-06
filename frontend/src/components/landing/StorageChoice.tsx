@@ -36,7 +36,7 @@ export function StorageChoice() {
         </h2>
         <p className="mt-3 max-w-[52ch] text-lg text-pp-text-dim">Choose the storage approach that fits you.</p>
 
-        <div role="tablist" aria-label="Storage options" className="mt-8 inline-flex rounded-full border border-white/10 bg-noturno/60 p-1">
+        <div role="tablist" aria-label="Storage options" className="mt-8 inline-flex rounded-full border border-pp-border bg-pp-surface/80 p-1">
           {OPTIONS.map((o) => (
             <button
               key={o.id}
@@ -67,7 +67,7 @@ export function StorageChoice() {
               className="flex flex-col gap-6 sm:flex-row sm:items-center"
             >
               <div className="relative flex h-24 w-24 shrink-0 items-center justify-center">
-                <div className="lp-spin-slow absolute inset-0 rounded-full border border-dashed border-tiffany/40" />
+                <div className="lp-spin-slow absolute inset-0 rounded-full border border-dashed border-pp-accent/40" />
                 <span className="flex h-16 w-16 items-center justify-center rounded-full bg-pp-chip-bg">
                   <current.icon className="h-7 w-7 text-pp-accent" strokeWidth={1.75} aria-hidden="true" />
                 </span>

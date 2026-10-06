@@ -1,5 +1,6 @@
 "use client";
 
+import { toUserMessage } from "@/lib/errorMessage";
 import { FormEvent, useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { MobileShell } from "@/components/mobile/MobileShell";
@@ -46,7 +47,7 @@ export function MobileProfileView() {
       setEditing(false);
       toast("Profile updated", "success");
     },
-    onError: () => toast("Failed to update profile", "error"),
+    onError: (err) => toast(toUserMessage(err, "We couldn't save your profile. Check your details and try again."), "error"),
   });
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) => setForm((f) => ({ ...f, [key]: value }));

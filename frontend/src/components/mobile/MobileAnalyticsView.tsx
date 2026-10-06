@@ -11,6 +11,7 @@ import { getLocalAnalyticsSummary, AnalyticsFilters } from "@/lib/services/analy
 import { getGroupedChartData, getYearToDateChartData, ChartPoint } from "@/lib/services/customChartService";
 import { useCategories, useAccounts, usePaymentMethods } from "@/lib/reference";
 import Link from "next/link";
+import { useRef } from "react";
 import { TrendingUp, Sparkles, SlidersHorizontal, FileText } from "lucide-react";
 import { useSettingsContext } from "@/lib/SettingsContext";
 import { formatCurrency, formatCompactCurrency } from "@/lib/format";
@@ -19,13 +20,17 @@ import type { AnalyticsSummary } from "@/types";
 type BuilderMetric = "income" | "expense" | "savings" | "transactions";
 type BuilderSecondary = "none" | "netCashFlow";
 type BuilderGrouping = "daily" | "weekly" | "monthly" | "ytd";
+type BuilderViz = "bars" | "line" | "donut";
 interface BuilderConfig {
   primary: BuilderMetric;
   secondary: BuilderSecondary;
   grouping: BuilderGrouping;
+  viz: BuilderViz;
 }
-const BUILDER_STORAGE_KEY = "pfd-analytics-custom-chart";
-const DEFAULT_BUILDER_CONFIG: BuilderConfig = { primary: "income", secondary: "netCashFlow", grouping: "monthly" };
+// Own key: the desktop builder stores a different shape under the old key.
+const BUILDER_STORAGE_KEY = "pfd-analytics-custom-chart-mobile";
+const DEFAULT_BUILDER_CONFIG: BuilderConfig = { primary: "income", secondary: "netCashFlow", grouping: "monthly", viz: "bars" };
+const VIZ_OPTIONS: { value: BuilderViz; label: string }[] = [{ value: "bars", label: "Bars" }, { value: "line", label: "Line" }, { value: "donut", label: "Donut" }];
 const PRIMARY_METRIC_OPTIONS: { value: BuilderMetric; label: string }[] = [
   { value: "income", label: "Income" },
   { value: "expense", label: "Expenses" },
@@ -48,7 +53,15 @@ function loadBuilderConfig(): BuilderConfig {
   if (typeof window === "undefined") return DEFAULT_BUILDER_CONFIG;
   try {
     const raw = localStorage.getItem(BUILDER_STORAGE_KEY);
-    return raw ? { ...DEFAULT_BUILDER_CONFIG, ...JSON.parse(raw) } : DEFAULT_BUILDER_CONFIG;
+    const saved = raw ? JSON.parse(raw) : {};
+    const pick = <T extends string>(v: unknown, allowed: T[], fallback: T): T => (allowed.includes(v as T) ? (v as T) : fallback);
+    // Validate every field so a stale/edited value can never produce NaN bars.
+    return {
+      primary: pick(saved.primary, PRIMARY_METRIC_OPTIONS.map((o) => o.value), DEFAULT_BUILDER_CONFIG.primary),
+      secondary: pick(saved.secondary, SECONDARY_METRIC_OPTIONS.map((o) => o.value), DEFAULT_BUILDER_CONFIG.secondary),
+      grouping: pick(saved.grouping, GROUPING_OPTIONS.map((o) => o.value), DEFAULT_BUILDER_CONFIG.grouping),
+      viz: pick(saved.viz, VIZ_OPTIONS.map((o) => o.value), DEFAULT_BUILDER_CONFIG.viz),
+    };
   } catch {
     return DEFAULT_BUILDER_CONFIG;
   }
@@ -91,8 +104,10 @@ export function MobileAnalyticsView() {
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const [builderOpen, setBuilderOpen] = useState(false);
   const [builderConfig, setBuilderConfig] = useState<BuilderConfig>(DEFAULT_BUILDER_CONFIG);
-  useEffect(() => { setBuilderConfig(loadBuilderConfig()); }, []);
+  const configLoaded = useRef(false);
+  useEffect(() => { setBuilderConfig(loadBuilderConfig()); configLoaded.current = true; }, []);
   useEffect(() => {
+    if (!configLoaded.current) return; // never overwrite the saved choice with the defaults before it is read
     try { localStorage.setItem(BUILDER_STORAGE_KEY, JSON.stringify(builderConfig)); } catch { /* ignore */ }
   }, [builderConfig]);
   const [categoryId, setCategoryId] = useState("");
@@ -135,8 +150,8 @@ export function MobileAnalyticsView() {
       </div>
 
       {/* "Custom" is pinned outside the scrolling chip row so it is always visible. */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <div className="ppm-filters" role="tablist" style={{ flex: 1, minWidth: 0 }}>
+      <div role="tablist" aria-label="Date range" style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 12 }}>
+        <div className="ppm-filters" style={{ flex: 1, minWidth: 0, margin: 0, padding: 0 }}>
           {RANGES.filter((r) => r.value !== "custom").map((r) => (
             <button key={r.value} type="button" role="tab" aria-selected={range === r.value} className={`ppm-chip${range === r.value ? " on" : ""}`} onClick={() => setRange(r.value)}>
               {r.label}
@@ -231,8 +246,8 @@ export function MobileAnalyticsView() {
         </div>
       )}
 
-      {!isLoading && !isError && data && data.monthlyTrend.length > 0 && (
-        <button type="button" className="ppm-qa-btn" style={{ width: "100%", marginTop: 4 }} onClick={() => setBuilderOpen(true)}><Sparkles size={14} style={{display:"inline",verticalAlign:"-2px",marginRight:4}} />Custom Chart</button>
+      {!isLoading && !isError && (
+        <button type="button" className="ppm-chip" style={{ width: "100%", justifyContent: "center", marginTop: 4 }} onClick={() => setBuilderOpen(true)}><Sparkles size={14} style={{display:"inline",verticalAlign:"-2px",marginRight:4}} />Custom Chart</button>
       )}
 
       <MobileSheet open={builderOpen} onClose={() => setBuilderOpen(false)} title="Custom Chart">
@@ -253,6 +268,15 @@ export function MobileAnalyticsView() {
           <select id="ppm-cb-grouping" value={builderConfig.grouping} onChange={(e) => setBuilderConfig((c) => ({ ...c, grouping: e.target.value as BuilderGrouping }))}>
             {GROUPING_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
+        </div>
+
+        <div className="ppm-field">
+          <label>Chart type</label>
+          <div className="ppm-filters" style={{ margin: 0 }}>
+            {VIZ_OPTIONS.map((o) => (
+              <button key={o.value} type="button" className={`ppm-chip${builderConfig.viz === o.value ? " on" : ""}`} onClick={() => setBuilderConfig((c) => ({ ...c, viz: o.value }))}>{o.label}</button>
+            ))}
+          </div>
         </div>
 
         <CustomChartRows builderConfig={builderConfig} trend={data?.monthlyTrend ?? []} filters={{ from, to, categoryId, accountId, paymentMethodTypeId }} f={f} />
@@ -345,16 +369,21 @@ function CustomChartRows({
   }
 
   const maxVal = Math.max(1, ...rows.map((r) => Math.abs(r[builderConfig.primary])));
+  const val = (r: ChartPoint) => Number(r[builderConfig.primary]) || 0;
+  // Savings and Cash Flow are the same number, so the secondary series is skipped when Savings is primary.
+  const showSecondary = builderConfig.secondary === "netCashFlow" && builderConfig.primary !== "savings";
 
   return (
     <div className="ppm-card" style={{ marginTop: 12, background: "var(--ppm-surface-2)" }}>
-      {rows.map((r) => (
+      {builderConfig.viz === "line" && <LineViz rows={rows} val={val} second={showSecondary ? (r) => r.netCashFlow : undefined} />}
+      {builderConfig.viz === "donut" && <DonutViz rows={rows} val={val} f={(v) => (builderConfig.primary === "transactions" ? String(v) : f(v))} />}
+      {builderConfig.viz === "bars" && rows.map((r) => (
         <div key={r.bucket} style={{ marginBottom: 10 }}>
           <div className="ppm-cf-row" style={{ marginBottom: 4 }}>
             <span>{r.bucket}</span>
             <span>
               {builderConfig.primary === "transactions" ? r.transactions : f(r[builderConfig.primary])}
-              {builderConfig.secondary === "netCashFlow" && ` · Cash Flow: ${f(r.netCashFlow)}`}
+              {showSecondary && ` · Cash Flow: ${f(r.netCashFlow)}`}
             </span>
           </div>
           <div className="ppm-bar-track">
@@ -363,6 +392,57 @@ function CustomChartRows({
         </div>
       ))}
       <p style={{ fontSize: 11, color: "var(--ppm-text-dim)", marginTop: 8 }}>Plotting {METRIC_LABEL[builderConfig.primary]} by {builderConfig.grouping === "ytd" ? "month (cumulative)" : builderConfig.grouping}. Your selections are saved automatically.</p>
+    </div>
+  );
+}
+
+/** Tiny SVG line chart (no chart library): primary series solid, optional secondary dashed. */
+function LineViz({ rows, val, second }: { rows: ChartPoint[]; val: (r: ChartPoint) => number; second?: (r: ChartPoint) => number }) {
+  const W = 300, H = 140, P = 12;
+  const a = rows.map(val), b = second ? rows.map(second) : [];
+  const all = [...a, ...b, 0];
+  const lo = Math.min(...all), hi = Math.max(...all), span = hi - lo || 1;
+  const x = (i: number) => (rows.length === 1 ? W / 2 : P + (i * (W - 2 * P)) / (rows.length - 1));
+  const y = (v: number) => H - P - ((v - lo) / span) * (H - 2 * P);
+  const path = (xs: number[]) => xs.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(" ");
+  return (
+    <div>
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label="Line chart">
+        <line x1={P} x2={W - P} y1={y(0)} y2={y(0)} stroke="var(--ppm-border)" />
+        {b.length > 0 && <path d={path(b)} fill="none" stroke="var(--ppm-text-dim)" strokeWidth="2" strokeDasharray="4 3" />}
+        <path d={path(a)} fill="none" stroke="var(--ppm-accent)" strokeWidth="2.5" />
+        {a.map((v, i) => <circle key={rows[i].bucket} cx={x(i)} cy={y(v)} r="3" fill="var(--ppm-accent)" />)}
+      </svg>
+      <div className="ppm-cf-row"><span>{rows[0].bucket}</span><span>{rows[rows.length - 1].bucket}</span></div>
+    </div>
+  );
+}
+
+const DONUT_COLORS = ["var(--ppm-accent)", "var(--ppm-positive)", "var(--ppm-critical)", "#f59e0b", "#8b5cf6", "#06b6d4", "var(--ppm-text-dim)"];
+
+/** Share of the primary metric per bucket (negative values count as 0; the 6 biggest are shown, the rest grouped). */
+function DonutViz({ rows, val, f }: { rows: ChartPoint[]; val: (r: ChartPoint) => number; f: (v: number) => string }) {
+  const items = rows.map((r) => ({ label: r.bucket, v: Math.max(0, val(r)) })).filter((i) => i.v > 0).sort((p, q) => q.v - p.v);
+  const top = items.slice(0, 6);
+  const rest = items.slice(6).reduce((s, i) => s + i.v, 0);
+  if (rest > 0) top.push({ label: "Other", v: rest });
+  const total = top.reduce((s, i) => s + i.v, 0);
+  if (total === 0) return <p style={{ fontSize: 12, color: "var(--ppm-text-dim)" }}>Nothing positive to show for this selection.</p>;
+  const R = 50, C = 2 * Math.PI * R;
+  let off = 0;
+  return (
+    <div>
+      <svg viewBox="0 0 140 140" width="160" height="160" role="img" aria-label="Donut chart" style={{ display: "block", margin: "0 auto" }}>
+        <g transform="rotate(-90 70 70)">
+          {top.map((i, k) => { const len = (i.v / total) * C; const el = <circle key={i.label} cx="70" cy="70" r={R} fill="none" stroke={DONUT_COLORS[k % DONUT_COLORS.length]} strokeWidth="22" strokeDasharray={`${len} ${C - len}`} strokeDashoffset={-off} />; off += len; return el; })}
+        </g>
+      </svg>
+      {top.map((i, k) => (
+        <div key={i.label} className="ppm-cf-row" style={{ marginTop: 4 }}>
+          <span><span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 3, marginRight: 6, background: DONUT_COLORS[k % DONUT_COLORS.length] }} />{i.label}</span>
+          <span>{f(i.v)} · {Math.round((i.v / total) * 100)}%</span>
+        </div>
+      ))}
     </div>
   );
 }

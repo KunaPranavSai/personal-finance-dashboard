@@ -131,7 +131,7 @@ export function InvestmentFormSheet({ open, onClose, inline, editing }: Investme
         <div className="ppm-field">
           <label htmlFor="ppm-inv-instrument">Instrument</label>
           <input id="ppm-inv-instrument" value={instrument} maxLength={100} placeholder="Instrument required" onChange={(e) => setInstrument(e.target.value)} />
-          {errors.instrument && <div className="err">{errors.instrument}</div>}
+          {errors.instrument && <div role="alert" className="err">{errors.instrument}</div>}
         </div>
 
         <div className="ppm-field">
@@ -145,19 +145,19 @@ export function InvestmentFormSheet({ open, onClose, inline, editing }: Investme
           <div className="ppm-field">
             <label htmlFor="ppm-inv-invested">Invested (₹)</label>
             <input id="ppm-inv-invested" inputMode="decimal" placeholder="Invested amount required" value={investedAmount} onChange={(e) => setInvestedAmount(e.target.value)} />
-            {errors.investedAmount && <div className="err">{errors.investedAmount}</div>}
+            {errors.investedAmount && <div role="alert" className="err">{errors.investedAmount}</div>}
           </div>
           <div className="ppm-field">
             <label htmlFor="ppm-inv-current">Current Value (₹)</label>
             <input id="ppm-inv-current" inputMode="decimal" placeholder="0.00" value={currentValue} onChange={(e) => setCurrentValue(e.target.value)} />
-            {errors.currentValue && <div className="err">{errors.currentValue}</div>}
+            {errors.currentValue && <div role="alert" className="err">{errors.currentValue}</div>}
           </div>
         </div>
 
         <div className="ppm-field">
           <label htmlFor="ppm-inv-date">Purchase Date</label>
           <input id="ppm-inv-date" type="date" value={purchaseDate} max={todayIso()} onChange={(e) => setPurchaseDate(e.target.value)} />
-          {errors.purchaseDate && <div className="err">{errors.purchaseDate}</div>}
+          {errors.purchaseDate && <div role="alert" className="err">{errors.purchaseDate}</div>}
         </div>
 
         <div className="ppm-field-row">

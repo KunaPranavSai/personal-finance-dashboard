@@ -28,16 +28,16 @@ export function LiveBackground() {
 
   return (
     <div aria-hidden="true" className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
-      <div className="lp-drift-a absolute -left-[15vmax] -top-[20vmax] h-[60vmax] w-[60vmax] rounded-full bg-cypress opacity-80 blur-[110px] will-change-transform" />
-      <div className="lp-drift-b absolute -bottom-[25vmax] -right-[10vmax] h-[50vmax] w-[50vmax] rounded-full bg-tiffany opacity-[0.14] blur-[120px] will-change-transform" />
-      <div className="lp-drift-c absolute left-[35vw] top-[28vh] h-[36vmax] w-[36vmax] rounded-full bg-[#0e7c6b] opacity-30 blur-[120px] will-change-transform" />
+      <div className="lp-drift-a absolute -left-[15vmax] -top-[20vmax] h-[60vmax] w-[60vmax] rounded-full bg-pp-accent opacity-[0.12] blur-[110px] will-change-transform" />
+      <div className="lp-drift-b absolute -bottom-[25vmax] -right-[10vmax] h-[50vmax] w-[50vmax] rounded-full bg-pp-accent opacity-[0.08] blur-[120px] will-change-transform" />
+      <div className="lp-drift-c absolute left-[35vw] top-[28vh] h-[36vmax] w-[36vmax] rounded-full bg-pp-accent opacity-[0.06] blur-[120px] will-change-transform" />
 
       <div className="absolute inset-0 [mask-image:radial-gradient(ellipse_at_50%_25%,black,transparent_72%)]">
         <div
           className="lp-grid-move absolute inset-x-0 -top-16 bottom-0"
           style={{
             backgroundImage:
-              "linear-gradient(rgba(255,253,241,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(255,253,241,0.06) 1px, transparent 1px)",
+              "linear-gradient(var(--pp-border) 1px, transparent 1px), linear-gradient(90deg, var(--pp-border) 1px, transparent 1px)",
             backgroundSize: "64px 64px",
           }}
         />
@@ -46,7 +46,7 @@ export function LiveBackground() {
       {!reduce && (
         <motion.div
           style={{ x: sx, y: sy }}
-          className="absolute left-0 top-0 h-[600px] w-[600px] rounded-full bg-[radial-gradient(circle,rgba(33,241,168,0.10),transparent_65%)]"
+          className="absolute left-0 top-0 h-[600px] w-[600px] rounded-full bg-[radial-gradient(circle,color-mix(in_srgb,var(--pp-accent)_12%,transparent),transparent_65%)]"
         />
       )}
     </div>

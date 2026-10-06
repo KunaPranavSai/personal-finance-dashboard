@@ -14,7 +14,7 @@ const MODULES = [
 /** The page's single marquee: shows the breadth of what one dashboard covers. */
 export function Modules() {
   return (
-    <section aria-label="What Penny Pilot covers" className="border-y border-white/10 bg-white/[0.02] py-6">
+    <section aria-label="What Penny Pilot covers" className="border-y border-pp-border bg-pp-surface-2 py-6">
       <div className="overflow-hidden [mask-image:linear-gradient(90deg,transparent,black_12%,black_88%,transparent)]">
         <ul className="lp-marquee flex w-max items-center gap-12 pr-12">
           {[...MODULES, ...MODULES].map((m, i) => (

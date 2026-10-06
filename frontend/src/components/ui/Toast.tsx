@@ -57,7 +57,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     // and click, instead of the normal 4s ambient-notification duration.
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, options?.action ? 10000 : 4000);
+    }, options?.action ? 10000 : type === "error" ? Math.min(12000, 5000 + message.length * 40) : 4000);
   }, []);
 
   const remove = useCallback((id: number) => {

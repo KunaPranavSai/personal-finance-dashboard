@@ -1,6 +1,7 @@
 "use client";
 
 import { PasswordInput } from "@/components/ui/PasswordInput";
+import { usePasswordPolicy } from "@/lib/passwordPolicy";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Key, Shield, Pencil, Trash2 } from "lucide-react";
@@ -200,8 +201,26 @@ export function MobileSecurityView() {
     }
   };
 
+  const policy = usePasswordPolicy();
+  const [confirmPw, setConfirmPw] = useState("");
+  const [pwErr, setPwErr] = useState<{ current?: string; next?: string; confirm?: string }>({});
+
   const submitChangePassword = async () => {
     setError("");
+    // Same checks as the desktop form, shown next to the field that needs fixing.
+    const problems: typeof pwErr = {};
+    if (!currentPw) problems.current = "Enter your current password.";
+    const rule = policy.problem(newPw);
+    if (!newPw) problems.next = "Choose a new password.";
+    else if (rule) problems.next = rule;
+    else if (newPw === currentPw) problems.next = "Your new password must be different from the current one.";
+    if (!confirmPw) problems.confirm = "Re-enter the new password.";
+    else if (confirmPw !== newPw) problems.confirm = "The two passwords don't match.";
+    setPwErr(problems);
+    if (problems.current || problems.next || problems.confirm) {
+      document.getElementById(problems.current ? "ppm-sec-cur-pw" : problems.next ? "ppm-sec-new-pw" : "ppm-sec-conf-pw")?.focus();
+      return;
+    }
     setBusy(true);
     try {
       await changePassword(currentPw, newPw);
@@ -209,8 +228,10 @@ export function MobileSecurityView() {
       setPwSheet(false);
       setCurrentPw("");
       setNewPw("");
+      setConfirmPw("");
+      setPwErr({});
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to change password");
+      setError(err instanceof Error ? err.message : "We couldn't change your password. Check your current password and try again.");
     } finally {
       setBusy(false);
     }
@@ -316,7 +337,7 @@ export function MobileSecurityView() {
               <label htmlFor="ppm-sec-code">Verification Code</label>
               <input id="ppm-sec-code" type="text" inputMode="numeric" autoComplete="one-time-code" value={code} onChange={(e) => setCode(e.target.value)} placeholder="123456" style={{ textAlign: "center", letterSpacing: 4, fontSize: 18 }} />
             </div>
-            {error && <div className="err" style={{ marginBottom: 10 }}>{error}</div>}
+            {error && <div role="alert" className="err" style={{ marginBottom: 10 }}>{error}</div>}
             <div className="ppm-sheet-actions">
               <button type="button" className="ppm-sheet-submit" disabled={busy || !code} onClick={confirmEnableTwoFa}>{busy ? "Verifying…" : "Verify & Enable"}</button>
               <button type="button" className="ppm-sheet-cancel" onClick={resetTwoFaSheet} disabled={busy}>Cancel</button>
@@ -337,13 +358,13 @@ export function MobileSecurityView() {
       <MobileSheet open={twoFaSheet === "disable"} onClose={resetTwoFaSheet} title="Disable Two-Factor Authentication">
         <div className="ppm-field">
           <label htmlFor="ppm-sec-disable-pw">Password</label>
-          <PasswordInput id="ppm-sec-disable-pw" autoComplete="current-password" value={disablePassword} onChange={(e) => setDisablePassword(e.target.value)} />
+          <PasswordInput id="ppm-sec-disable-pw" placeholder="Your current password" autoComplete="current-password" value={disablePassword} onChange={(e) => setDisablePassword(e.target.value)} />
         </div>
         <div className="ppm-field">
           <label htmlFor="ppm-sec-disable-code">Verification Code</label>
           <input id="ppm-sec-disable-code" type="text" inputMode="numeric" autoComplete="one-time-code" value={disableCode} onChange={(e) => setDisableCode(e.target.value)} placeholder="123456" />
         </div>
-        {error && <div className="err" style={{ marginBottom: 10 }}>{error}</div>}
+        {error && <div role="alert" className="err" style={{ marginBottom: 10 }}>{error}</div>}
         <div className="ppm-sheet-actions">
           <button type="button" className="ppm-danger-btn" style={{ width: "100%" }} disabled={busy || !disablePassword || !disableCode} onClick={submitDisableTwoFa}>{busy ? "Disabling…" : "Disable 2FA"}</button>
           <button type="button" className="ppm-sheet-cancel" onClick={resetTwoFaSheet} disabled={busy}>Cancel</button>
@@ -356,7 +377,7 @@ export function MobileSecurityView() {
           <>
             <div className="ppm-field">
               <label htmlFor="ppm-sec-add-pw">Password</label>
-              <PasswordInput id="ppm-sec-add-pw" autoComplete="current-password" value={addPassword} onChange={(e) => setAddPassword(e.target.value)} />
+              <PasswordInput id="ppm-sec-add-pw" placeholder="Your current password" autoComplete="current-password" value={addPassword} onChange={(e) => setAddPassword(e.target.value)} />
             </div>
             {twoFactorEnabled && (
               <div className="ppm-field">
@@ -364,7 +385,7 @@ export function MobileSecurityView() {
                 <input id="ppm-sec-add-code" type="text" inputMode="numeric" autoComplete="one-time-code" value={addCode} onChange={(e) => setAddCode(e.target.value)} placeholder="123456" />
               </div>
             )}
-            {error && <div className="err" style={{ marginBottom: 10 }}>{error}</div>}
+            {error && <div role="alert" className="err" style={{ marginBottom: 10 }}>{error}</div>}
             <div className="ppm-sheet-actions">
               <button type="button" className="ppm-sheet-submit" disabled={busy || !addPassword || (twoFactorEnabled && !addCode)} onClick={startPasskeyRegistration}>{busy ? "Verifying…" : "Continue"}</button>
               <button type="button" className="ppm-sheet-cancel" onClick={resetAddFlow} disabled={busy}>Cancel</button>
@@ -376,7 +397,7 @@ export function MobileSecurityView() {
               <label htmlFor="ppm-sec-add-name">Passkey Name</label>
               <input id="ppm-sec-add-name" ref={addNameRef} value={addName} onChange={(e) => setAddName(e.target.value)} placeholder="e.g. Windows Hello, iPhone" />
             </div>
-            {error && <div className="err" style={{ marginBottom: 10 }}>{error}</div>}
+            {error && <div role="alert" className="err" style={{ marginBottom: 10 }}>{error}</div>}
             <div className="ppm-sheet-actions">
               <button type="button" className="ppm-sheet-submit" disabled={busy || !addName.trim()} onClick={completePasskeyRegistration}>{busy ? "Registering…" : "Register Device"}</button>
               <button type="button" className="ppm-sheet-cancel" onClick={resetAddFlow} disabled={busy}>Cancel</button>
@@ -390,7 +411,7 @@ export function MobileSecurityView() {
         <p style={{ fontSize: 13, color: "var(--ppm-text-dim)", marginBottom: 12 }}>Confirm your password to remove &quot;{deleteTarget?.name}&quot;.</p>
         <div className="ppm-field">
           <label htmlFor="ppm-sec-del-pw">Password</label>
-          <PasswordInput id="ppm-sec-del-pw" autoComplete="current-password" value={deletePassword} onChange={(e) => setDeletePassword(e.target.value)} />
+          <PasswordInput id="ppm-sec-del-pw" placeholder="Your current password" autoComplete="current-password" value={deletePassword} onChange={(e) => setDeletePassword(e.target.value)} />
         </div>
         {twoFactorEnabled && (
           <div className="ppm-field">
@@ -398,7 +419,7 @@ export function MobileSecurityView() {
             <input id="ppm-sec-del-code" type="text" inputMode="numeric" autoComplete="one-time-code" value={deleteCode} onChange={(e) => setDeleteCode(e.target.value)} placeholder="123456" />
           </div>
         )}
-        {error && <div className="err" style={{ marginBottom: 10 }}>{error}</div>}
+        {error && <div role="alert" className="err" style={{ marginBottom: 10 }}>{error}</div>}
         <div className="ppm-sheet-actions">
           <button type="button" className="ppm-danger-btn" style={{ width: "100%" }} disabled={busy || !deletePassword || (twoFactorEnabled && !deleteCode)} onClick={deletePasskey}>{busy ? "Removing…" : "Remove Passkey"}</button>
           <button type="button" className="ppm-sheet-cancel" onClick={() => setDeleteTarget(null)} disabled={busy}>Cancel</button>
@@ -410,15 +431,22 @@ export function MobileSecurityView() {
       <MobileSheet open={pwSheet} onClose={() => setPwSheet(false)} title="Change Password">
         <div className="ppm-field">
           <label htmlFor="ppm-sec-cur-pw">Current Password</label>
-          <PasswordInput id="ppm-sec-cur-pw" autoComplete="current-password" value={currentPw} onChange={(e) => setCurrentPw(e.target.value)} />
+          <PasswordInput id="ppm-sec-cur-pw" placeholder="Your current password" autoComplete="current-password" value={currentPw} aria-invalid={pwErr.current ? true : undefined} aria-describedby={pwErr.current ? "ppm-sec-cur-err" : undefined} onChange={(e) => { setCurrentPw(e.target.value); setPwErr((x) => ({ ...x, current: undefined })); }} />
+          {pwErr.current && <div id="ppm-sec-cur-err" role="alert" className="err">{pwErr.current}</div>}
         </div>
         <div className="ppm-field">
           <label htmlFor="ppm-sec-new-pw">New Password</label>
-          <PasswordInput id="ppm-sec-new-pw" autoComplete="new-password" value={newPw} onChange={(e) => setNewPw(e.target.value)} />
+          <PasswordInput id="ppm-sec-new-pw" placeholder="At least 8 characters" autoComplete="new-password" value={newPw} aria-invalid={pwErr.next ? true : undefined} aria-describedby={pwErr.next ? "ppm-sec-new-err" : "ppm-sec-new-hint"} onChange={(e) => { setNewPw(e.target.value); setPwErr((x) => ({ ...x, next: undefined })); }} />
+          {pwErr.next ? <div id="ppm-sec-new-err" role="alert" className="err">{pwErr.next}</div> : <div id="ppm-sec-new-hint" className="ppm-meta">{policy.hint}</div>}
         </div>
-        {error && <div className="err" style={{ marginBottom: 10 }}>{error}</div>}
+        <div className="ppm-field">
+          <label htmlFor="ppm-sec-conf-pw">Confirm New Password</label>
+          <PasswordInput id="ppm-sec-conf-pw" placeholder="Re-enter the new password" autoComplete="new-password" value={confirmPw} aria-invalid={pwErr.confirm ? true : undefined} aria-describedby={pwErr.confirm ? "ppm-sec-conf-err" : undefined} onChange={(e) => { setConfirmPw(e.target.value); setPwErr((x) => ({ ...x, confirm: undefined })); }} />
+          {pwErr.confirm && <div id="ppm-sec-conf-err" role="alert" className="err">{pwErr.confirm}</div>}
+        </div>
+        {error && <div role="alert" className="err" style={{ marginBottom: 10 }}>{error}</div>}
         <div className="ppm-sheet-actions">
-          <button type="button" className="ppm-sheet-submit" disabled={busy || !currentPw || !newPw} onClick={submitChangePassword}>{busy ? "Saving…" : "Change Password"}</button>
+          <button type="button" className="ppm-sheet-submit" disabled={busy} onClick={submitChangePassword}>{busy ? "Saving…" : "Change Password"}</button>
           <button type="button" className="ppm-sheet-cancel" onClick={() => setPwSheet(false)} disabled={busy}>Cancel</button>
         </div>
       </MobileSheet>

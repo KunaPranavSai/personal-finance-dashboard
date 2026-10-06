@@ -8,6 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/PpCard
 import { EmptyState } from "@/components/ui/EmptyState";
 import { api } from "@/lib/api";
 import { getStorageMode } from "@/lib/storage";
+import { ReportPeriodBar } from "@/components/reports/ReportPeriodBar";
+import { rangeFor, reportQuery, type ReportRange } from "@/lib/reportRange";
 import { getLocalMonthlyReport, getLocalCategoryReport, getLocalBudgetReport } from "@/lib/services/reportsService";
 import { formatCurrency } from "@/lib/format";
 import { useSettingsContext } from "@/lib/SettingsContext";
@@ -36,14 +38,15 @@ function DeltaBadge({ label, pct }: { label: string; pct: number | null }) {
 
 export default function ReportsPage() {
   const [exportOpen, setExportOpen] = useState(false);
+  const [range, setRange] = useState<ReportRange>(() => rangeFor("this-month"));
   const { settings } = useSettingsContext();
   const cur = settings.currency;
   const isMobile = useIsMobile();
   const [tab, setTab] = useState<"monthly" | "categories" | "budgets">("monthly");
 
   const { data: monthly, isLoading: loadingMonthly } = useQuery({
-    queryKey: ["reports-monthly"],
-    queryFn: () => (getStorageMode() === "local" ? getLocalMonthlyReport() : api.get<{ items: ReportItem[] }>("/api/reports/monthly")),
+    queryKey: ["reports-monthly", range.from, range.to],
+    queryFn: () => (getStorageMode() === "local" ? getLocalMonthlyReport(range) : api.get<{ items: ReportItem[] }>(`/api/reports/monthly${reportQuery(range)}`)),
     enabled: tab === "monthly",
   });
 
@@ -72,20 +75,20 @@ export default function ReportsPage() {
   })();
 
   const { data: categories, isLoading: loadingCats } = useQuery({
-    queryKey: ["reports-categories"],
+    queryKey: ["reports-categories", range.from, range.to],
     queryFn: () =>
       getStorageMode() === "local"
-        ? getLocalCategoryReport()
-        : api.get<{ items: { category: string; total: number; count: number }[] }>("/api/reports/categories"),
+        ? getLocalCategoryReport(range)
+        : api.get<{ items: { category: string; total: number; count: number }[] }>(`/api/reports/categories${reportQuery(range)}`),
     enabled: tab === "categories",
   });
 
   const { data: budgets, isLoading: loadingBudgets } = useQuery({
-    queryKey: ["reports-budgets"],
+    queryKey: ["reports-budgets", range.from, range.to],
     queryFn: () =>
       getStorageMode() === "local"
-        ? getLocalBudgetReport()
-        : api.get<{ items: { category: string; budgeted: number; actual: number; variance: number }[] }>("/api/reports/budgets"),
+        ? getLocalBudgetReport(range)
+        : api.get<{ items: { category: string; budgeted: number; actual: number; variance: number }[] }>(`/api/reports/budgets${reportQuery(range)}`),
     enabled: tab === "budgets",
   });
 
@@ -102,6 +105,7 @@ export default function ReportsPage() {
       <Topbar title="Reports" />
       <CustomExportSheet open={exportOpen} onClose={() => setExportOpen(false)} />
       <main className="flex-1 overflow-y-auto p-4 lg:p-6 2xl:px-10">
+        <ReportPeriodBar value={range} onChange={setRange} />
         <div className="mb-6 flex flex-wrap justify-end gap-2">
           <button
             onClick={() => window.print()}
@@ -259,8 +263,8 @@ export default function ReportsPage() {
                           <td className="py-2 font-medium text-pp-text">{b.category}</td>
                           <td className="py-2 text-pp-text">{formatCurrency(b.budgeted, cur)}</td>
                           <td className="py-2 text-vulcanico">{formatCurrency(b.actual, cur)}</td>
-                          <td className={`py-2 font-medium ${b.variance <= 0 ? "text-mantis" : "text-vulcanico"}`}>
-                            {b.variance > 0 ? "+" : ""}{formatCurrency(b.variance, cur)}
+                          <td className={`py-2 font-medium ${b.variance >= 0 ? "text-mantis" : "text-vulcanico"}`}>
+                            {b.variance > 0 ? "+" : ""}{formatCurrency(b.variance, cur)} {b.variance >= 0 ? "under" : "over"}
                           </td>
                         </tr>
                       ))}

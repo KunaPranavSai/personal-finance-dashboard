@@ -130,7 +130,7 @@ export function BillFormSheet({ open, onClose, inline, editing }: BillFormSheetP
         <div className="ppm-field">
           <label htmlFor="ppm-bill-name">Name</label>
           <input id="ppm-bill-name" value={name} maxLength={100} placeholder="Name required" onChange={(e) => setName(e.target.value)} />
-          {errors.name && <div className="err">{errors.name}</div>}
+          {errors.name && <div role="alert" className="err">{errors.name}</div>}
         </div>
 
         <div className="ppm-field">
@@ -144,19 +144,19 @@ export function BillFormSheet({ open, onClose, inline, editing }: BillFormSheetP
           <div className="ppm-field">
             <label htmlFor="ppm-bill-amount">Amount (₹)</label>
             <input id="ppm-bill-amount" inputMode="decimal" placeholder="Amount required" value={amount} onChange={(e) => setAmount(e.target.value)} />
-            {errors.amount && <div className="err">{errors.amount}</div>}
+            {errors.amount && <div role="alert" className="err">{errors.amount}</div>}
           </div>
           <div className="ppm-field">
             <label htmlFor="ppm-bill-due">Due Date</label>
             <input id="ppm-bill-due" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
-            {errors.dueDate && <div className="err">{errors.dueDate}</div>}
+            {errors.dueDate && <div role="alert" className="err">{errors.dueDate}</div>}
           </div>
         </div>
 
         <div className="ppm-field">
           <label htmlFor="ppm-bill-paid">Paid Amount (₹)</label>
           <input id="ppm-bill-paid" inputMode="decimal" value={paidAmount} onChange={(e) => setPaidAmount(e.target.value)} />
-          {errors.paidAmount && <div className="err">{errors.paidAmount}</div>}
+          {errors.paidAmount && <div role="alert" className="err">{errors.paidAmount}</div>}
         </div>
 
         {type === "EMI" && (

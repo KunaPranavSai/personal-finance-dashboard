@@ -2,7 +2,8 @@
 
 import { markLoggedInToday, setRememberSession, isRememberSession } from "@/lib/pinDay";
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
-import { API_BASE_URL } from "./api";
+import { API_BASE_URL, ApiClientError } from "./api";
+import { toUserMessage } from "./errorMessage";
 import { clearClientSensitiveStorage } from "./clientDataCleanup";
 import { startAuthentication } from "@simplewebauthn/browser";
 import type { PublicKeyCredentialRequestOptionsJSON } from "@simplewebauthn/browser";
@@ -155,6 +156,17 @@ export function useAuth() {
   return ctx;
 }
 
+// Status and wait time of the most recent response, so a thrown error keeps them (pages branch on code/status, not English).
+let lastMeta: { status: number; retryAfter?: number } = { status: 0 };
+
+/** Builds the error every sign-in method throws: friendly text, plus status/code/retry-after for the page to act on. */
+function authError(data: { error?: string; code?: string; [k: string]: unknown } | null | undefined, fallback: string): ApiClientError {
+  const body = { ...(data ?? {}), ...(lastMeta.retryAfter ? { retryAfterSeconds: lastMeta.retryAfter } : {}) };
+  const e = new ApiClientError(lastMeta.status, (data?.error as string) || fallback, body);
+  e.message = toUserMessage(e, fallback);
+  return e;
+}
+
 async function apiFetch(path: string, options?: RequestInit) {
   const headers: Record<string, string> = {};
   if (options?.method !== "GET" && options?.method !== "DELETE") {
@@ -162,11 +174,28 @@ async function apiFetch(path: string, options?: RequestInit) {
   }
   Object.assign(headers, options?.headers);
 
-  const res = await fetch(`${API_BASE_URL}${path}`, {
-    credentials: "include",
-    headers,
-    ...options,
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 45_000);
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE_URL}${path}`, {
+      credentials: "include",
+      headers,
+      signal: controller.signal,
+      ...options,
+    });
+  } catch {
+    // Never let the browser's raw "Failed to fetch" reach a sign-in screen.
+    const offline = typeof navigator !== "undefined" && !navigator.onLine;
+    throw new ApiClientError(0, controller.signal.aborted
+      ? "That took too long to respond. Check your connection and try again."
+      : offline ? "You're offline. Check your connection and try again." : "Couldn't reach the server. Check your connection and try again.",
+      { code: controller.signal.aborted ? "NETWORK_TIMEOUT" : offline ? "NETWORK_OFFLINE" : "NETWORK_UNREACHABLE" });
+  } finally {
+    clearTimeout(timer);
+  }
+  const retry = Number(res.headers.get("Retry-After"));
+  lastMeta = { status: res.status, retryAfter: Number.isFinite(retry) && retry > 0 ? retry : undefined };
   return res;
 }
 
@@ -250,7 +279,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      throw new Error(data.error || "Login failed");
+      throw authError(data, "We couldn't sign you in. Check your details and try again.");
     }
     const data = await res.json();
     if (data.requiresPasswordChange) {
@@ -271,7 +300,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const startWithEmail = useCallback(async (email: string): Promise<"explore" | "code"> => {
     const res = await apiFetch("/api/auth/start", { method: "POST", body: JSON.stringify({ email }) });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.error || "Could not get started");
+    if (!res.ok) throw authError(data, "Could not get started");
     if (data.mode === "code") return "code";
     if (data.user) {
       setUser(data.user);
@@ -286,7 +315,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loginWithCode = useCallback(async (email: string, code: string, rememberMe = false): Promise<LoginResult> => {
     const res = await apiFetch("/api/auth/code/login", { method: "POST", body: JSON.stringify({ email, code, rememberMe }) });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.error || "Incorrect code");
+    if (!res.ok) throw authError(data, "That code isn't right or has expired. Check it or request a new one.");
     if (data.requires2FA) {
       setRememberSession(rememberMe);
       return { requires2FA: true, requiresPasswordChange: false, challengeToken: data.challengeToken };
@@ -301,13 +330,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const sendEmailCode = useCallback(async () => {
     const res = await apiFetch("/api/auth/email/send-code", { method: "POST" });
-    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Could not send the code");
+    if (!res.ok) throw authError(await res.json().catch(() => ({})), "Could not send the code. Check your connection and try again.");
   }, []);
 
   const verifyEmailCode = useCallback(async (code: string) => {
     const res = await apiFetch("/api/auth/email/verify", { method: "POST", body: JSON.stringify({ code }) });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.error || "Incorrect code");
+    if (!res.ok) throw authError(data, "That code isn't right or has expired. Check it or request a new one.");
     setUser(data.user);
     markLoggedInToday(data.user.uid);
     markRecentLogin();
@@ -316,7 +345,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const completeProfile = useCallback(async (payload: { name: string; phone: string; pin: string; termsAccepted: boolean; privacyAccepted: boolean; signedName: string }) => {
     const res = await apiFetch("/api/auth/profile/complete", { method: "POST", body: JSON.stringify(payload) });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.error || "Could not save your profile");
+    if (!res.ok) throw authError(data, "Could not save your profile");
     setUser(data.user);
   }, []);
 
@@ -325,7 +354,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const res = await apiFetch("/api/auth/pin/login", { method: "POST", body: JSON.stringify({ pin, identifier, portal, rememberMe: isRememberSession() }) });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      throw new Error(data.error || "Login failed");
+      throw authError(data, "We couldn't sign you in. Check your details and try again.");
     }
     const data = await res.json();
     if (data.requiresPasswordChange) return { requires2FA: false, requiresPasswordChange: true, passwordChangeToken: data.passwordChangeToken };
@@ -361,7 +390,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     if (!verifyRes.ok) {
       const data = await verifyRes.json().catch(() => ({}));
-      throw new Error(data.error || "Passkey sign-in failed");
+      throw authError(data, "Passkey sign-in didn't work. Try again or use your password.");
     }
     const data = await verifyRes.json();
     setUser(data.user);
@@ -378,7 +407,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      throw new Error(data.error || "Signup failed");
+      throw authError(data, "We couldn't create your account. Try again.");
     }
     return { consent: data.consent, consentPdfBase64: data.consentPdfBase64 ?? null };
   }, []);
@@ -390,7 +419,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      throw new Error(data.error || "Failed to set new password");
+      throw authError(data, "We couldn't set your new password. Try again.");
     }
     const data = await res.json();
     setUser(data.user);
@@ -407,7 +436,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      throw new Error(data.error || "Verification failed");
+      throw authError(data, "That code didn't work. Check it and try again.");
     }
     const data = await res.json();
     setUser(data.user);
@@ -460,7 +489,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      throw new Error(data.error || "Password change failed");
+      throw authError(data, "We couldn't change your password. Check your current password.");
     }
   }, []);
 
@@ -468,7 +497,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const res = await apiFetch("/api/auth/2fa/setup", { method: "POST" });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      throw new Error(data.error || "Failed to start 2FA setup");
+      throw authError(data, "We couldn't start two-factor setup. Try again.");
     }
     return res.json();
   }, []);
@@ -480,7 +509,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      throw new Error(data.error || "Invalid verification code");
+      throw authError(data, "That code isn't right. Check your authenticator app and try again.");
     }
     const data = await res.json();
     setTwoFactorEnabled(true);
@@ -494,7 +523,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      throw new Error(data.error || "Failed to disable 2FA");
+      throw authError(data, "We couldn't turn off two-factor sign-in. Check your password and code.");
     }
     setTwoFactorEnabled(false);
   }, []);
@@ -511,7 +540,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      throw new Error(data.error || "Failed to request password reset");
+      throw authError(data, "We couldn't start the recovery. Check your details and try again.");
     }
   }, []);
 
@@ -522,7 +551,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      throw new Error(data.error || "That recovery method isn't available right now.");
+      throw authError(data, "That recovery method isn't available right now.");
     }
     return { method: data.method, questions: data.questions };
   }, []);
@@ -531,7 +560,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const res = await apiFetch("/api/auth/recovery/resend-otp", { method: "POST" });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      throw new Error(data.error || "Failed to resend code");
+      throw authError(data, "We couldn't send a new code. Wait a moment and try again.");
     }
   }, []);
 
@@ -542,7 +571,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      throw new Error(data.error || "Invalid or expired code");
+      throw authError(data, "That code isn't right or has expired. Request a new one.");
     }
   }, []);
 
@@ -553,7 +582,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      throw new Error(data.error || "Invalid verification code");
+      throw authError(data, "That code isn't right. Check your authenticator app and try again.");
     }
   }, []);
 
@@ -564,7 +593,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      throw new Error(data.error || "Incorrect answers");
+      throw authError(data, "Incorrect answers");
     }
   }, []);
 
@@ -575,7 +604,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      throw new Error(data.error || "Failed to reset password");
+      throw authError(data, "Failed to reset password");
     }
   }, []);
 
@@ -586,7 +615,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      throw new Error(data.error || "Failed to change UID");
+      throw authError(data, "Failed to change UID");
     }
     const data = await res.json();
     setUser((u) => (u ? { ...u, uid: data.uid } : u));

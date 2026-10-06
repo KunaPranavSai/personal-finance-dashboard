@@ -2,6 +2,7 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
+import { MotionConfig } from "framer-motion";
 import { SettingsProvider } from "@/lib/SettingsContext";
 import { ToastProvider } from "@/components/ui/Toast";
 import { AuthProvider } from "@/lib/AuthContext";
@@ -46,6 +47,7 @@ export function Providers({ children, isMobile }: { children: React.ReactNode; i
   }, []);
 
   return (
+    <MotionConfig reducedMotion="user">
     <QueryClientProvider client={client}>
       <DeviceProvider isMobile={isMobile}>
         <AuthProvider>
@@ -64,5 +66,6 @@ export function Providers({ children, isMobile }: { children: React.ReactNode; i
         </AuthProvider>
       </DeviceProvider>
     </QueryClientProvider>
+    </MotionConfig>
   );
 }

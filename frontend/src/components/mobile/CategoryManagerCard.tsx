@@ -92,7 +92,7 @@ export function CategoryManagerCard() {
             <label htmlFor="ppm-cat-name">Name</label>
             <input id="ppm-cat-name" ref={categoryNameRef} value={newName} maxLength={50} onChange={(e) => setNewName(e.target.value)} />
           </div>
-          {createCategory.isError && <div className="err" style={{ marginBottom: 10 }}>{(createCategory.error as Error)?.message}</div>}
+          {createCategory.isError && <div role="alert" className="err" style={{ marginBottom: 10 }}>{(createCategory.error as Error)?.message}</div>}
           <div className="ppm-sheet-actions">
             <button type="submit" className="ppm-sheet-submit" disabled={createCategory.isPending}>{createCategory.isPending ? "Saving…" : "Add Category"}</button>
             <button type="button" className="ppm-sheet-cancel" onClick={() => setCategorySheetOpen(false)} disabled={createCategory.isPending}>Cancel</button>
@@ -106,7 +106,7 @@ export function CategoryManagerCard() {
             <label htmlFor="ppm-subcat-name">Name</label>
             <input id="ppm-subcat-name" ref={subNameRef} value={subName} maxLength={50} onChange={(e) => setSubName(e.target.value)} />
           </div>
-          {createSubcategory.isError && <div className="err" style={{ marginBottom: 10 }}>{(createSubcategory.error as Error)?.message}</div>}
+          {createSubcategory.isError && <div role="alert" className="err" style={{ marginBottom: 10 }}>{(createSubcategory.error as Error)?.message}</div>}
           <div className="ppm-sheet-actions">
             <button type="submit" className="ppm-sheet-submit" disabled={createSubcategory.isPending}>{createSubcategory.isPending ? "Saving…" : "Add Subcategory"}</button>
             <button type="button" className="ppm-sheet-cancel" onClick={() => setSubcategoryTarget(null)} disabled={createSubcategory.isPending}>Cancel</button>

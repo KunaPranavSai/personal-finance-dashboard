@@ -91,8 +91,8 @@ async function loadManifest(userId: string, accessToken: string, metadataFolderI
 
 async function saveManifest(userId: string, accessToken: string, metadataFolderId: string, fileId: string, manifest: ManifestFile): Promise<void> {
   manifest.updatedAt = new Date().toISOString();
-  await upsertFile(accessToken, metadataFolderId, MANIFEST_FILENAME, JSON.stringify(manifest, null, 2), fileId);
-  invalidateManifestCache(userId);
+  await upsertFile(accessToken, metadataFolderId, MANIFEST_FILENAME, JSON.stringify(manifest), fileId);
+  manifestCache.set(userId, { manifest, fileId, expiresAt: Date.now() + MANIFEST_CACHE_TTL_MS });
 }
 
 // ─── Per-user-per-collection write lock ──────────────────────────────────────
@@ -133,7 +133,7 @@ async function loadCollectionFile(userId: string, accessToken: string, dataFolde
     if (cached && cached.expiresAt > Date.now()) return cached.file;
   }
 
-  const { manifest } = await loadManifest(userId, accessToken, metadataFolderId, { bypassCache: opts?.bypassCache });
+  const { manifest } = await loadManifest(userId, accessToken, metadataFolderId);
   const entry = manifest.files[collection];
   let file: CollectionFile;
   if (!entry) {
@@ -164,13 +164,14 @@ async function saveCollectionFile(userId: string, accessToken: string, dataFolde
   file.lastUpdated = new Date().toISOString();
   file.dataVersion += 1;
 
-  const { manifest, fileId: manifestFileId } = await loadManifest(userId, accessToken, metadataFolderId, { bypassCache: true });
+  const { manifest, fileId: manifestFileId } = await loadManifest(userId, accessToken, metadataFolderId);
   const existingEntry = manifest.files[collection];
-  const fileId = await upsertFile(accessToken, dataFolderId, collectionFilename(collection), JSON.stringify(file, null, 2), existingEntry?.fileId);
+  const fileId = await upsertFile(accessToken, dataFolderId, collectionFilename(collection), JSON.stringify(file), existingEntry?.fileId);
 
   manifest.files[collection] = { fileId, dataVersion: file.dataVersion, checksum: file.checksum, lastUpdated: file.lastUpdated };
   await saveManifest(userId, accessToken, metadataFolderId, manifestFileId, manifest);
-  invalidateRecordCache(userId, collection);
+  // The write lock makes this process the only writer, so keep the fresh copy hot for the response and the next read.
+  recordCache.set(cacheKey(userId, collection), { file, expiresAt: Date.now() + RECORD_CACHE_TTL_MS });
 }
 
 // ─── Idempotent-create support ────────────────────────────────────────────────

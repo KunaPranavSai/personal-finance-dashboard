@@ -84,7 +84,7 @@ export function SavingsForm({ onDone, onCreateGoal }: { onDone: () => void; onCr
         <label htmlFor="sav-amount">Amount (₹)</label>
         <input id="sav-amount" inputMode="decimal" placeholder="Amount required" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ""))} />
       </div>
-      {error && <div className="err" style={{ marginBottom: 10 }}>{error}</div>}
+      {error && <div role="alert" className="err" style={{ marginBottom: 10 }}>{error}</div>}
       <div className="ppm-sheet-actions">
         <button type="submit" className="ppm-sheet-submit" disabled={save.isPending}>{save.isPending ? "Saving…" : "Add Savings"}</button>
         <button type="button" className="ppm-sheet-cancel" onClick={onDone} disabled={save.isPending}>Cancel</button>

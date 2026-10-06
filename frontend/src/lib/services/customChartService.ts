@@ -46,8 +46,9 @@ async function fetchAllTransactions(filters: AnalyticsFilters): Promise<Transact
   let totalPages = 1;
   do {
     const params = new URLSearchParams({ page: String(page), pageSize: String(API_PAGE_SIZE) });
-    if (filters.from) params.set("from", filters.from);
-    if (filters.to) params.set("to", filters.to);
+    // The list endpoint names these dateFrom/dateTo; "from"/"to" were silently ignored, so Daily/Weekly never honored the range.
+    if (filters.from) params.set("dateFrom", filters.from);
+    if (filters.to) params.set("dateTo", filters.to);
     if (filters.categoryId) params.set("categoryId", filters.categoryId);
     if (filters.accountId) params.set("accountId", filters.accountId);
     if (filters.paymentMethodTypeId) params.set("paymentMethodTypeId", filters.paymentMethodTypeId);
@@ -101,16 +102,14 @@ export async function getGroupedChartData(filters: AnalyticsFilters, grouping: "
     }));
 }
 
-/** Year-to-date grouping is a running cumulative total across the current
- * calendar year's monthly buckets — a real transform of the same monthly
- * trend data already fetched for the page, not a separate data source. */
+/** "Year-to-date" grouping is a running cumulative total across the monthly buckets of the SELECTED range
+ * (so a range in a past year, or one that starts mid-year, still plots) — a transform of the same monthly
+ * trend already fetched for the page, not a separate data source. */
 export function getYearToDateChartData(trend: { month: string; income: number; expense: number; count: number }[]): ChartPoint[] {
-  const currentYear = String(new Date().getFullYear());
   let income = 0;
   let expense = 0;
   let count = 0;
   return trend
-    .filter((t) => t.month.startsWith(currentYear))
     .sort((a, b) => a.month.localeCompare(b.month))
     .map((t) => {
       income += t.income;

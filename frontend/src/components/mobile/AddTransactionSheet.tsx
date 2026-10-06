@@ -6,7 +6,8 @@ import { api } from "@/lib/api";
 import { getStorageMode, getStorageProvider } from "@/lib/storage";
 import { createLocalTransaction, updateLocalTransaction } from "@/lib/services/transactionsService";
 import { useCategories, useAccounts, usePaymentMethods, createLocalCategory } from "@/lib/reference";
-import { sortAlpha, localToday, suggestCategoryId } from "@/lib/transactionDefaults";
+import { sortAlpha, localToday } from "@/lib/transactionDefaults";
+import { suggestFromDescription, useSmartHistory } from "@/lib/smartCategorize";
 import { useToast } from "@/components/ui/Toast";
 import { generateIdempotencyKey } from "@/lib/idempotencyKey";
 import { MobileSheet } from "./MobileSheet";
@@ -63,6 +64,9 @@ export function AddTransactionSheet({ open, onClose, editing, inline, forcedType
   const sourceLabel = type === "INCOME" ? "Money Source" : "Wallet";
   // Once the user picks a category themselves, description edits stop overriding it.
   const [categoryTouched, setCategoryTouched] = useState(false);
+  const [sourceTouched, setSourceTouched] = useState(false);
+  const [smart, setSmart] = useState(false);
+  const history = useSmartHistory();
   const [adding, setAdding] = useState<"category" | "wallet" | null>(null);
   const [newName, setNewName] = useState("");
   const [addBusy, setAddBusy] = useState(false);
@@ -77,6 +81,8 @@ export function AddTransactionSheet({ open, onClose, editing, inline, forcedType
     setDate(todayIso());
     setCategoryId("");
     setCategoryTouched(false);
+    setSourceTouched(false);
+    setSmart(false);
     setAccountId("");
     setPaymentMethodTypeId("");
     setNotes("");
@@ -134,6 +140,8 @@ export function AddTransactionSheet({ open, onClose, editing, inline, forcedType
       queryClient.invalidateQueries({ queryKey: ["income-expense-trend"] });
       queryClient.invalidateQueries({ queryKey: ["category-breakdown"] });
       queryClient.invalidateQueries({ queryKey: ["budgets"] });
+      queryClient.invalidateQueries({ queryKey: ["activity-feed"] });
+      queryClient.invalidateQueries({ queryKey: ["smart-history"] });
       createIdempotencyKeyRef.current = generateIdempotencyKey();
       toast(isEditing ? "Transaction updated" : `${type === "EXPENSE" ? "Expense" : "Income"} saved`, "success");
       reset();
@@ -149,8 +157,12 @@ export function AddTransactionSheet({ open, onClose, editing, inline, forcedType
 
   const onDescription = (v: string) => {
     setDescription(v);
-    if (categoryTouched || isEditing) return;
-    setCategoryId(suggestCategoryId(v, categories) ?? "");
+    if (isEditing) return;
+    // Smart pick: fills category + wallet/source from the description; anything the user already chose by hand is kept.
+    const s = suggestFromDescription(v, type, { categories, accounts, paymentMethods, history });
+    if (!categoryTouched) setCategoryId(s?.categoryId ?? "");
+    if (!sourceTouched) { setAccountId(s?.accountId ?? ""); setPaymentMethodTypeId(s?.paymentMethodTypeId ?? ""); }
+    setSmart(Boolean(s));
   };
 
   const addEntity = async () => {
@@ -199,10 +211,17 @@ export function AddTransactionSheet({ open, onClose, editing, inline, forcedType
 
   const validate = (): boolean => {
     const next: Record<string, string> = {};
-    if (!description.trim() || description.length > 200) next.description = "Please enter a description.";
-    const amt = Number(amount);
-    if (!amount || Number.isNaN(amt) || amt <= 0) next.amount = "Please enter an amount.";
+    if (!description.trim()) next.description = "Describe what this was for, like \"Weekly groceries\".";
+    else if (description.length > 200) next.description = "Keep the description under 200 characters.";
+    const raw = amount.trim();
+    const amt = Number(raw);
+    if (!raw) next.amount = "Enter an amount.";
+    else if (!/^\d+(\.\d+)?$/.test(raw) || !Number.isFinite(amt)) next.amount = "Enter the amount as a number, like 450 or 1200.50.";
+    else if (amt <= 0) next.amount = "Enter an amount greater than zero.";
+    else if (Math.abs(amt * 100 - Math.round(amt * 100)) > 1e-6) next.amount = "The amount can have at most 2 decimal places.";
+    else if (amt > 1_000_000_000) next.amount = "That amount is too large. Check for extra digits.";
     if (!date) next.date = "Select a date.";
+    else if (date > todayIso()) next.date = "The date can't be in the future.";
     setErrors(next);
     return Object.keys(next).length === 0;
   };
@@ -233,30 +252,30 @@ export function AddTransactionSheet({ open, onClose, editing, inline, forcedType
     <MobileSheet inline={inline} open={open} onClose={handleClose} title={isEditing ? "Edit Transaction" : "Add Transaction"}>
       <form onSubmit={handleSubmit} noValidate>
         {!forcedType && <div className="ppm-type-toggle">
-          <button type="button" className={type === "EXPENSE" ? "on" : ""} onClick={() => { setType("EXPENSE"); setCategoryId(""); setCategoryTouched(false); setAccountId(""); setPaymentMethodTypeId(""); }}>
+          <button type="button" className={type === "EXPENSE" ? "on" : ""} onClick={() => { setType("EXPENSE"); setCategoryId(""); setCategoryTouched(false); setSourceTouched(false); setSmart(false); setAccountId(""); setPaymentMethodTypeId(""); }}>
             Expense
           </button>
-          <button type="button" className={type === "INCOME" ? "on" : ""} onClick={() => { setType("INCOME"); setCategoryId(""); setCategoryTouched(false); setAccountId(""); setPaymentMethodTypeId(""); }}>
+          <button type="button" className={type === "INCOME" ? "on" : ""} onClick={() => { setType("INCOME"); setCategoryId(""); setCategoryTouched(false); setSourceTouched(false); setSmart(false); setAccountId(""); setPaymentMethodTypeId(""); }}>
             Income
           </button>
         </div>}
 
         <div className="ppm-field">
           <label htmlFor="ppm-txn-desc">Description</label>
-          <input id="ppm-txn-desc" value={description} maxLength={200} placeholder="Description required" onChange={(e) => onDescription(e.target.value)} />
-          {errors.description && <div className="err">{errors.description}</div>}
+          <input id="ppm-txn-desc" aria-invalid={errors.description ? true : undefined} aria-describedby={errors.description ? "ppm-txn-desc-err" : undefined} value={description} maxLength={200} placeholder="Description required" onChange={(e) => onDescription(e.target.value)} />
+          {errors.description && <div id="ppm-txn-desc-err" role="alert" className="err">{errors.description}</div>}
         </div>
 
         <div className="ppm-field-row">
           <div className="ppm-field">
             <label htmlFor="ppm-txn-amount">Amount (₹)</label>
-            <input id="ppm-txn-amount" inputMode="decimal" placeholder="Amount required" value={amount} onChange={(e) => setAmount(e.target.value)} />
-            {errors.amount && <div className="err">{errors.amount}</div>}
+            <input id="ppm-txn-amount" aria-invalid={errors.amount ? true : undefined} aria-describedby={errors.amount ? "ppm-txn-amount-err" : undefined} inputMode="decimal" placeholder="Amount required" value={amount} onChange={(e) => setAmount(e.target.value)} />
+            {errors.amount && <div id="ppm-txn-amount-err" role="alert" className="err">{errors.amount}</div>}
           </div>
           <div className="ppm-field">
             <label htmlFor="ppm-txn-date">Date</label>
-            <input id="ppm-txn-date" type="date" value={date} max={todayIso()} onChange={(e) => setDate(e.target.value)} />
-            {errors.date && <div className="err">{errors.date}</div>}
+            <input id="ppm-txn-date" aria-invalid={errors.date ? true : undefined} aria-describedby={errors.date ? "ppm-txn-date-err" : undefined} type="date" value={date} max={todayIso()} onChange={(e) => setDate(e.target.value)} />
+            {errors.date && <div id="ppm-txn-date-err" role="alert" className="err">{errors.date}</div>}
           </div>
         </div>
 
@@ -279,6 +298,7 @@ export function AddTransactionSheet({ open, onClose, editing, inline, forcedType
               onChange={(e) => {
                 const v = e.target.value;
                 if (v === ADD) { setAdding("wallet"); return; }
+                setSourceTouched(true);
                 if (v.startsWith("account:")) { setAccountId(v.slice(8)); setPaymentMethodTypeId(""); }
                 else if (v.startsWith("pm:")) { setPaymentMethodTypeId(v.slice(3)); setAccountId(""); }
                 else { setAccountId(""); setPaymentMethodTypeId(""); }
@@ -298,6 +318,8 @@ export function AddTransactionSheet({ open, onClose, editing, inline, forcedType
               <option value={ADD}>+ Add {sourceLabel}</option>
             </select>
           </div>
+
+        {smart && (!categoryTouched || !sourceTouched) && <div className="ppm-meta" style={{ margin: "-4px 0 12px" }}>✨ Smart-selected from your description — change the category or wallet anytime.</div>}
 
         <div className="ppm-field">
           <label htmlFor="ppm-txn-notes">Notes</label>

@@ -17,8 +17,10 @@ import { usePpToast } from "../ui/PpToast";
 import type { Budget } from "@/types";
 
 const schema = z.object({
-  categoryId: z.string().min(1, "Category is required"),
-  amount: z.coerce.number().nonnegative(),
+  categoryId: z.string().min(1, "Choose a category for this budget."),
+  amount: z.coerce.number({ invalid_type_error: "Enter the budget as a number, like 5000." })
+    .refine((n) => Number.isFinite(n) && n > 0, "Enter a budget amount greater than zero.")
+    .refine((n) => n <= 1_000_000_000, "That amount is too large. Check for extra digits."),
 });
 type FormValues = z.infer<typeof schema>;
 

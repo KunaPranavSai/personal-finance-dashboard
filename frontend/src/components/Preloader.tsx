@@ -1,21 +1,23 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { PennyPilotCoinLoader } from "./ui/PennyPilotCoinLoader";
 
-const NAVY = "#004741"; // Cypress
-const GREEN = "#59C749"; // Mantis
+// Theme tokens (cypress in light, mint in dark), so the loader matches whichever theme the visitor sees.
+const NAVY = "var(--pp-accent)";
+const GREEN = "var(--pp-text-dim)";
 
 // Timeline (ms): logo 0-500, brand name 300-700, tagline 550-950,
 // progress line 700-1900, pause 1900-2100, exit fade 2100-2500.
 const HOLD_MS = 2100;
 
 export function Preloader({ onFinish }: { onFinish?: () => void }) {
+  const reduce = useReducedMotion();
   const [visible, setVisible] = useState(true);
 
   useEffect(() => {
-    if (typeof window !== "undefined" && sessionStorage.getItem("pp-preloader-shown")) {
+    if (reduce || (typeof window !== "undefined" && sessionStorage.getItem("pp-preloader-shown"))) {
       setVisible(false);
       onFinish?.();
       return;
@@ -43,7 +45,7 @@ export function Preloader({ onFinish }: { onFinish?: () => void }) {
     <AnimatePresence onExitComplete={onFinish}>
       {visible && (
         <motion.div
-          className="fixed inset-0 z-[9999] flex items-center justify-center bg-pp-surface dark:bg-pp-surface"
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-pp-surface"
           initial={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.4, ease: "easeInOut" }}
@@ -69,7 +71,7 @@ export function Preloader({ onFinish }: { onFinish?: () => void }) {
 
             <div
               className="relative mt-8 h-1 w-[200px] overflow-hidden rounded-full"
-              style={{ backgroundColor: `${NAVY}1A` }}
+              style={{ backgroundColor: "color-mix(in srgb, var(--pp-accent) 14%, transparent)" }}
             >
               <motion.div
                 className="absolute inset-y-0 left-0 rounded-full"

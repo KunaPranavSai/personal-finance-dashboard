@@ -1,5 +1,6 @@
 "use client";
 
+import { toUserMessage } from "@/lib/errorMessage";
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Topbar } from "@/components/layout/AppTopbar";
@@ -73,9 +74,9 @@ function GoalModal({ open, editing, onClose }: {
       createIdempotencyKeyRef.current = generateIdempotencyKey();
       onClose(); reset(); context?.handle.success("Goal added");
     },
-    onError: (_err, _values, context) => {
+    onError: (err, _values, context) => {
       context?.handle.error("Couldn't save goal — try again");
-      toast("Failed to create goal", "error");
+      toast(toUserMessage(err, "We couldn't add the goal. Check the details and try again."), "error");
     },
   });
   const updateMutation = useMutation({
@@ -93,9 +94,9 @@ function GoalModal({ open, editing, onClose }: {
       queryClient.invalidateQueries({ queryKey: ["dashboard-summary"], refetchType: "all" });
       onClose(); reset(); context?.handle.success("Goal updated");
     },
-    onError: (_err, _values, context) => {
+    onError: (err, _values, context) => {
       context?.handle.error("Couldn't update goal — try again");
-      toast("Failed to update goal", "error");
+      toast(toUserMessage(err, "We couldn't update the goal. Try again."), "error");
     },
   });
 
@@ -188,9 +189,9 @@ export default function GoalsPage() {
       queryClient.invalidateQueries({ queryKey: ["dashboard-summary"], refetchType: "all" });
       context?.handle.success("Goal deleted");
     },
-    onError: (_err, _id, context) => {
+    onError: (err, _id, context) => {
       context?.handle.error("Couldn't delete goal — try again");
-      toast("Failed to delete goal", "error");
+      toast(toUserMessage(err, "We couldn't delete the goal. Try again."), "error");
     },
   });
 

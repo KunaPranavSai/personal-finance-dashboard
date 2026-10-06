@@ -6,6 +6,8 @@ import { MobileShell } from "@/components/mobile/MobileShell";
 import { LoadingCard, ErrorCard, EmptyCard } from "@/components/mobile/MobileStates";
 import { api } from "@/lib/api";
 import { getStorageMode } from "@/lib/storage";
+import { ReportPeriodBar } from "@/components/reports/ReportPeriodBar";
+import { rangeFor, reportQuery, type ReportRange } from "@/lib/reportRange";
 import { getLocalMonthlyReport, getLocalCategoryReport, getLocalBudgetReport } from "@/lib/services/reportsService";
 import { useSettingsContext } from "@/lib/SettingsContext";
 import { formatCurrency } from "@/lib/format";
@@ -51,28 +53,29 @@ export function MobileReportsView() {
   // null = overview of brief report cards; a value = that report in full detail.
   const [tab, setTab] = useState<Tab | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
+  const [range, setRange] = useState<ReportRange>(() => rangeFor("this-month"));
 
   const { data: monthly, isLoading: loadingMonthly, isError: errorMonthly, refetch: refetchMonthly } = useQuery({
-    queryKey: ["reports-monthly"],
-    queryFn: () => (getStorageMode() === "local" ? getLocalMonthlyReport() : api.get<{ items: ReportItem[] }>("/api/reports/monthly")),
+    queryKey: ["reports-monthly", range.from, range.to],
+    queryFn: () => (getStorageMode() === "local" ? getLocalMonthlyReport(range) : api.get<{ items: ReportItem[] }>(`/api/reports/monthly${reportQuery(range)}`)),
     enabled: true,
   });
 
   const { data: categories, isLoading: loadingCategories, isError: errorCategories, refetch: refetchCategories } = useQuery({
-    queryKey: ["reports-categories"],
+    queryKey: ["reports-categories", range.from, range.to],
     queryFn: () =>
       getStorageMode() === "local"
-        ? getLocalCategoryReport()
-        : api.get<{ items: { category: string; total: number; count: number }[] }>("/api/reports/categories"),
+        ? getLocalCategoryReport(range)
+        : api.get<{ items: { category: string; total: number; count: number }[] }>(`/api/reports/categories${reportQuery(range)}`),
     enabled: true,
   });
 
   const { data: budgets, isLoading: loadingBudgets, isError: errorBudgets, refetch: refetchBudgets } = useQuery({
-    queryKey: ["reports-budgets"],
+    queryKey: ["reports-budgets", range.from, range.to],
     queryFn: () =>
       getStorageMode() === "local"
-        ? getLocalBudgetReport()
-        : api.get<{ items: { category: string; budgeted: number; actual: number; variance: number }[] }>("/api/reports/budgets"),
+        ? getLocalBudgetReport(range)
+        : api.get<{ items: { category: string; budgeted: number; actual: number; variance: number }[] }>(`/api/reports/budgets${reportQuery(range)}`),
     enabled: true,
   });
 
@@ -90,6 +93,8 @@ export function MobileReportsView() {
         <h2>Reports</h2>
         <p>Monthly, category &amp; budget performance</p>
       </div>
+
+      <ReportPeriodBar mobile value={range} onChange={setRange} />
 
       {tab === null ? (
         <div className="ppm-hub">

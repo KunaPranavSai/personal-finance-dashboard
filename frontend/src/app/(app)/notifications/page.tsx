@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { usePpConfirm } from "@/components/ui/PpConfirm";
 import { Topbar } from "@/components/layout/Topbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/PpCard";
 import { Button } from "@/components/ui/Button";
@@ -83,6 +84,7 @@ const typeLabels: Record<string, string> = {
 
 export default function NotificationsPage() {
   const queryClient = useQueryClient();
+  const confirmDialog = usePpConfirm();
   const isMobile = useIsMobile();
   const [tab, setTab] = useState<"personal" | "announcements">("personal");
 
@@ -157,7 +159,7 @@ export default function NotificationsPage() {
               </Button>
             )}
             {items.length > 0 && (
-              <Button size="sm" variant="ghost" onClick={() => { if (window.confirm("Clear all notifications?")) clearAllMutation.mutate(); }}>
+              <Button size="sm" variant="ghost" onClick={async () => { if (await confirmDialog({ title: "Clear all notifications?", message: "This removes every notification. You can't undo it.", confirmLabel: "Clear all", danger: true })) clearAllMutation.mutate(); }}>
                 <Trash2 className="h-4 w-4" /> Clear all
               </Button>
             )}

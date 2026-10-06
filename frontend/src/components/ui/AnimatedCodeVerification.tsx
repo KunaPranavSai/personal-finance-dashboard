@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ShieldCheck, Lightbulb, Check, KeyRound } from "lucide-react";
 
 type Phase = "input" | "orbiting" | "verifying" | "success" | "error";
@@ -28,7 +28,7 @@ interface AnimatedCodeVerificationProps {
 const ORBIT_MS = 900;
 const VERIFY_MIN_MS = 700;
 const SUCCESS_HOLD_MS = 1400;
-const ERROR_HOLD_MS = 900;
+const SHAKE_MS = 650; // the shake is brief; the message itself stays until the person edits the code
 
 export function AnimatedCodeVerification({
   length = 6,
@@ -48,6 +48,9 @@ export function AnimatedCodeVerification({
   const [backupMode, setBackupMode] = useState(false);
   const [backupCode, setBackupCode] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  // Locked, rate-limited or expired: more attempts cannot help, so input stops and the message stays with a way out.
+  const [terminal, setTerminal] = useState(false);
+  const reduceMotion = useReducedMotion();
   const inputsRef = useRef<Array<HTMLInputElement | null>>([]);
   const runIdRef = useRef(0);
 
@@ -76,18 +79,23 @@ export function AnimatedCodeVerification({
       setTimeout(() => { if (runIdRef.current === myRun) onSuccess?.(); }, SUCCESS_HOLD_MS);
     } catch (err) {
       if (runIdRef.current !== myRun) return;
-      setErrorMessage(err instanceof Error ? err.message : "Verification failed");
+      const status = (err as { status?: number })?.status;
+      const code = (err as { details?: { code?: string } })?.details?.code;
+      const stop = status === 423 || status === 429 || code === "AUTH_EXPIRED" || /too many|locked|expired.*(log|sign)/i.test(err instanceof Error ? err.message : "");
+      setErrorMessage(err instanceof Error ? err.message : "That didn't work. Check the code and try again.");
+      setTerminal(stop);
       setPhase("error");
       setTimeout(() => {
         if (runIdRef.current !== myRun) return;
         setPhase("input");
-        resetDigits();
+        if (!stop) resetDigits();
         setBackupCode("");
-      }, ERROR_HOLD_MS);
+      }, SHAKE_MS);
     }
   }, [onVerify, onSuccess, resetDigits]);
 
   const handleDigitChange = (index: number, raw: string) => {
+    if (errorMessage && !terminal) setErrorMessage("");
     const value = raw.replace(/\D/g, "");
     if (!value) {
       setDigits((d) => { const next = [...d]; next[index] = ""; return next; });
@@ -109,16 +117,11 @@ export function AnimatedCodeVerification({
       }
       return;
     }
-    setDigits((d) => {
-      const next = [...d];
-      next[index] = value;
-      if (next.every((v) => v) && index === length - 1) {
-        void runVerification(next.join(""));
-      } else if (index < length - 1) {
-        inputsRef.current[index + 1]?.focus();
-      }
-      return next;
-    });
+    const next = [...digits];
+    next[index] = value;
+    setDigits(next);
+    if (next.every((v) => v) && index === length - 1) void runVerification(next.join(""));
+    else if (index < length - 1) inputsRef.current[index + 1]?.focus();
   };
 
   const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -145,22 +148,22 @@ export function AnimatedCodeVerification({
               opacity: 1,
               scale: 1,
               y: 0,
-              x: phase === "error" ? [0, -8, 8, -6, 6, -2, 2, 0] : 0,
+              x: phase === "error" && !reduceMotion ? [0, -8, 8, -6, 6, -2, 2, 0] : 0,
             }}
             exit={{ opacity: 0, scale: 0.94 }}
             transition={{ duration: 0.35, ease: "easeOut" }}
-            className="rounded-2xl border border-white/10 bg-white/5 p-8 shadow-2xl backdrop-blur-xl"
+            className="rounded-2xl border border-pp-border bg-pp-surface-2 p-8 shadow-2xl backdrop-blur-xl"
           >
             <div className="mb-6 flex flex-col items-center gap-3 text-center">
               <div className="relative flex h-14 w-14 items-center justify-center">
                 <div className="absolute inset-0 rounded-full bg-pp-accent/30 blur-xl" />
-                <div className="relative flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-pp-accent/20 to-pp-accent/20 border border-white/10">
+                <div className="relative flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-pp-accent/20 to-pp-accent/20 border border-pp-border">
                   <ShieldCheck className="h-6 w-6 text-pp-accent/40" />
                 </div>
               </div>
               <div>
-                <h2 className="text-lg font-bold text-white">{title}</h2>
-                <p className="mt-1 text-sm text-white/60">{subtitle}</p>
+                <h2 className="text-lg font-bold text-pp-text">{title}</h2>
+                <p className="mt-1 text-sm text-pp-text-dim">{subtitle}</p>
               </div>
             </div>
 
@@ -176,12 +179,16 @@ export function AnimatedCodeVerification({
                     maxLength={length}
                     value={d}
                     autoFocus={i === 0}
+                    disabled={terminal}
+                    aria-label={`Digit ${i + 1} of ${length}`}
+                    aria-invalid={errorMessage ? true : undefined}
+                    aria-describedby={errorMessage ? "code-error" : undefined}
                     onChange={(e) => handleDigitChange(i, e.target.value)}
                     onKeyDown={(e) => handleKeyDown(i, e)}
-                    className={`h-14 w-11 rounded-xl border bg-white/5 text-center text-xl font-semibold text-white outline-none transition-all focus:ring-2 ${
+                    className={`h-14 w-11 rounded-xl border bg-pp-surface-2 text-center text-xl font-semibold text-pp-text outline-none transition-all focus:ring-2 ${
                       d
-                        ? "border-pp-accent/60 shadow-[0_0_16px_rgba(33,241,168,0.35)]"
-                        : "border-white/10 focus:border-pp-accent/60 focus:shadow-[0_0_16px_rgba(33,241,168,0.35)] focus:ring-pp-accent/20"
+                        ? "border-pp-accent/60"
+                        : "border-pp-border focus:border-pp-accent focus:ring-pp-accent/25"
                     }`}
                   />
                 ))}
@@ -193,26 +200,33 @@ export function AnimatedCodeVerification({
                   autoFocus
                   autoComplete="off"
                   value={backupCode}
-                  onChange={(e) => setBackupCode(e.target.value)}
+                  onChange={(e) => { setBackupCode(e.target.value); if (errorMessage && !terminal) setErrorMessage(""); }}
+                  disabled={terminal}
+                  aria-label="Backup code"
+                  aria-invalid={errorMessage ? true : undefined}
+                  aria-describedby={errorMessage ? "code-error" : undefined}
                   placeholder="Backup code"
-                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-center text-sm tracking-wide text-white placeholder:text-white/30 outline-none transition-all focus:border-pp-accent/60 focus:ring-2 focus:ring-pp-accent/20"
+                  className="w-full rounded-xl border border-pp-border bg-pp-surface-2 px-4 py-3 text-center text-sm tracking-wide text-pp-text placeholder:text-pp-text-dim/70 outline-none transition-all focus:border-pp-accent focus:ring-2 focus:ring-pp-accent/25"
                 />
                 <button
                   type="submit"
                   disabled={!backupCode.trim()}
-                  className="w-full rounded-xl bg-gradient-to-r from-pp-accent to-pp-accent/80 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-pp-accent/25 transition-all hover:from-pp-accent/90 hover:to-pp-accent/70 disabled:opacity-50"
+                  className="w-full rounded-xl bg-pp-accent px-4 py-2.5 text-sm font-semibold text-pp-accent-ink shadow-pp transition hover:opacity-90 active:scale-[0.98] disabled:opacity-50"
                 >
                   Verify
                 </button>
               </form>
             )}
 
-            {phase === "error" && (
-              <p className="mt-4 text-center text-xs text-vulcanico">{errorMessage}</p>
+            {errorMessage && (
+              <p id="code-error" role="alert" className="mt-4 rounded-lg bg-pp-critical/10 px-3 py-2 text-center text-sm font-medium text-pp-critical">
+                {errorMessage}
+                {terminal && onCancel && <span className="mt-1 block text-xs font-normal text-pp-text-dim">Use “{cancelLabel}” below to start again.</span>}
+              </p>
             )}
 
-            <div className="mt-6 flex items-center justify-center gap-1.5 text-xs text-white/60">
-              <Lightbulb className="h-3.5 w-3.5 shrink-0 text-turmeric/70" />
+            <div className="mt-6 flex items-center justify-center gap-1.5 text-xs text-pp-text-dim">
+              <Lightbulb className="h-3.5 w-3.5 shrink-0 text-pp-warning" />
               <span>{backupMode ? "Enter one of your saved backup codes" : tip}</span>
             </div>
 
@@ -220,7 +234,7 @@ export function AnimatedCodeVerification({
               <button
                 type="button"
                 onClick={() => { setBackupMode((v) => !v); setErrorMessage(""); }}
-                className="mt-3 flex w-full items-center justify-center gap-1.5 text-xs text-white/40 transition-colors hover:text-white/60"
+                className="mt-3 flex w-full items-center justify-center gap-1.5 text-xs text-pp-text-dim transition-colors hover:text-pp-text"
               >
                 <KeyRound className="h-3 w-3" />
                 {backupMode ? "Use authenticator code instead" : "Use a backup code instead"}
@@ -231,7 +245,7 @@ export function AnimatedCodeVerification({
               <button
                 type="button"
                 onClick={onCancel}
-                className="mt-2 w-full text-center text-xs text-white/40 transition-colors hover:text-white/60"
+                className="mt-2 w-full text-center text-xs text-pp-text-dim transition-colors hover:text-pp-text"
               >
                 {cancelLabel}
               </button>
@@ -244,7 +258,7 @@ export function AnimatedCodeVerification({
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.96 }}
             transition={{ duration: 0.35 }}
-            className="flex flex-col items-center gap-8 rounded-2xl border border-white/10 bg-white/5 p-10 shadow-2xl backdrop-blur-xl"
+            className="flex flex-col items-center gap-8 rounded-2xl border border-pp-border bg-pp-surface-2 p-10 shadow-2xl backdrop-blur-xl"
           >
             <div className="relative flex h-40 w-40 items-center justify-center">
               {phase === "orbiting" && (
@@ -261,7 +275,7 @@ export function AnimatedCodeVerification({
                     return (
                       <motion.div
                         key={i}
-                        className="absolute left-1/2 top-1/2 flex h-9 w-9 items-center justify-center rounded-lg border border-pp-accent/40 bg-white/10 text-sm font-semibold text-white shadow-[0_0_14px_rgba(33,241,168,0.4)]"
+                        className="absolute left-1/2 top-1/2 flex h-9 w-9 items-center justify-center rounded-lg border border-pp-accent/40 bg-pp-chip-bg text-sm font-semibold text-pp-text"
                         style={{ x: x - 18, y: y - 18 }}
                         animate={{ rotate: -360 }}
                         transition={{ duration: 5, repeat: Infinity, ease: "linear" }}
@@ -301,8 +315,8 @@ export function AnimatedCodeVerification({
                     animate={{ scale: [1, 1.3, 1], opacity: [0.6, 0.2, 0.6] }}
                     transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
                   />
-                  <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-mantis shadow-[0_0_24px_rgba(16,185,129,0.5)]">
-                    <Check className="h-8 w-8 text-white" strokeWidth={3} />
+                  <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-mantis">
+                    <Check className="h-8 w-8 text-pp-text" strokeWidth={3} />
                   </div>
                 </motion.div>
               )}
@@ -316,14 +330,14 @@ export function AnimatedCodeVerification({
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -6 }}
                   transition={{ duration: 0.25 }}
-                  className="text-lg font-bold text-white"
+                  className="text-lg font-bold text-pp-text"
                 >
                   {phase === "orbiting" && "Orbiting your code…"}
                   {phase === "verifying" && "Verifying your code…"}
                   {phase === "success" && successTitle}
                 </motion.h2>
               </AnimatePresence>
-              <p className="mt-1 text-sm text-white/60">
+              <p className="mt-1 text-sm text-pp-text-dim">
                 {phase === "success" ? successSubtitle : "Just a moment"}
               </p>
             </div>

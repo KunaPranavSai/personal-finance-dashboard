@@ -12,7 +12,8 @@ import { FocusTrap } from "../ui/FocusTrap";
 import { Transaction, Category, Account, PaymentMethodType } from "@/types";
 import { useEffect, useRef, useState } from "react";
 import { useCategories, useAccounts, usePaymentMethods, ENTRY_TYPES } from "@/lib/reference";
-import { sortAlpha, localToday, suggestCategoryId } from "@/lib/transactionDefaults";
+import { sortAlpha, localToday } from "@/lib/transactionDefaults";
+import { suggestFromDescription, useSmartHistory } from "@/lib/smartCategorize";
 import { QuickCreateModal } from "../ui/QuickCreateModal";
 import { postWithOfflineQueue } from "@/lib/offlineAwarePost";
 import { generateIdempotencyKey } from "@/lib/idempotencyKey";
@@ -36,15 +37,19 @@ async function createReferenceRecord<T extends { id: string }>(
 }
 
 const schema = z.object({
-  date: z.string().min(1, "Please select a date"),
-  description: z.string().trim().min(1, "Please enter a description"),
-  amount: z.coerce.number({ invalid_type_error: "Please enter an amount" }).positive("Please enter an amount"),
+  date: z.string().min(1, "Please select a date.").refine((d) => d <= localToday(), "The date can't be in the future."),
+  description: z.string().trim().min(1, "Describe what this was for, like \"Weekly groceries\".").max(200, "Keep the description under 200 characters."),
+  amount: z.coerce.number({ invalid_type_error: "Enter the amount as a number, like 450 or 1200.50." })
+    .refine((n) => Number.isFinite(n), "Enter the amount as a number, like 450 or 1200.50.")
+    .refine((n) => n > 0, "Enter an amount greater than zero.")
+    .refine((n) => Math.abs(n * 100 - Math.round(n * 100)) < 1e-6, "The amount can have at most 2 decimal places.")
+    .refine((n) => n <= 1_000_000_000, "That amount is too large. Check for extra digits."),
   type: z.enum(["INCOME", "EXPENSE"]),
   categoryId: z.string().optional(),
-  merchant: z.string().optional(),
+  merchant: z.string().max(100, "Keep the merchant under 100 characters.").optional(),
   accountId: z.string().optional(),
   paymentMethodTypeId: z.string().optional(),
-  notes: z.string().optional(),
+  notes: z.string().max(1000, "Keep notes under 1000 characters.").optional(),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -66,6 +71,8 @@ export function TransactionFormModal({
   const { data: paymentMethods, isLoading: pmLoading } = usePaymentMethods();
 
   const [quickCreate, setQuickCreate] = useState<"category" | "account" | "paymentMethod" | null>(null);
+  const [smart, setSmart] = useState(false);
+  const history = useSmartHistory();
 
   // Stable for the life of one create attempt — reused across manual retries
   // of the same submission, regenerated only when a fresh entry starts
@@ -127,8 +134,10 @@ export function TransactionFormModal({
       // this same page is a real bug repro: with the default, its query was invalidated but
       // did not actually refetch until a manual page reload, leaving a stale total on screen
       // right after a create/edit even though the write itself succeeded and persisted.
-      queryClient.invalidateQueries({ queryKey: ["transactions"], refetchType: "all" });
-      queryClient.invalidateQueries({ queryKey: ["dashboard-summary"], refetchType: "all" });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] });
+      queryClient.invalidateQueries({ queryKey: ["activity-feed"] });
+      queryClient.invalidateQueries({ queryKey: ["smart-history"] });
       if (result && typeof result === "object" && "queued" in result && result.queued) {
         toast("You're offline — this will be saved automatically once you're back online.", "success");
         context?.handle.success(`${context.label} queued — will sync when back online`);
@@ -225,10 +234,16 @@ export function TransactionFormModal({
             <label className="text-xs font-medium text-pp-text-dim">Description</label>
             <input {...descField} onChange={(e) => {
               void descField.onChange(e);
-              // Suggest only while the user has not chosen a category themselves.
-              if (!editing && !dirtyFields.categoryId) setValue("categoryId", suggestCategoryId(e.target.value, filteredCategories) ?? "");
+              // Smart pick: category + wallet/source from the description, but never over a choice the user made by hand.
+              if (!editing) {
+                const s = suggestFromDescription(e.target.value, watch("type") as "EXPENSE" | "INCOME", { categories: filteredCategories, accounts: accounts?.items ?? [], paymentMethods: paymentMethods?.items ?? [], history });
+                if (!dirtyFields.categoryId) setValue("categoryId", s?.categoryId ?? "");
+                if (!dirtyFields.accountId && !dirtyFields.paymentMethodTypeId) { setValue("accountId", s?.accountId ?? ""); setValue("paymentMethodTypeId", s?.paymentMethodTypeId ?? ""); }
+                setSmart(Boolean(s));
+              }
             }} className="mt-1 w-full rounded-lg border border-pp-border px-3 py-2 text-sm " placeholder="Description required" />
             {errors.description && <p className="mt-1 text-xs text-vulcanico">{errors.description.message}</p>}
+            {smart && !dirtyFields.categoryId && <p className="mt-1 text-xs text-pp-text-dim">✨ Smart-selected from your description — change the category or wallet anytime.</p>}
           </div>
 
           <div className="col-span-1">

@@ -21,7 +21,8 @@ router.get(
     });
     const c = platformConfig();
     // The storage policy is public on purpose: the sign-up / storage-choice screens need it before a session exists.
-    res.json({ supportEmail: settings?.supportEmail || null, storage: { drive: c.driveStorageEnabled, device: c.deviceStorageEnabled } });
+    // The password minimum is shown to people before they type (it is also in every rejection message), so it is public too.
+    res.json({ supportEmail: settings?.supportEmail || null, storage: { drive: c.driveStorageEnabled, device: c.deviceStorageEnabled }, passwordMinLength: c.minPasswordLength });
   })
 );
 

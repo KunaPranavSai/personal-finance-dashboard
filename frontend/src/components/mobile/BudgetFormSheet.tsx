@@ -86,14 +86,14 @@ export function BudgetFormSheet({ open, onClose, inline, periodKey }: BudgetForm
             <option value="">Select a category</option>
             {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
-          {errors.categoryId && <div className="err">{errors.categoryId}</div>}
-          {categories.length === 0 && <div className="err" style={{ color: "var(--ppm-text-dim)" }}>No expense categories yet.</div>}
+          {errors.categoryId && <div role="alert" className="err">{errors.categoryId}</div>}
+          {categories.length === 0 && <div role="alert" className="err" style={{ color: "var(--ppm-text-dim)" }}>No expense categories yet.</div>}
         </div>
 
         <div className="ppm-field">
           <label htmlFor="ppm-budget-amount">Monthly Amount (₹)</label>
           <input id="ppm-budget-amount" inputMode="decimal" placeholder="Amount required" value={amount} onChange={(e) => setAmount(e.target.value)} />
-          {errors.amount && <div className="err">{errors.amount}</div>}
+          {errors.amount && <div role="alert" className="err">{errors.amount}</div>}
         </div>
 
         <div className="ppm-sheet-actions">

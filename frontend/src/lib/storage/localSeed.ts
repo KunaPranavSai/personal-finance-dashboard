@@ -17,6 +17,8 @@ const EXPENSE_CATEGORIES: Record<string, string[]> = {
   Groceries: [],
   Health: [],
   Housing: [],
+  Insurance: [],
+  "Loans & EMI": [],
   Other: [],
   "Personal Care": [],
   Shopping: [],
@@ -39,7 +41,8 @@ const INCOME_CATEGORIES: Record<string, string[]> = {
   Salary: [],
 };
 
-const DEFAULT_ACCOUNT_NAMES = ["Bank Account", "Cash", "Credit Card", "Digital Wallet", "Other"];
+const DEFAULT_ACCOUNT_NAMES = ["Bank Account", "Cash", "Credit Card", "Digital Wallet", "Savings Account", "Other"];
+const DEFAULT_PAYMENT_METHOD_NAMES = ["UPI", "Debit Card", "Credit Card", "Net Banking", "Cash"];
 
 function newId(): string {
   return typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `local-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -70,6 +73,13 @@ export async function seedLocalDefaultsIfEmpty(): Promise<void> {
   if (existingAccounts.length === 0) {
     for (const name of DEFAULT_ACCOUNT_NAMES) {
       await idbPut("accounts", { id: newId(), name, createdAt: now, updatedAt: now });
+    }
+  }
+
+  const existingMethods = await idbGetAll("paymentMethods");
+  if (existingMethods.length === 0) {
+    for (const name of DEFAULT_PAYMENT_METHOD_NAMES) {
+      await idbPut("paymentMethods", { id: newId(), name, createdAt: now, updatedAt: now });
     }
   }
 }

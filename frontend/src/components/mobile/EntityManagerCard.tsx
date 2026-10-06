@@ -136,7 +136,7 @@ export function EntityManagerCard({ queryKey, apiPath, localCollection, itemLabe
             <input id="ppm-entity-name" ref={nameInputRef} value={name} maxLength={50} onChange={(e) => setName(e.target.value)} />
           </div>
           {(createMutation.isError || updateMutation.isError) && (
-            <div className="err" style={{ marginBottom: 10 }}>{((createMutation.error ?? updateMutation.error) as Error)?.message}</div>
+            <div role="alert" className="err" style={{ marginBottom: 10 }}>{((createMutation.error ?? updateMutation.error) as Error)?.message}</div>
           )}
           <div className="ppm-sheet-actions">
             <button type="submit" className="ppm-sheet-submit" disabled={isPending}>{isPending ? "Saving…" : editing ? "Save Changes" : `Add ${itemLabel}`}</button>

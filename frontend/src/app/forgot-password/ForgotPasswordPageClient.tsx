@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { usePasswordPolicy } from "@/lib/passwordPolicy";
+import { isEmail } from "@/lib/zodHelpers";
 import { useAuth, type RecoveryMethod } from "@/lib/AuthContext";
 import { AuthPageShell } from "@/components/ui/AuthPageShell";
 import { PasswordInput } from "@/components/ui/PasswordInput";
@@ -10,22 +12,24 @@ import { PasswordStrengthMeter } from "@/components/ui/PasswordStrengthMeter";
 import { KeyRound, ArrowLeft, Mail, CheckCircle, AlertCircle, ShieldQuestion, Lock, ShieldCheck, ChevronRight } from "lucide-react";
 
 const inputBase =
-  "w-full rounded-xl border border-white/10 bg-white/5 py-3 pl-10 pr-4 text-sm text-white placeholder:text-white/30 outline-none transition-all focus:border-pp-accent/60 focus:ring-2 focus:ring-pp-accent/20 focus:shadow-[0_0_16px_rgba(33,241,168,0.25)]";
+  "w-full rounded-xl border border-pp-border bg-pp-surface-2 py-3 pl-10 pr-4 text-sm text-pp-text placeholder:text-pp-text-dim/70 outline-none transition-all focus:border-pp-accent focus:ring-2 focus:ring-pp-accent/25";
 
 const primaryButton =
-  "flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-pp-accent to-pp-accent px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-pp-accent/25 transition-all hover:shadow-pp-accent/40 disabled:opacity-50 disabled:cursor-not-allowed";
+  "flex w-full items-center justify-center gap-2 rounded-xl bg-pp-accent px-4 py-3 text-sm font-semibold text-pp-accent-ink shadow-pp transition hover:opacity-90 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed";
 
 function ErrorMessage({ children, tone = "error" }: { children: React.ReactNode; tone?: "error" | "warning" }) {
+  const reduce = useReducedMotion();
   return (
     <AnimatePresence mode="wait">
       <motion.div
         key={typeof children === "string" ? children : "error"}
         initial={{ opacity: 0, height: 0 }}
-        animate={{ opacity: 1, height: "auto", x: [0, -6, 6, -4, 4, 0] }}
+        animate={{ opacity: 1, height: "auto", x: reduce ? 0 : [0, -6, 6, -4, 4, 0] }}
         exit={{ opacity: 0, height: 0 }}
         transition={{ duration: 0.35 }}
+        role="alert"
         className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${
-          tone === "warning" ? "border-turmeric/20 bg-turmeric/10 text-turmeric/20" : "border-vulcanico/20 bg-vulcanico/10 text-vulcanico/40"
+          tone === "warning" ? "border-turmeric/30 bg-turmeric/10 text-pp-warning" : "border-vulcanico/20 bg-vulcanico/10 text-pp-critical"
         }`}
       >
         <AlertCircle className="h-4 w-4 shrink-0" />
@@ -60,6 +64,7 @@ export function ForgotPasswordPageClient() {
   const router = useRouter();
 
   const [step, setStep] = useState<Step>("ENTER_EMAIL");
+  const policy = usePasswordPolicy();
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [questions, setQuestions] = useState<{ key: string; text: string }[]>([]);
@@ -196,12 +201,13 @@ export function ForgotPasswordPageClient() {
     setError("");
     setErrorKind(null);
     if (newPassword !== confirmPassword) {
-      setError("New passwords do not match");
+      setError("The two passwords don't match. Re-enter them to be sure.");
       setErrorKind("generic");
       return;
     }
-    if (newPassword.length < 8) {
-      setError("Password must be at least 8 characters");
+    const rule = policy.problem(newPassword);
+    if (rule) {
+      setError(rule);
       setErrorKind("generic");
       return;
     }
@@ -238,11 +244,11 @@ export function ForgotPasswordPageClient() {
         {step === "ENTER_EMAIL" && (
           <motion.form key="email" initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 12 }} transition={{ duration: 0.25 }} onSubmit={handleEmailSubmit} className="space-y-5">
             <div>
-              <label htmlFor="email" className="mb-2 block text-xs font-semibold uppercase tracking-wider text-white/50">
+              <label htmlFor="email" className="mb-2 block text-xs font-semibold uppercase tracking-wider text-pp-text-dim">
                 Email Address
               </label>
               <div className="relative">
-                <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
+                <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-pp-text-dim" />
                 <input
                   id="email"
                   type="email"
@@ -267,7 +273,7 @@ export function ForgotPasswordPageClient() {
 
         {step === "CHOOSE_METHOD" && (
           <motion.div key="choose" initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 12 }} transition={{ duration: 0.25 }} className="space-y-3">
-            <p className="mb-1 text-center text-xs text-white/40">
+            <p className="mb-1 text-center text-xs text-pp-text-dim">
               Select a method you have access to. Availability may vary by account.
             </p>
             {METHOD_CARDS.map(({ method, icon: Icon, title, description }) => (
@@ -276,19 +282,19 @@ export function ForgotPasswordPageClient() {
                 type="button"
                 onClick={() => handleChooseMethod(method)}
                 disabled={pendingMethod !== null}
-                className="flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-4 text-left transition-all hover:border-pp-accent/40 hover:bg-white/[0.08] disabled:opacity-50"
+                className="flex w-full items-center gap-3 rounded-xl border border-pp-border bg-pp-surface-2 p-4 text-left transition-all hover:border-pp-accent/40 hover:bg-pp-chip-bg disabled:opacity-50"
               >
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white/10">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-pp-chip-bg">
                   <Icon className="h-5 w-5 text-pp-accent/40" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-white">{title}</p>
-                  <p className="text-xs text-white/40">{description}</p>
+                  <p className="text-sm font-semibold text-pp-text">{title}</p>
+                  <p className="text-xs text-pp-text-dim">{description}</p>
                 </div>
                 {pendingMethod === method ? (
-                  <div className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                  <div className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-pp-border border-t-pp-accent" />
                 ) : (
-                  <ChevronRight className="h-4 w-4 shrink-0 text-white/30" />
+                  <ChevronRight className="h-4 w-4 shrink-0 text-pp-text-dim" />
                 )}
               </button>
             ))}
@@ -299,11 +305,11 @@ export function ForgotPasswordPageClient() {
 
         {step === "VERIFY_OTP" && (
           <motion.form key="otp" initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 12 }} transition={{ duration: 0.25 }} onSubmit={handleOtpSubmit} className="space-y-5">
-            <p className="text-center text-xs text-white/40">
+            <p className="text-center text-xs text-pp-text-dim">
               If a code was sent, it will arrive shortly. It expires in 5 minutes.
             </p>
             <div>
-              <label htmlFor="code" className="mb-2 block text-xs font-semibold uppercase tracking-wider text-white/50">
+              <label htmlFor="code" className="mb-2 block text-xs font-semibold uppercase tracking-wider text-pp-text-dim">
                 Verification Code
               </label>
               <input
@@ -312,11 +318,13 @@ export function ForgotPasswordPageClient() {
                 inputMode="numeric"
                 autoComplete="one-time-code"
                 value={code}
-                onChange={(e) => setCode(e.target.value)}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                maxLength={6}
+                aria-label="6-digit code"
                 placeholder="123456"
                 required
                 autoFocus
-                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-center text-lg tracking-widest text-white placeholder:text-white/30 outline-none transition-all focus:border-pp-accent/60 focus:ring-2 focus:ring-pp-accent/20 focus:shadow-[0_0_16px_rgba(33,241,168,0.25)]"
+                className="w-full rounded-xl border border-pp-border bg-pp-surface-2 px-4 py-3 text-center text-lg tracking-widest text-pp-text placeholder:text-pp-text-dim/70 outline-none transition-all focus:border-pp-accent focus:ring-2 focus:ring-pp-accent/25"
               />
             </div>
 
@@ -328,14 +336,14 @@ export function ForgotPasswordPageClient() {
               </button>
             ) : (
               <>
-                <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} type="submit" disabled={isPending || !code} className={primaryButton}>
+                <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} type="submit" disabled={isPending || code.length !== 6} className={primaryButton}>
                   {isPending ? "Verifying…" : "Verify Code"}
                 </motion.button>
                 <button
                   type="button"
                   onClick={handleResend}
                   disabled={resendCooldown > 0}
-                  className="w-full text-center text-xs text-white/40 transition-colors hover:text-white/60 disabled:opacity-50"
+                  className="w-full text-center text-xs text-pp-text-dim transition-colors hover:text-pp-text disabled:opacity-50"
                 >
                   {resendCooldown > 0 ? `Resend code in ${resendCooldown}s` : "Resend code"}
                 </button>
@@ -346,9 +354,9 @@ export function ForgotPasswordPageClient() {
 
         {step === "VERIFY_TOTP" && (
           <motion.form key="totp" initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 12 }} transition={{ duration: 0.25 }} onSubmit={handleTotpSubmit} className="space-y-5">
-            <p className="text-center text-xs text-white/40">Enter the 6-digit code from your authenticator app (or a backup code).</p>
+            <p className="text-center text-xs text-pp-text-dim">Enter the 6-digit code from your authenticator app (or a backup code).</p>
             <div>
-              <label htmlFor="totp-code" className="mb-2 block text-xs font-semibold uppercase tracking-wider text-white/50">
+              <label htmlFor="totp-code" className="mb-2 block text-xs font-semibold uppercase tracking-wider text-pp-text-dim">
                 Authenticator Code
               </label>
               <input
@@ -357,11 +365,13 @@ export function ForgotPasswordPageClient() {
                 inputMode="numeric"
                 autoComplete="one-time-code"
                 value={code}
-                onChange={(e) => setCode(e.target.value)}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                maxLength={6}
+                aria-label="6-digit code"
                 placeholder="123456"
                 required
                 autoFocus
-                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-center text-lg tracking-widest text-white placeholder:text-white/30 outline-none transition-all focus:border-pp-accent/60 focus:ring-2 focus:ring-pp-accent/20 focus:shadow-[0_0_16px_rgba(33,241,168,0.25)]"
+                className="w-full rounded-xl border border-pp-border bg-pp-surface-2 px-4 py-3 text-center text-lg tracking-widest text-pp-text placeholder:text-pp-text-dim/70 outline-none transition-all focus:border-pp-accent focus:ring-2 focus:ring-pp-accent/25"
               />
             </div>
 
@@ -372,7 +382,7 @@ export function ForgotPasswordPageClient() {
                 Start Over
               </button>
             ) : (
-              <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} type="submit" disabled={isPending || !code} className={primaryButton}>
+              <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} type="submit" disabled={isPending || code.length !== 6} className={primaryButton}>
                 {isPending ? "Verifying…" : "Verify Code"}
               </motion.button>
             )}
@@ -383,7 +393,7 @@ export function ForgotPasswordPageClient() {
           <motion.form key="security" initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 12 }} transition={{ duration: 0.25 }} onSubmit={handleSecurityAnswersSubmit} className="space-y-5">
             {questions.map((q, i) => (
               <div key={q.key}>
-                <label className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-white/50">
+                <label className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-pp-text-dim">
                   <ShieldQuestion className="h-3.5 w-3.5" /> {q.text}
                 </label>
                 <input
@@ -414,11 +424,11 @@ export function ForgotPasswordPageClient() {
         {step === "SET_NEW_PASSWORD" && (
           <motion.form key="newpass" initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 12 }} transition={{ duration: 0.25 }} onSubmit={handleReset} className="space-y-5">
             <div>
-              <label htmlFor="newPassword" className="mb-2 block text-xs font-semibold uppercase tracking-wider text-white/50">
+              <label htmlFor="newPassword" className="mb-2 block text-xs font-semibold uppercase tracking-wider text-pp-text-dim">
                 New Password
               </label>
               <div className="relative">
-                <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
+                <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-pp-text-dim" />
                 <PasswordInput
                   id="newPassword"
                   autoComplete="new-password"
@@ -427,17 +437,17 @@ export function ForgotPasswordPageClient() {
                   placeholder="New password (min 8 chars)"
                   required
                   className={inputBase}
-                  toggleClassName="text-white/30 hover:text-white/60"
+                  toggleClassName="text-pp-text-dim hover:text-pp-text"
                 />
               </div>
               <PasswordStrengthMeter password={newPassword} />
             </div>
             <div>
-              <label htmlFor="confirmPassword" className="mb-2 block text-xs font-semibold uppercase tracking-wider text-white/50">
+              <label htmlFor="confirmPassword" className="mb-2 block text-xs font-semibold uppercase tracking-wider text-pp-text-dim">
                 Confirm New Password
               </label>
               <div className="relative">
-                <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
+                <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-pp-text-dim" />
                 <PasswordInput
                   id="confirmPassword"
                   autoComplete="new-password"
@@ -446,7 +456,7 @@ export function ForgotPasswordPageClient() {
                   placeholder="Confirm new password"
                   required
                   className={inputBase}
-                  toggleClassName="text-white/30 hover:text-white/60"
+                  toggleClassName="text-pp-text-dim hover:text-pp-text"
                 />
               </div>
             </div>
@@ -478,11 +488,11 @@ export function ForgotPasswordPageClient() {
                 animate={{ scale: [1, 1.3, 1], opacity: [0.6, 0.2, 0.6] }}
                 transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
               />
-              <div className="relative flex h-14 w-14 items-center justify-center rounded-full bg-mantis shadow-[0_0_24px_rgba(16,185,129,0.5)]">
-                <CheckCircle className="h-7 w-7 text-white" />
+              <div className="relative flex h-14 w-14 items-center justify-center rounded-full bg-mantis">
+                <CheckCircle className="h-7 w-7 text-pp-text" />
               </div>
             </motion.div>
-            <p className="text-sm text-[#94A3B8]">
+            <p className="text-sm text-pp-text-dim">
               Your password has been reset successfully. All other sessions have been signed out, and we&apos;ve emailed you a confirmation.
               You can now sign in with your new password.
             </p>
@@ -498,7 +508,7 @@ export function ForgotPasswordPageClient() {
           type="button"
           whileHover={{ x: -3 }}
           onClick={() => (canGoBackToMethods ? setStep("CHOOSE_METHOD") : router.push("/login"))}
-          className="mt-6 flex w-full items-center justify-center gap-1.5 text-xs text-white/40 transition-colors hover:text-white/60"
+          className="mt-6 flex w-full items-center justify-center gap-1.5 text-xs text-pp-text-dim transition-colors hover:text-pp-text"
         >
           <ArrowLeft className="h-3 w-3" /> {canGoBackToMethods ? "Choose a different method" : "Back to sign in"}
         </motion.button>

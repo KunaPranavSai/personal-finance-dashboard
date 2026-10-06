@@ -24,14 +24,26 @@ function dateStr(): string {
 // ─── GET /api/export/preview ─────────────────────────────────────────────────
 // Cheap record-count summary of what an export/backup would include, shown to
 // the user before they commit to a download.
+/** ?from/&to are YYYY-MM-DD (inclusive days); the optional type/category/wallet/source choices narrow the same way everywhere. */
+function rangeFrom(req: Request) {
+  const q = (k: string) => (req.query[k] ? String(req.query[k]) : undefined);
+  const from = q("from") ? new Date(`${q("from")!.slice(0, 10)}T00:00:00.000Z`) : undefined;
+  const to = q("to") ? new Date(`${q("to")!.slice(0, 10)}T23:59:59.999Z`) : undefined;
+  const kinds = new Set((q("kinds") ?? "").split(",").map((k) => k.trim().toUpperCase()).filter(Boolean));
+  return {
+    from: from && !isNaN(from.getTime()) ? from : undefined,
+    to: to && !isNaN(to.getTime()) ? to : undefined,
+    type: kinds.size === 1 ? ([...kinds][0] as "INCOME" | "EXPENSE") : undefined,
+    categoryId: q("categoryId"), accountId: q("accountId"), paymentMethodTypeId: q("paymentMethodTypeId"),
+  };
+}
+
 router.get(
   "/preview",
   asyncHandler(async (req: Request, res: Response) => {
     const userId = req.auth!.userId;
-    const from = req.query.from ? new Date(req.query.from as string) : undefined;
-    const to = req.query.to ? new Date(req.query.to as string) : undefined;
-    const validFrom = from && !isNaN(from.getTime()) ? from : undefined;
-    const validTo = to && !isNaN(to.getTime()) ? to : undefined;
+    const r = rangeFrom(req);
+    const validFrom = r.from, validTo = r.to;
 
     const [allTransactions, budgets, investments, bills, goals, categories, accounts] = await Promise.all([
       listRecords<DatedRecord>(userId, "transactions"),
@@ -42,9 +54,13 @@ router.get(
       listRecords(userId, "categories"),
       listRecords(userId, "accounts"),
     ]);
-    const transactions = allTransactions.filter(
-      (t) => (!validFrom || new Date(t.date) >= validFrom) && (!validTo || new Date(t.date) <= validTo)
-    );
+    const transactions = allTransactions.filter((t) => {
+      const x = t as unknown as { date: string; type: string; categoryId?: string; accountId?: string; paymentMethodTypeId?: string };
+      const d = new Date(x.date);
+      return (!validFrom || d >= validFrom) && (!validTo || d <= validTo) && (!r.type || x.type === r.type)
+        && (!r.categoryId || x.categoryId === r.categoryId) && (!r.accountId || x.accountId === r.accountId)
+        && (!r.paymentMethodTypeId || x.paymentMethodTypeId === r.paymentMethodTypeId);
+    });
 
     res.json({
       counts: {
@@ -68,17 +84,10 @@ router.get(
     }
 
     try {
-      const from = req.query.from ? new Date(req.query.from as string) : undefined;
-      const to = req.query.to ? new Date(req.query.to as string) : undefined;
-      const data = await fetchAllExportData(req.auth!.userId, {
-        from: from && !isNaN(from.getTime()) ? from : undefined,
-        to: to && !isNaN(to.getTime()) ? to : undefined,
-      });
+      const data = await fetchAllExportData(req.auth!.userId, rangeFrom(req));
 
       data.meta = { from: (req.query.from as string) || undefined, to: (req.query.to as string) || undefined };
-      // "kinds" narrows transactions to income and/or expense (both = all transactions).
-      const kinds = new Set(((req.query.kinds as string) || "").split(",").map((k) => k.trim().toUpperCase()).filter(Boolean));
-      if (kinds.size > 0 && kinds.size < 2) data.transactions = data.transactions.filter((t: Record<string, unknown>) => kinds.has(String(t.type)));
+      // Income/expense ("kinds"), category, wallet and money-source choices are applied inside fetchAllExportData so the totals match.
 
       const typesParam = (req.query.types as string) || "";
       const selectedTypes = typesParam ? new Set(typesParam.split(",").map((t) => t.trim())) : null;

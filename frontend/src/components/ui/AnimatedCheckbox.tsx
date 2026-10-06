@@ -35,8 +35,8 @@ export function AnimatedCheckbox({ checked, onChange, label, id }: AnimatedCheck
         onClick={(e) => { e.stopPropagation(); onChange(!checked); }}
         className={`relative mt-0.5 flex h-[18px] w-[18px] shrink-0 cursor-pointer items-center justify-center rounded-md border transition-colors ${
           checked
-            ? "border-tiffany bg-gradient-to-br from-cypress to-tiffany"
-            : "border-white/20 bg-white/5"
+            ? "border-pp-accent bg-pp-accent"
+            : "border-pp-border bg-pp-surface-2"
         }`}
       >
         <motion.div
@@ -44,10 +44,10 @@ export function AnimatedCheckbox({ checked, onChange, label, id }: AnimatedCheck
           animate={{ scale: checked ? 1 : 0, opacity: checked ? 1 : 0 }}
           transition={{ type: "spring", stiffness: 400, damping: 20 }}
         >
-          <Check className="h-3 w-3 text-white" strokeWidth={3} />
+          <Check className="h-3 w-3 text-pp-text" strokeWidth={3} />
         </motion.div>
       </button>
-      <span id={labelId} className="cursor-pointer text-xs text-white/60">{label}</span>
+      <span id={labelId} className="cursor-pointer text-xs text-pp-text-dim">{label}</span>
     </div>
   );
 }

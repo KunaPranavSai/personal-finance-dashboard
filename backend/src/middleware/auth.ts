@@ -206,6 +206,10 @@ export function requireDriveEnabled(_req: Request, res: Response, next: NextFunc
   next();
 }
 
+// Positive results only (a connected user stays connected for the next few seconds); a disconnect is seen within the TTL.
+const driveOk = new Map<string, number>();
+const DRIVE_OK_TTL_MS = 10_000;
+
 export async function requireDriveConnected(req: Request, res: Response, next: NextFunction): Promise<void> {
   const userId = req.auth?.userId;
   if (!userId) {
@@ -223,6 +227,7 @@ export async function requireDriveConnected(req: Request, res: Response, next: N
     next();
     return;
   }
+  if ((driveOk.get(userId) ?? 0) > Date.now()) { next(); return; }
   const connection = await prisma.backupConnection.findUnique({
     where: { userId_provider: { userId, provider: "google_drive" } },
     select: { backupFolderId: true },
@@ -231,6 +236,7 @@ export async function requireDriveConnected(req: Request, res: Response, next: N
     res.status(403).json({ error: "Connect your Google Drive to access your Penny Pilot data.", code: "DRIVE_NOT_CONNECTED" });
     return;
   }
+  driveOk.set(userId, Date.now() + DRIVE_OK_TTL_MS);
   next();
 }
 

@@ -13,6 +13,7 @@ import { useEffect } from "react";
  */
 const TOPICS: [RegExp, string[]][] = [
   [/search|find/i, ["Try “groceries”…", "Try “rent this month”…", "Try “salary”…", "Try “₹500”…"]],
+  [/password/i, ["Enter your password", "At least 8 characters", "Mix letters, numbers & symbols"]],
   [/e-?mail/i, ["you@example.com", "name@company.com"]],
   [/amount|price|cost|₹|value/i, ["e.g. 450", "e.g. 1,200.50", "e.g. 25,000"]],
   [/description|note|memo|details/i, ["e.g. Weekly groceries", "e.g. Cab to office", "e.g. Netflix subscription", "e.g. Dinner with friends"]],
@@ -20,7 +21,7 @@ const TOPICS: [RegExp, string[]][] = [
   [/category/i, ["e.g. Food & Dining", "e.g. Travel", "e.g. Utilities", "e.g. Health"]],
 ];
 const TYPE = 55, ERASE = 22, HOLD = 1700, GAP = 350;
-const SKIP_TYPES = new Set(["password", "date", "time", "datetime-local", "month", "week", "file", "checkbox", "radio", "range", "color", "hidden"]);
+const SKIP_TYPES = new Set(["date", "time", "datetime-local", "month", "week", "file", "checkbox", "radio", "range", "color", "hidden"]);
 
 interface State { phrases: string[]; i: number; n: number; phase: "type" | "hold" | "erase" | "gap"; wait: number; last: string }
 
@@ -30,7 +31,7 @@ function eligible(el: Element): el is HTMLInputElement | HTMLTextAreaElement {
   if (!orig || el.disabled || el.readOnly || el.hasAttribute("data-static-placeholder")) return false;
   if (el instanceof HTMLInputElement && SKIP_TYPES.has(el.type)) return false;
   if (el.autocomplete === "one-time-code" || /^[\d\s•*.,-]+$/.test(orig)) return false;
-  if (/\b(pin|otp|code|password)\b/i.test(`${el.getAttribute("aria-label") ?? ""} ${orig}`)) return false;
+  if (/\b(pin|otp|code)\b/i.test(`${el.getAttribute("aria-label") ?? ""} ${orig}`)) return false;
   return true;
 }
 

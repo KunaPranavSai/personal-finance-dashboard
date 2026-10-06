@@ -13,7 +13,7 @@ function scorePassword(pw: string): number {
 }
 
 const LEVELS = [
-  { label: "", color: "bg-white/10" },
+  { label: "", color: "bg-pp-chip-bg" },
   { label: "Weak", color: "bg-vulcanico" },
   { label: "Fair", color: "bg-turmeric" },
   { label: "Good", color: "bg-pp-accent" },
@@ -29,7 +29,7 @@ export function PasswordStrengthMeter({ password }: { password: string }) {
     <div className="mt-2">
       <div className="flex gap-1.5">
         {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10">
+          <div key={i} className="h-1.5 flex-1 overflow-hidden rounded-full bg-pp-chip-bg">
             <motion.div
               initial={{ scaleX: 0 }}
               animate={{ scaleX: i < score ? 1 : 0 }}
@@ -39,7 +39,7 @@ export function PasswordStrengthMeter({ password }: { password: string }) {
           </div>
         ))}
       </div>
-      {level.label && <p className="mt-1 text-[11px] text-white/60">{level.label}</p>}
+      {level.label && <p className="mt-1 text-[11px] text-pp-text-dim">{level.label}</p>}
     </div>
   );
 }

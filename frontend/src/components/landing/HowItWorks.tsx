@@ -12,15 +12,14 @@ const STEPS = [
 
 /** Node lights up as the scroll-driven line reaches it: shows the order of the process. */
 function StepNode({ icon: Icon, at, progress }: { icon: typeof UserPlus; at: number; progress: MotionValue<number> }) {
-  const bg = useTransform(progress, [at - 0.08, at], ["rgba(255,255,255,0.06)", "#21F1A8"]);
-  const fg = useTransform(progress, [at - 0.08, at], ["#FFFDF1", "#00201A"]);
+  const on = useTransform(progress, [at - 0.08, at], [0, 1]);
   return (
-    <motion.span
-      style={{ backgroundColor: bg, color: fg }}
-      className="relative z-10 flex h-14 w-14 items-center justify-center rounded-full border border-white/15"
-    >
+    <span className="relative z-10 flex h-14 w-14 shrink-0 items-center justify-center rounded-full border border-pp-border bg-pp-surface text-pp-text-dim">
       <Icon className="h-6 w-6" strokeWidth={1.75} aria-hidden="true" />
-    </motion.span>
+      <motion.span style={{ opacity: on }} className="absolute inset-0 flex items-center justify-center rounded-full bg-pp-accent text-pp-accent-ink">
+        <Icon className="h-6 w-6" strokeWidth={1.75} aria-hidden="true" />
+      </motion.span>
+    </span>
   );
 }
 
@@ -38,11 +37,11 @@ export function HowItWorks() {
 
         <div ref={ref} className="relative mt-14 grid grid-cols-1 gap-12 md:grid-cols-3 md:gap-8">
           {/* Track (md+ horizontal, mobile vertical) */}
-          <div className="absolute left-7 top-7 bottom-7 w-px bg-white/10 md:hidden" aria-hidden="true">
-            <motion.div style={{ scaleY: fill }} className="h-full origin-top bg-tiffany" />
+          <div className="absolute left-7 top-7 bottom-7 w-px bg-pp-chip-bg md:hidden" aria-hidden="true">
+            <motion.div style={{ scaleY: fill }} className="h-full origin-top bg-pp-accent" />
           </div>
-          <div className="absolute left-[16.66%] right-[16.66%] top-7 hidden h-px bg-white/10 md:block" aria-hidden="true">
-            <motion.div style={{ scaleX: fill }} className="h-full origin-left bg-tiffany" />
+          <div className="absolute left-[16.66%] right-[16.66%] top-7 hidden h-px bg-pp-chip-bg md:block" aria-hidden="true">
+            <motion.div style={{ scaleX: fill }} className="h-full origin-left bg-pp-accent" />
           </div>
 
           {STEPS.map((s) => (

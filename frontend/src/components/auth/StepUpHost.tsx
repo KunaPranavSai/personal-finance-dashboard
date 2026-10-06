@@ -1,5 +1,6 @@
 "use client";
 
+import { isValidPhone, pinProblem } from "@/lib/zodHelpers";
 import { PasswordInput } from "@/components/ui/PasswordInput";
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -41,7 +42,7 @@ export function StepUpHost() {
   if (!open || !stage) return null;
 
   const close = () => { setOpen(false); sentFor.current = null; };
-  const shell = "fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-noturno p-4";
+  const shell = "fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-pp-bg p-4";
 
   if (stage === "email") {
     return (
@@ -56,11 +57,11 @@ export function StepUpHost() {
             successSubtitle="One more step…"
             onVerify={async (code) => { await verifyEmailCode(code); }}
           />
-          <button type="button" className="min-h-[48px] rounded-xl border border-white/10 bg-white/5 px-4 text-sm font-medium text-white/80 hover:bg-white/10"
+          <button type="button" className="min-h-[48px] rounded-xl border border-pp-border bg-pp-surface-2 px-4 text-sm font-medium text-pp-text hover:bg-pp-chip-bg"
             onClick={() => { sentFor.current = null; sendEmailCode().then(() => toast("Code sent", "success")).catch((e) => toast((e as Error).message, "error")); }}>
             Resend code
           </button>
-          <button type="button" className="min-h-[48px] rounded-xl px-4 text-sm font-medium text-white/60 hover:text-white" onClick={close}>Not now</button>
+          <button type="button" className="min-h-[48px] rounded-xl px-4 text-sm font-medium text-pp-text-dim hover:text-pp-text" onClick={close}>Not now</button>
         </div>
       </div>
     );
@@ -71,8 +72,17 @@ export function StepUpHost() {
     setError("");
     setBusy(true);
     try {
-      if (form.pin !== form.pin2) throw new Error("The two PINs do not match.");
-      if (form.pin && form.pin.length !== 4) throw new Error("A PIN must be 4 digits.");
+      const name = form.name.trim();
+      if (!name) throw new Error("Enter your full name.");
+      if (name.length > 150 || !/^[\p{L}][\p{L}\s.'’-]*$/u.test(name)) throw new Error("Use your real name: letters, spaces, dots, hyphens and apostrophes only.");
+      if (!form.phone.trim()) throw new Error("Enter your phone number.");
+      if (!isValidPhone(form.phone)) throw new Error("Enter a phone number with 7 to 15 digits. A leading + is fine.");
+      if (form.pin || form.pin2) {
+        const weak = pinProblem(form.pin);
+        if (weak) throw new Error(weak);
+        if (form.pin !== form.pin2) throw new Error("The two PINs don't match. Re-enter the same PIN in both boxes.");
+      }
+      if (!form.terms || !form.privacy) throw new Error("Please accept the Terms of Service and the Privacy Policy to continue.");
       await completeProfile({ name: form.name, phone: form.phone, pin: form.pin, termsAccepted: form.terms, privacyAccepted: form.privacy, signedName: form.name });
       for (const k of ["activity-feed", "capital-summary", "dashboard-summary"]) qc.invalidateQueries({ queryKey: [k] });
       toast("You're all set. Choose where to keep your data next.", "success");
@@ -83,31 +93,31 @@ export function StepUpHost() {
       setBusy(false);
     }
   };
-  const field = "w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-white/30 outline-none focus:border-tiffany/60";
+  const field = "w-full rounded-xl border border-pp-border bg-pp-surface-2 px-4 py-3 text-sm text-pp-text placeholder-pp-text-dim outline-none focus:border-pp-accent";
   return (
     <div className={shell} role="dialog" aria-modal="true" aria-label="Complete your profile">
-      <form onSubmit={submit} className="w-full max-w-sm space-y-4 rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur" noValidate>
+      <form onSubmit={submit} className="w-full max-w-sm space-y-4 rounded-2xl border border-pp-border bg-pp-surface-2 p-5 backdrop-blur" noValidate>
         <div>
-          <h2 className="text-lg font-bold text-white">Almost there</h2>
-          <p className="mt-1 text-sm text-white/60">Tell us a little about yourself to start saving your data.</p>
+          <h2 className="text-lg font-bold text-pp-text">Almost there</h2>
+          <p className="mt-1 text-sm text-pp-text-dim">Tell us a little about yourself to start saving your data.</p>
         </div>
         <input aria-label="Full name" className={field} placeholder="Full name required" autoComplete="name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
         <input aria-label="Phone number" className={field} placeholder="Phone number required" inputMode="tel" autoComplete="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
         <PasswordInput aria-label="Create a 4-digit PIN (optional)" className={field} inputMode="numeric" autoComplete="off" placeholder="4-digit PIN (optional)" value={form.pin} onChange={(e) => setForm({ ...form, pin: e.target.value.replace(/[^0-9]/g, "").slice(0, 4) })} />
         <PasswordInput aria-label="Confirm PIN" className={field} inputMode="numeric" autoComplete="off" placeholder="Confirm PIN (optional)" value={form.pin2} onChange={(e) => setForm({ ...form, pin2: e.target.value.replace(/[^0-9]/g, "").slice(0, 4) })} />
-        <label className="flex min-h-[44px] items-start gap-3 text-sm text-white/80">
+        <label className="flex min-h-[44px] items-start gap-3 text-sm text-pp-text">
           <input type="checkbox" className="mt-1 h-5 w-5 shrink-0" checked={form.terms} onChange={(e) => setForm({ ...form, terms: e.target.checked })} />
-          <span>I accept the <a href="/terms" target="_blank" rel="noreferrer" className="text-tiffany underline">Terms of Service</a></span>
+          <span>I accept the <a href="/terms" target="_blank" rel="noreferrer" className="text-pp-accent underline">Terms of Service</a></span>
         </label>
-        <label className="flex min-h-[44px] items-start gap-3 text-sm text-white/80">
+        <label className="flex min-h-[44px] items-start gap-3 text-sm text-pp-text">
           <input type="checkbox" className="mt-1 h-5 w-5 shrink-0" checked={form.privacy} onChange={(e) => setForm({ ...form, privacy: e.target.checked })} />
-          <span>I have read the <a href="/privacy-policy" target="_blank" rel="noreferrer" className="text-tiffany underline">Privacy Policy</a>. Typing my name above is my electronic signature.</span>
+          <span>I have read the <a href="/privacy-policy" target="_blank" rel="noreferrer" className="text-pp-accent underline">Privacy Policy</a>. Typing my name above is my electronic signature.</span>
         </label>
-        {error && <p role="alert" className="text-sm text-red-300">{error}</p>}
-        <button type="submit" disabled={busy || !form.name.trim() || !form.phone.trim() || form.pin.length !== form.pin2.length || (form.pin.length > 0 && form.pin.length !== 4) || !form.terms || !form.privacy} className="min-h-[48px] w-full rounded-xl bg-tiffany px-4 text-sm font-semibold text-noturno hover:opacity-90 disabled:opacity-50">
+        {error && <p role="alert" className="text-sm text-pp-critical">{error}</p>}
+        <button type="submit" disabled={busy || !form.name.trim() || !form.phone.trim() || form.pin.length !== form.pin2.length || (form.pin.length > 0 && form.pin.length !== 4) || !form.terms || !form.privacy} className="min-h-[48px] w-full rounded-xl bg-pp-accent px-4 text-sm font-semibold text-pp-accent-ink hover:opacity-90 disabled:opacity-50">
           {busy ? "Saving…" : "Continue"}
         </button>
-        <button type="button" className="min-h-[44px] w-full text-sm text-white/60 hover:text-white" onClick={close}>Not now</button>
+        <button type="button" className="min-h-[44px] w-full text-sm text-pp-text-dim hover:text-pp-text" onClick={close}>Not now</button>
       </form>
     </div>
   );

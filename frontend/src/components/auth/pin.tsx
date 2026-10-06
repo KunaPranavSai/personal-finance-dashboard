@@ -1,5 +1,6 @@
 "use client";
 
+import { pinProblem } from "@/lib/zodHelpers";
 import { PasswordInput } from "@/components/ui/PasswordInput";
 import { useCallback, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -59,7 +60,10 @@ export function PinSettings({ variant, userId }: { variant: "mobile" | "desktop"
   const done = useCallback(() => { setOpen(false); setPin(""); setPassword(""); qc.invalidateQueries({ queryKey: ["pin-status"] }); }, [qc]);
 
   const save = async () => {
-    if (pin.length !== PIN_LENGTH) return toast(`PIN must be ${PIN_LENGTH} digits`, "error");
+    const weak = pinProblem(pin);
+    if (pin.length !== PIN_LENGTH) return toast(`A PIN must be ${PIN_LENGTH} digits.`, "error");
+    if (weak) return toast(weak, "error");
+    if (!password) return toast("Enter your account password to confirm it's you.", "error");
     setBusy(true);
     try {
       await api.post("/api/auth/pin", { pin, password });
@@ -104,7 +108,7 @@ export function PinSettings({ variant, userId }: { variant: "mobile" | "desktop"
               onChange={(e) => setPassword(e.target.value)} className={m ? undefined : "w-full rounded-lg border border-pp-border bg-pp-surface px-3 py-2 text-sm"} />
           </div>
           <button type="button" disabled={busy || !pin || !password} onClick={save}
-            className={m ? "ppm-sheet-submit" : "rounded-lg bg-pp-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"}>
+            className={m ? "ppm-sheet-submit" : "rounded-lg bg-pp-accent px-4 py-2 text-sm font-semibold text-pp-accent-ink disabled:opacity-50"}>
             {busy ? "Saving…" : "Save PIN"}
           </button>
         </div>

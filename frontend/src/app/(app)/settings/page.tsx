@@ -12,6 +12,7 @@ import { Topbar } from "@/components/layout/AppTopbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/PpCard";
 import { Button } from "@/components/ui/PpButton";
 import { PasswordInput } from "@/components/ui/PasswordInput";
+import { passwordProblem } from "@/lib/zodHelpers";
 import { ExportPreviewModal } from "@/components/ui/ExportPreviewModal";
 import { useStoragePolicy, DRIVE_DISABLED_TEXT, DEVICE_DISABLED_TEXT } from "@/lib/storagePolicy";
 import { DeleteAccountPanel } from "@/components/settings/DeleteAccountPanel";
@@ -327,7 +328,7 @@ function TwoFactorSection() {
         <p className="text-sm font-semibold text-pp-text">Disable Two-Factor Authentication</p>
         <div>
           <label className="block text-xs font-medium text-pp-text-dim mb-1">Password</label>
-          <PasswordInput autoComplete="current-password" value={disablePassword} onChange={(e) => setDisablePassword(e.target.value)} className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm " />
+          <PasswordInput placeholder="Your current password" autoComplete="current-password" value={disablePassword} onChange={(e) => setDisablePassword(e.target.value)} className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm " />
         </div>
         <div>
           <label className="block text-xs font-medium text-pp-text-dim mb-1">Verification code</label>
@@ -878,8 +879,11 @@ function SettingsContent() {
 
   const handlePasswordChange = useCallback(async () => {
     setPwError("");
-    if (pwForm.next !== pwForm.confirm) { setPwError("New passwords do not match"); return; }
-    if (pwForm.next.length < 8) { setPwError("Password must be at least 8 characters"); return; }
+    if (!pwForm.current) { setPwError("Enter your current password."); return; }
+    const rule = passwordProblem(pwForm.next, 8);
+    if (rule) { setPwError(rule); return; }
+    if (pwForm.next === pwForm.current) { setPwError("Your new password must be different from the current one."); return; }
+    if (pwForm.next !== pwForm.confirm) { setPwError("The two new passwords don't match. Re-enter them to be sure."); return; }
     setPwChanging(true);
     try {
       await changePassword(pwForm.current, pwForm.next);
@@ -1150,7 +1154,7 @@ function SettingsContent() {
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-pp-text-dim mb-1">Confirm New Password</label>
-                    <PasswordInput autoComplete="new-password" value={pwForm.confirm} onChange={(e) => setPwForm((p) => ({ ...p, confirm: e.target.value }))} className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm " placeholder="Confirm new password" />
+                    <PasswordInput autoComplete="new-password" value={pwForm.confirm} onChange={(e) => setPwForm((p) => ({ ...p, confirm: e.target.value }))} className="w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm " placeholder="Confirm new password" data-placeholders="Re-enter new password|Must match the new password" />
                   </div>
                 </div>
                 {pwError && <p className="text-xs text-vulcanico">{pwError}</p>}

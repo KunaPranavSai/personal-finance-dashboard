@@ -1,5 +1,6 @@
 "use client";
 
+import { toUserMessage } from "@/lib/errorMessage";
 import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Topbar } from "@/components/layout/AppTopbar";
@@ -116,8 +117,8 @@ export default function ProfilePage() {
       if (data.name) updateUserName(data.name);
       toast("Profile updated successfully", "success");
     },
-    onError: () => {
-      toast("Failed to update profile", "error");
+    onError: (err) => {
+      toast(toUserMessage(err, "We couldn't save your profile. Check the highlighted details and try again."), "error");
     },
   });
 

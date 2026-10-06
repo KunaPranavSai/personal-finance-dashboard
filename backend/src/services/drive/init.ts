@@ -27,6 +27,8 @@ const expenseCategories: Record<string, string[]> = {
   Groceries: [],
   Health: [],
   Housing: [],
+  Insurance: [],
+  "Loans & EMI": [],
   Other: [],
   "Personal Care": [],
   Shopping: [],
@@ -49,7 +51,9 @@ const incomeCategories: Record<string, string[]> = {
   Salary: [],
 };
 
-const defaultAccountNames = ["Bank Account", "Cash", "Credit Card", "Digital Wallet", "Other"];
+const defaultAccountNames = ["Bank Account", "Cash", "Credit Card", "Digital Wallet", "Savings Account", "Other"];
+// Money sources: how a payment was made. Used by smart categorize (UPI / card / net banking / cash hints).
+const defaultPaymentMethodNames = ["UPI", "Debit Card", "Credit Card", "Net Banking", "Cash"];
 
 function defaultCategoryRecords(): DriveRecord[] {
   const now = new Date().toISOString();
@@ -67,6 +71,11 @@ function defaultCategoryRecords(): DriveRecord[] {
     }
   }
   return records;
+}
+
+function defaultPaymentMethodRecords(): DriveRecord[] {
+  const now = new Date().toISOString();
+  return defaultPaymentMethodNames.map((name) => ({ id: crypto.randomUUID(), name, createdAt: now, updatedAt: now }));
 }
 
 function defaultAccountRecords(): DriveRecord[] {
@@ -342,6 +351,7 @@ export async function setupWorkspace(userId: string, accessToken: string, rootFo
     await Promise.all([
       replaceCollectionWithContext(userId, accessToken, dataFolderId, metadataFolderId, "categories", defaultCategoryRecords()),
       replaceCollectionWithContext(userId, accessToken, dataFolderId, metadataFolderId, "accounts", defaultAccountRecords()),
+      replaceCollectionWithContext(userId, accessToken, dataFolderId, metadataFolderId, "paymentMethods", defaultPaymentMethodRecords()),
     ]);
   }
 

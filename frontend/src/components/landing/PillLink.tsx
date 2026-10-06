@@ -8,7 +8,7 @@ const base =
   "inline-flex h-12 items-center justify-center gap-2 whitespace-nowrap rounded-full px-7 text-sm font-semibold transition-[filter,background-color] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pp-accent focus-visible:ring-offset-2 focus-visible:ring-offset-pp-bg";
 const variants = {
   primary: "bg-pp-accent text-pp-accent-ink hover:brightness-110",
-  ghost: "border border-white/15 text-pp-text hover:bg-white/10",
+  ghost: "border border-pp-border text-pp-text hover:bg-pp-chip-bg",
 };
 
 export function PillLink({

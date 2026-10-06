@@ -57,7 +57,7 @@ export default function HomePage() {
       <SoftwareApplicationJsonLd />
       <FAQJsonLd />
       <LoginModalProvider>
-        <div className={`dark ${geist.variable} relative isolate flex min-h-screen flex-col bg-pp-bg font-[family-name:var(--font-landing)] text-pp-text`}>
+        <div className={`${geist.variable} relative isolate flex min-h-screen flex-col bg-pp-bg font-[family-name:var(--font-landing)] text-pp-text`}>
           <LiveBackground />
           <Header />
           <main className="flex-1">

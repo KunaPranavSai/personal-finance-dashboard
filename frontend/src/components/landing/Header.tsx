@@ -6,6 +6,7 @@ import Image from "next/image";
 import { Menu, X } from "lucide-react";
 import { cn } from "@/lib/format";
 import { InstallAppButton } from "./InstallAppButton";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
 
 const NAV_LINKS = [
   { label: "Features", href: "#features" },
@@ -25,7 +26,7 @@ export function Header() {
   return (
     <header className="sticky top-0 z-50 px-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-6">
       <nav
-        className="mx-auto flex h-14 max-w-6xl items-center justify-between rounded-full border border-white/10 bg-noturno/60 px-3 pl-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-xl"
+        className="mx-auto flex h-14 max-w-6xl items-center justify-between rounded-full border border-pp-border bg-pp-surface/80 px-3 pl-5 shadow-pp backdrop-blur-xl"
         aria-label="Main navigation"
       >
         <Link href="/" className="flex items-center gap-2" aria-label="Penny Pilot Home">
@@ -48,9 +49,10 @@ export function Header() {
 
         <div className="hidden items-center gap-2 md:flex">
           <InstallAppButton variant="header" />
+          <ThemeToggle />
           <Link
             href="/login"
-            className="rounded-full px-4 py-2 text-sm font-semibold text-pp-text-dim transition-colors hover:bg-white/10 hover:text-pp-text"
+            className="rounded-full px-4 py-2 text-sm font-semibold text-pp-text-dim transition-colors hover:bg-pp-chip-bg hover:text-pp-text"
           >
             Log In
           </Link>
@@ -62,9 +64,11 @@ export function Header() {
           </Link>
         </div>
 
+        <div className="flex items-center gap-1 md:hidden">
+        <ThemeToggle />
         <button
           type="button"
-          className="rounded-full p-2 text-pp-text-dim hover:bg-white/10 md:hidden"
+          className="rounded-full p-2 text-pp-text-dim hover:bg-pp-chip-bg"
           onClick={() => setMobileMenuOpen((v) => !v)}
           aria-expanded={mobileMenuOpen}
           aria-controls="mobile-menu"
@@ -72,12 +76,13 @@ export function Header() {
         >
           {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
         </button>
+        </div>
       </nav>
 
       <div
         id="mobile-menu"
         className={cn(
-          "mx-auto mt-2 max-w-6xl overflow-hidden rounded-3xl border border-white/10 bg-noturno/90 backdrop-blur-xl transition-[max-height,opacity] duration-300 md:hidden",
+          "mx-auto mt-2 max-w-6xl overflow-hidden rounded-3xl border border-pp-border bg-pp-surface/95 backdrop-blur-xl transition-[max-height,opacity] duration-300 md:hidden",
           mobileMenuOpen ? "max-h-[28rem] py-4 opacity-100" : "max-h-0 border-transparent opacity-0"
         )}
       >
@@ -87,16 +92,16 @@ export function Header() {
               key={link.label}
               href={link.href}
               onClick={(e) => { e.preventDefault(); scrollToSection(link.href); }}
-              className="min-h-[44px] rounded-2xl px-3 py-3 text-base font-medium text-pp-text-dim transition-colors hover:bg-white/10 hover:text-pp-text"
+              className="min-h-[44px] rounded-2xl px-3 py-3 text-base font-medium text-pp-text-dim transition-colors hover:bg-pp-chip-bg hover:text-pp-text"
             >
               {link.label}
             </Link>
           ))}
-          <div className="mt-2 flex flex-col gap-2 border-t border-white/10 pt-3">
+          <div className="mt-2 flex flex-col gap-2 border-t border-pp-border pt-3">
             <InstallAppButton variant="header-mobile" />
             <Link
               href="/login"
-              className="w-full rounded-full border border-white/15 px-4 py-2.5 text-center text-sm font-semibold text-pp-text transition-colors hover:bg-white/10"
+              className="w-full rounded-full border border-pp-border px-4 py-2.5 text-center text-sm font-semibold text-pp-text transition-colors hover:bg-pp-chip-bg"
             >
               Log In
             </Link>

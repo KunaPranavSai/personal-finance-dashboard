@@ -10,10 +10,10 @@ import { ShieldAlert, Lock, Mail, AlertCircle, ArrowLeft, KeyRound } from "lucid
 import { api } from "@/lib/api";
 
 const inputBase =
-  "w-full rounded-lg border border-white/10 bg-white/[0.03] py-2.5 pl-10 pr-4 text-sm text-slate-100 placeholder:text-slate-500 outline-none transition-colors focus:border-teal-500/50 focus:ring-1 focus:ring-teal-500/30";
+  "w-full rounded-lg border border-pp-border bg-pp-surface-2 py-2.5 pl-10 pr-4 text-sm text-pp-text placeholder:text-pp-text-dim/70 outline-none transition-colors focus:border-pp-accent focus:ring-1 focus:ring-pp-accent/25";
 
 const primaryButton =
-  "flex w-full items-center justify-center gap-2 rounded-lg bg-teal-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-teal-500 disabled:opacity-50 disabled:cursor-not-allowed";
+  "flex w-full items-center justify-center gap-2 rounded-lg bg-pp-accent text-pp-accent-ink px-4 py-2.5 text-sm font-semibold  transition-colors hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed";
 
 /**
  * Dedicated administrator sign-in — deliberately distinct from the normal user /login page:
@@ -114,8 +114,8 @@ export default function AdminLoginPage() {
 
   if (isLoading || !pinChecked) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-950">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-700 border-t-teal-500" />
+      <div className="flex min-h-screen items-center justify-center bg-pp-bg">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-pp-border border-t-pp-accent" />
       </div>
     );
   }
@@ -124,7 +124,7 @@ export default function AdminLoginPage() {
     const toPassword = () => { if (pinDevice) { setEmail(pinDevice.email); setKnownUser(pinDevice); } setPinManual(false); setUsePassword(true); };
     const notYou = () => { setPinDevice(null); setKnownUser(null); setEmail(""); setPinManual(true); };
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-950 p-4">
+      <div className="flex min-h-screen items-center justify-center bg-pp-bg p-4">
         <div className="flex w-full max-w-sm flex-col gap-3">
           {!pinDevice && (
             <input
@@ -151,11 +151,11 @@ export default function AdminLoginPage() {
               else if (result.requiresPasswordChange && result.passwordChangeToken) setPasswordChangeToken(result.passwordChangeToken);
             }}
           />
-          <button type="button" onClick={toPassword} className="flex min-h-[48px] items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-4 text-sm font-medium text-slate-200 hover:bg-white/[0.06]">
+          <button type="button" onClick={toPassword} className="flex min-h-[48px] items-center justify-center gap-2 rounded-lg border border-pp-border bg-pp-surface-2 px-4 text-sm font-medium text-pp-text hover:bg-pp-chip-bg">
             <Mail className="h-4 w-4" /> Sign in with email &amp; password
           </button>
           {pinDevice && (
-            <button type="button" onClick={notYou} className="min-h-[44px] text-sm text-slate-500 hover:text-slate-300">
+            <button type="button" onClick={notYou} className="min-h-[44px] text-sm text-pp-text-dim hover:text-pp-text">
               Not {pinDevice.name.split(" ")[0]}? Use a different account
             </button>
           )}
@@ -166,7 +166,7 @@ export default function AdminLoginPage() {
 
   if (challengeToken) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-950 p-4">
+      <div className="flex min-h-screen items-center justify-center bg-pp-bg p-4">
         <AnimatedCodeVerification
           length={6}
           title="Verify Administrator Identity"
@@ -184,15 +184,15 @@ export default function AdminLoginPage() {
 
   if (passwordChangeToken) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-950 p-4">
-        <div className="w-full max-w-sm rounded-xl border border-white/10 bg-slate-900 p-6">
-          <div className="mb-5 flex items-center gap-2 text-slate-100">
-            <Lock className="h-5 w-5 text-teal-500" />
+      <div className="flex min-h-screen items-center justify-center bg-pp-bg p-4">
+        <div className="w-full max-w-sm rounded-xl border border-pp-border bg-pp-surface p-6">
+          <div className="mb-5 flex items-center gap-2 text-pp-text">
+            <Lock className="h-5 w-5 text-pp-accent" />
             <h1 className="text-base font-semibold">Set a new password</h1>
           </div>
           <form onSubmit={handleForceChangePassword} className="space-y-4">
             <div className="relative">
-              <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+              <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-pp-text-dim" />
               <PasswordInput
                 id="newPassword"
                 autoComplete="new-password"
@@ -202,11 +202,11 @@ export default function AdminLoginPage() {
                 required
                 autoFocus
                 className={inputBase}
-                toggleClassName="text-slate-500 hover:text-slate-300"
+                toggleClassName="text-pp-text-dim hover:text-pp-text"
               />
             </div>
             <div className="relative">
-              <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+              <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-pp-text-dim" />
               <PasswordInput
                 id="confirmNewPassword"
                 autoComplete="new-password"
@@ -215,16 +215,16 @@ export default function AdminLoginPage() {
                 placeholder="Re-enter new password"
                 required
                 className={inputBase}
-                toggleClassName="text-slate-500 hover:text-slate-300"
+                toggleClassName="text-pp-text-dim hover:text-pp-text"
               />
             </div>
             {error && (
-              <div className="flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+              <div className="flex items-center gap-2 rounded-lg border border-pp-critical/30 bg-pp-critical/10 px-3 py-2 text-sm text-pp-critical">
                 <AlertCircle className="h-4 w-4 shrink-0" /> {error}
               </div>
             )}
             <button type="submit" disabled={isPending || !newPassword || !confirmNewPassword} className={primaryButton}>
-              {isPending ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" /> : <Lock className="h-4 w-4" />}
+              {isPending ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-pp-border border-t-pp-accent-ink" /> : <Lock className="h-4 w-4" />}
               {isPending ? "Saving…" : "Set New Password"}
             </button>
           </form>
@@ -234,33 +234,33 @@ export default function AdminLoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-slate-950 p-4">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-pp-bg p-4">
       <div className="w-full max-w-sm">
         <div className="mb-6 flex flex-col items-center gap-2 text-center">
-          <div className="flex h-11 w-11 items-center justify-center rounded-lg border border-white/10 bg-white/[0.03]">
-            <ShieldAlert className="h-5 w-5 text-teal-500" />
+          <div className="flex h-11 w-11 items-center justify-center rounded-lg border border-pp-border bg-pp-surface-2">
+            <ShieldAlert className="h-5 w-5 text-pp-accent" />
           </div>
-          <h1 className="text-lg font-semibold text-slate-100">Penny Pilot — Admin Console</h1>
-          <p className="text-xs text-slate-500">Restricted access. Authorized administrators only.</p>
+          <h1 className="text-lg font-semibold text-pp-text">Penny Pilot — Admin Console</h1>
+          <p className="text-xs text-pp-text-dim">Restricted access. Authorized administrators only.</p>
         </div>
 
-        <div className="rounded-xl border border-white/10 bg-slate-900 p-6">
+        <div className="rounded-xl border border-pp-border bg-pp-surface p-6">
           <form onSubmit={handleSubmit} className="space-y-4" aria-label="Administrator sign-in">
             {knownUser ? (
-              <div className="rounded-lg border border-white/10 bg-white/[0.03] p-4 text-center">
-                <p className="text-sm font-semibold text-slate-100">Welcome back, {knownUser.name.split(" ")[0]}</p>
-                <p className="mt-0.5 text-xs text-slate-500">{knownUser.email}</p>
-                <button type="button" onClick={() => { setKnownUser(null); setEmail(""); }} className="mt-2 min-h-[44px] text-xs text-slate-500 hover:text-slate-300">
+              <div className="rounded-lg border border-pp-border bg-pp-surface-2 p-4 text-center">
+                <p className="text-sm font-semibold text-pp-text">Welcome back, {knownUser.name.split(" ")[0]}</p>
+                <p className="mt-0.5 text-xs text-pp-text-dim">{knownUser.email}</p>
+                <button type="button" onClick={() => { setKnownUser(null); setEmail(""); }} className="mt-2 min-h-[44px] text-xs text-pp-text-dim hover:text-pp-text">
                   Not {knownUser.name.split(" ")[0]}? Use a different account
                 </button>
               </div>
             ) : (
             <div>
-              <label htmlFor="admin-email" className="mb-1.5 block text-xs font-medium text-slate-400">
+              <label htmlFor="admin-email" className="mb-1.5 block text-xs font-medium text-pp-text-dim">
                 Administrator Email
               </label>
               <div className="relative">
-                <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+                <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-pp-text-dim" />
                 <input
                   id="admin-email"
                   type="text"
@@ -277,11 +277,11 @@ export default function AdminLoginPage() {
             )}
 
             <div>
-              <label htmlFor="admin-password" className="mb-1.5 block text-xs font-medium text-slate-400">
+              <label htmlFor="admin-password" className="mb-1.5 block text-xs font-medium text-pp-text-dim">
                 Password
               </label>
               <div className="relative">
-                <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+                <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-pp-text-dim" />
                 <PasswordInput
                   id="admin-password"
                   autoComplete="current-password"
@@ -290,39 +290,39 @@ export default function AdminLoginPage() {
                   placeholder="Enter your password"
                   required
                   className={inputBase}
-                  toggleClassName="text-slate-500 hover:text-slate-300"
+                  toggleClassName="text-pp-text-dim hover:text-pp-text"
                 />
               </div>
               <div className="mt-2 flex justify-end">
-                <Link href="/forgot-password" className="text-xs text-slate-500 transition-colors hover:text-slate-300 hover:underline">
+                <Link href="/forgot-password" className="text-xs text-pp-text-dim transition-colors hover:text-pp-text hover:underline">
                   Forgot password?
                 </Link>
               </div>
             </div>
 
-            <label className="flex min-h-[44px] cursor-pointer items-center gap-3 text-sm text-slate-300">
-              <input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} className="h-5 w-5 rounded border-white/20 bg-white/[0.03] accent-teal-500" />
+            <label className="flex min-h-[44px] cursor-pointer items-center gap-3 text-sm text-pp-text-dim">
+              <input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} className="h-5 w-5 rounded border-pp-border bg-pp-surface-2 accent-pp-accent" />
               Remember me on this device
             </label>
 
             {error && (
-              <div role="alert" className="flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+              <div role="alert" className="flex items-center gap-2 rounded-lg border border-pp-critical/30 bg-pp-critical/10 px-3 py-2 text-sm text-pp-critical">
                 <AlertCircle className="h-4 w-4 shrink-0" /> {error}
               </div>
             )}
 
             <button type="submit" disabled={isPending || !email || !password} className={primaryButton}>
-              {isPending ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" /> : <ShieldAlert className="h-4 w-4" />}
+              {isPending ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-pp-border border-t-pp-accent-ink" /> : <ShieldAlert className="h-4 w-4" />}
               {isPending ? "Signing in…" : "Sign In to Admin Console"}
             </button>
 
-            <button type="button" onClick={() => { setError(""); setUsePassword(false); setPinManual(true); }} className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-4 text-sm font-medium text-slate-200 hover:bg-white/[0.06]">
+            <button type="button" onClick={() => { setError(""); setUsePassword(false); setPinManual(true); }} className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-lg border border-pp-border bg-pp-surface-2 px-4 text-sm font-medium text-pp-text hover:bg-pp-chip-bg">
               <KeyRound className="h-4 w-4" /> Sign in with PIN instead
             </button>
           </form>
         </div>
 
-        <Link href="/login" className="mt-5 flex items-center justify-center gap-1.5 text-xs text-slate-500 transition-colors hover:text-slate-300">
+        <Link href="/login" className="mt-5 flex items-center justify-center gap-1.5 text-xs text-pp-text-dim transition-colors hover:text-pp-text">
           <ArrowLeft className="h-3.5 w-3.5" /> Back to Penny Pilot sign-in
         </Link>
       </div>

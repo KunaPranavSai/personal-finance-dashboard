@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
-import { HeroVisual } from "./HeroVisual";
+import { HeroPreview } from "./HeroPreview";
 import { TakeTourButton } from "@/components/tour/TourHosts";
 import { PillLink } from "./PillLink";
 
@@ -18,14 +18,8 @@ export function Hero() {
     <section className="px-4 pb-20 pt-10 sm:px-6 lg:flex lg:min-h-[calc(100dvh-5rem)] lg:items-center lg:px-8 lg:pb-12 lg:pt-8">
       <div className="mx-auto grid w-full max-w-6xl grid-cols-1 items-center gap-16 lg:grid-cols-[1.05fr_0.95fr] lg:gap-8">
         <motion.div variants={container} initial="hidden" animate="show">
-          <motion.span
-            variants={fade}
-            className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.05] px-3.5 py-1.5 text-xs font-semibold text-pp-accent"
-          >
-            Smart Money Management
-          </motion.span>
 
-          <h1 className="mt-6 text-5xl font-semibold leading-[1.05] tracking-tighter text-pp-text sm:text-6xl lg:text-[4.5rem]">
+          <h1 className="text-5xl font-semibold leading-[1.05] tracking-tighter text-pp-text sm:text-6xl lg:text-[4.5rem]">
             {WORDS.map((w, i) => (
               <span key={i} className="mr-[0.22em] inline-block overflow-hidden pb-[0.14em] align-bottom">
                 <motion.span variants={word} className="inline-block">
@@ -51,7 +45,7 @@ export function Hero() {
           </motion.div>
         </motion.div>
 
-        <HeroVisual />
+        <HeroPreview />
       </div>
     </section>
   );
