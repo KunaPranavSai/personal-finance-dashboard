@@ -71,6 +71,7 @@ export function StepUpHost() {
     setBusy(true);
     try {
       if (form.pin !== form.pin2) throw new Error("The two PINs do not match.");
+      if (form.pin && form.pin.length !== 4) throw new Error("A PIN must be 4 digits.");
       await completeProfile({ name: form.name, phone: form.phone, pin: form.pin, termsAccepted: form.terms, privacyAccepted: form.privacy, signedName: form.name });
       for (const k of ["activity-feed", "capital-summary", "dashboard-summary"]) qc.invalidateQueries({ queryKey: [k] });
       toast("You're all set. Choose where to keep your data next.", "success");
@@ -91,8 +92,8 @@ export function StepUpHost() {
         </div>
         <input aria-label="Full name" className={field} placeholder="Full name required" autoComplete="name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
         <input aria-label="Phone number" className={field} placeholder="Phone number required" inputMode="tel" autoComplete="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-        <input aria-label="Create a 4-digit PIN" className={field} type="password" inputMode="numeric" autoComplete="off" placeholder="4-digit PIN required" value={form.pin} onChange={(e) => setForm({ ...form, pin: e.target.value.replace(/[^0-9]/g, "").slice(0, 4) })} />
-        <input aria-label="Confirm PIN" className={field} type="password" inputMode="numeric" autoComplete="off" placeholder="Confirm PIN required" value={form.pin2} onChange={(e) => setForm({ ...form, pin2: e.target.value.replace(/[^0-9]/g, "").slice(0, 4) })} />
+        <input aria-label="Create a 4-digit PIN (optional)" className={field} type="password" inputMode="numeric" autoComplete="off" placeholder="4-digit PIN (optional)" value={form.pin} onChange={(e) => setForm({ ...form, pin: e.target.value.replace(/[^0-9]/g, "").slice(0, 4) })} />
+        <input aria-label="Confirm PIN" className={field} type="password" inputMode="numeric" autoComplete="off" placeholder="Confirm PIN (optional)" value={form.pin2} onChange={(e) => setForm({ ...form, pin2: e.target.value.replace(/[^0-9]/g, "").slice(0, 4) })} />
         <label className="flex min-h-[44px] items-start gap-3 text-sm text-white/80">
           <input type="checkbox" className="mt-1 h-5 w-5 shrink-0" checked={form.terms} onChange={(e) => setForm({ ...form, terms: e.target.checked })} />
           <span>I accept the <a href="/terms" target="_blank" rel="noreferrer" className="text-tiffany underline">Terms of Service</a></span>
@@ -102,7 +103,7 @@ export function StepUpHost() {
           <span>I have read the <a href="/privacy-policy" target="_blank" rel="noreferrer" className="text-tiffany underline">Privacy Policy</a>. Typing my name above is my electronic signature.</span>
         </label>
         {error && <p role="alert" className="text-sm text-red-300">{error}</p>}
-        <button type="submit" disabled={busy || !form.name.trim() || !form.phone.trim() || form.pin.length !== 4 || form.pin2.length !== 4 || !form.terms || !form.privacy} className="min-h-[48px] w-full rounded-xl bg-tiffany px-4 text-sm font-semibold text-noturno hover:opacity-90 disabled:opacity-50">
+        <button type="submit" disabled={busy || !form.name.trim() || !form.phone.trim() || form.pin.length !== form.pin2.length || (form.pin.length > 0 && form.pin.length !== 4) || !form.terms || !form.privacy} className="min-h-[48px] w-full rounded-xl bg-tiffany px-4 text-sm font-semibold text-noturno hover:opacity-90 disabled:opacity-50">
           {busy ? "Saving…" : "Continue"}
         </button>
         <button type="button" className="min-h-[44px] w-full text-sm text-white/60 hover:text-white" onClick={close}>Not now</button>

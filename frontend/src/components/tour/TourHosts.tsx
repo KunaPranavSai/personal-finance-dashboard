@@ -25,8 +25,12 @@ function Onboarding() {
 
   useEffect(() => {
     if (!uid || user?.role !== "USER" || user.supervised) return;
-    if (replay || (first && !isTourDone("onboarding", uid))) setWant(true);
-  }, [uid, user?.role, user?.supervised, replay, first]);
+    // A brand-new account (just signed up with an email: not yet verified / profile not completed) gets the tour on its first
+    // dashboard visit; so does anyone arriving with ?welcome=1; anyone can replay it with ?tour=onboarding.
+    const isNew = user?.emailVerified === false || user?.profileCompleted === false;
+    const onDashboard = pathname === "/dashboard";
+    if (replay || ((first || (isNew && onDashboard)) && !isTourDone("onboarding", uid))) setWant(true);
+  }, [uid, user?.role, user?.supervised, user?.emailVerified, user?.profileCompleted, replay, first, pathname]);
 
   // Don't talk over other things a brand-new user must deal with first (PIN setup, cookie choice, any dialog).
   useEffect(() => {

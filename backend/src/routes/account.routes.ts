@@ -54,6 +54,13 @@ function tooMany(key: string, limit = 6, windowMs = 15 * 60_000): boolean {
 }
 const publicLimiter = rateLimit({ windowMs: 15 * 60_000, limit: 10, standardHeaders: true, legacyHeaders: false, message: { error: "Too many attempts. Please try again later.", code: "AUTH_RATE_LIMITED" } });
 
+/** Which checks apply to THIS account: the ones it actually has. If it has none of PIN / password / 2FA / phone, an emailed code stands in. */
+type Needs = { pin: boolean; password: boolean; twofa: boolean; phone: boolean };
+function needsFor(u: { pinHash: string | null; passwordHash: string | null; twoFactorEnabled: boolean; phone: string | null }): Needs {
+  const pin = Boolean(u.pinHash), password = Boolean(u.passwordHash), twofa = u.twoFactorEnabled, hasPhone = digits(u.phone).length >= 6;
+  return { pin, password, twofa, phone: hasPhone || !(pin || password || twofa) };
+}
+
 async function me(req: Request, res: Response) {
   const user = await prisma.user.findUnique({ where: { id: req.auth!.userId } });
   if (!user) { res.status(401).json({ error: "Account not found", code: "AUTH_EXPIRED" }); return null; }
@@ -71,7 +78,7 @@ router.use("/deletion", authenticate);
 
 router.get("/deletion/status", asyncHandler(async (req: Request, res: Response) => {
   const user = await me(req, res); if (!user) return;
-  res.json({ hasPin: Boolean(user.pinHash), hasPassword: Boolean(user.passwordHash), twoFactorEnabled: user.twoFactorEnabled, hasPhone: digits(user.phone).length >= 6, days: DELETION_DAYS });
+  res.json({ required: needsFor(user), hasPhone: digits(user.phone).length >= 6, days: DELETION_DAYS });
 }));
 
 router.post("/deletion/pin", asyncHandler(async (req: Request, res: Response) => {
@@ -115,8 +122,8 @@ router.post("/deletion/phone/send", asyncHandler(async (req: Request, res: Respo
   const user = await me(req, res); if (!user) return;
   if (tooMany(`phs:${user.id}`, 5)) return limited(res);
   const onFile = digits(user.phone);
-  if (onFile.length < 6) { res.status(400).json({ error: "Add a phone number to your profile first, then come back.", code: "PHONE_NOT_ON_FILE" }); return; }
-  if (digits((req.body as { phone?: string }).phone) !== onFile) { res.status(400).json({ error: "That doesn't match the phone number on this account.", code: "PHONE_MISMATCH" }); return; }
+  // With a phone number on file it must match; with none, the emailed code alone confirms the owner.
+  if (onFile.length >= 6 && digits((req.body as { phone?: string }).phone) !== onFile) { res.status(400).json({ error: "That doesn't match the phone number on this account.", code: "PHONE_MISMATCH" }); return; }
   const code = String(crypto.randomInt(100000, 1000000));
   const sent = await emailCode(user.id, user.email, user.name, code, "confirming your phone number to delete your account");
   if (!sent) { res.status(503).json({ error: "We couldn't send the confirmation code. Please try again shortly.", code: "EMAIL_SEND_FAILED" }); return; }
@@ -137,15 +144,16 @@ router.post("/deletion/phone/verify", asyncHandler(async (req: Request, res: Res
   res.json({ proof: sign("del-phone", user.id) });
 }));
 
-function checkProofs(userId: string, proofs: Record<string, unknown> | undefined): boolean {
-  return Boolean(proofs) && read(proofs!.pin, "del-pin", userId) !== null && read(proofs!.password, "del-pw", userId) !== null
-    && read(proofs!.twofa, "del-2fa", userId) !== null && read(proofs!.phone, "del-phone", userId) !== null;
+function checkProofs(user: { id: string; pinHash: string | null; passwordHash: string | null; twoFactorEnabled: boolean; phone: string | null }, proofs: Record<string, unknown> | undefined): boolean {
+  const n = needsFor(user), p = proofs ?? {};
+  return (!n.pin || read(p.pin, "del-pin", user.id) !== null) && (!n.password || read(p.password, "del-pw", user.id) !== null)
+    && (!n.twofa || read(p.twofa, "del-2fa", user.id) !== null) && (!n.phone || read(p.phone, "del-phone", user.id) !== null);
 }
 
 // Step after the slider: a server-made puzzle, only handed out once all four proofs are valid.
 router.post("/deletion/puzzle", asyncHandler(async (req: Request, res: Response) => {
   const user = await me(req, res); if (!user) return;
-  if (!checkProofs(user.id, (req.body as { proofs?: Record<string, unknown> }).proofs)) { res.status(403).json({ error: "Finish all four verifications first.", code: "VERIFICATION_INCOMPLETE" }); return; }
+  if (!checkProofs(user, (req.body as { proofs?: Record<string, unknown> }).proofs)) { res.status(403).json({ error: "Finish all the verifications first.", code: "VERIFICATION_INCOMPLETE" }); return; }
   const a = crypto.randomInt(12, 60), b = crypto.randomInt(3, 12), c = crypto.randomInt(5, 90);
   const answer = String(a * b + c);
   void logActivity(req, "account_deletion_requested", "Account deletion confirmation puzzle issued", user.id);
@@ -157,7 +165,7 @@ router.post("/deletion/schedule", asyncHandler(async (req: Request, res: Respons
   if (tooMany(`sch:${user.id}`, 8)) return limited(res);
   const { proofs, puzzleToken, answer } = req.body as { proofs?: Record<string, unknown>; puzzleToken?: string; answer?: string };
   const pz = read(puzzleToken, "del-puzzle", user.id);
-  if (!checkProofs(user.id, proofs) || !pz || !eq(String(pz.h), hmac("del-puzzle", user.id, String(answer ?? "").trim()))) {
+  if (!checkProofs(user, proofs) || !pz || !eq(String(pz.h), hmac("del-puzzle", user.id, String(answer ?? "").trim()))) {
     res.status(403).json({ error: "The confirmation could not be verified. Please start again.", code: "VERIFICATION_INCOMPLETE" }); return;
   }
   const now = new Date();

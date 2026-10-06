@@ -418,6 +418,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(async (opts?: { preserveRedirect?: boolean }) => {
+    try { sessionStorage.removeItem("pp_pin_reminder"); } catch { /* ignore */ }
     const redirectTarget = typeof window !== "undefined" ? window.location.pathname + window.location.search : null;
     // Never let client-storage cleanup race or block the logout request
     // itself — the server-side session invalidation (cookie clear + session

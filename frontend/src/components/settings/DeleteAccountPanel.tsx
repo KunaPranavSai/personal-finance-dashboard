@@ -11,7 +11,7 @@ import { api, ApiClientError } from "@/lib/api";
  * storage: proofs live only in this component's memory.
  */
 type Proofs = { pin?: string; password?: string; twofa?: string; phone?: string };
-interface Status { hasPin: boolean; hasPassword: boolean; twoFactorEnabled: boolean; hasPhone: boolean; days: number }
+interface Status { required: { pin: boolean; password: boolean; twofa: boolean; phone: boolean }; hasPhone: boolean; days: number }
 
 const input = "w-full rounded-lg border border-pp-border bg-transparent px-3 py-2 text-sm text-pp-text outline-none focus:border-pp-accent";
 const btn = "inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-pp-accent px-4 text-sm font-semibold text-pp-accent-ink disabled:opacity-50";
@@ -70,7 +70,9 @@ export function DeleteAccountPanel() {
   useEffect(() => { api.get<Status>("/api/account/deletion/status").then(setStatus).catch(() => setStatus(null)); }, []);
 
   const run = async (fn: () => Promise<void>) => { setBusy(true); setErr(null); try { await fn(); } catch (e) { setErr(msg(e, "That didn't work. Please try again.")); } finally { setBusy(false); } };
-  const all = Boolean(proofs.pin && proofs.password && proofs.twofa && proofs.phone);
+  // Only the checks this account actually has are asked for (the server decides which).
+  const req = status?.required;
+  const all = Boolean(req) && (!req!.pin || proofs.pin) && (!req!.password || proofs.password) && (!req!.twofa || proofs.twofa) && (!req!.phone || proofs.phone);
 
   if (done) {
     return (
@@ -89,39 +91,39 @@ export function DeleteAccountPanel() {
       <p className="mt-1 text-sm text-pp-text-dim">This starts a 30-day account deletion period. Your data is kept for 30 days so you can reactivate; after that it is permanently deleted. Files in your own Google Drive are not touched.</p>
       {!status ? <Loader2 className="mt-3 h-4 w-4 animate-spin" aria-label="Loading" /> : (
         <ol className="mt-3 space-y-2 p-0" style={{ listStyle: "none" }}>
-          <Step done={Boolean(proofs.pin)} title="PIN">
-            {!status.hasPin ? <p className="text-xs text-pp-text-dim">Set a sign-in PIN first.</p> : <>
+          {status.required.pin && <Step done={Boolean(proofs.pin)} title="PIN">
+            {<>
               <input className={input} inputMode="numeric" type="password" maxLength={4} autoComplete="off" placeholder="4-digit PIN" aria-label="PIN" value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))} />
               <button type="button" className={btn} disabled={busy || pin.length !== 4} onClick={() => run(async () => { const r = await api.post<{ proof: string }>("/api/account/deletion/pin", { pin }); setProofs((p) => ({ ...p, pin: r.proof })); setPin(""); })}>Verify PIN</button>
             </>}
-          </Step>
-          <Step done={Boolean(proofs.password)} title="Password">
+          </Step>}
+          {status.required.password && <Step done={Boolean(proofs.password)} title="Password">
             <input className={input} type="password" autoComplete="current-password" placeholder="Current password" aria-label="Password" value={password} onChange={(e) => setPassword(e.target.value)} />
             <button type="button" className={btn} disabled={busy || !password} onClick={() => run(async () => { const r = await api.post<{ proof: string }>("/api/account/deletion/password", { password }); setProofs((p) => ({ ...p, password: r.proof })); setPassword(""); })}>Verify password</button>
-          </Step>
-          <Step done={Boolean(proofs.twofa)} title="Two-factor authentication">
-            {!status.twoFactorEnabled ? <p className="text-xs text-pp-text-dim">Turn on two-factor authentication in the Security settings above, then come back.</p> : <>
+          </Step>}
+          {status.required.twofa && <Step done={Boolean(proofs.twofa)} title="Two-factor authentication">
+            {<>
               <input className={input} inputMode="numeric" autoComplete="one-time-code" placeholder="6-digit code or backup code" aria-label="Two-factor code" value={code} onChange={(e) => setCode(e.target.value)} />
               <button type="button" className={btn} disabled={busy || !code.trim()} onClick={() => run(async () => { const r = await api.post<{ proof: string }>("/api/account/deletion/2fa", { code: code.trim() }); setProofs((p) => ({ ...p, twofa: r.proof })); setCode(""); })}>Verify code</button>
             </>}
-          </Step>
-          <Step done={Boolean(proofs.phone)} title="Phone number">
-            {!status.hasPhone ? <p className="text-xs text-pp-text-dim">Add a phone number to your profile first.</p> : !challenge ? <>
-              <input className={input} inputMode="tel" autoComplete="tel" placeholder="Your registered phone number" aria-label="Phone number" value={phone} onChange={(e) => setPhone(e.target.value)} />
-              <p className="text-xs text-pp-text-dim">We confirm it matches your account, then email a code to your registered email address.</p>
-              <button type="button" className={btn} disabled={busy || phone.replace(/\D/g, "").length < 6} onClick={() => run(async () => { const r = await api.post<{ challenge: string; sentTo: string }>("/api/account/deletion/phone/send", { phone }); setChallenge({ token: r.challenge, sentTo: r.sentTo }); })}>Send code</button>
+          </Step>}
+          {status.required.phone && <Step done={Boolean(proofs.phone)} title={status.hasPhone ? "Phone number" : "Email confirmation"}>
+            {!challenge ? <>
+              {status.hasPhone && <input className={input} inputMode="tel" autoComplete="tel" placeholder="Your registered phone number" aria-label="Phone number" value={phone} onChange={(e) => setPhone(e.target.value)} />}
+              <p className="text-xs text-pp-text-dim">{status.hasPhone ? "We confirm it matches your account, then email a code to your registered email address." : "We will email a code to your registered email address to confirm it is you."}</p>
+              <button type="button" className={btn} disabled={busy || (status.hasPhone && phone.replace(/\D/g, "").length < 6)} onClick={() => run(async () => { const r = await api.post<{ challenge: string; sentTo: string }>("/api/account/deletion/phone/send", { phone }); setChallenge({ token: r.challenge, sentTo: r.sentTo }); })}>Send code</button>
             </> : <>
               <p className="text-xs text-pp-text-dim">Enter the 6-digit code we sent to {challenge.sentTo}.</p>
               <input className={input} inputMode="numeric" autoComplete="one-time-code" maxLength={6} placeholder="6-digit code" aria-label="Phone confirmation code" value={phoneCode} onChange={(e) => setPhoneCode(e.target.value.replace(/\D/g, ""))} />
-              <button type="button" className={btn} disabled={busy || phoneCode.length !== 6} onClick={() => run(async () => { const r = await api.post<{ proof: string }>("/api/account/deletion/phone/verify", { challenge: challenge.token, code: phoneCode }); setProofs((p) => ({ ...p, phone: r.proof })); setPhoneCode(""); })}>Verify phone number</button>
+              <button type="button" className={btn} disabled={busy || phoneCode.length !== 6} onClick={() => run(async () => { const r = await api.post<{ proof: string }>("/api/account/deletion/phone/verify", { challenge: challenge.token, code: phoneCode }); setProofs((p) => ({ ...p, phone: r.proof })); setPhoneCode(""); })}>Verify {status.hasPhone ? "phone number" : "code"}</button>
             </>}
-          </Step>
+          </Step>}
         </ol>
       )}
       {err && <p role="alert" className="mt-3 text-sm font-medium text-red-600">{err}</p>}
 
       <div className="mt-4">
-        <p className="mb-2 flex items-center gap-1.5 text-xs text-pp-text-dim"><ShieldAlert size={14} aria-hidden="true" /> {all ? "All four checks are complete." : "Complete all four checks to unlock the slider."}</p>
+        <p className="mb-2 flex items-center gap-1.5 text-xs text-pp-text-dim"><ShieldAlert size={14} aria-hidden="true" /> {all ? "All checks are complete." : "Complete the checks above to unlock the slider."}</p>
         <SlideToConfirm label="Slide to schedule account deletion" disabled={!all || busy}
           onComplete={() => run(async () => { const r = await api.post<{ prompt: string; puzzleToken: string }>("/api/account/deletion/puzzle", { proofs }); setPuzzle({ prompt: r.prompt, token: r.puzzleToken }); setAnswer(""); })} />
       </div>

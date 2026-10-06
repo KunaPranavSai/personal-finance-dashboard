@@ -1526,8 +1526,9 @@ router.post("/profile/complete", authenticate, asyncHandler(async (req: Request,
   const cleanPhone = String(phone ?? "").replace(/[^0-9+]/g, "");
   if (!name?.trim()) { res.status(400).json({ error: "Please enter your name" }); return; }
   if (cleanPhone.replace(/\D/g, "").length < 7 || cleanPhone.replace(/\D/g, "").length > 15) { res.status(400).json({ error: "Please enter a valid phone number" }); return; }
-  if (!isPin(pin)) { res.status(400).json({ error: "Please choose a 4-digit PIN" }); return; }
-  if (isWeakPin(pin)) { res.status(400).json({ error: "Choose a PIN that is not a repeated digit or a straight run like 1234", code: "WEAK_PIN" }); return; }
+  const wantsPin = pin !== undefined && pin !== null && String(pin) !== ""; // the PIN is optional; the app reminds users to set one
+  if (wantsPin && !isPin(pin)) { res.status(400).json({ error: "A PIN must be 4 digits" }); return; }
+  if (wantsPin && isWeakPin(pin as string)) { res.status(400).json({ error: "Choose a PIN that is not a repeated digit or a straight run like 1234", code: "WEAK_PIN" }); return; }
   if (termsAccepted !== true) { res.status(400).json({ error: "You must accept the Terms of Service" }); return; }
   if (privacyAccepted !== true) { res.status(400).json({ error: "You must acknowledge the Privacy Policy" }); return; }
   if (!isValidSignatureName(signedName)) { res.status(400).json({ error: "Please type your full name as your electronic signature" }); return; }
@@ -1535,7 +1536,7 @@ router.post("/profile/complete", authenticate, asyncHandler(async (req: Request,
     await tx.consentRecord.create({
       data: { userId: user.id, signedName: (signedName as string).trim(), termsAccepted: true, privacyAccepted: true, termsVersion: TERMS_VERSION, privacyVersion: PRIVACY_VERSION },
     });
-    return tx.user.update({ where: { id: user.id }, data: { name: name.trim(), phone: cleanPhone, profileCompletedAt: new Date(), pinHash: await bcrypt.hash(pin, 10) } });
+    return tx.user.update({ where: { id: user.id }, data: { name: name.trim(), phone: cleanPhone, profileCompletedAt: new Date(), ...(wantsPin ? { pinHash: await bcrypt.hash(pin as string, 10) } : {}) } });
   });
   setPinDeviceCookie(res, updated.id, updated.role !== "USER");
   void sendAutomatedEmail({ req, triggerKey: "welcome", userId: updated.id, to: updated.email, vars: { name: updated.name, uid: updated.uid } });
