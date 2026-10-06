@@ -6,7 +6,7 @@ import { PillLink } from "./PillLink";
 
 export function FinalCTA() {
   return (
-    <section className="px-4 py-20 sm:px-6 md:py-28 lg:px-8">
+    <section data-scene="cta" className="px-4 py-20 sm:px-6 md:py-28 lg:px-8">
       <motion.div
         initial={{ opacity: 0, y: 32, scale: 0.97 }}
         whileInView={{ opacity: 1, y: 0, scale: 1 }}
@@ -23,7 +23,7 @@ export function FinalCTA() {
           <h2 className="mx-auto max-w-[18ch] text-4xl font-semibold leading-[1.08] tracking-tighter text-pp-text sm:text-6xl">
             Ready to take control of your money?
           </h2>
-          <p className="mt-4 text-lg text-pp-text-dim">Free to use, no credit card required.</p>
+          <p className="mt-4 text-lg text-pp-text-dim">Start for free.</p>
           <div className="mt-9">
             <PillLink href="/signup">
               Get Started

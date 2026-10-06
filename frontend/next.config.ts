@@ -20,6 +20,8 @@ const withPWA = withPWAInit({
     document: "/~offline",
   },
   workboxOptions: {
+    // The WebGL world chunk is heavy and optional: keep it out of the precache.
+    exclude: [/\.map$/, /^manifest.*\.js$/, /world3d.*\.js$/],
     skipWaiting: false, // let the user confirm via the update-available prompt instead of hijacking an open tab
     cleanupOutdatedCaches: true, // versioned cache: old precaches are removed automatically on activate
     runtimeCaching: [
@@ -56,6 +58,17 @@ const withPWA = withPWAInit({
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // Keep three / R3F in one named async chunk so the service worker can skip precaching it
+  // (see workboxOptions.exclude). It only loads when the landing canvas mounts.
+  webpack(config, { isServer }) {
+    if (!isServer && config.optimization.splitChunks) {
+      config.optimization.splitChunks.cacheGroups = {
+        ...config.optimization.splitChunks.cacheGroups,
+        world3d: { test: /node_modules[\\/](three|@react-three|three-stdlib|meshline|troika-[a-z-]+|maath)[\\/]/, name: "world3d-vendor", chunks: "async", priority: 40, enforce: true },
+      };
+    }
+    return config;
+  },
   // /manual reads frontend/content/PENNY_PILOT_USER_MANUAL.md at request
   // time (frontend/src/lib/manual.ts) via a dynamic fs.readFileSync path,
   // which is invisible to Next's static import tracing — without this,

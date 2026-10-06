@@ -5,7 +5,7 @@ import { motion, useScroll, useTransform, type MotionValue } from "framer-motion
 import { UserPlus, PenLine, LineChart } from "lucide-react";
 
 const STEPS = [
-  { icon: UserPlus, title: "Create your account", description: "Sign up in a minute, no admin approval needed.", at: 0.04 },
+  { icon: UserPlus, title: "Create your account", description: "Sign up in a minute.", at: 0.04 },
   { icon: PenLine, title: "Add your finances", description: "Log income, expenses, budgets, bills, and goals.", at: 0.5 },
   { icon: LineChart, title: "Understand and plan", description: "See patterns and progress, then plan ahead.", at: 0.96 },
 ];

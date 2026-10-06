@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
-import { Geist } from "next/font/google";
+import { Geist, Iceberg } from "next/font/google";
 import "./globals.css";
 import "@/styles/mobile.css";
 import { Providers } from "./providers";
@@ -16,6 +16,9 @@ const DESCRIPTION =
 
 // One UI typeface for the whole product (public pages, sign-in and dashboard).
 const geist = Geist({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
+
+// Wordmark only (header/footer/hero eyebrow). Latin subset, single weight, not preloaded.
+const iceberg = Iceberg({ subsets: ["latin"], weight: "400", variable: "--font-wordmark", display: "swap", preload: false });
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -87,7 +90,6 @@ export const viewport: Viewport = {
   themeColor: "#0EA5A5",
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
   viewportFit: "cover",
 };
 
@@ -114,7 +116,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           }}
         />
       </head>
-      <body className={geist.variable}>
+      <body className={`${geist.variable} ${iceberg.variable}`}>
         <Preloader />
         <AntiTamperGuard />
         <PwaInstallCapture />

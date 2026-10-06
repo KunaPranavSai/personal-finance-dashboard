@@ -31,7 +31,7 @@ export function Header() {
       >
         <Link href="/" className="flex items-center gap-2" aria-label="Penny Pilot Home">
           <Image src="/logo.png" alt="Penny Pilot" width={28} height={28} className="h-7 w-7 shrink-0 rounded-full object-cover" />
-          <span className="text-sm font-bold text-pp-text">Penny Pilot</span>
+          <span className="font-[family-name:var(--font-wordmark)] text-lg tracking-wide text-pp-text">Penny Pilot</span>
         </Link>
 
         <div className="hidden md:flex md:items-center md:gap-8">

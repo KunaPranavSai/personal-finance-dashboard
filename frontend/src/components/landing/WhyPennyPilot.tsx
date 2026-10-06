@@ -22,7 +22,7 @@ const BLOCKS = [
   {
     icon: ShieldCheck,
     title: "Keep Control of Your Data",
-    description: "Choose the storage approach that fits you: Google Drive or Local-Only.",
+    description: "Choose the storage approach that fits you: your own Google Drive or on-device.",
   },
 ];
 

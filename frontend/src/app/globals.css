@@ -95,6 +95,28 @@ body {
   }
 }
 
+/* GSAP-driven regions opt out of the global color crossfade (utilities still win). */
+@layer base {
+  .pp-gsap,
+  .pp-gsap *,
+  .pp-gsap *::before,
+  .pp-gsap *::after {
+    transition-property: none;
+  }
+}
+
+/* Flight HUD: the current stage name appears briefly, then gets out of the copy's way. */
+@keyframes pp-hudfade {
+  0%, 70% { opacity: 1; }
+  100% { opacity: 0; }
+}
+.pp-hudfade {
+  animation: pp-hudfade 3.2s ease forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pp-hudfade { animation: none; opacity: 1; }
+}
+
 .scrollbar-thin::-webkit-scrollbar {
   width: 6px;
   height: 6px;

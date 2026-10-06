@@ -10,7 +10,7 @@ export async function LandingFooter() {
       <div className="mx-auto flex max-w-6xl flex-col items-center gap-4 sm:flex-row sm:justify-between">
         <Link href="/" className="flex items-center gap-2" aria-label="Penny Pilot Home">
           <Image src="/logo.png" alt="Penny Pilot" width={24} height={24} className="h-6 w-6 shrink-0 rounded-md object-cover" />
-          <span className="text-sm font-semibold text-pp-text">Penny Pilot</span>
+          <span className="font-[family-name:var(--font-wordmark)] text-base tracking-wide text-pp-text">Penny Pilot</span>
         </Link>
 
         <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-pp-text-dim">

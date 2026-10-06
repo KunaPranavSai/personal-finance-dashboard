@@ -123,11 +123,10 @@ export function Features() {
               viewport={{ once: true }}
               transition={{ duration: 2, ease: EASE }}
             />
-            {!reduce && (
-              <circle r="5" fill="var(--pp-text)">
-                <animateMotion dur="7s" repeatCount="indefinite" path={CHART} />
-              </circle>
-            )}
+            {/* always rendered (SSR/CSR agree); hidden via CSS under reduced motion */}
+            <circle r="5" fill="var(--pp-text)" className="motion-reduce:hidden">
+              <animateMotion dur="7s" repeatCount="indefinite" path={CHART} />
+            </circle>
           </svg>
         </Cell>
       </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { PennyPilotCoinLoader } from "./ui/PennyPilotCoinLoader";
 
@@ -14,10 +15,12 @@ const HOLD_MS = 2100;
 
 export function Preloader({ onFinish }: { onFinish?: () => void }) {
   const reduce = useReducedMotion();
-  const [visible, setVisible] = useState(true);
+  // The landing page ("/") owns its own arrival moment; never gate its LCP behind this overlay.
+  const onLanding = usePathname() === "/";
+  const [visible, setVisible] = useState(!onLanding);
 
   useEffect(() => {
-    if (reduce || (typeof window !== "undefined" && sessionStorage.getItem("pp-preloader-shown"))) {
+    if (onLanding || reduce || (typeof window !== "undefined" && sessionStorage.getItem("pp-preloader-shown"))) {
       setVisible(false);
       onFinish?.();
       return;
