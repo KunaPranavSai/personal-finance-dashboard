@@ -13,7 +13,7 @@ import { getSystemHealth } from "../services/admin/systemHealth";
 import { lookupGeo } from "../lib/geoip";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
-import { refreshPlatformConfig } from "../lib/platformConfig";
+import { platformConfig, refreshPlatformConfig } from "../lib/platformConfig";
 import { tableToCsv, tableToExcel, tableToPdf, TableReport } from "../services/export/tableExporter";
 import { requireRole } from "../middleware/auth";
 import emailBuilderRouter from "./emailBuilder.routes";
@@ -368,6 +368,10 @@ router.get(
 router.post(
   "/users/:id/notify-migration",
   asyncHandler(async (req: Request, res: Response) => {
+    if (!platformConfig().driveStorageEnabled) {
+      res.status(400).json({ error: "Google Drive storage is disabled in System Settings, so migration reminders are paused." });
+      return;
+    }
     const id = String(req.params.id);
     const [user, connection, hasLegacyData] = await Promise.all([
       prisma.user.findUnique({ where: { id }, select: { id: true, name: true, email: true, role: true } }),
@@ -728,6 +732,8 @@ router.patch(
     if (b.defaultSessionTimeoutMinutes !== undefined) data.defaultSessionTimeoutMinutes = Math.min(10080, Math.max(1, Number(b.defaultSessionTimeoutMinutes) || 30));
     if (b.minPasswordLength !== undefined) data.minPasswordLength = Math.max(6, Math.min(64, Number(b.minPasswordLength) || 8));
     if (b.require2FAForAdmins !== undefined) data.require2FAForAdmins = Boolean(b.require2FAForAdmins);
+    if (b.driveStorageEnabled !== undefined) data.driveStorageEnabled = Boolean(b.driveStorageEnabled);
+    if (b.deviceStorageEnabled !== undefined) data.deviceStorageEnabled = Boolean(b.deviceStorageEnabled);
     if (b.apiRateLimit !== undefined) data.apiRateLimit = Math.min(100000, Math.max(30, Number(b.apiRateLimit) || 300));
 
     if (errors.length > 0) {

@@ -47,7 +47,10 @@ interface RevisionPreview {
  * no invented states. Reached from Dashboard "Sync" and Settings
  * "Manage Storage", both as real /settings/* routes (no desktop escape).
  */
+import { useStoragePolicy, DRIVE_DISABLED_TEXT, DEVICE_DISABLED_TEXT } from "@/lib/storagePolicy";
+
 export function MobileStorageView() {
+  const policy = useStoragePolicy();
   const { toast } = useToast();
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -144,9 +147,9 @@ export function MobileStorageView() {
           </div>
 
           <div className="ppm-card" style={{ marginTop: 14 }}>
-            <button type="button" className="ppm-list-item" onClick={() => setSwitchConfirmOpen(true)}>
+            <button type="button" className="ppm-list-item" disabled={!policy.drive} aria-disabled={!policy.drive} style={policy.drive ? undefined : { opacity: 0.5, cursor: "not-allowed" }} onClick={() => policy.drive && setSwitchConfirmOpen(true)}>
               <div className="ppm-ic" aria-hidden="true"><Link2 size={18} /></div>
-              <div className="ppm-info"><div className="ppm-name">Switch to Google Drive</div></div>
+              <div className="ppm-info"><div className="ppm-name">Switch to Google Drive</div>{!policy.drive && <div className="ppm-meta">{DRIVE_DISABLED_TEXT}</div>}</div>
               <span className="ppm-chev" aria-hidden="true">›</span>
             </button>
           </div>
@@ -168,14 +171,14 @@ export function MobileStorageView() {
           </div>
 
           <div className="ppm-card" style={{ marginTop: 14 }}>
-            <button type="button" className="ppm-list-item" onClick={() => verifyMutation.mutate()} disabled={verifyMutation.isPending}>
+            <button type="button" className="ppm-list-item" onClick={() => policy.drive && verifyMutation.mutate()} disabled={verifyMutation.isPending || !policy.drive} aria-disabled={!policy.drive} style={policy.drive ? undefined : { opacity: 0.5, cursor: "not-allowed" }}>
               <div className="ppm-ic" aria-hidden="true"><Shield size={18} /></div>
               <div className="ppm-info"><div className="ppm-name">{verifyMutation.isPending ? "Checking…" : "Verify Data"}</div></div>
               <span className="ppm-chev" aria-hidden="true">›</span>
             </button>
-            <button type="button" className="ppm-list-item" onClick={() => setRestoreOpen(true)}>
+            <button type="button" className="ppm-list-item" disabled={!policy.drive} aria-disabled={!policy.drive} style={policy.drive ? undefined : { opacity: 0.5, cursor: "not-allowed" }} onClick={() => policy.drive && setRestoreOpen(true)}>
               <div className="ppm-ic" aria-hidden="true"><Clock size={18} /></div>
-              <div className="ppm-info"><div className="ppm-name">Restore Data</div></div>
+              <div className="ppm-info"><div className="ppm-name">Restore Data</div>{!policy.drive && <div className="ppm-meta">{DRIVE_DISABLED_TEXT}</div>}</div>
               <span className="ppm-chev" aria-hidden="true">›</span>
             </button>
             <button type="button" className="ppm-list-item" onClick={() => setDisconnectConfirmOpen(true)}>
@@ -203,8 +206,8 @@ export function MobileStorageView() {
       ) : (
         <div className="ppm-card">
           <p style={{ fontSize: 13, color: "var(--ppm-text-dim)", marginBottom: 12 }}>Google Drive is disconnected. Reconnect to access your Penny Pilot data.</p>
-          <button type="button" className="ppm-qa-btn primary" style={{ width: "100%" }} onClick={() => connectMutation.mutate()} disabled={connectMutation.isPending}>
-            {connectMutation.isPending ? "Connecting…" : "Reconnect Google Drive"}
+          <button type="button" className="ppm-qa-btn primary" style={{ width: "100%" }} onClick={() => policy.drive && connectMutation.mutate()} disabled={connectMutation.isPending || !policy.drive} aria-disabled={!policy.drive}>
+            {connectMutation.isPending ? "Connecting…" : policy.drive ? "Reconnect Google Drive" : `Reconnect Google Drive — ${DRIVE_DISABLED_TEXT}`}
           </button>
         </div>
       )}

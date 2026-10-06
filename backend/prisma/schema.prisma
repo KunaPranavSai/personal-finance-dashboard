@@ -611,6 +611,9 @@ model PlatformSettings {
   emailFromAddress            String?
   superAdminEmail             String?
   apiRateLimit                Int      @default(300)
+  // Administrator storage policy (Admin -> System Settings -> Storage). Enforced in the API, not only in the UI.
+  driveStorageEnabled         Boolean  @default(true)
+  deviceStorageEnabled        Boolean  @default(true)
   updatedAt                   DateTime @updatedAt
 
   @@map("platform_settings")

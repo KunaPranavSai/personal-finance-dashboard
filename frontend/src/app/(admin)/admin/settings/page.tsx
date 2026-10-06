@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Alert, Button, ErrorState, PageHeader, Panel, Skeleton, Switch, TextField } from "@/components/admin/ui";
+import { Alert, Badge, Button, ErrorState, PageHeader, Panel, Skeleton, Switch, TextField } from "@/components/admin/ui";
 import { useToast } from "@/components/ui/Toast";
 import { api, API_BASE_URL } from "@/lib/api";
 import { useAuth } from "@/lib/AuthContext";
@@ -10,6 +10,7 @@ import { useAuth } from "@/lib/AuthContext";
 interface Settings {
   siteName: string; supportEmail: string | null; defaultSessionTimeoutMinutes: number; minPasswordLength: number; require2FAForAdmins: boolean;
   appUrl: string | null; emailFromName: string | null; emailFromAddress: string | null; superAdminEmail: string | null; apiRateLimit: number;
+  driveStorageEnabled: boolean; deviceStorageEnabled: boolean;
 }
 
 export default function AdminSystemSettingsPage() {
@@ -67,6 +68,25 @@ export default function AdminSystemSettingsPage() {
             <TextField label="Super-admin alert email" type="email" value={text("superAdminEmail")} onChange={(e) => set({ superAdminEmail: e.target.value })} hint="Receives security alerts about admin accounts." />
             <Alert>The Resend API key is a secret, so it stays in the server environment and is not entered here.</Alert>
           </div></Panel>
+
+          <Panel title="Storage">
+            <p className="ad-muted mt-0">Choose which storage types users can use. A switched-off option stays visible to users but is greyed out and cannot be used; the API refuses the matching actions too. Existing connections and data are never deleted.</p>
+            {([
+              { key: "driveStorageEnabled" as const, name: "Google Drive Storage", desc: "Allow users to connect and use Google Drive for Penny Pilot data storage, backup and migration.",
+                off: "Users see “Disabled by Administrator”. Connecting, reconnecting, migrating, backing up and restoring through Google Drive are blocked, and so is opening Drive-stored data. Existing Drive connections and data are kept and work again when you turn this back on." },
+              { key: "deviceStorageEnabled" as const, name: "This Device Storage", desc: "Allow users to use local/device storage where supported by the application.",
+                off: "Users see “This Feature will be enabled only on App”. Choosing or switching to device storage is unavailable. Data already kept on a device is untouched." },
+            ]).map((o) => (
+              <div key={o.key} className="ad-row" style={{ alignItems: "flex-start" }}>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2"><strong>{o.name}</strong><Badge tone={form[o.key] ? "green" : "red"}>{form[o.key] ? "ON" : "OFF"}</Badge></div>
+                  <div className="ad-muted text-[13px]">{o.desc}</div>
+                  {!form[o.key] && <div className="ad-hint">{o.off}</div>}
+                </div>
+                <Switch label={`${o.name}: ${form[o.key] ? "on" : "off"}`} checked={form[o.key]} onChange={(v) => set({ [o.key]: v } as Partial<Settings>)} />
+              </div>
+            ))}
+          </Panel>
 
           <Panel title="Security and limits"><div className="grid gap-4">
             <div className="grid gap-4 sm:grid-cols-3">

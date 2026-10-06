@@ -12,6 +12,7 @@ import { useDriveStatus, isDriveReady, DRIVE_STATUS_QUERY_KEY } from "@/lib/driv
 import { api, ApiClientError } from "@/lib/api";
 import { setStorageMode } from "@/lib/storage";
 import { isLocalStorageAvailable } from "@/lib/storage/localDb";
+import { useStoragePolicy, DRIVE_DISABLED_TEXT, DEVICE_DISABLED_TEXT } from "@/lib/storagePolicy";
 import { HardDrive, CheckCircle2, AlertCircle, ArrowRight, FolderGit2, Laptop, ShieldAlert } from "lucide-react";
 import { useIsMobile } from "@/lib/DeviceContext";
 import { MobileConnectDriveView } from "@/components/mobile/MobileConnectDriveView";
@@ -29,6 +30,7 @@ export default function ConnectDrivePage() {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const queryClient = useQueryClient();
   const { data: status, isLoading: statusLoading } = useDriveStatus();
+  const policy = useStoragePolicy();
 
   const [view, setView] = useState<ViewState>("storageChoice");
   const [error, setError] = useState("");
@@ -61,6 +63,7 @@ export default function ConnectDrivePage() {
         missing_code: "Google didn't return an authorization code. Please try again.",
         expired_state: "That connection attempt expired. Please try again.",
         connect_failed: "Could not connect to Google Drive. Please try again.",
+        disabled_by_admin: "Google Drive storage has been disabled by the administrator.",
       };
       setError(codeToMessage[params.get("driveError") ?? ""] ?? "Could not connect to Google Drive. Please try again.");
       setView("error");
@@ -143,29 +146,33 @@ export default function ConnectDrivePage() {
     return (
       <AuthPageShell icon={HardDrive} title="Choose how you want to store your data" subtitle="You can change this later in Settings" footer={<Footer variant="dark" />}>
         <div className="space-y-4">
-          <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+          <div className={`rounded-xl border border-white/10 bg-white/5 p-4 ${policy.drive ? "" : "opacity-50"}`}>
             <h3 className="flex items-center gap-2 text-sm font-semibold text-white">
               <HardDrive className="h-4 w-4 text-pp-accent/40" /> Google Drive — Recommended
             </h3>
             <p className="mt-1.5 text-xs text-[#94A3B8]">Store Penny Pilot data in your own Google Drive, backed up and accessible from any device.</p>
             <motion.button
-              whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} type="button"
-              onClick={() => setView("connect")} className={`${primaryButton} mt-3`}
+              whileHover={policy.drive ? { scale: 1.02 } : undefined} whileTap={policy.drive ? { scale: 0.98 } : undefined} type="button"
+              disabled={!policy.drive} aria-disabled={!policy.drive} title={policy.drive ? undefined : DRIVE_DISABLED_TEXT}
+              onClick={() => policy.drive && setView("connect")} className={`${primaryButton} mt-3`}
             >
               Connect Google Drive
             </motion.button>
+            {!policy.drive && <p role="status" className="mt-2 text-center text-xs font-medium text-amber-300">{DRIVE_DISABLED_TEXT}</p>}
           </div>
-          <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+          <div className={`rounded-xl border border-white/10 bg-white/5 p-4 ${policy.device ? "" : "opacity-50"}`}>
             <h3 className="flex items-center gap-2 text-sm font-semibold text-white">
               <Laptop className="h-4 w-4 text-white/60" /> This Device Only
             </h3>
             <p className="mt-1.5 text-xs text-[#94A3B8]">Keep Penny Pilot data locally in this browser/device without connecting Google Drive.</p>
             <motion.button
-              whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} type="button"
-              onClick={() => setView("localWarning")} className={`${secondaryButton} mt-3`}
+              whileHover={policy.device ? { scale: 1.02 } : undefined} whileTap={policy.device ? { scale: 0.98 } : undefined} type="button"
+              disabled={!policy.device} aria-disabled={!policy.device} title={policy.device ? undefined : DEVICE_DISABLED_TEXT}
+              onClick={() => policy.device && setView("localWarning")} className={`${secondaryButton} mt-3 ${policy.device ? "" : "cursor-not-allowed hover:bg-white/5"}`}
             >
               Continue on this Device
             </motion.button>
+            {!policy.device && <p role="status" className="mt-2 text-center text-xs font-medium text-amber-300">{DEVICE_DISABLED_TEXT}</p>}
           </div>
         </div>
       </AuthPageShell>

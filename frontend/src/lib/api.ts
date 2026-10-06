@@ -98,7 +98,7 @@ async function request<T>(path: string, options: RequestInit = {}, isRetry = fal
     }
     const code = (body as { code?: string })?.code;
     if (res.status === 403 && code === "STEP_UP") requestStepUp();
-    if (code === "DRIVE_NOT_CONNECTED" || code === "DRIVE_REAUTH_REQUIRED" || code === "DRIVE_NOT_INITIALIZED") {
+    if (code === "STORAGE_DISABLED_DRIVE" || code === "DRIVE_NOT_CONNECTED" || code === "DRIVE_REAUTH_REQUIRED" || code === "DRIVE_NOT_INITIALIZED") {
       if (typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent(DRIVE_DISCONNECTED_EVENT));
       }

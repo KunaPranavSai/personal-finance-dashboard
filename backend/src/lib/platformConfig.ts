@@ -25,6 +25,9 @@ export interface PlatformConfig {
   require2FAForAdmins: boolean;
   /** Requests per IP per 15 minutes across the whole API. */
   apiRateLimit: number;
+  /** Administrator storage policy: may users use Google Drive / this device for their data? */
+  driveStorageEnabled: boolean;
+  deviceStorageEnabled: boolean;
 }
 
 const FALLBACK_APP_URL = "https://personal-finance-dashboard-three-topaz.vercel.app";
@@ -47,6 +50,8 @@ function build(row: Partial<Record<string, unknown>> | null): PlatformConfig {
     minPasswordLength: Number(r.minPasswordLength) >= 6 ? Number(r.minPasswordLength) : 8,
     require2FAForAdmins: Boolean(r.require2FAForAdmins),
     apiRateLimit: Number(r.apiRateLimit) >= 30 ? Number(r.apiRateLimit) : 300,
+    driveStorageEnabled: r.driveStorageEnabled !== false,
+    deviceStorageEnabled: r.deviceStorageEnabled !== false,
   };
 }
 

@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import { asyncHandler } from "../utils/asyncHandler";
 import { prisma } from "../lib/prisma";
+import { platformConfig } from "../lib/platformConfig";
 
 const router = Router();
 
@@ -18,7 +19,9 @@ router.get(
       where: { id: "singleton" },
       select: { supportEmail: true },
     });
-    res.json({ supportEmail: settings?.supportEmail || null });
+    const c = platformConfig();
+    // The storage policy is public on purpose: the sign-up / storage-choice screens need it before a session exists.
+    res.json({ supportEmail: settings?.supportEmail || null, storage: { drive: c.driveStorageEnabled, device: c.deviceStorageEnabled } });
   })
 );
 

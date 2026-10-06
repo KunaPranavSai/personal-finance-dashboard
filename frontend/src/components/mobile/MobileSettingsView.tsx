@@ -68,7 +68,10 @@ const DRIVE_STATE_LABEL: { test: (s: ReturnType<typeof useDriveStatus>["data"]) 
   { test: () => true, label: "Not connected", tone: "near" },
 ];
 
+import { useStoragePolicy, DRIVE_DISABLED_TEXT, DEVICE_DISABLED_TEXT } from "@/lib/storagePolicy";
+
 export function MobileSettingsView() {
+  const policy = useStoragePolicy();
   const { settings, resolvedTheme, updateSettings } = useSettingsContext();
   const { toast } = useToast();
   const toggleDarkMode = () => updateSettings({ theme: resolvedTheme === "dark" ? "light" : "dark" });
@@ -190,6 +193,14 @@ export function MobileSettingsView() {
             <div className="ppm-ic" aria-hidden="true"><HardDrive size={18} /></div>
             <div className="ppm-info"><div className="ppm-name">This Device Only</div></div>
           </div>
+        ) : !policy.drive ? (
+          <div className="ppm-list-item" aria-disabled="true" style={{ opacity: 0.5, cursor: "not-allowed" }}>
+            <div className="ppm-ic" aria-hidden="true"><Database size={18} /></div>
+            <div className="ppm-info">
+              <div className="ppm-name">Google Drive</div>
+              <div className="ppm-meta">{DRIVE_DISABLED_TEXT}</div>
+            </div>
+          </div>
         ) : (
           <Link href="/settings/storage" className="ppm-list-item">
             <div className="ppm-ic" aria-hidden="true"><Database size={18} /></div>
@@ -209,7 +220,7 @@ export function MobileSettingsView() {
           </div>
           <span className="ppm-chev" aria-hidden="true">›</span>
         </Link>
-        {!isDriveReady(driveStatus) && !isLocalOnly && (
+        {!isDriveReady(driveStatus) && !isLocalOnly && policy.drive && (
           <Link href="/connect-drive" className="ppm-list-item">
             <div className="ppm-ic" aria-hidden="true"><Link2 size={18} /></div>
             <div className="ppm-info"><div className="ppm-name">Connect Google Drive</div></div>

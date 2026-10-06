@@ -56,7 +56,10 @@ async function applyBackupJson(json: string): Promise<{ ok: true } | { ok: false
   return { ok: true };
 }
 
+import { useStoragePolicy, DRIVE_DISABLED_TEXT } from "@/lib/storagePolicy";
+
 export function DataStorageCard() {
+  const policy = useStoragePolicy();
   const { toast } = useToast();
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -230,12 +233,16 @@ export function DataStorageCard() {
               <Button
                 variant="ghost"
                 size="sm"
+                disabled={!policy.drive}
+                aria-disabled={!policy.drive}
+                title={policy.drive ? undefined : DRIVE_DISABLED_TEXT}
                 onClick={() => {
+                  if (!policy.drive) return;
                   setStorageMode("drive");
                   router.push("/connect-drive");
                 }}
               >
-                Switch to Google Drive
+                Switch to Google Drive{policy.drive ? "" : ` — ${DRIVE_DISABLED_TEXT}`}
               </Button>
             </div>
 

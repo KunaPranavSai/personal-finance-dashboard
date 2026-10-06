@@ -13,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/PpCard
 import { Button } from "@/components/ui/PpButton";
 import { PasswordInput } from "@/components/ui/PasswordInput";
 import { ExportPreviewModal } from "@/components/ui/ExportPreviewModal";
+import { useStoragePolicy, DRIVE_DISABLED_TEXT, DEVICE_DISABLED_TEXT } from "@/lib/storagePolicy";
 import { GoogleDriveBackupCard } from "@/components/settings/GoogleDriveBackupCard";
 import { getStorageMode } from "@/lib/storage";
 import { useSettingsContext } from "@/lib/SettingsContext";
@@ -861,6 +862,7 @@ function ActivityTab() {
 function SettingsContent() {
   const searchParams = useSearchParams();
   const isMobile = useIsMobile();
+  const policy = useStoragePolicy();
   const { settings, updateSettings, isLoading, isSaving } = useSettingsContext();
   const { toast } = useToast();
   const { user, changePassword } = useAuth();
@@ -1218,7 +1220,12 @@ function SettingsContent() {
       case "backup":
         return (
           <div className="space-y-4">
-            {getStorageMode() === "drive" && <GoogleDriveBackupCard />}
+            {getStorageMode() === "drive" && (policy.drive ? <GoogleDriveBackupCard /> : (
+              <div className="rounded-pp border border-pp-border bg-pp-surface p-4 opacity-60" aria-disabled="true">
+                <p className="text-sm font-semibold text-pp-text">Google Drive backup</p>
+                <p className="mt-1 text-xs text-pp-text-dim">{DRIVE_DISABLED_TEXT}</p>
+              </div>
+            ))}
             <ExportTab />
           </div>
         );

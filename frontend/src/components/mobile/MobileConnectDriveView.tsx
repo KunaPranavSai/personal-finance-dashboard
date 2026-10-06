@@ -24,7 +24,10 @@ import { Database, AlertTriangle, CheckCircle2, FolderOpen, Laptop } from "lucid
  */
 type ViewState = "storageChoice" | "localWarning" | "connect" | "connecting" | "success" | "localReady" | "accountChoice" | "error";
 
+import { useStoragePolicy, DRIVE_DISABLED_TEXT, DEVICE_DISABLED_TEXT } from "@/lib/storagePolicy";
+
 export function MobileConnectDriveView() {
+  const policy = useStoragePolicy();
   const router = useRouter();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const queryClient = useQueryClient();
@@ -56,6 +59,7 @@ export function MobileConnectDriveView() {
     } else if (params.get("driveError")) {
       const codeToMessage: Record<string, string> = {
         missing_code: "Google didn't return an authorization code. Please try again.",
+        disabled_by_admin: "Google Drive storage has been disabled by the administrator.",
         expired_state: "That connection attempt expired. Please try again.",
         connect_failed: "Could not connect to Google Drive. Please try again.",
       };
@@ -151,12 +155,14 @@ export function MobileConnectDriveView() {
         <div className="ppm-card" style={{ marginBottom: 12 }}>
           <div className="ppm-name" style={{ marginBottom: 4 }}>Google Drive — Recommended</div>
           <p style={{ fontSize: 12, color: "var(--ppm-text-dim)", marginBottom: 12 }}>Store Penny Pilot data in your own Google Drive, backed up and accessible from any device.</p>
-          <button type="button" className="ppm-sheet-submit" onClick={() => setView("connect")}>Connect Google Drive</button>
+          <button type="button" className="ppm-sheet-submit" disabled={!policy.drive} aria-disabled={!policy.drive} style={policy.drive ? undefined : { opacity: 0.5, cursor: "not-allowed" }} onClick={() => policy.drive && setView("connect")}>Connect Google Drive</button>
+          {!policy.drive && <p role="status" style={{ margin: "8px 0 0", fontSize: 12, fontWeight: 600, color: "var(--ppm-warning, #b45309)" }}>{DRIVE_DISABLED_TEXT}</p>}
         </div>
         <div className="ppm-card">
           <div className="ppm-name" style={{ marginBottom: 4, display:"flex", alignItems:"center", gap:6 }}><Laptop size={16} /> This Device Only</div>
           <p style={{ fontSize: 12, color: "var(--ppm-text-dim)", marginBottom: 12 }}>Keep Penny Pilot data locally in this browser/device without connecting Google Drive.</p>
-          <button type="button" className="ppm-sheet-cancel" style={{ marginTop: 0 }} onClick={() => setView("localWarning")}>Continue on this Device</button>
+          <button type="button" className="ppm-sheet-cancel" disabled={!policy.device} aria-disabled={!policy.device} style={{ marginTop: 0, ...(policy.device ? {} : { opacity: 0.5, cursor: "not-allowed" }) }} onClick={() => policy.device && setView("localWarning")}>Continue on this Device</button>
+          {!policy.device && <p role="status" style={{ margin: "8px 0 0", fontSize: 12, fontWeight: 600, color: "var(--ppm-warning, #b45309)" }}>{DEVICE_DISABLED_TEXT}</p>}
         </div>
       </Shell>
     );

@@ -4,6 +4,7 @@ import crypto from "crypto";
 import { asyncHandler } from "../utils/asyncHandler";
 import { validateBody } from "../middleware/validate";
 import { z } from "zod";
+import { platformConfig } from "../lib/platformConfig";
 import { prisma } from "../lib/prisma";
 import { ApiError } from "../middleware/errorHandler";
 import { encryptSecret } from "../lib/crypto";
@@ -27,7 +28,7 @@ import {
   restoreCollectionFromRevision,
 } from "../services/drive/dataService";
 import { COLLECTIONS, CollectionName } from "../services/drive/types";
-import { requireRecent2FA } from "../middleware/auth";
+import { requireRecent2FA, requireDriveEnabled } from "../middleware/auth";
 
 function isCollectionName(value: string): value is CollectionName {
   return (COLLECTIONS as readonly string[]).includes(value);
@@ -84,6 +85,7 @@ router.get(
 
 router.get(
   "/connect",
+  requireDriveEnabled,
   asyncHandler(async (req: Request, res: Response) => {
     if (!isGoogleDriveConfigured()) {
       throw new ApiError(503, "Google Drive is not configured on this server yet.");
@@ -100,6 +102,10 @@ router.get(
   asyncHandler(async (req: Request, res: Response) => {
     const { code, state } = req.query as { code?: string; state?: string };
     const base = redirectBase();
+    if (!platformConfig().driveStorageEnabled) {
+      res.redirect(`${base}?driveError=disabled_by_admin`);
+      return;
+    }
 
     if (!code || !state) {
       res.redirect(`${base}?driveError=missing_code`);
@@ -207,6 +213,7 @@ router.get(
 
 router.post(
   "/resolve-account-change",
+  requireDriveEnabled,
   validateBody(z.object({ choiceToken: z.string().min(1), choice: z.enum(["use_existing", "start_fresh"]) })),
   asyncHandler(async (req: Request, res: Response) => {
     const { choiceToken, choice } = req.body as { choiceToken: string; choice: "use_existing" | "start_fresh" };
@@ -269,6 +276,7 @@ router.delete(
 
 router.post(
   "/verify",
+  requireDriveEnabled,
   asyncHandler(async (req: Request, res: Response) => {
     await requireConnection(req.auth!.userId);
     const result = await verifyStorage(req.auth!.userId);
@@ -284,6 +292,7 @@ router.post(
 
 router.get(
   "/restore/:collection/revisions",
+  requireDriveEnabled,
   asyncHandler(async (req: Request, res: Response) => {
     const collection = String(req.params.collection);
     if (!isCollectionName(collection)) throw new ApiError(400, "Unknown data collection.");
@@ -295,6 +304,7 @@ router.get(
 
 router.get(
   "/restore/:collection/preview",
+  requireDriveEnabled,
   asyncHandler(async (req: Request, res: Response) => {
     const collection = String(req.params.collection);
     const revisionId = String(req.query.revisionId ?? "");
@@ -308,6 +318,7 @@ router.get(
 
 router.post(
   "/restore/:collection",
+  requireDriveEnabled,
   requireRecent2FA,
   validateBody(z.object({ revisionId: z.string().min(1), confirm: z.literal(true) })),
   asyncHandler(async (req: Request, res: Response) => {

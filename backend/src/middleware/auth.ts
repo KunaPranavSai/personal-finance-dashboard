@@ -5,6 +5,7 @@ import { isSessionRevoked } from "../lib/sessionRevocation";
 import { ACCESS_SECRET, signAccess, signRefresh, setTokenCookies } from "../lib/tokens";
 import { computeSessionExpiryForUser } from "../lib/sessionExpiry";
 import { prisma } from "../lib/prisma";
+import { platformConfig } from "../lib/platformConfig";
 
 export interface AuthPayload {
   userId: string;
@@ -179,10 +180,26 @@ export function requireRecent2FA(req: Request, res: Response, next: NextFunction
  * (see services/drive/init.ts), so a connection that's mid-way through an unresolved
  * account-change choice does not count as "connected" yet. Must run after `authenticate`.
  */
+export const DRIVE_DISABLED_MESSAGE = "Google Drive storage has been disabled by the administrator.";
+
+/** Blocks a Google Drive action while the administrator has switched Drive storage off. Existing connections and data
+ * are left untouched; they work again as soon as the setting is turned back on. */
+export function requireDriveEnabled(_req: Request, res: Response, next: NextFunction): void {
+  if (!platformConfig().driveStorageEnabled) {
+    res.status(403).json({ error: DRIVE_DISABLED_MESSAGE, code: "STORAGE_DISABLED_DRIVE" });
+    return;
+  }
+  next();
+}
+
 export async function requireDriveConnected(req: Request, res: Response, next: NextFunction): Promise<void> {
   const userId = req.auth?.userId;
   if (!userId) {
     res.status(401).json({ error: "Authentication required", code: "AUTH_REQUIRED" });
+    return;
+  }
+  if (req.auth?.role === "USER" && !platformConfig().driveStorageEnabled) {
+    res.status(403).json({ error: DRIVE_DISABLED_MESSAGE, code: "STORAGE_DISABLED_DRIVE" });
     return;
   }
   // Admins manage the platform, not a personal finance workspace — their own account
