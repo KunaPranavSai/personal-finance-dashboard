@@ -19,6 +19,7 @@ import settingsRoutes from "./routes/settings.routes";
 import exportRoutes from "./routes/export.routes";
 import driveRoutes from "./routes/drive.routes";
 import authRoutes from "./routes/auth.routes";
+import accountRoutes from "./routes/account.routes";
 import voiceGreetingRoutes from "./routes/voiceGreeting.routes";
 import activityRoutes from "./routes/activity.routes";
 import { platformConfig } from "./lib/platformConfig";
@@ -138,6 +139,7 @@ export function createApp() {
 
   // Auth routes (public — login / logout / refresh)
   app.use("/api/auth", authRoutes);
+  app.use("/api/account", accountRoutes);
 
   // Voice greetings (public — the signup-success greeting fires before any
   // session exists). Only ever synthesizes one of a small fixed set of

@@ -58,6 +58,7 @@ export const TEMPLATE_TAGS: Record<string, TemplateTag[]> = {
     WHEN,
   ],
   admin_access_code: [NAME, CODE("admin-access"), EXPIRY],
+  account_action_code: [NAME, CODE("confirmation"), EXPIRY, { tag: "purpose", description: "What the code confirms", required: false, sample: "scheduling account deletion" }],
   migration_action_required: [NAME, WHEN],
   migration_completed: [NAME, WHEN],
   migration_failed: [NAME, WHEN],
@@ -82,7 +83,7 @@ export const TEMPLATE_VARIABLES: Record<string, string[]> = Object.fromEntries(
 );
 
 /** Values every send gets unless the caller supplies its own: the event time, and how long each code email's code lasts. */
-const CODE_EXPIRY: Record<string, string> = { email_verification: "10 minutes", signin_code: "10 minutes", recovery_otp: "5 minutes", admin_access_code: "20 minutes" };
+const CODE_EXPIRY: Record<string, string> = { email_verification: "10 minutes", signin_code: "10 minutes", recovery_otp: "5 minutes", admin_access_code: "20 minutes", account_action_code: "10 minutes" };
 export function defaultVars(templateKey: string): Record<string, string> {
   const when = `${new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true })} IST`;
   return { when, ...(CODE_EXPIRY[templateKey] ? { expiry: CODE_EXPIRY[templateKey] } : {}) };

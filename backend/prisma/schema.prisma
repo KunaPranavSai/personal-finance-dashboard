@@ -81,6 +81,13 @@ model User {
   rejectedAt             DateTime?
   rejectionReason        String?
   lastLoginAt            DateTime?
+  // Super Admin supervision (break-glass lock): the user can sign in but the app is locked until revoked.
+  supervisedAt           DateTime?
+  supervisedById         String?
+  supervisionReason      String?
+  // Owner-requested account deletion: closed immediately, permanently deleted at scheduledDeletionAt unless reactivated.
+  deletionRequestedAt    DateTime?
+  scheduledDeletionAt    DateTime?
   createdAt              DateTime   @default(now())
   updatedAt              DateTime   @updatedAt
 

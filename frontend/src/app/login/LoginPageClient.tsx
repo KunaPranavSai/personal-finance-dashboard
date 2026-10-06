@@ -194,6 +194,11 @@ export function LoginPageClient({ embedded = false }: LoginPageClientProps = {})
         router.replace("/admin-login");
         return;
       }
+      // Account inside its 30-day deletion period: sign-in is closed, reactivation is the way back.
+      if (/scheduled for deletion/i.test(message)) {
+        router.replace(`/reactivate?email=${encodeURIComponent(email)}`);
+        return;
+      }
       setError(message);
     } finally {
       setIsPending(false);

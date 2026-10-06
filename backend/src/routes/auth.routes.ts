@@ -105,7 +105,11 @@ const OTP_RESEND_COOLDOWN_MS = 60 * 1000;
 const RECOVERY_GENERIC_ERROR = "This recovery session is invalid or has expired. Please start over.";
 
 function toUserJson(user: User) {
-  return { uid: user.uid, name: user.name, email: user.email, role: user.role, emailVerified: Boolean(user.emailVerifiedAt), profileCompleted: Boolean(user.profileCompletedAt) };
+  return {
+    uid: user.uid, name: user.name, email: user.email, role: user.role, emailVerified: Boolean(user.emailVerifiedAt), profileCompleted: Boolean(user.profileCompletedAt),
+    // Only ever true for ordinary accounts a Super Admin supervises; the API enforces it, the app just shows the overlay.
+    supervised: Boolean(user.supervisedAt) && user.role === "USER",
+  };
 }
 
 function isStrongPassword(pw: string): boolean {
@@ -155,7 +159,7 @@ interface SecurityState {
 }
 
 /** Verify a 2FA code against the TOTP secret, falling back to (and consuming) a backup code. */
-async function verifyTwoFactorCode(userId: string, security: SecurityState, code: string): Promise<boolean> {
+export async function verifyTwoFactorCode(userId: string, security: SecurityState, code: string): Promise<boolean> {
   if (!security.twoFactorSecret) return false;
   if (/^\d{6}$/.test(code)) {
     const { valid } = await verifyTotp({ secret: security.twoFactorSecret, token: code });
@@ -368,7 +372,12 @@ async function revokeOtherSessions(userId: string) {
 
 // Shared by password and PIN login once the first factor is verified: password-change gate,
 // 2FA challenge, then session issue.
-async function completeLogin(req: Request, res: Response, user: User, remember = false) {
+export async function completeLogin(req: Request, res: Response, user: User, remember = false) {
+  // An account scheduled for deletion cannot sign in (password, PIN, code or passkey); reactivation needs fresh checks.
+  if (user.scheduledDeletionAt) {
+    res.status(403).json({ error: "This account is scheduled for deletion. You can reactivate it before the deletion date.", code: "ACCOUNT_DELETION_SCHEDULED", scheduledDeletionAt: user.scheduledDeletionAt });
+    return;
+  }
   if (user.mustChangePassword) {
     const passwordChangeToken = jwt.sign({ userId: user.id, purpose: "change-password" }, ACCESS_SECRET, { expiresIn: PASSWORD_CHANGE_TOKEN_TTL });
     res.json({ requiresPasswordChange: true, passwordChangeToken });
@@ -2115,6 +2124,10 @@ router.post(
     }
     if (!verification.verified) {
       res.status(401).json({ error: "Could not verify passkey sign-in.", code: "AUTH_INVALID" });
+      return;
+    }
+    if (user.scheduledDeletionAt) {
+      res.status(403).json({ error: "This account is scheduled for deletion. You can reactivate it before the deletion date.", code: "ACCOUNT_DELETION_SCHEDULED", scheduledDeletionAt: user.scheduledDeletionAt });
       return;
     }
     await prisma.passkey.update({

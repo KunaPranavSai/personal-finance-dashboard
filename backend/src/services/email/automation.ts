@@ -38,6 +38,7 @@ export const AUTOMATED_EMAIL_TRIGGERS: TriggerMeta[] = [
   { key: "pin_changed", name: "PIN Changed", description: "When an existing PIN is changed (not on first creation or removal)", defaultTemplateKey: "pin_changed", locked: false, audience: "user" },
   { key: "security_alert", name: "Security Alert", description: "Two-factor, passkey and security-question changes", defaultTemplateKey: "security_alert", locked: false, audience: "user" },
   { key: "admin_access_code", name: "Admin Access Verification Code", description: "Code a user shares to approve admin access to their account", defaultTemplateKey: "admin_access_code", locked: true, audience: "user" },
+  { key: "account_action_code", name: "Account Action Confirmation Code", description: "Code that confirms deleting or reactivating an account", defaultTemplateKey: "account_action_code", locked: true, audience: "user" },
   { key: "migration_action_required", name: "Migration / Drive Setup Required", description: "Admin reminder to connect Google Drive", defaultTemplateKey: "migration_action_required", locked: false, audience: "user" },
   { key: "migration_completed", name: "Migration Completed", description: "When Google Drive setup finishes", defaultTemplateKey: "migration_completed", locked: false, audience: "user" },
   { key: "migration_failed", name: "Migration Failed", description: "First failure of a Google Drive setup attempt", defaultTemplateKey: "migration_failed", locked: false, audience: "user" },

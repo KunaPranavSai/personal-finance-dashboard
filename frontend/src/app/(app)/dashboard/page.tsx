@@ -13,7 +13,6 @@ import { KpiExpandedCard, KpiDetailData } from "@/components/kpi/KpiExpandedCard
 import { IncomeExpenseChart } from "@/components/charts/IncomeExpenseChart";
 import { CategoryDonutChart } from "@/components/charts/CategoryDonutChart";
 import { FinancialHealthGauge } from "@/components/charts/FinancialHealthGauge";
-import { WelcomeTour } from "@/components/ui/WelcomeTour";
 import { TwoFactorPromptModal } from "@/components/ui/TwoFactorPromptModal";
 import { MobileShell } from "@/components/mobile/MobileShell";
 import { LoadingCard, ErrorCard } from "@/components/mobile/MobileStates";
@@ -64,24 +63,20 @@ function DashboardContent() {
   const searchParams = useSearchParams();
   const { user, twoFactorEnabled } = useAuth();
   const isMobile = useIsMobile();
-  const [showTour, setShowTour] = useState(false);
   const [show2FAPrompt, setShow2FAPrompt] = useState(false);
   const [isWelcome, setIsWelcome] = useState(false);
   const [selectedKpi, setSelectedKpi] = useState<KpiDetailData | null>(null);
   const mainRef = useRef<HTMLElement>(null);
 
+  // First sign-in: the onboarding tour (components/tour) starts from ?welcome=1; once it ends, offer to turn on 2FA.
   useEffect(() => {
-    if (searchParams.get("welcome") === "1") {
-      setShowTour(true);
-      setIsWelcome(true);
-      router.replace("/dashboard");
-    }
-  }, [searchParams, router]);
-
-  const handleTourClose = () => {
-    setShowTour(false);
-    if (isWelcome && !twoFactorEnabled) setShow2FAPrompt(true);
-  };
+    if (searchParams.get("welcome") === "1") setIsWelcome(true);
+  }, [searchParams]);
+  useEffect(() => {
+    const onClosed = () => { if (isWelcome && !twoFactorEnabled) setShow2FAPrompt(true); };
+    window.addEventListener("pp:tour-closed", onClosed);
+    return () => window.removeEventListener("pp:tour-closed", onClosed);
+  }, [isWelcome, twoFactorEnabled]);
 
   const { settings } = useSettingsContext();
   const cur = settings.currency;
@@ -706,7 +701,6 @@ function DashboardContent() {
           </>
         )}
       </main>
-      <WelcomeTour isOpen={showTour} onClose={handleTourClose} />
       <TwoFactorPromptModal isOpen={show2FAPrompt} onClose={() => setShow2FAPrompt(false)} />
       <KpiExpandedCard data={selectedKpi} onClose={() => setSelectedKpi(null)} />
     </>

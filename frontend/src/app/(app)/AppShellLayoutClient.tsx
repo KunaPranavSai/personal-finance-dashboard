@@ -22,6 +22,8 @@ import { useIsMobile } from "@/lib/DeviceContext";
 import { useDailyLogin } from "@/lib/useDailyLogin";
 import { PinGate } from "@/components/auth/pin";
 import { PinSetupGate } from "@/components/auth/PinSetupGate";
+import { SupervisionScreen } from "@/components/account/SupervisionScreen";
+import { OnboardingTourHost } from "@/components/tour/TourHosts";
 
 export function AppShellLayoutClient({ children }: { children: React.ReactNode }) {
   const { user, isAuthenticated, isLoading } = useAuth();
@@ -43,8 +45,16 @@ export function AppShellLayoutClient({ children }: { children: React.ReactNode }
   // Explorer = email not verified or profile not completed yet: browses an empty on-device workspace; saving asks them to verify (StepUpHost).
   const isExplorer = user?.role === "USER" && (user.emailVerified === false || user.profileCompleted === false);
   const [, bumpMode] = useState(0);
+  // Super Admin supervision: known from /me and sign-in, or learned when the API answers ACCOUNT_SUPERVISED mid-session.
+  const [supervisedSignal, setSupervisedSignal] = useState(false);
+  useEffect(() => {
+    const on = () => setSupervisedSignal(true);
+    window.addEventListener("pfd:supervised", on);
+    return () => window.removeEventListener("pfd:supervised", on);
+  }, []);
+  const supervised = Boolean(user?.supervised) || supervisedSignal;
   const isLocalOnly = getStorageMode() === "local" || isExplorer;
-  const requiresDrive = Boolean(user && user.role === "USER" && !isLocalOnly);
+  const requiresDrive = Boolean(user && user.role === "USER" && !isLocalOnly && !supervised);
   const { data: driveStatus, isLoading: driveStatusLoading } = useDriveStatus();
   const driveReady = !requiresDrive || isDriveReady(driveStatus);
   const queryClient = useQueryClient();
@@ -108,6 +118,8 @@ export function AppShellLayoutClient({ children }: { children: React.ReactNode }
     }
   }, [isAuthenticated, isLoading, user, isSelfServiceRoute, requiresDrive, driveStatusLoading, driveReady, router, pathname]);
 
+  if (isAuthenticated && supervised) return <SupervisionScreen />;
+
   if (isLoading || (isExplorer && getStorageMode() !== "local") || (user && user.role !== "USER" && !isSelfServiceRoute) || (requiresDrive && (driveStatusLoading || !driveReady))) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-pp-surface ">
@@ -132,6 +144,7 @@ export function AppShellLayoutClient({ children }: { children: React.ReactNode }
         <PpConfirmProvider>
           <div className="pp-mobile">
             <DataInit />
+            <OnboardingTourHost />
             {children}
             <TwoFactorReverifyDialog />
           <StepUpHost />
@@ -147,6 +160,7 @@ export function AppShellLayoutClient({ children }: { children: React.ReactNode }
       <PpConfirmProvider>
         <div className="flex min-h-screen bg-pp-surface ">
           <DataInit />
+            <OnboardingTourHost />
           <OfflineSyncManager />
           <PwaInstallPrompt />
           <SwipeSidebarHandler />

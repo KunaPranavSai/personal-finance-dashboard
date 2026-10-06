@@ -4,6 +4,7 @@ import { initSessionVersion } from "./lib/sessionVersion";
 import { initSessionRevocations } from "./lib/sessionRevocation";
 import { checkEnv } from "./lib/envCheck";
 import { startPlatformConfig } from "./lib/platformConfig";
+import { startAccountPurge } from "./lib/accountPurge";
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 4000;
 
@@ -22,6 +23,7 @@ async function main() {
     console.warn("Session revocation initialization skipped:", (err as Error).message);
   }
 
+  startAccountPurge(); // permanently deletes accounts whose 30-day deletion period has ended
   startPlatformConfig(); // System Settings values (email links, sender, rate limit, password rules...)
 
   const app = createApp();

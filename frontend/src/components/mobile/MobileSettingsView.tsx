@@ -12,7 +12,7 @@ import { CURRENCIES, DATE_FORMATS, LANGUAGES, TIMEZONES } from "@/lib/reference"
 import { downloadExport } from "@/lib/export";
 import { useToast } from "@/components/ui/Toast";
 import { isVoiceGreetingsEnabled } from "@/lib/voiceGreeting";
-import { Bell, Settings as SettingsIcon, BookOpen, HardDrive, Database, Link2, Download, Lock, Key, EyeOff, Moon, Palette, Volume2, FileText, ScrollText } from "lucide-react";
+import { Compass, Bell, Settings as SettingsIcon, BookOpen, HardDrive, Database, Link2, Download, Lock, Key, EyeOff, Moon, Palette, Volume2, FileText, ScrollText } from "lucide-react";
 
 const FIRST_DAY_OPTIONS = [
   { value: "sunday", label: "Sunday" },
@@ -262,6 +262,14 @@ export function MobileSettingsView() {
       {!focus && (<>
       <div className="ppm-card" style={{ marginTop: 14 }}>
         <div className="ppm-section-label">Help &amp; Documentation</div>
+        <Link href="/dashboard?tour=onboarding" className="ppm-list-item">
+          <div className="ppm-ic" aria-hidden="true"><Compass size={18} /></div>
+          <div className="ppm-info">
+            <div className="ppm-name">Product Tour</div>
+            <div className="ppm-meta">Replay the guided walkthrough</div>
+          </div>
+          <span className="ppm-chev" aria-hidden="true">›</span>
+        </Link>
         <Link href="/manual" className="ppm-list-item">
           <div className="ppm-ic" aria-hidden="true"><BookOpen size={18} /></div>
           <div className="ppm-info">

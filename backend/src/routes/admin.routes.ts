@@ -16,6 +16,7 @@ import crypto from "crypto";
 import { platformConfig, refreshPlatformConfig } from "../lib/platformConfig";
 import { tableToCsv, tableToExcel, tableToPdf, TableReport } from "../services/export/tableExporter";
 import { requireRole } from "../middleware/auth";
+import { invalidateAccountLock } from "../lib/accountLock";
 import emailBuilderRouter from "./emailBuilder.routes";
 import { compileHtmlMode } from "../lib/emailBlocks";
 import { esc } from "../lib/emailLayout";
@@ -766,6 +767,7 @@ router.get(
         id: true, uid: true, email: true, name: true, phone: true, role: true, status: true,
         twoFactorEnabled: true, mustChangePassword: true, failedLoginAttempts: true, lockedUntil: true,
         onboardedAt: true, emailVerifiedAt: true, profileCompletedAt: true, pinHash: true,
+        supervisedAt: true, supervisedById: true, supervisionReason: true, deletionRequestedAt: true, scheduledDeletionAt: true,
         lastLoginAt: true, createdAt: true, updatedAt: true,
       },
     });
@@ -774,6 +776,7 @@ router.get(
       return;
     }
     const { pinHash, ...userPublic } = user; // never send the hash itself, only whether a PIN exists
+    const supervisor = user.supervisedById ? await prisma.user.findUnique({ where: { id: user.supervisedById }, select: { name: true } }) : null;
 
     // Admin-initiated events about this user set the real targetUserId column (see
     // logActivity/activityLog.ts) — no text/email matching, exact FK match only.
@@ -814,6 +817,8 @@ router.get(
     const lastSession = sessionsWithGeo[0] ?? null;
 
     res.json({
+      supervision: { active: Boolean(user.supervisedAt), since: user.supervisedAt, reason: user.supervisionReason, by: supervisor?.name ?? null },
+      deletion: { scheduled: Boolean(user.scheduledDeletionAt), requestedAt: user.deletionRequestedAt, permanentDeletionAt: user.scheduledDeletionAt },
       user: { ...userPublic, hasPin: Boolean(pinHash), accountType: user.emailVerifiedAt && user.profileCompletedAt ? "verified" : "explorer" },
       overview: {
         registeredAt: user.createdAt,
@@ -1130,6 +1135,39 @@ router.delete(
     }
     await prisma.announcement.delete({ where: { id } });
     void logActivity(req, "announcement_deleted", `Deleted announcement "${existing.title}"`, req.auth!.userId);
+    res.json({ ok: true });
+  })
+);
+
+// ─── Supervision lock (break-glass), SUPER_ADMIN only ─────────────────────────
+// A supervised account can still sign in, but the API refuses everything except the sign-in endpoints (see
+// middleware/auth.ts) and the app shows a full-screen notice. Only a Super Admin can start or revoke it.
+router.post(
+  "/users/:id/supervision",
+  asyncHandler(async (req: Request, res: Response) => {
+    if (req.auth!.role !== "SUPER_ADMIN") {
+      res.status(403).json({ error: "Only a Super Admin can place or lift supervision", code: "AUTH_FORBIDDEN" });
+      return;
+    }
+    const id = String(req.params.id);
+    const { action, reason } = req.body as { action?: string; reason?: string };
+    const target = await prisma.user.findUnique({ where: { id } });
+    if (!target) { res.status(404).json({ error: "User not found" }); return; }
+    if (target.role !== "USER") { res.status(400).json({ error: "Only ordinary user accounts can be placed under supervision" }); return; }
+    if (action === "start") {
+      if (target.supervisedAt) { res.status(409).json({ error: "This account is already under supervision" }); return; }
+      await prisma.user.update({ where: { id }, data: { supervisedAt: new Date(), supervisedById: req.auth!.userId, supervisionReason: (reason ?? "").trim().slice(0, 300) || null } });
+      invalidateAccountLock(id);
+      void logActivity(req, "supervision_started", `Placed ${target.email} under Super Admin supervision`, req.auth!.userId, id);
+    } else if (action === "revoke") {
+      if (!target.supervisedAt) { res.status(409).json({ error: "This account is not under supervision" }); return; }
+      await prisma.user.update({ where: { id }, data: { supervisedAt: null, supervisedById: null, supervisionReason: null } });
+      invalidateAccountLock(id);
+      void logActivity(req, "supervision_revoked", `Lifted Super Admin supervision for ${target.email}`, req.auth!.userId, id);
+    } else {
+      res.status(400).json({ error: 'action must be "start" or "revoke"' });
+      return;
+    }
     res.json({ ok: true });
   })
 );

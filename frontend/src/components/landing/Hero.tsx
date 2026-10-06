@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import { HeroVisual } from "./HeroVisual";
+import { TakeTourButton } from "@/components/tour/TourHosts";
 import { PillLink } from "./PillLink";
 
 const WORDS = ["Take", "control", "of", "your", "money."];
@@ -46,6 +47,7 @@ export function Hero() {
             <PillLink href="/login" variant="ghost">
               Log In
             </PillLink>
+            <TakeTourButton />
           </motion.div>
         </motion.div>
 

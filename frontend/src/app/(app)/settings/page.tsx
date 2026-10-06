@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/PpButton";
 import { PasswordInput } from "@/components/ui/PasswordInput";
 import { ExportPreviewModal } from "@/components/ui/ExportPreviewModal";
 import { useStoragePolicy, DRIVE_DISABLED_TEXT, DEVICE_DISABLED_TEXT } from "@/lib/storagePolicy";
+import { DeleteAccountPanel } from "@/components/settings/DeleteAccountPanel";
 import { GoogleDriveBackupCard } from "@/components/settings/GoogleDriveBackupCard";
 import { getStorageMode } from "@/lib/storage";
 import { useSettingsContext } from "@/lib/SettingsContext";
@@ -1213,6 +1214,7 @@ function SettingsContent() {
                 <p className="mb-3 text-sm font-semibold text-pp-text">Activity Log</p>
                 <ActivityTab />
               </div>
+              <DeleteAccountPanel />
             </CardContent>
           </Card>
         );

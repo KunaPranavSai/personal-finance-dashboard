@@ -27,6 +27,8 @@ interface UserDetail {
   storage: { connected: boolean; accountEmail: string | null; migrationState: string; lastConnectAttemptAt: string | null; lastConnectError: string | null; connectedAt: string | null };
   security: { twoFactorEnabled: boolean; passkeyCount: number; passkeys: { id: string; name: string; deviceType: string; lastUsedAt: string | null }[]; failedLoginAttempts: number; lockedUntil: string | null };
   sessions: { id: string; ip: string | null; browser: string | null; os: string | null; device: string | null; lastSeenAt: string; revokedAt: string | null; geo: Geo | null }[];
+  supervision: { active: boolean; since: string | null; reason: string | null; by: string | null };
+  deletion: { scheduled: boolean; requestedAt: string | null; permanentDeletionAt: string | null };
   notifications: { items: { id: string; type: string; title: string; read: boolean; createdAt: string }[]; unreadCount: number };
   preferences: { settings: Record<string, unknown> | null; profile: Record<string, unknown> | null };
 }
@@ -56,7 +58,7 @@ export default function UserDetailPage() {
   if (isError) return <><PageHeader title="User" crumbs={[{ label: "Users", href: "/admin/users" }]} /><ErrorState message={error instanceof Error ? error.message : undefined} onRetry={() => void refetch()} /></>;
   if (isLoading || !data) return <><PageHeader title="User" crumbs={[{ label: "Users", href: "/admin/users" }]} /><Skeleton h={120} className="mb-4" /><Skeleton h={260} /></>;
 
-  const { user, overview, storage, security, sessions, notifications, preferences } = data;
+  const { user, overview, storage, security, sessions, notifications, preferences, supervision, deletion } = data;
   const self = me?.uid === user.uid;
   const locked = user.role === "SUPER_ADMIN" && me?.role !== "SUPER_ADMIN";
   const lite: AdminUserLite = { id: user.id, uid: user.uid, name: user.name, email: user.email, phone: user.phone, role: user.role, status: user.status };
@@ -79,6 +81,8 @@ export default function UserDetailPage() {
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <StatusBadge kind="status" value={user.status} /><StatusBadge kind="role" value={user.role} /><StatusBadge kind="account" value={user.accountType} />
         <StatusBadge kind="migration" value={storage.migrationState} />
+        {supervision.active && <Badge tone="red">Under Super Admin control</Badge>}
+        {deletion.scheduled && <Badge tone="amber">Deletion scheduled</Badge>}
         {user.twoFactorEnabled && <Badge tone="green">Two-factor on</Badge>}
         {user.lockedUntil && new Date(user.lockedUntil) > new Date() && <Badge tone="red">Locked until {fmtDateTime(user.lockedUntil)}</Badge>}
       </div>
@@ -91,6 +95,8 @@ export default function UserDetailPage() {
             ["Joined", fmtDateTime(user.createdAt)], ["Last sign-in", user.lastLoginAt ? fmtDateTime(user.lastLoginAt) : "Never"], ["Phone", user.phone],
             ["Email verified", user.emailVerifiedAt ? fmtDateTime(user.emailVerifiedAt) : "Not verified"], ["Profile completed", user.profileCompletedAt ? fmtDateTime(user.profileCompletedAt) : "Not completed"],
             ["Must change password", user.mustChangePassword ? "Yes" : "No"], ["Last updated", fmtDateTime(user.updatedAt)],
+            ["Supervision", supervision.active ? `Under Super Admin control since ${fmtDateTime(supervision.since)}` : "Normal"],
+            ["Deletion", deletion.scheduled ? `Deletion scheduled — permanent on ${fmtDateTime(deletion.permanentDeletionAt)}` : "Active"],
           ]} /></Panel>
           <Panel title="Last sign-in"><KV rows={[
             ["Device", overview.lastLoginDevice], ["IP address", overview.lastLoginIp ?? "Not recorded"], ["Approximate location", geoLabel(overview.lastLoginGeo)], ["Active sessions", overview.activeSessionCount],
@@ -115,6 +121,7 @@ export default function UserDetailPage() {
           </Panel>
         </div>
         {me?.role === "SUPER_ADMIN" && user.role === "USER" && <div className="mt-4"><AccessAsUser userId={user.id} userName={user.name} /></div>}
+        {user.role === "USER" && <div className="mt-4"><SupervisionPanel userId={user.id} userName={user.name} email={user.email} info={supervision} deletion={deletion} canEdit={me?.role === "SUPER_ADMIN"} onChanged={reload} /></div>}
         <div className="mt-4 flex flex-wrap gap-2">
           <Button onClick={() => setDialog("reset-uid")} disabled={locked}>Change User ID</Button>
           <Button variant="danger" onClick={() => setDialog("delete")} disabled={self || locked}>Delete account</Button>
@@ -169,6 +176,33 @@ export default function UserDetailPage() {
         description="Signs out this one device immediately. Their other sessions are not affected."
         onConfirm={async () => { await api.post(`/api/admin/users/${user.id}/sessions/${revoke}/revoke`); toast("Session revoked", "success"); reload(); }} />
     </>
+  );
+}
+
+function SupervisionPanel({ userId, userName, email, info, deletion, canEdit, onChanged }: {
+  userId: string; userName: string; email: string; info: UserDetail["supervision"]; deletion: UserDetail["deletion"]; canEdit: boolean; onChanged: () => void;
+}) {
+  const { toast } = useToast();
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState("");
+  return (
+    <Panel title="Administrator supervision" actions={<Badge tone={info.active ? "red" : "green"}>{info.active ? "Under Super Admin control" : "Normal"}</Badge>}>
+      <p className="ad-muted mb-3 mt-0">
+        {info.active
+          ? `Placed under supervision ${info.since ? fmtDateTime(info.since) : ""}${info.by ? ` by ${info.by}` : ""}${info.reason ? `. Reason: ${info.reason}` : ""}. ${userName} can sign in but sees only a locked screen, and the API refuses all their data and settings requests.`
+          : `${userName} has normal access. A Super Admin can lock the account: they can still sign in, but the app and API stay blocked until supervision is revoked.`}
+      </p>
+      {deletion.scheduled && <div className="mb-3"><Alert tone="warn" title="Deletion scheduled">This account will be permanently deleted on {fmtDateTime(deletion.permanentDeletionAt)}. The owner can reactivate it before then.</Alert></div>}
+      {canEdit ? (
+        <Button variant={info.active ? "default" : "danger"} onClick={() => { setReason(""); setOpen(true); }}>{info.active ? "Revoke supervision" : "Place under supervision"}</Button>
+      ) : <p className="ad-faint m-0 text-xs">Only a Super Admin can start or revoke supervision.</p>}
+      <ConfirmDialog open={open} onClose={() => setOpen(false)} danger={!info.active} title={info.active ? "Revoke supervision" : "Place under supervision"} target={`${userName} (${email})`}
+        confirmLabel={info.active ? "Revoke supervision" : "Place under supervision"}
+        description={info.active ? "The account becomes fully usable again the next time the app checks (within seconds)." : "The user will be blocked from the whole app (data, settings, security and storage) and shown a full-screen notice. They can still sign in. This is recorded in the audit log."}
+        onConfirm={async () => { await api.post(`/api/admin/users/${userId}/supervision`, { action: info.active ? "revoke" : "start", reason }); toast(info.active ? "Supervision revoked" : "Account placed under supervision", "success"); onChanged(); }}>
+        {!info.active && <TextField label="Reason (optional, visible to admins)" value={reason} maxLength={300} onChange={(e) => setReason(e.target.value)} />}
+      </ConfirmDialog>
+    </Panel>
   );
 }
 

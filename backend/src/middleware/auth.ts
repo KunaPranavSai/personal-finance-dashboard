@@ -6,6 +6,7 @@ import { ACCESS_SECRET, signAccess, signRefresh, setTokenCookies } from "../lib/
 import { computeSessionExpiryForUser } from "../lib/sessionExpiry";
 import { prisma } from "../lib/prisma";
 import { platformConfig } from "../lib/platformConfig";
+import { getAccountLock, SUPERVISED_ALLOWED_PATHS } from "../lib/accountLock";
 
 export interface AuthPayload {
   userId: string;
@@ -101,6 +102,19 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
     return;
   }
   req.auth = payload;
+
+  // Account-level locks, checked against the database-backed state on every request (not trusted from the token):
+  // a closed (deletion-scheduled) account has no valid sessions, and a supervised account may only reach the endpoints
+  // needed to sign in and discover that it is supervised.
+  const lock = await getAccountLock(payload.userId);
+  if (lock.scheduledDeletionAt) {
+    res.status(401).json({ error: "This account is scheduled for deletion.", code: "ACCOUNT_DELETION_SCHEDULED" });
+    return;
+  }
+  if (lock.supervised && !SUPERVISED_ALLOWED_PATHS.has(req.originalUrl.split("?")[0])) {
+    res.status(403).json({ error: "Your account is under administrator supervision.", code: "ACCOUNT_SUPERVISED", supervisedAt: lock.supervisedAt });
+    return;
+  }
 
   // "Access as User" overlay: a separate, short-lived cookie that never replaces the admin's own
   // access_token. Only takes effect when it matches the admin identity we just validated above,

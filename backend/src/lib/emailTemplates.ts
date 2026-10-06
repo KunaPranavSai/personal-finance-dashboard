@@ -124,6 +124,16 @@ export const ADMIN_ACCESS_CODE_EMAIL_HTML = (name: string, code: string) =>
     notice: { tone: "warn", title: "Did not ask for support?", text: "Do not share the code. Ignore this email and contact support." },
   });
 
+export const ACCOUNT_ACTION_CODE_EMAIL_HTML = (name: string, code: string, purpose: string) =>
+  renderEmail({
+    preheader: `Your Penny Pilot confirmation code is ${code}`,
+    title: "Confirm this account action",
+    intro: [`Hi ${name}, use this code to confirm: ${purpose}.`],
+    code,
+    codeNote: "Expires in 10 minutes. Works once.",
+    notice: { tone: "warn", title: "Never share this code", text: "If you did not start this, ignore this email and change your password." },
+  });
+
 // ── Data and Google Drive ──────────────────────────────────────────────────
 export const MIGRATION_ACTION_REQUIRED_EMAIL_HTML = (name: string) =>
   renderEmail({
@@ -204,6 +214,7 @@ export const EMAIL_TEMPLATES: EmailTemplateDef[] = [
   { id: "pin_changed", name: "PIN Changed", subject: "Your Penny Pilot PIN was changed", get html() { return PIN_CHANGED_EMAIL_HTML("Pranav", "6 Oct 2026, 4:12 pm IST"); }, get tagged() { return PIN_CHANGED_EMAIL_HTML("{{name}}", "{{when}}"); } },
   { id: "security_alert", name: "Security Alert", subject: "Security alert on your Penny Pilot account", get html() { return SECURITY_ALERT_EMAIL_HTML("Pranav", "Two-factor authentication turned on", "two-factor authentication was turned on for your account.", "6 Oct 2026, 4:12 pm IST"); }, get tagged() { return SECURITY_ALERT_EMAIL_HTML("{{name}}", "{{event}}", "{{detail}}", "{{when}}"); } },
   { id: "admin_access_code", name: "Admin Access Verification Code", subject: "Penny Pilot admin access verification code", get html() { return ADMIN_ACCESS_CODE_EMAIL_HTML("Pranav", "482913"); }, get tagged() { return ADMIN_ACCESS_CODE_EMAIL_HTML("{{name}}", "{{code}}"); } },
+  { id: "account_action_code", name: "Account Action Confirmation Code", subject: "Your Penny Pilot confirmation code", get html() { return ACCOUNT_ACTION_CODE_EMAIL_HTML("Pranav", "482913", "scheduling account deletion"); }, get tagged() { return ACCOUNT_ACTION_CODE_EMAIL_HTML("{{name}}", "{{code}}", "{{purpose}}"); } },
   { id: "migration_action_required", name: "Migration / Drive Setup Required", subject: "Action needed: connect Google Drive to Penny Pilot", get html() { return MIGRATION_ACTION_REQUIRED_EMAIL_HTML("Pranav"); }, get tagged() { return MIGRATION_ACTION_REQUIRED_EMAIL_HTML("{{name}}"); } },
   { id: "migration_completed", name: "Migration Completed", subject: "Your Penny Pilot data is set up in Google Drive", get html() { return MIGRATION_COMPLETED_EMAIL_HTML("Pranav"); }, get tagged() { return MIGRATION_COMPLETED_EMAIL_HTML("{{name}}"); } },
   { id: "migration_failed", name: "Migration Failed", subject: "We could not finish connecting Google Drive", get html() { return MIGRATION_FAILED_EMAIL_HTML("Pranav"); }, get tagged() { return MIGRATION_FAILED_EMAIL_HTML("{{name}}"); } },

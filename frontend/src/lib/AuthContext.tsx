@@ -15,6 +15,8 @@ interface AuthUser {
   /** Progressive sign-up: false = explorer (email provided, not yet verified). Absent for admins. */
   emailVerified?: boolean;
   profileCompleted?: boolean;
+  /** A Super Admin has placed this account under supervision; the API refuses everything but sign-in. */
+  supervised?: boolean;
 }
 
 export const POST_LOGIN_REDIRECT_KEY = "pfd-post-login-redirect";

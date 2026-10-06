@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Key, Shield, Pencil, Trash2 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { startRegistration, browserSupportsWebAuthn } from "@simplewebauthn/browser";
+import { DeleteAccountPanel } from "@/components/settings/DeleteAccountPanel";
 import { MobileShell } from "@/components/mobile/MobileShell";
 import { PinSettings } from "@/components/auth/pin";
 import { MobileSheet } from "@/components/mobile/MobileSheet";
@@ -403,6 +404,8 @@ export function MobileSecurityView() {
           <button type="button" className="ppm-sheet-cancel" onClick={() => setDeleteTarget(null)} disabled={busy}>Cancel</button>
         </div>
       </MobileSheet>
+
+      <div style={{ marginTop: 14 }}><DeleteAccountPanel /></div>
 
       {/* Change password sheet */}
       <MobileSheet open={pwSheet} onClose={() => setPwSheet(false)} title="Change Password">

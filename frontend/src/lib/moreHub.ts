@@ -31,6 +31,7 @@ export const HUB_FAMILIES: HubFamily[] = [
     { href: "/settings?tab=notifications", label: "Notification Preferences", desc: "Reminders and alerts" },
   ] },
   { slug: "help", label: "Help & Support", desc: "Get help or contact us", icon: LifeBuoy, items: [
+    { href: "/dashboard?tour=onboarding", label: "Product Tour", desc: "Replay the guided walkthrough" },
     { href: "/manual", label: "User Manual", desc: "How to use the app" },
     ...(SUPPORT_EMAIL
       ? [
