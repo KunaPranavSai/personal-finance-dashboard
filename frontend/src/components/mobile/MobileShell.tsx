@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { ReactNode, useState } from "react";
+import { ReactNode, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/components/ui/Toast";
 import { Search, Bell, Home, ListChecks, PieChart, TrendingUp, Menu } from "lucide-react";
@@ -72,9 +72,37 @@ export function MobileShell({ title, subtitle, children }: MobileShellProps) {
   // simpler/less jarring than repositioning a whole tab bar mid-keystroke.
   const keyboardInset = useKeyboardInset();
 
+  // Installed iOS web apps can report a layout viewport shorter than the screen (about the status-bar height) until the
+  // page scrolls. Measure the shortfall so the bottom bar and Add button can still sit on the true bottom edge.
+  // Only runs in an installed app; browsers are left alone.
+  const shellRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = shellRef.current;
+    const standalone = (navigator as unknown as { standalone?: boolean }).standalone === true || window.matchMedia("(display-mode: standalone)").matches;
+    if (!el || !standalone) return;
+    const update = () => {
+      const portrait = window.innerHeight >= window.innerWidth;
+      const full = portrait ? Math.max(screen.width, screen.height) : Math.min(screen.width, screen.height);
+      const gap = Math.round(full - window.innerHeight);
+      document.documentElement.style.setProperty("--ppm-vp-gap", `${gap > 0 && gap <= 80 ? gap : 0}px`);
+    };
+    update();
+    window.addEventListener("resize", update);
+    window.addEventListener("orientationchange", update);
+    window.addEventListener("scroll", update, { passive: true });
+    window.visualViewport?.addEventListener("resize", update);
+    return () => {
+      document.documentElement.style.removeProperty("--ppm-vp-gap");
+      window.removeEventListener("resize", update);
+      window.removeEventListener("orientationchange", update);
+      window.removeEventListener("scroll", update);
+      window.visualViewport?.removeEventListener("resize", update);
+    };
+  }, []);
+
 
   return (
-    <div className="ppm-shell">
+    <div className="ppm-shell" ref={shellRef}>
       <header className="ppm-appbar">
         <div className="ppm-brand">
           {/* Same /logo.png already used by the desktop Sidebar/AdminSidebar

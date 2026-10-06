@@ -100,10 +100,9 @@ html.dark .ppm-sheet-portal {
   /* See .pp-mobile above: `svh` not `dvh`, so this doesn't keep growing
      the document (and the scrollable range) as the browser chrome collapses
      on scroll — that was the source of the excess/over-scrolling.
-     The extra 2px keeps every page (even an empty one) technically scrollable. iOS installed web apps only size the
-     viewport to the full screen once the page can scroll; on short, non-scrolling pages the fixed bottom bar was
-     clipped ~55pt above the real bottom edge. */
-  min-height: calc(100svh + 2px);
+     --ppm-vp-gap (iOS installed apps only) adds the missing viewport height so the page, and the nav at its end,
+     reach the true bottom of the screen. */
+  min-height: calc(100svh + var(--ppm-vp-gap, 0px));
   display: flex;
   flex-direction: column;
 }
@@ -153,7 +152,7 @@ html.dark .ppm-sheet-portal {
   max-width: 640px;
   margin: 0 auto;
   /* Clear the bottom nav (+ safe area) and the floating Add button so the last item scrolls fully into view. */
-  padding: 14px 16px calc(var(--ppm-nav-total) + var(--ppm-fab-gap) + var(--ppm-fab-size) + 12px);
+  padding: 14px 16px calc(var(--ppm-fab-gap) + var(--ppm-fab-size) + 12px);
 }
 
 .ppm-page-title { padding: 6px 0 14px; }
@@ -296,16 +295,15 @@ html.dark .ppm-sheet-portal {
 
 /* Bottom nav */
 .ppm-bottomnav {
-  position: fixed; left: 0; right: 0; bottom: 0; max-width: 640px; margin: 0 auto;
+  /* In-flow and sticky (not fixed): the bar is the last item of the page, pinned to the bottom while scrolling.
+     --ppm-vp-gap is set by MobileShell only inside an installed iOS app, where the layout viewport can be shorter than
+     the screen; a negative sticky offset lets the bar reach the real bottom edge instead of floating above it.
+     (A fixed bar is clipped to that short viewport, which is why it floated and why shifting it cut its labels off.) */
+  position: sticky; bottom: calc(-1 * var(--ppm-vp-gap, 0px)); width: 100%; max-width: 640px; margin: 0 auto;
+  flex-shrink: 0;
   background: var(--ppm-nav-bg); display: flex; z-index: 20;
   padding-bottom: env(safe-area-inset-bottom, 0px);
   border-top: 1px solid rgba(255, 255, 255, .06);
-}
-/* iOS standalone (PWA) quirk: the fixed bar can end above the physical bottom edge on short pages, leaving a strip
-   of page background under it. Extending the bar's own background downward hides that strip without changing layout. */
-.ppm-bottomnav::after {
-  content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 160px;
-  background: var(--ppm-nav-bg); pointer-events: none;
 }
 .ppm-navbtn {
   flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;

@@ -31,7 +31,7 @@ export function QuickActions() {
           on an actual mobile route (.pp-mobile), which is where this now
           also renders (see MobileShell) alongside its original desktop-
           narrow-window use inside Topbar. */}
-      <div className="fixed right-6 z-40 lg:hidden" style={{ bottom: "calc(var(--ppm-nav-total, calc(56px + env(safe-area-inset-bottom, 0px))) + var(--ppm-fab-gap, 16px))" }}>
+      <div className="fixed right-6 z-40 lg:hidden" style={{ bottom: "calc(var(--ppm-nav-total, calc(56px + env(safe-area-inset-bottom, 0px))) + var(--ppm-fab-gap, 16px) - var(--ppm-vp-gap, 0px))" }}>
         <button
           onClick={openAdd}
           aria-label="Add transaction"
