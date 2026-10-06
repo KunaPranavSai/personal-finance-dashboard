@@ -19,7 +19,7 @@ import { GoogleDriveBackupCard } from "@/components/settings/GoogleDriveBackupCa
 import { getStorageMode } from "@/lib/storage";
 import { useSettingsContext } from "@/lib/SettingsContext";
 import { useToast } from "@/components/ui/Toast";
-import { Palette, Bell, Shield, Download, Database, Eye, Save, Copy, Check, KeyRound, CheckCircle, Sun, Moon, Monitor, Smartphone, BookOpen } from "lucide-react";
+import { Palette, Bell, Shield, Download, Database, Eye, Save, Copy, Check, KeyRound, CheckCircle, Sun, Moon, Monitor, Smartphone, BookOpen, UserCircle, Compass } from "lucide-react";
 import { cn } from "@/lib/format";
 import { CURRENCIES, DATE_FORMATS, LANGUAGES, TIMEZONES } from "@/lib/reference";
 import { SECURITY_QUESTIONS } from "@/lib/securityQuestions";
@@ -32,12 +32,15 @@ import { useIsMobile } from "@/lib/DeviceContext";
 import { MobileSettingsView } from "@/components/mobile/MobileSettingsView";
 
 const TABS = [
-  { id: "appearance", label: "Appearance", icon: Palette },
-  { id: "notifications", label: "Notification Preferences", icon: Bell },
+  { id: "preferences", label: "Preferences", icon: Palette },
   { id: "security", label: "Security", icon: Shield },
-  { id: "backup", label: "Data & Storage", icon: Database },
-  { id: "privacy", label: "Privacy", icon: Eye },
+  { id: "privacy", label: "Privacy & Activity", icon: Eye },
+  { id: "data", label: "Data & Storage", icon: Database },
+  { id: "account", label: "Account", icon: UserCircle },
 ];
+/** Older links (?tab=appearance, regional, notifications, backup, export) land on the tab that now holds them. */
+const LEGACY_TABS: Record<string, string> = { appearance: "preferences", regional: "preferences", notifications: "preferences", backup: "data", export: "data", storage: "data" };
+const normTab = (t: string | null) => { const v = t ?? "preferences"; return LEGACY_TABS[v] ?? (TABS.some((x) => x.id === v) ? v : "preferences"); };
 
 const DEFAULT_DASHBOARDS = [
   { value: "dashboard", label: "Main Dashboard" },
@@ -867,7 +870,7 @@ function SettingsContent() {
   const { settings, updateSettings, isLoading, isSaving } = useSettingsContext();
   const { toast } = useToast();
   const { user, changePassword } = useAuth();
-  const [activeTab, setActiveTab] = useState(searchParams.get("tab") ?? "appearance");
+  const [activeTab, setActiveTab] = useState(normTab(searchParams.get("tab")));
   const [localSettings, setLocalSettings] = useState<Record<string, unknown>>({});
   const [pwForm, setPwForm] = useState({ current: "", next: "", confirm: "" });
   const [pwError, setPwError] = useState("");
@@ -891,7 +894,7 @@ function SettingsContent() {
 
   useEffect(() => {
     const tab = searchParams.get("tab");
-    if (tab) setActiveTab(tab);
+    if (tab) setActiveTab(normTab(tab));
   }, [searchParams]);
 
   useEffect(() => {
@@ -923,8 +926,8 @@ function SettingsContent() {
 
   if (isMobile) return <MobileSettingsView />;
 
-  const renderTab = () => {
-    switch (activeTab) {
+  const part = (id: string) => {
+    switch (id) {
       case "appearance":
         return (
           <Card>
@@ -1210,11 +1213,9 @@ function SettingsContent() {
               <div className="pt-2">
                 <Button onClick={handleSave} disabled={isSaving}><Save className="h-4 w-4" /> {isSaving ? "Saving..." : "Save Settings"}</Button>
               </div>
-              <div className="border-t border-pp-border pt-6 ">
-                <p className="mb-3 text-sm font-semibold text-pp-text">Activity Log</p>
-                <ActivityTab />
-              </div>
-              <DeleteAccountPanel />
+              <Link href="/settings/sessions" className="flex items-center justify-between rounded-lg border border-pp-border px-4 py-3 text-sm font-medium text-pp-text transition-colors hover:bg-pp-surface-2">
+                Active sessions <span className="text-xs text-pp-text-dim">Review where you are signed in</span>
+              </Link>
             </CardContent>
           </Card>
         );
@@ -1263,27 +1264,40 @@ function SettingsContent() {
             </CardContent>
           </Card>
 
-          <Card className="mt-6">
-            <CardHeader><CardTitle>Help &amp; Documentation</CardTitle></CardHeader>
-            <CardContent>
-              <Link
-                href="/manual"
-                className="flex items-center gap-3 rounded-lg border border-pp-border px-4 py-3 transition-colors hover:bg-pp-surface-2"
-              >
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-pp-accent/10">
-                  <BookOpen className="h-4 w-4 text-pp-accent" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-pp-text">User Manual</p>
-                  <p className="text-xs text-pp-text-dim">Learn how Penny Pilot works</p>
-                </div>
-              </Link>
-            </CardContent>
-          </Card>
+          <div className="mt-6 rounded-pp border border-pp-border bg-pp-surface p-4">
+            <p className="mb-3 text-sm font-semibold text-pp-text">Account Activity</p>
+            <ActivityTab />
+          </div>
           </>
         );
       default:
         return null;
+    }
+  };
+
+  const renderTab = () => {
+    switch (activeTab) {
+      case "preferences": return <div className="space-y-6">{part("appearance")}{part("notifications")}</div>;
+      case "data": return part("backup");
+      case "account": {
+        const row = "flex items-center gap-3 rounded-lg border border-pp-border px-4 py-3 text-sm font-medium text-pp-text transition-colors hover:bg-pp-surface-2";
+        return (
+          <div className="space-y-6">
+            <Card>
+              <CardHeader><CardTitle>Account</CardTitle></CardHeader>
+              <CardContent className="space-y-2">
+                <Link href="/profile" className={row}><UserCircle className="h-4 w-4 text-pp-accent" /> Profile</Link>
+                <Link href="/manual" className={row}><BookOpen className="h-4 w-4 text-pp-accent" /> User Manual</Link>
+                <Link href="/dashboard?tour=onboarding" className={row}><Compass className="h-4 w-4 text-pp-accent" /> Product Tour</Link>
+                <Link href="/terms" className={row}>Terms of Service</Link>
+                <Link href="/privacy-policy" className={row}>Privacy Policy</Link>
+              </CardContent>
+            </Card>
+            <DeleteAccountPanel />
+          </div>
+        );
+      }
+      default: return part(activeTab);
     }
   };
 

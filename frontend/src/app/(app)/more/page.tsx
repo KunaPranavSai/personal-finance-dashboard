@@ -10,8 +10,7 @@ import { useSettingsContext } from "@/lib/SettingsContext";
 import { useIsMobile } from "@/lib/DeviceContext";
 import { playVoiceGreeting, VOICE_GREETINGS, isVoiceGreetingsEnabled } from "@/lib/voiceGreeting";
 import { useToast } from "@/components/ui/Toast";
-import { motion, useReducedMotion } from "framer-motion";
-import { HUB_FAMILIES } from "@/lib/moreHub";
+import { HUB_GROUPS } from "@/lib/moreHub";
 
 /**
  * Mobile "More" tab — a mobile-only navigation hub with no desktop
@@ -25,7 +24,6 @@ export default function MorePage() {
   const { user, logout } = useAuth();
   const { data: profile } = useProfile();
   const { settings } = useSettingsContext();
-  const reduce = useReducedMotion();
   const { toast } = useToast();
 
   const [loggingOut, setLoggingOut] = useState(false);
@@ -81,27 +79,20 @@ export default function MorePage() {
         <span className="ppm-chev" aria-hidden="true">›</span>
       </Link>
 
-      <motion.div
-        className="ppm-hub"
-        initial={reduce ? false : "hidden"}
-        animate="show"
-        variants={{ hidden: {}, show: { transition: { staggerChildren: 0.05 } } }}
-      >
-        {HUB_FAMILIES.map(({ slug, label, desc, icon: Icon }) => (
-          <motion.div key={slug} variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}>
-            <Link href={`/more/${slug}`} className="ppm-card ppm-hub-card">
-              <div className="ppm-ic" aria-hidden="true"><Icon size={20} /></div>
-              <div className="ppm-info">
-                <div className="ppm-name">{label}</div>
-                <div className="ppm-meta">{desc}</div>
-              </div>
+      {HUB_GROUPS.map((g) => (
+        <div key={g.label} className="ppm-card" style={{ marginTop: 14 }}>
+          <div className="ppm-section-label">{g.label}</div>
+          {g.items.map(({ href, label, desc, icon: Icon }) => (
+            <Link key={href} href={href} className="ppm-list-item">
+              <div className="ppm-ic" aria-hidden="true"><Icon size={18} /></div>
+              <div className="ppm-info"><div className="ppm-name">{label}</div><div className="ppm-meta">{desc}</div></div>
               <span className="ppm-chev" aria-hidden="true">›</span>
             </Link>
-          </motion.div>
-        ))}
-      </motion.div>
+          ))}
+        </div>
+      ))}
 
-      <button type="button" className="ppm-danger-btn" style={{ width: "100%", marginTop: 16 }} onClick={handleLogout} disabled={loggingOut}>
+      <button type="button" className="ppm-danger-btn" style={{ width: "100%", marginTop: 16, marginBottom: 8 }} onClick={handleLogout} disabled={loggingOut}>
         {loggingOut ? "Signing out…" : "Sign Out"}
       </button>
     </MobileShell>

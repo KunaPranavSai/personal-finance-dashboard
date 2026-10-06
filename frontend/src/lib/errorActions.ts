@@ -20,7 +20,7 @@ export function getRecoveryAction(err: unknown, router: { push: (path: string) =
     case "FREE_DRIVE_SPACE":
       return { label: "Open Google Drive Storage", onClick: () => window.open("https://drive.google.com/settings/storage", "_blank", "noopener,noreferrer") };
     case "VERIFY_DATA":
-      return { label: "Go to Data & Storage", onClick: () => router.push("/settings?tab=backup") };
+      return { label: "Go to Data & Storage", onClick: () => router.push("/settings?tab=data") };
     case "RETRY":
       return onRetry ? { label: "Try Again", onClick: onRetry } : undefined;
   }

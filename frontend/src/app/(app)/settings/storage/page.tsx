@@ -18,7 +18,7 @@ export default function StorageSettingsPage() {
 
   useEffect(() => {
     if (isMobile) return;
-    router.replace("/settings?tab=backup");
+    router.replace("/settings?tab=data");
   }, [router, isMobile]);
 
   if (isMobile) return <MobileStorageView />;

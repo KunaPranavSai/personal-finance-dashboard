@@ -42,7 +42,7 @@ export const ONBOARDING_STEPS: TourStep[] = [
   { icon: icon(PiggyBank), title: "Investments and savings", body: "Track the money you are building for the future.", route: "/investments", target: nav("/investments") },
   { icon: icon(Flag), title: "Goals", body: "Create financial goals and watch your progress.", route: "/goals", target: nav("/goals") },
   { icon: icon(BarChart3), title: "Analytics", body: "Turn your financial activity into useful insights.", route: "/analytics", target: nav("/analytics") },
-  { icon: icon(HardDrive), title: "Backup and account settings", body: "Keep your data protected and backed up. Manage storage, security and your PIN here.", route: "/settings", target: nav("/more").concat(nav("/settings?tab=backup")) },
+  { icon: icon(HardDrive), title: "Backup and account settings", body: "Keep your data protected and backed up. Manage storage, security and your PIN here.", route: "/settings", target: nav("/more").concat(nav("/settings?tab=data")) },
   {
     icon: icon(PartyPopper), title: "You're ready to take control of your money", body: "You can replay this tour any time from Help & Support.",
     actions: [{ label: "Start Using Penny Pilot", href: "/dashboard" }],

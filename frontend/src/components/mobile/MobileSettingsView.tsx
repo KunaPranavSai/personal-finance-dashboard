@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, type ReactNode } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { DeleteAccountPanel } from "@/components/settings/DeleteAccountPanel";
 import { MobileShell } from "@/components/mobile/MobileShell";
 import { MobileSheet } from "@/components/mobile/MobileSheet";
 import { useSettingsContext } from "@/lib/SettingsContext";
@@ -12,8 +13,17 @@ import { CURRENCIES, DATE_FORMATS, LANGUAGES, TIMEZONES } from "@/lib/reference"
 import { downloadExport } from "@/lib/export";
 import { useToast } from "@/components/ui/Toast";
 import { isVoiceGreetingsEnabled } from "@/lib/voiceGreeting";
-import { Compass, Bell, Settings as SettingsIcon, BookOpen, HardDrive, Database, Link2, Download, Lock, Key, EyeOff, Moon, Palette, Volume2, FileText, ScrollText } from "lucide-react";
+import { Compass, Bell, Settings as SettingsIcon, BookOpen, HardDrive, Database, Link2, Download, Lock, Key, EyeOff, Moon, Palette, Volume2, FileText, ScrollText, MonitorSmartphone, UserCircle } from "lucide-react";
 
+const TABS = [
+  { id: "preferences", label: "Preferences", sub: "Appearance, region & notifications" },
+  { id: "security", label: "Security", sub: "Sign-in and protection" },
+  { id: "privacy", label: "Privacy", sub: "Control your data" },
+  { id: "data", label: "Data", sub: "Storage, backup & export" },
+  { id: "account", label: "Account", sub: "Profile, help & account deletion" },
+];
+const TAB_IDS = TABS.map((t) => t.id);
+const LEGACY: Record<string, string> = { appearance: "preferences", regional: "preferences", notifications: "preferences", backup: "data", export: "data", storage: "data" };
 const FIRST_DAY_OPTIONS = [
   { value: "sunday", label: "Sunday" },
   { value: "monday", label: "Monday" },
@@ -36,6 +46,7 @@ const PRIVACY_TOGGLES = [
   { key: "analytics", label: "Analytics" },
   { key: "crashReporting", label: "Crash Reporting" },
   { key: "tracking", label: "Tracking" },
+  { key: "showInSuggestions", label: "Show my profile in community suggestions" },
 ] as const;
 const EXPORT_TYPES = [
   { key: "transactions", label: "Transactions" },
@@ -81,26 +92,16 @@ export function MobileSettingsView() {
 
   const [prefsOpen, setPrefsOpen] = useState(false);
   const [notifsOpen, setNotifsOpen] = useState(false);
-  const [privacyOpen, setPrivacyOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
-  // Deep links from the More hub: each one lands on its own section or opens its own sheet.
-  const tab = useSearchParams().get("tab");
-  // Opened from the More hub with ?tab=…: show only that entry (its own page), not the whole settings list.
-  const FOCUS: Record<string, { title: string; sub: string }> = {
-    appearance: { title: "Appearance", sub: "Theme and display" },
-    regional: { title: "Currency, Date & Language", sub: "Regional settings" },
-    notifications: { title: "Notification Preferences", sub: "Reminders and alerts" },
-    privacy: { title: "Privacy", sub: "Control your data" },
-    export: { title: "Data Management", sub: "Export your data" },
-  };
-  const focus = tab && FOCUS[tab] ? tab : null;
-  const show = (...ids: string[]) => !focus || ids.includes(focus);
-  useEffect(() => {
-    if (focus === "regional") setPrefsOpen(true);
-    else if (focus === "notifications") setNotifsOpen(true);
-    else if (focus === "privacy") setPrivacyOpen(true);
-    else if (focus === "export") setExportOpen(true);
-  }, [focus]);
+  // Five tabs; old deep links (?tab=appearance|regional|notifications|export|backup) land on the tab that now holds them.
+  const router = useRouter();
+  const raw = useSearchParams().get("tab") ?? "preferences";
+  const tab = TAB_IDS.includes(raw) ? raw : LEGACY[raw] ?? "preferences";
+  const row = (icon: ReactNode, name: string, meta?: string) => (<>
+    <div className="ppm-ic" aria-hidden="true">{icon}</div>
+    <div className="ppm-info"><div className="ppm-name">{name}</div>{meta && <div className="ppm-meta">{meta}</div>}</div>
+    <span className="ppm-chev" aria-hidden="true">›</span>
+  </>);
   const [exportTypes, setExportTypes] = useState<string[]>(EXPORT_TYPES.map((t) => t.key));
   const [exporting, setExporting] = useState(false);
 
@@ -126,68 +127,67 @@ export function MobileSettingsView() {
   };
 
   return (
-    <MobileShell title={focus ? FOCUS[focus].title : "Settings"}>
+    <MobileShell title="Settings">
       <div className="ppm-page-title">
-        <h2>{focus ? FOCUS[focus].title : "Settings"}</h2>
-        <p>{focus ? FOCUS[focus].sub : "Account, storage & preferences"}</p>
+        <h2>Settings</h2>
+        <p>{TABS.find((t) => t.id === tab)?.sub}</p>
       </div>
 
-      {show("appearance", "regional") && (
-      <div className="ppm-card" id="settings-appearance">
-        {!focus && <div className="ppm-section-label">Appearance</div>}
-        {show("appearance") && (
+      <div className="ppm-filters" role="tablist" aria-label="Settings sections">
+        {TABS.map((t) => (
+          <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} className={`ppm-chip${tab === t.id ? " on" : ""}`} onClick={() => router.replace(`/settings?tab=${t.id}`)}>{t.label}</button>
+        ))}
+      </div>
+
+      {tab === "preferences" && (<>
+      <div className="ppm-card">
+        <div className="ppm-section-label">Appearance &amp; region</div>
         <div className="ppm-list-item" style={{ cursor: "default" }}>
           <div className="ppm-ic" aria-hidden="true"><Moon size={18} /></div>
           <div className="ppm-info"><div className="ppm-name">Dark Mode</div></div>
           <button type="button" className={`ppm-toggle${resolvedTheme === "dark" ? " on" : ""}`} role="switch" aria-checked={resolvedTheme === "dark"} aria-label="Toggle dark mode" onClick={toggleDarkMode} />
         </div>
-        )}
-        {show("regional") && (
-        <button type="button" className="ppm-list-item" onClick={() => setPrefsOpen(true)}>
-          <div className="ppm-ic" aria-hidden="true"><Palette size={18} /></div>
-          <div className="ppm-info"><div className="ppm-name">Currency, Date &amp; Language</div></div>
-          <span className="ppm-chev" aria-hidden="true">›</span>
-        </button>
-        )}
-      </div>
-      )}
-
-      {show("appearance") && (
-      <div className="ppm-card" style={{ marginTop: 14 }}>
-        {!focus && <div className="ppm-section-label">Preferences</div>}
+        <button type="button" className="ppm-list-item" onClick={() => setPrefsOpen(true)}>{row(<Palette size={18} />, "Currency, Date & Language")}</button>
         <div className="ppm-list-item" style={{ cursor: "default" }}>
           <div className="ppm-ic" aria-hidden="true"><Volume2 size={18} /></div>
           <div className="ppm-info">
             <div className="ppm-name">Voice Greetings</div>
-            <div className="ppm-meta">Hear a short spoken greeting when you sign in, sign up, or sign out.</div>
+            <div className="ppm-meta">A short spoken greeting on sign in, sign up and sign out.</div>
           </div>
-          <button
-            type="button"
-            className={`ppm-toggle${voiceGreetingsEnabled ? " on" : ""}`}
-            role="switch"
-            aria-checked={voiceGreetingsEnabled}
-            aria-label="Toggle voice greetings"
-            onClick={toggleVoiceGreetings}
-          />
+          <button type="button" className={`ppm-toggle${voiceGreetingsEnabled ? " on" : ""}`} role="switch" aria-checked={voiceGreetingsEnabled} aria-label="Toggle voice greetings" onClick={toggleVoiceGreetings} />
         </div>
       </div>
-      )}
-
-      {show("notifications") && (
       <div className="ppm-card" style={{ marginTop: 14 }}>
-        {!focus && <div className="ppm-section-label">Notifications</div>}
-        <button type="button" className="ppm-list-item" onClick={() => setNotifsOpen(true)}>
-          <div className="ppm-ic" aria-hidden="true"><Bell size={18} /></div>
-          <div className="ppm-info"><div className="ppm-name">Notification Preferences</div></div>
-          <span className="ppm-chev" aria-hidden="true">›</span>
-        </button>
+        <div className="ppm-section-label">Notifications</div>
+        <button type="button" className="ppm-list-item" onClick={() => setNotifsOpen(true)}>{row(<Bell size={18} />, "Notification Preferences", "Reminders and alerts")}</button>
+      </div>
+      </>)}
+
+      {tab === "security" && (
+      <div className="ppm-card">
+        <div className="ppm-section-label">Sign-in &amp; protection</div>
+        <Link href="/settings/security" className="ppm-list-item">{row(<Lock size={18} />, "Password, PIN, 2FA & Passkeys", "Protect how you sign in")}</Link>
+        <Link href="/settings/sessions" className="ppm-list-item">{row(<MonitorSmartphone size={18} />, "Active sessions", "Where you are signed in")}</Link>
+        <Link href="/forgot-password" className="ppm-list-item">{row(<Key size={18} />, "Account recovery")}</Link>
       </div>
       )}
 
-      {show("export") && (
-      <div className="ppm-card" style={{ marginTop: 14 }}>
-        {!focus && <div className="ppm-section-label">Storage</div>}
-        {!focus && (<>
+      {tab === "privacy" && (
+      <div className="ppm-card">
+        <div className="ppm-section-label">Your data</div>
+        {PRIVACY_TOGGLES.map((opt) => (
+          <div key={opt.key} className="ppm-list-item" style={{ cursor: "default" }}>
+            <div className="ppm-ic" aria-hidden="true"><EyeOff size={18} /></div>
+            <div className="ppm-info"><div className="ppm-name">{opt.label}</div></div>
+            <button type="button" className={`ppm-toggle${priv[opt.key] ? " on" : ""}`} role="switch" aria-checked={Boolean(priv[opt.key])} aria-label={opt.label} onClick={() => togglePriv(opt.key)} />
+          </div>
+        ))}
+      </div>
+      )}
+
+      {tab === "data" && (
+      <div className="ppm-card">
+        <div className="ppm-section-label">Storage &amp; export</div>
         {isLocalOnly ? (
           <div className="ppm-list-item" style={{ cursor: "default" }}>
             <div className="ppm-ic" aria-hidden="true"><HardDrive size={18} /></div>
@@ -212,87 +212,24 @@ export function MobileSettingsView() {
             <span className="ppm-chev" aria-hidden="true">›</span>
           </Link>
         )}
-        <Link href="/settings/storage" className="ppm-list-item">
-          <div className="ppm-ic" aria-hidden="true"><SettingsIcon size={18} /></div>
-          <div className="ppm-info">
-            <div className="ppm-name">Manage Storage</div>
-            <div className="ppm-meta">Disconnect, restore, switch mode, encrypted backup</div>
-          </div>
-          <span className="ppm-chev" aria-hidden="true">›</span>
-        </Link>
+        <Link href="/settings/storage" className="ppm-list-item">{row(<SettingsIcon size={18} />, "Manage storage", "Disconnect, restore, switch mode, backup")}</Link>
         {!isDriveReady(driveStatus) && !isLocalOnly && policy.drive && (
-          <Link href="/connect-drive" className="ppm-list-item">
-            <div className="ppm-ic" aria-hidden="true"><Link2 size={18} /></div>
-            <div className="ppm-info"><div className="ppm-name">Connect Google Drive</div></div>
-            <span className="ppm-chev" aria-hidden="true">›</span>
-          </Link>
+          <Link href="/connect-drive" className="ppm-list-item">{row(<Link2 size={18} />, "Connect Google Drive")}</Link>
         )}
-        </>)}
-        <button type="button" className="ppm-list-item" onClick={() => setExportOpen(true)}>
-          <div className="ppm-ic" aria-hidden="true"><Download size={18} /></div>
-          <div className="ppm-info"><div className="ppm-name">Export Data</div></div>
-          <span className="ppm-chev" aria-hidden="true">›</span>
-        </button>
+        <button type="button" className="ppm-list-item" onClick={() => setExportOpen(true)}>{row(<Download size={18} />, "Export data")}</button>
       </div>
       )}
 
-      {show("privacy") && (
-      <div className="ppm-card" style={{ marginTop: 14 }}>
-        {!focus && <div className="ppm-section-label">Security &amp; Account</div>}
-        {!focus && (<>
-        <Link href="/settings/security" className="ppm-list-item">
-          <div className="ppm-ic" aria-hidden="true"><Lock size={18} /></div>
-          <div className="ppm-info"><div className="ppm-name">2FA, Passkeys &amp; Password</div></div>
-          <span className="ppm-chev" aria-hidden="true">›</span>
-        </Link>
-        <Link href="/forgot-password" className="ppm-list-item">
-          <div className="ppm-ic" aria-hidden="true"><Key size={18} /></div>
-          <div className="ppm-info"><div className="ppm-name">Account Recovery</div></div>
-          <span className="ppm-chev" aria-hidden="true">›</span>
-        </Link>
-        </>)}
-        <button type="button" className="ppm-list-item" onClick={() => setPrivacyOpen(true)}>
-          <div className="ppm-ic" aria-hidden="true"><EyeOff size={18} /></div>
-          <div className="ppm-info"><div className="ppm-name">Privacy</div></div>
-          <span className="ppm-chev" aria-hidden="true">›</span>
-        </button>
+      {tab === "account" && (<>
+      <div className="ppm-card">
+        <div className="ppm-section-label">Account &amp; help</div>
+        <Link href="/profile" className="ppm-list-item">{row(<UserCircle size={18} />, "Profile", "Your personal information")}</Link>
+        <Link href="/dashboard?tour=onboarding" className="ppm-list-item">{row(<Compass size={18} />, "Product Tour", "Replay the guided walkthrough")}</Link>
+        <Link href="/manual" className="ppm-list-item">{row(<BookOpen size={18} />, "User Manual")}</Link>
+        <Link href="/privacy-policy" className="ppm-list-item">{row(<ScrollText size={18} />, "Privacy Policy")}</Link>
+        <Link href="/terms" className="ppm-list-item">{row(<FileText size={18} />, "Terms of Service")}</Link>
       </div>
-      )}
-
-      {!focus && (<>
-      <div className="ppm-card" style={{ marginTop: 14 }}>
-        <div className="ppm-section-label">Help &amp; Documentation</div>
-        <Link href="/dashboard?tour=onboarding" className="ppm-list-item">
-          <div className="ppm-ic" aria-hidden="true"><Compass size={18} /></div>
-          <div className="ppm-info">
-            <div className="ppm-name">Product Tour</div>
-            <div className="ppm-meta">Replay the guided walkthrough</div>
-          </div>
-          <span className="ppm-chev" aria-hidden="true">›</span>
-        </Link>
-        <Link href="/manual" className="ppm-list-item">
-          <div className="ppm-ic" aria-hidden="true"><BookOpen size={18} /></div>
-          <div className="ppm-info">
-            <div className="ppm-name">User Manual</div>
-            <div className="ppm-meta">Learn how Penny Pilot works</div>
-          </div>
-          <span className="ppm-chev" aria-hidden="true">›</span>
-        </Link>
-      </div>
-
-      <div className="ppm-card" style={{ marginTop: 14 }}>
-        <div className="ppm-section-label">Legal</div>
-        <Link href="/privacy-policy" className="ppm-list-item">
-          <div className="ppm-ic" aria-hidden="true"><ScrollText size={18} /></div>
-          <div className="ppm-info"><div className="ppm-name">Privacy Policy</div></div>
-          <span className="ppm-chev" aria-hidden="true">›</span>
-        </Link>
-        <Link href="/terms" className="ppm-list-item">
-          <div className="ppm-ic" aria-hidden="true"><FileText size={18} /></div>
-          <div className="ppm-info"><div className="ppm-name">Terms of Service</div></div>
-          <span className="ppm-chev" aria-hidden="true">›</span>
-        </Link>
-      </div>
+      <div style={{ marginTop: 14 }}><DeleteAccountPanel /></div>
       </>)}
 
       <MobileSheet open={prefsOpen} onClose={() => setPrefsOpen(false)} title="Currency, Date & Language">
@@ -354,18 +291,6 @@ export function MobileSettingsView() {
         </div>
         <div className="ppm-sheet-actions">
           <button type="button" className="ppm-sheet-cancel" onClick={() => setNotifsOpen(false)}>Done</button>
-        </div>
-      </MobileSheet>
-
-      <MobileSheet open={privacyOpen} onClose={() => setPrivacyOpen(false)} title="Privacy">
-        {PRIVACY_TOGGLES.map((opt) => (
-          <label key={opt.key} className="ppm-list-item" style={{ cursor: "pointer" }}>
-            <div className="ppm-info"><div className="ppm-name" style={{ fontWeight: 500, fontSize: ".85rem" }}>{opt.label}</div></div>
-            <button type="button" className={`ppm-toggle${priv[opt.key] ? " on" : ""}`} role="switch" aria-checked={Boolean(priv[opt.key])} onClick={() => togglePriv(opt.key)} />
-          </label>
-        ))}
-        <div className="ppm-sheet-actions">
-          <button type="button" className="ppm-sheet-cancel" onClick={() => setPrivacyOpen(false)}>Done</button>
         </div>
       </MobileSheet>
 

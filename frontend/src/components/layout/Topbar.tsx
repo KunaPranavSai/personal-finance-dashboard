@@ -198,7 +198,7 @@ export function Topbar({ title }: { title: string }) {
                   <Settings className="h-4 w-4" /> Settings
                 </Link>
                 <Link
-                  href="/settings?tab=appearance"
+                  href="/settings?tab=preferences"
                   className="flex items-center gap-2 px-4 py-2 text-sm text-navy/70 hover:bg-black/5 dark:text-white/70 dark:hover:bg-white/5 focus-visible:outline-none focus-visible:bg-black/5 dark:focus-visible:bg-white/5"
                   role="menuitem"
                   onClick={() => setAvatarOpen(false)}

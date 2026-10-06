@@ -190,7 +190,7 @@ export function Topbar({ title }: { title: string }) {
                   <Settings className="h-4 w-4" /> Settings
                 </Link>
                 <Link
-                  href="/settings?tab=appearance"
+                  href="/settings?tab=preferences"
                   className="flex items-center gap-2 px-4 py-2 text-sm text-pp-text-dim hover:bg-pp-surface-2 focus-visible:outline-none focus-visible:bg-pp-surface-2"
                   role="menuitem"
                   onClick={() => setAvatarOpen(false)}

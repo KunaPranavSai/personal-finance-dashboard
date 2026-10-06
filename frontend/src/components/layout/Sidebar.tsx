@@ -7,7 +7,7 @@ import { motion } from "framer-motion";
 import {
   LayoutDashboard, Wallet, PiggyBank, Target,
   Receipt, TrendingUp, TrendingDown, BarChart3, FileText, Bell, User, X, Landmark,
-  SlidersHorizontal, ChevronDown, PanelLeftClose, PanelLeftOpen, Shield, Palette, Eye, Database, BellRing,
+  SlidersHorizontal, ChevronDown, PanelLeftClose, PanelLeftOpen, Shield, Palette, Eye, Database,
 } from "lucide-react";
 import { cn } from "@/lib/format";
 import { useUiStore } from "@/store/uiStore";
@@ -66,7 +66,6 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/customizations", label: "Customizations", icon: SlidersHorizontal },
       { href: "/notifications", label: "Notifications", icon: Bell },
-      { href: "/settings?tab=notifications", label: "Notification Preferences", icon: BellRing },
       { href: "/profile", label: "Profile", icon: User },
     ],
   },
@@ -74,10 +73,11 @@ const NAV_GROUPS: NavGroup[] = [
     id: "settings",
     label: "Settings",
     items: [
-      { href: "/settings?tab=appearance", label: "Appearance", icon: Palette },
+      { href: "/settings?tab=preferences", label: "Preferences", icon: Palette },
       { href: "/settings?tab=security", label: "Security", icon: Shield },
-      { href: "/settings?tab=privacy", label: "Privacy", icon: Eye },
-      { href: "/settings?tab=backup", label: "Backup & Export", icon: Database },
+      { href: "/settings?tab=privacy", label: "Privacy & Activity", icon: Eye },
+      { href: "/settings?tab=data", label: "Data & Storage", icon: Database },
+      { href: "/settings?tab=account", label: "Account", icon: User },
     ],
   },
 ];

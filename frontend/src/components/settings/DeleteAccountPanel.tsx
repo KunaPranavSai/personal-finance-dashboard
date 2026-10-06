@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Check, ChevronRight, Loader2, ShieldAlert, Trash2 } from "lucide-react";
 import { api, ApiClientError } from "@/lib/api";
+import { MobileSheet } from "@/components/mobile/MobileSheet";
 
 /**
  * Delete account (30-day scheduled deletion). Four independent server-side checks (PIN, password, two-factor, phone)
@@ -42,14 +43,14 @@ function SlideToConfirm({ label, onComplete, disabled }: { label: string; onComp
     <div ref={track} className={`relative h-[60px] select-none overflow-hidden rounded-full border border-red-500/40 bg-red-500/10 ${disabled ? "opacity-40" : ""}`} aria-disabled={disabled}>
       <div className="absolute inset-0 flex items-center justify-center pl-12 text-sm font-semibold text-red-600">{label}</div>
       <button
-        type="button" disabled={disabled} aria-label={`${label}. Drag to the right, or press the right arrow key to slide.`}
+        type="button" disabled={disabled} aria-label={`${label}. Drag to the right, or press Enter to confirm.`}
         className="absolute left-1 top-1 flex touch-none items-center justify-center rounded-full bg-red-600 text-white shadow disabled:cursor-not-allowed"
         style={{ width: HANDLE, height: HANDLE, transform: `translateX(${x}px)`, transition: drag ? "none" : "transform .25s ease" }}
         onPointerDown={(e) => { if (disabled) return; (e.target as HTMLElement).setPointerCapture(e.pointerId); setDrag(true); }}
         onPointerMove={(e) => { if (drag) move(e.clientX); }}
         onPointerUp={() => { setDrag(false); finish(x); }}
         onPointerCancel={() => { setDrag(false); setX(0); }}
-        onKeyDown={(e) => { if (disabled) return; if (e.key === "ArrowRight") { const n = Math.min(max(), x + max() / 5); setX(n); if (n >= max() * 0.92) finish(n); } if (e.key === "ArrowLeft") setX(Math.max(0, x - max() / 5)); }}
+        onKeyDown={(e) => { if (disabled) return; if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setX(max()); finish(max()); return; } if (e.key === "ArrowRight") { const n = Math.min(max(), x + max() / 5); setX(n); if (n >= max() * 0.92) finish(n); } if (e.key === "ArrowLeft") setX(Math.max(0, x - max() / 5)); }}
       >
         <ChevronRight size={22} aria-hidden="true" />
       </button>
@@ -120,7 +121,7 @@ export function DeleteAccountPanel() {
           </Step>}
         </ol>
       )}
-      {err && <p role="alert" className="mt-3 text-sm font-medium text-red-600">{err}</p>}
+      {err && !puzzle && <p role="alert" className="mt-3 text-sm font-medium text-red-600">{err}</p>}
 
       <div className="mt-4">
         <p className="mb-2 flex items-center gap-1.5 text-xs text-pp-text-dim"><ShieldAlert size={14} aria-hidden="true" /> {all ? "All checks are complete." : "Complete the checks above to unlock the slider."}</p>
@@ -128,23 +129,21 @@ export function DeleteAccountPanel() {
           onComplete={() => run(async () => { const r = await api.post<{ prompt: string; puzzleToken: string }>("/api/account/deletion/puzzle", { proofs }); setPuzzle({ prompt: r.prompt, token: r.puzzleToken }); setAnswer(""); })} />
       </div>
 
-      {puzzle && (
-        <div role="dialog" aria-modal="true" aria-labelledby="del-puzzle" className="fixed inset-0 z-[300] flex items-end justify-center bg-black/60 p-4 sm:items-center">
-          <div className="w-full max-w-sm rounded-2xl bg-pp-surface p-5 shadow-xl">
-            <h4 id="del-puzzle" className="text-base font-bold text-pp-text">One last check</h4>
-            <p className="mt-2 text-sm text-pp-text-dim">{puzzle.prompt}</p>
-            <input className={`${input} mt-3`} inputMode="numeric" autoFocus placeholder="Your answer" aria-label="Puzzle answer" value={answer} onChange={(e) => setAnswer(e.target.value.replace(/[^\d-]/g, ""))} />
-            {err && <p role="alert" className="mt-2 text-sm font-medium text-red-600">{err}</p>}
-            <div className="mt-4 flex gap-2">
-              <button type="button" className="min-h-[44px] flex-1 rounded-lg border border-pp-border text-sm font-medium text-pp-text" onClick={() => { setPuzzle(null); setErr(null); }} disabled={busy}>Cancel</button>
-              <button type="button" className="min-h-[44px] flex-1 rounded-lg bg-red-600 text-sm font-semibold text-white disabled:opacity-50" disabled={busy || !answer}
-                onClick={() => run(async () => { const r = await api.post<{ scheduledDeletionAt: string }>("/api/account/deletion/schedule", { proofs, puzzleToken: puzzle.token, answer }); setPuzzle(null); setProofs({}); setDone(r.scheduledDeletionAt); })}>
-                Schedule deletion
-              </button>
-            </div>
-          </div>
+      <MobileSheet open={Boolean(puzzle)} onClose={() => { if (!busy) { setPuzzle(null); setErr(null); } }} title="One last check">
+        <p className="text-sm" style={{ margin: "0 0 12px", color: "var(--ppm-text-dim, inherit)" }}>{puzzle?.prompt}</p>
+        <div className="ppm-field">
+          <label htmlFor="del-puzzle-answer">Your answer</label>
+          <input id="del-puzzle-answer" inputMode="numeric" autoComplete="off" value={answer} onChange={(e) => setAnswer(e.target.value.replace(/[^\d-]/g, ""))} />
         </div>
-      )}
+        {err && puzzle && <div className="err" role="alert" style={{ marginBottom: 10 }}>{err}</div>}
+        <div className="ppm-sheet-actions">
+          <button type="button" className="ppm-danger-btn" style={{ width: "100%" }} disabled={busy || !answer || !puzzle}
+            onClick={() => run(async () => { const r = await api.post<{ scheduledDeletionAt: string }>("/api/account/deletion/schedule", { proofs, puzzleToken: puzzle!.token, answer }); setPuzzle(null); setProofs({}); setDone(r.scheduledDeletionAt); })}>
+            {busy ? "Scheduling…" : "Schedule deletion"}
+          </button>
+          <button type="button" className="ppm-sheet-cancel" onClick={() => { setPuzzle(null); setErr(null); }} disabled={busy}>Cancel</button>
+        </div>
+      </MobileSheet>
     </section>
   );
 }

@@ -527,7 +527,7 @@ export default function AnalyticsPage() {
               </div>
               <div className="ml-auto">
                 <Link
-                  href="/settings?tab=export"
+                  href="/settings?tab=data"
                   className="flex items-center gap-1.5 rounded-lg border border-pp-border px-3 py-2 text-xs font-medium text-pp-text transition-all hover:border-pp-accent/50 "
                 >
                   <Download className="h-3.5 w-3.5" /> Export data

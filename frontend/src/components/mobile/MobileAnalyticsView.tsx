@@ -65,7 +65,7 @@ const RANGES: { value: RangeKey; label: string }[] = [
 
 function computeRange(range: RangeKey, custom: { from: string; to: string }): { from?: string; to?: string } {
   const now = new Date();
-  const iso = (d: Date) => d.toISOString().slice(0, 10);
+  const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   if (range === "all") return {};
   if (range === "custom") return { from: custom.from || undefined, to: custom.to || undefined };
   if (range === "this-month") return { from: iso(new Date(now.getFullYear(), now.getMonth(), 1)), to: iso(now) };
@@ -126,9 +126,12 @@ export function MobileAnalyticsView() {
 
   return (
     <MobileShell title="Analytics">
-      <div className="ppm-page-title">
+      <div className="ppm-head-row">
         <h2>Analytics</h2>
-        <p>Spending patterns over time</p>
+        <button type="button" className={`ppm-chip${activeExtraFilters > 0 ? " on" : ""}`} onClick={() => setFilterSheetOpen(true)} aria-label="Filters">
+          <SlidersHorizontal size={14} aria-hidden="true" />
+          <span className="ppm-filter-label">Filters{activeExtraFilters > 0 ? ` (${activeExtraFilters})` : ""}</span>
+        </button>
       </div>
 
       <div className="ppm-filters" role="tablist">
@@ -137,9 +140,6 @@ export function MobileAnalyticsView() {
             {r.label}
           </button>
         ))}
-        <button type="button" className={`ppm-chip${activeExtraFilters > 0 ? " on" : ""}`} onClick={() => setFilterSheetOpen(true)}>
-          <SlidersHorizontal size={13} style={{display:"inline",verticalAlign:"-2px",marginRight:4}} />Filters{activeExtraFilters > 0 ? ` (${activeExtraFilters})` : ""}
-        </button>
       </div>
 
       {range === "custom" && (

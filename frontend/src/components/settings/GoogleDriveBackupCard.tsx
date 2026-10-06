@@ -54,10 +54,10 @@ export function GoogleDriveBackupCard() {
     if (searchParams.get("driveConnected") === "1") {
       toast("Google Drive connected", "success");
       queryClient.invalidateQueries({ queryKey: DRIVE_STATUS_QUERY_KEY });
-      router.replace("/settings?tab=backup");
+      router.replace("/settings?tab=data");
     } else if (searchParams.get("driveError")) {
       toast("Failed to connect Google Drive. Please try again.", "error");
-      router.replace("/settings?tab=backup");
+      router.replace("/settings?tab=data");
     }
   }, [searchParams, toast, queryClient, router]);
 
