@@ -1,13 +1,11 @@
 "use client";
 
+import { ShellServices } from "@/components/pwa/ShellServices";
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter, usePathname } from "next/navigation";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { SwipeSidebarHandler } from "@/components/layout/SwipeSidebarHandler";
-import { OfflineSyncManager } from "@/components/pwa/OfflineSyncManager";
-import { PushIdentitySync } from "@/components/pwa/PushIdentitySync";
-import { PwaInstallPrompt } from "@/components/pwa/PwaInstallPrompt";
 import { Footer } from "@/components/layout/Footer";
 import { DataInit } from "@/components/DataInit";
 import { TwoFactorReverifyDialog } from "@/components/ui/TwoFactorReverifyDialog";
@@ -146,6 +144,7 @@ export function AppShellLayoutClient({ children }: { children: React.ReactNode }
           <div className="pp-mobile">
             <DataInit />
             <OnboardingTourHost />
+            <ShellServices />
             {children}
             <TwoFactorReverifyDialog />
           <StepUpHost />
@@ -162,9 +161,7 @@ export function AppShellLayoutClient({ children }: { children: React.ReactNode }
         <div className="flex min-h-screen bg-pp-surface ">
           <DataInit />
             <OnboardingTourHost />
-          <OfflineSyncManager />
-          <PushIdentitySync />
-          <PwaInstallPrompt />
+          <ShellServices />
           <SwipeSidebarHandler />
           <Sidebar />
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">

@@ -18,6 +18,9 @@ export function ServiceWorkerUpdatePrompt() {
     if (!("serviceWorker" in navigator)) return;
 
     let reg: ServiceWorkerRegistration | undefined;
+    let timer: ReturnType<typeof setInterval> | undefined;
+
+    const activate = (w: ServiceWorker | null | undefined) => w?.postMessage({ type: "SKIP_WAITING" });
 
     const handleUpdateFound = (registration: ServiceWorkerRegistration) => {
       const installing = registration.installing;
@@ -32,11 +35,23 @@ export function ServiceWorkerUpdatePrompt() {
     navigator.serviceWorker.getRegistration().then((registration) => {
       if (!registration) return;
       reg = registration;
-      if (registration.waiting && navigator.serviceWorker.controller) {
-        setWaitingWorker(registration.waiting);
-      }
+      // A new version already downloaded while the app was closed: this page just loaded and nothing is half-typed, so
+      // take it NOW (otherwise an installed phone app keeps running the old version until someone taps "Refresh").
+      if (registration.waiting && navigator.serviceWorker.controller) activate(registration.waiting);
       registration.addEventListener("updatefound", () => handleUpdateFound(registration));
+      // Look for a new version now, whenever the app comes back to the foreground, and every 30 minutes. (The browser's own
+      // check can be up to a day apart, and the old code called update() before the registration was known, so it never ran.)
+      registration.update().catch(() => {});
+      timer = setInterval(() => registration.update().catch(() => {}), 30 * 60 * 1000);
     });
+
+    const onVisibility = () => {
+      if (!reg) return;
+      if (document.visibilityState === "visible") reg.update().catch(() => {});
+      // the user switched away: a waiting update can be applied without interrupting anything
+      else if (reg.waiting) activate(reg.waiting);
+    };
+    document.addEventListener("visibilitychange", onVisibility);
 
     let reloading = false;
     const handleControllerChange = () => {
@@ -46,12 +61,10 @@ export function ServiceWorkerUpdatePrompt() {
     };
     navigator.serviceWorker.addEventListener("controllerchange", handleControllerChange);
 
-    // Check for an update once per session load — catches the case where the
-    // tab was already open when a new version was deployed.
-    reg?.update().catch(() => {});
-
     return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
       navigator.serviceWorker.removeEventListener("controllerchange", handleControllerChange);
+      if (timer) clearInterval(timer);
     };
   }, []);
 

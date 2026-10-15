@@ -63,7 +63,7 @@ export function PwaInstallPrompt() {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 40 }}
           transition={{ duration: 0.25 }}
-          className="fixed inset-x-4 bottom-20 z-[95] mx-auto flex max-w-sm items-center gap-3 rounded-xl border border-pp-border bg-pp-surface p-4 shadow-2xl sm:inset-x-auto sm:bottom-4 sm:right-4"
+          className="fixed inset-x-4 top-[calc(env(safe-area-inset-top,0px)+4rem)] z-[95] mx-auto flex max-w-sm items-center gap-3 rounded-xl border border-pp-border bg-pp-surface p-4 shadow-2xl sm:inset-x-auto sm:bottom-4 sm:right-4 sm:top-auto"
           role="dialog"
           aria-label="Install Penny Pilot"
         >
