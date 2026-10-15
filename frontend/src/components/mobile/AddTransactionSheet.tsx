@@ -1,5 +1,7 @@
 "use client";
 
+import type { Category } from "@/types";
+import { persistTransaction, afterConfirmedSave, describeSaveFailure } from "@/lib/saveTransaction";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
@@ -127,26 +129,20 @@ export function AddTransactionSheet({ open, onClose, editing, inline, forcedType
   }, [open, editing]);
 
   const mutation = useMutation({
-    mutationFn: (payload: Record<string, unknown>) => {
-      if (getStorageMode() === "local") {
-        return isEditing ? updateLocalTransaction(editing!.id, payload) : createLocalTransaction(payload);
-      }
-      return isEditing
-        ? api.patch(`/api/transactions/${editing!.id}`, payload)
-        : api.post("/api/transactions", payload, createIdempotencyKeyRef.current);
-    },
-    onSuccess: () => {
-      invalidateFor(queryClient, "transaction");
+    mutationFn: (payload: Record<string, unknown>) =>
+      persistTransaction({ payload, editingId: editing?.id, idempotencyKey: createIdempotencyKeyRef.current, kind: type === "INCOME" ? "income" : "expense" }),
+    onSuccess: (result) => {
+      afterConfirmedSave(queryClient); // refreshes Home / Activity / Capital in the background; the save is already durable
       createIdempotencyKeyRef.current = generateIdempotencyKey();
-      toast(isEditing ? "Transaction updated" : `${type === "EXPENSE" ? "Expense" : "Income"} saved`, "success");
+      const label = type === "EXPENSE" ? "Expense" : "Income";
+      toast(isEditing ? "Transaction updated" : result.queued ? `${label} saved on this device. It will sync when you're back online.` : `${label} saved`, "success");
       reset();
       onClose();
     },
     onError: (err) => {
-      // The write may have partially succeeded server-side even though this
-      // request errored (e.g. a timeout after the Drive write committed) —
-      // never claim outright failure here beyond what the message says.
-      toast((err as Error)?.message || "Couldn't save this transaction. Please check and try again.", "error");
+      // The form keeps everything the user typed and the same idempotency key, so "Save" again is always safe:
+      // if the first attempt did reach the server, the retry returns that record instead of adding a second one.
+      toast(describeSaveFailure(err).message, "error");
     },
   });
 
@@ -199,8 +195,10 @@ export function AddTransactionSheet({ open, onClose, editing, inline, forcedType
     if (categoryId) return categoryId;
     const existing = categories.find((c) => /^other/i.test(c.name));
     if (existing) return existing.id;
-    const created = getStorageMode() === "local" ? await createLocalCategory({ name: "Other", type }) : await api.post<{ id: string }>("/api/categories", { name: "Other", type });
-    await queryClient.invalidateQueries({ queryKey: ["categories"], refetchType: "all" });
+    const created = getStorageMode() === "local" ? await createLocalCategory({ name: "Other", type }) : await api.post<Category>("/api/categories", { name: "Other", type });
+    // Put it in the list now instead of awaiting a refetch (a full extra request) before the save can even start.
+    queryClient.setQueryData<{ items: Category[] }>(["categories"], (old) => (old ? { ...old, items: [...old.items, created as Category] } : old));
+    void queryClient.invalidateQueries({ queryKey: ["categories"] });
     return created.id;
   };
 

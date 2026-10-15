@@ -1,5 +1,6 @@
 "use client";
 
+import { persistTransaction, afterConfirmedSave, describeSaveFailure } from "@/lib/saveTransaction";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -116,14 +117,8 @@ export function TransactionFormModal({
   const ppToast = usePpToast();
 
   const mutation = useMutation({
-    mutationFn: (values: FormValues) => {
-      if (getStorageMode() === "local") {
-        return editing ? updateLocalTransaction(editing.id, values) : createLocalTransaction(values);
-      }
-      return editing
-        ? api.patch(`/api/transactions/${editing.id}`, values)
-        : postWithOfflineQueue(values.type === "INCOME" ? "income" : "expense", "/api/transactions", values, createIdempotencyKeyRef.current);
-    },
+    mutationFn: (values: FormValues) =>
+      persistTransaction({ payload: values as unknown as Record<string, unknown>, editingId: editing?.id, idempotencyKey: createIdempotencyKeyRef.current, kind: values.type === "INCOME" ? "income" : "expense" }),
     onMutate: (values) => {
       const label = values.type === "INCOME" ? "Income" : "Expense";
       return { handle: ppToast.start(editing ? `Updating ${label.toLowerCase()}…` : `Saving ${label.toLowerCase()}…`), label };
@@ -131,11 +126,8 @@ export function TransactionFormModal({
     onSuccess: (result, _values, context) => {
       // Create succeeded — the next submission (if any) is a new attempt.
       if (!editing) createIdempotencyKeyRef.current = generateIdempotencyKey();
-      // refetchType: "all" (not just TanStack's default "active") — the KPI summary card on
-      // this same page is a real bug repro: with the default, its query was invalidated but
-      // did not actually refetch until a manual page reload, leaving a stale total on screen
-      // right after a create/edit even though the write itself succeeded and persisted.
-      invalidateFor(queryClient, "transaction");
+      // Dependent data (Home, Activity, Capital, budgets) refreshes in the background: the save is already durable.
+      afterConfirmedSave(queryClient);
       if (result && typeof result === "object" && "queued" in result && result.queued) {
         toast("You're offline — this will be saved automatically once you're back online.", "success");
         context?.handle.success(`${context.label} queued — will sync when back online`);
@@ -144,8 +136,10 @@ export function TransactionFormModal({
       }
       onClose();
     },
-    onError: (_err, values, context) => {
-      context?.handle.error(`Couldn't save ${values.type === "INCOME" ? "income" : "expense"} — try again`);
+    onError: (err, values, context) => {
+      // The form keeps the user's input and the same idempotency key, so Save again is safe even if the first attempt reached the server.
+      const f = describeSaveFailure(err);
+      context?.handle.error(f.uncertain ? f.message : `Couldn't save ${values.type === "INCOME" ? "income" : "expense"}: ${f.message}`);
     },
   });
 

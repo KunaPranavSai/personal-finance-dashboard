@@ -42,9 +42,10 @@ export const financialEpoch = () => epoch;
 export function invalidateFor(qc: QueryClient, ...kinds: FinancialKind[]) {
   epoch++;
   const keys = keysFor(...kinds);
-  void qc.invalidateQueries({ predicate: (q) => keys.has(String(q.queryKey[0])), refetchType: "all" });
+  // a refetch that fails must never surface as an unhandled rejection or undo a confirmed write
+  void qc.invalidateQueries({ predicate: (q) => keys.has(String(q.queryKey[0])), refetchType: "all" }).catch(() => {});
   if (kinds.includes("transaction") || kinds.includes("bill") || kinds.includes("investment") || kinds.includes("goal")) {
-    void qc.invalidateQueries({ predicate: (q) => isDerivedKey(q.queryKey[0]), refetchType: "none" });
+    void qc.invalidateQueries({ predicate: (q) => isDerivedKey(q.queryKey[0]), refetchType: "none" }).catch(() => {});
   }
 }
 

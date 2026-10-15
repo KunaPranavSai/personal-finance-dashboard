@@ -3,7 +3,8 @@ import { z } from "zod";
 import { safeBody, safeParam, safeQuery } from "../utils/safeRequest";
 import { createTransactionSchema, listTransactionsQuerySchema, updateTransactionSchema } from "../schemas/transaction.schema";
 import { ApiError } from "../middleware/errorHandler";
-import { listRecords, createRecord, updateRecord, deleteRecord, deleteRecords } from "../services/drive/dataService";
+import { performance } from "node:perf_hooks";
+import { listRecords, createRecord, updateRecord, deleteRecord, deleteRecords, saveTrace } from "../services/drive/dataService";
 import { DriveRecord } from "../services/drive/types";
 
 interface CategoryRecord extends DriveRecord {
@@ -34,6 +35,21 @@ interface TransactionRecord extends DriveRecord {
   fixedVariable?: string | null;
   essentiality?: string | null;
   attachmentUrl?: string | null;
+}
+
+// Save-path timing (development, tests, or SAVE_TIMING=1): a Server-Timing header with phase durations only
+// (token, folders, load, write-file, write-manifest, total). Never contains transaction data.
+const TIMING = process.env.NODE_ENV !== "production" || process.env.SAVE_TIMING === "1";
+async function timed<T>(res: Response, fn: () => Promise<T>): Promise<T> {
+  if (!TIMING) return fn();
+  const phases: Record<string, number> = {};
+  const t0 = performance.now();
+  try {
+    return await saveTrace.run((name, ms) => void (phases[name] = (phases[name] ?? 0) + ms), fn);
+  } finally {
+    res.setHeader("Server-Timing", [`total;dur=${(performance.now() - t0).toFixed(0)}`, ...Object.entries(phases).map(([n, ms]) => `${n};dur=${ms.toFixed(0)}`)].join(", "));
+    res.setHeader("Timing-Allow-Origin", "*");
+  }
 }
 
 /** Attaches the same nested category/subcategory/account/paymentMethodType shape the frontend
@@ -136,13 +152,18 @@ export async function createTransaction(req: Request, res: Response) {
   const data = safeBody(createTransactionSchema, req);
   const userId = req.auth!.userId;
   const idempotencyKey = req.headers["idempotency-key"];
-  const tx = await createRecord<TransactionRecord>(
-    userId,
-    "transactions",
-    { ...data, date: data.date.toISOString() } as unknown as Omit<TransactionRecord, "id" | "createdAt" | "updatedAt">,
-    { idempotencyKey: typeof idempotencyKey === "string" ? idempotencyKey : undefined }
+  const tx = await timed(res, () =>
+    createRecord<TransactionRecord>(
+      userId,
+      "transactions",
+      { ...data, date: data.date.toISOString() } as unknown as Omit<TransactionRecord, "id" | "createdAt" | "updatedAt">,
+      { idempotencyKey: typeof idempotencyKey === "string" ? idempotencyKey : undefined }
+    )
   );
-  res.status(201).json(await enrichTransaction(userId, tx));
+  // The confirmation is the persisted record. It is deliberately NOT enriched with category/wallet names: that cost
+  // three more collection reads (cold cache = extra Drive round trips) on the save's critical path, and no client uses
+  // the enriched fields from this response: it refetches lists, which are enriched.
+  res.status(201).json(tx);
 }
 
 export async function updateTransaction(req: Request, res: Response) {
@@ -150,8 +171,8 @@ export async function updateTransaction(req: Request, res: Response) {
   const data = safeBody(updateTransactionSchema, req);
   const userId = req.auth!.userId;
   const patch = { ...data, ...(data.date && { date: data.date.toISOString() }) };
-  const tx = await updateRecord<TransactionRecord>(userId, "transactions", id, patch as Partial<Omit<TransactionRecord, "id" | "createdAt" | "updatedAt">>);
-  res.json(await enrichTransaction(userId, tx));
+  const tx = await timed(res, () => updateRecord<TransactionRecord>(userId, "transactions", id, patch as Partial<Omit<TransactionRecord, "id" | "createdAt" | "updatedAt">>));
+  res.json(tx); // see createTransaction: confirmation = the persisted record
 }
 
 export async function deleteTransaction(req: Request, res: Response) {

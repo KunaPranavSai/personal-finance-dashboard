@@ -1,4 +1,6 @@
 import crypto from "crypto";
+import { AsyncLocalStorage } from "node:async_hooks";
+import { performance } from "node:perf_hooks";
 import { ApiError } from "../../middleware/errorHandler";
 import {
   findFile,
@@ -14,6 +16,23 @@ import { getAccessTokenForUser } from "./connection";
 import { CollectionName, CollectionFile, ManifestFile, DriveRecord, SCHEMA_VERSION, COLLECTIONS } from "./types";
 
 const MANIFEST_FILENAME = "manifest.json";
+
+/**
+ * Save-path timing for development and tests. A request handler can wrap a write in `saveTrace.run(fn, ...)` to
+ * receive `(phase, ms)` for each awaited step. Phase names and durations only: never record contents, ids or tokens.
+ * With no collector installed `phase()` is a plain await, so production pays nothing.
+ */
+export const saveTrace = new AsyncLocalStorage<(phase: string, ms: number) => void>();
+async function phase<T>(name: string, fn: () => Promise<T>): Promise<T> {
+  const sink = saveTrace.getStore();
+  if (!sink) return fn();
+  const t0 = performance.now();
+  try {
+    return await fn();
+  } finally {
+    sink(name, performance.now() - t0);
+  }
+}
 
 function collectionFilename(name: CollectionName): string {
   return `${name}.json`;
@@ -159,17 +178,46 @@ async function loadCollectionFile(userId: string, accessToken: string, dataFolde
   return file;
 }
 
+/**
+ * Write paths reuse the fresh in-memory copy instead of re-reading Drive on every save (that re-read was ~2 of the ~4
+ * sequential Drive round trips behind each "Save"). Safe because writes are serialised per user+collection and every
+ * save refreshes the cache (write-through); the TTL bounds the one thing it can't see, an edit made directly in Drive
+ * within the last RECORD_CACHE_TTL_MS. The caller gets a private copy so a failed save cannot leave an uncommitted
+ * record in the shared cache.
+ */
+async function loadForWrite(userId: string, accessToken: string, dataFolderId: string, metadataFolderId: string, collection: CollectionName): Promise<CollectionFile> {
+  const f = await phase("load", () => loadCollectionFile(userId, accessToken, dataFolderId, metadataFolderId, collection));
+  return { ...f, records: [...f.records] };
+}
+
 async function saveCollectionFile(userId: string, accessToken: string, dataFolderId: string, metadataFolderId: string, collection: CollectionName, file: CollectionFile): Promise<void> {
   file.checksum = checksumOf(file.records);
   file.lastUpdated = new Date().toISOString();
   file.dataVersion += 1;
 
-  const { manifest, fileId: manifestFileId } = await loadManifest(userId, accessToken, metadataFolderId);
-  const existingEntry = manifest.files[collection];
-  const fileId = await upsertFile(accessToken, dataFolderId, collectionFilename(collection), JSON.stringify(file), existingEntry?.fileId);
-
-  manifest.files[collection] = { fileId, dataVersion: file.dataVersion, checksum: file.checksum, lastUpdated: file.lastUpdated };
-  await saveManifest(userId, accessToken, metadataFolderId, manifestFileId, manifest);
+  try {
+    const { manifest, fileId: manifestFileId } = await loadManifest(userId, accessToken, metadataFolderId);
+    const existingEntry = manifest.files[collection];
+    const content = JSON.stringify(file);
+    const entry = (fileId: string) => ({ fileId, dataVersion: file.dataVersion, checksum: file.checksum, lastUpdated: file.lastUpdated });
+    if (existingEntry?.fileId) {
+      // The file already exists, so the manifest update is only bookkeeping (version/checksum) and doesn't depend on
+      // the file write's result: send both at once instead of one after the other (one round trip instead of two).
+      manifest.files[collection] = entry(existingEntry.fileId);
+      await Promise.all([
+        phase("write-file", () => upsertFile(accessToken, dataFolderId, collectionFilename(collection), content, existingEntry.fileId)),
+        phase("write-manifest", () => saveManifest(userId, accessToken, metadataFolderId, manifestFileId, manifest)),
+      ]);
+    } else {
+      const fileId = await phase("write-file", () => upsertFile(accessToken, dataFolderId, collectionFilename(collection), content, null));
+      manifest.files[collection] = entry(fileId);
+      await phase("write-manifest", () => saveManifest(userId, accessToken, metadataFolderId, manifestFileId, manifest));
+    }
+  } catch (err) {
+    invalidateRecordCache(userId, collection); // unknown what reached Drive: the next read must go to Drive
+    invalidateManifestCache(userId);
+    throw err;
+  }
   // The write lock makes this process the only writer, so keep the fresh copy hot for the response and the next read.
   recordCache.set(cacheKey(userId, collection), { file, expiresAt: Date.now() + RECORD_CACHE_TTL_MS });
 }
@@ -191,23 +239,32 @@ function idempotentHit<T>(userId: string, collection: CollectionName, key: strin
   }
   return hit.record as T;
 }
+/** The key and payload hash are also stored ON the created record, so a retry is recognised even after a restart, on another
+ * instance, or when the first attempt wrote the data file but failed before answering (the in-memory cache alone cannot know). */
+type Marked = DriveRecord & { _idem?: { k: string; h: string } };
+function strip<T extends DriveRecord>(r: T): T {
+  if (!("_idem" in r)) return r;
+  const { _idem: _omit, ...rest } = r as Marked;
+  return rest as unknown as T;
+}
 function idempotencyKeyFor(userId: string, collection: CollectionName, key: string): string {
   return `${userId}:${collection}:${key}`;
 }
 
 async function withWorkspace<T>(userId: string, fn: (ctx: { accessToken: string; dataFolderId: string; metadataFolderId: string }) => Promise<T>): Promise<T> {
-  const { connection, accessToken } = await getAccessTokenForUser(userId);
+  const { connection, accessToken } = await phase("token", () => getAccessTokenForUser(userId));
   if (!connection.backupFolderId) {
     throw new ApiError(500, "Google Drive storage is not initialized for this account.", "DRIVE_NOT_INITIALIZED");
   }
-  const { dataFolderId, metadataFolderId } = await resolveWorkspaceFolders(userId, accessToken, connection.backupFolderId);
+  const { dataFolderId, metadataFolderId } = await phase("folders", () => resolveWorkspaceFolders(userId, accessToken, connection.backupFolderId!));
   return fn({ accessToken, dataFolderId, metadataFolderId });
 }
 
 export async function listRecords<T extends DriveRecord = DriveRecord>(userId: string, collection: CollectionName): Promise<T[]> {
   return withWorkspace(userId, async ({ accessToken, dataFolderId, metadataFolderId }) => {
     const file = await loadCollectionFile(userId, accessToken, dataFolderId, metadataFolderId, collection);
-    return file.records as T[];
+    // internal idempotency markers stay in the stored file but never reach callers (APIs, exports, the ledger)
+    return (file.records.some((r) => "_idem" in r) ? file.records.map(strip) : file.records) as T[];
   });
 }
 
@@ -241,15 +298,24 @@ export async function createRecord<T extends DriveRecord = DriveRecord>(
         const hit = idempotentHit<T>(userId, collection, opts.idempotencyKey, payloadHash);
         if (hit) return hit;
       }
-      const file = await loadCollectionFile(userId, accessToken, dataFolderId, metadataFolderId, collection, { bypassCache: true });
+      const file = await loadForWrite(userId, accessToken, dataFolderId, metadataFolderId, collection);
+      const key = opts?.idempotencyKey;
+      if (key) {
+        const dup = (file.records as Marked[]).find((r) => r._idem?.k === key);
+        if (dup) {
+          if (dup._idem!.h !== payloadHash) throw new ApiError(409, "This request reuses an idempotency key that was already used for a different request.", "IDEMPOTENCY_KEY_REUSED");
+          const original = strip(dup) as unknown as T;
+          idempotencyCache.set(idempotencyKeyFor(userId, collection, key), { record: original, expiresAt: Date.now() + IDEMPOTENCY_TTL_MS, payloadHash });
+          return original;
+        }
+      }
       const now = new Date().toISOString();
-      const record = { ...data, id: crypto.randomUUID(), createdAt: now, updatedAt: now } as unknown as T;
-      file.records.push(record);
+      const stored = { ...data, ...(key ? { _idem: { k: key, h: payloadHash } } : {}), id: crypto.randomUUID(), createdAt: now, updatedAt: now } as unknown as T;
+      file.records.push(stored);
       await saveCollectionFile(userId, accessToken, dataFolderId, metadataFolderId, collection, file);
 
-      if (opts?.idempotencyKey) {
-        idempotencyCache.set(idempotencyKeyFor(userId, collection, opts.idempotencyKey), { record, expiresAt: Date.now() + IDEMPOTENCY_TTL_MS, payloadHash });
-      }
+      const record = strip(stored);
+      if (key) idempotencyCache.set(idempotencyKeyFor(userId, collection, key), { record, expiresAt: Date.now() + IDEMPOTENCY_TTL_MS, payloadHash });
       return record;
     })
   );
@@ -263,7 +329,7 @@ export async function updateRecord<T extends DriveRecord = DriveRecord>(
 ): Promise<T> {
   return withLock(`${userId}:${collection}`, () =>
     withWorkspace(userId, async ({ accessToken, dataFolderId, metadataFolderId }) => {
-      const file = await loadCollectionFile(userId, accessToken, dataFolderId, metadataFolderId, collection, { bypassCache: true });
+      const file = await loadForWrite(userId, accessToken, dataFolderId, metadataFolderId, collection);
       const idx = file.records.findIndex((r) => r.id === id);
       if (idx === -1) throw new ApiError(404, "Record not found");
       const updated = { ...file.records[idx], ...patch, id, updatedAt: new Date().toISOString() } as T;
@@ -284,7 +350,7 @@ export async function upsertRecordWithId<T extends DriveRecord = DriveRecord>(
 ): Promise<T> {
   return withLock(`${userId}:${collection}`, () =>
     withWorkspace(userId, async ({ accessToken, dataFolderId, metadataFolderId }) => {
-      const file = await loadCollectionFile(userId, accessToken, dataFolderId, metadataFolderId, collection, { bypassCache: true });
+      const file = await loadForWrite(userId, accessToken, dataFolderId, metadataFolderId, collection);
       const now = new Date().toISOString();
       const idx = file.records.findIndex((r) => r.id === id);
       let record: T;
@@ -304,7 +370,7 @@ export async function upsertRecordWithId<T extends DriveRecord = DriveRecord>(
 export async function deleteRecord(userId: string, collection: CollectionName, id: string): Promise<boolean> {
   return withLock(`${userId}:${collection}`, () =>
     withWorkspace(userId, async ({ accessToken, dataFolderId, metadataFolderId }) => {
-      const file = await loadCollectionFile(userId, accessToken, dataFolderId, metadataFolderId, collection, { bypassCache: true });
+      const file = await loadForWrite(userId, accessToken, dataFolderId, metadataFolderId, collection);
       const before = file.records.length;
       file.records = file.records.filter((r) => r.id !== id);
       if (file.records.length === before) return false;
@@ -317,7 +383,7 @@ export async function deleteRecord(userId: string, collection: CollectionName, i
 export async function deleteRecords(userId: string, collection: CollectionName, ids: string[]): Promise<number> {
   return withLock(`${userId}:${collection}`, () =>
     withWorkspace(userId, async ({ accessToken, dataFolderId, metadataFolderId }) => {
-      const file = await loadCollectionFile(userId, accessToken, dataFolderId, metadataFolderId, collection, { bypassCache: true });
+      const file = await loadForWrite(userId, accessToken, dataFolderId, metadataFolderId, collection);
       const idSet = new Set(ids);
       const before = file.records.length;
       file.records = file.records.filter((r) => !idSet.has(r.id));
@@ -343,7 +409,7 @@ export async function replaceCollection<T extends DriveRecord = DriveRecord>(use
 export async function listAllCollections(userId: string): Promise<Record<CollectionName, DriveRecord[]>> {
   return withWorkspace(userId, async ({ accessToken, dataFolderId, metadataFolderId }) => {
     const entries = await Promise.all(
-      COLLECTIONS.map(async (name) => [name, (await loadCollectionFile(userId, accessToken, dataFolderId, metadataFolderId, name)).records] as const)
+      COLLECTIONS.map(async (name) => [name, (await loadCollectionFile(userId, accessToken, dataFolderId, metadataFolderId, name)).records.map(strip)] as const)
     );
     return Object.fromEntries(entries) as Record<CollectionName, DriveRecord[]>;
   });
