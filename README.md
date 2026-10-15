@@ -49,8 +49,12 @@ The distinguishing architectural choice: **a user's financial data lives in thei
 | Session management & forced logout | ✅ Implemented |
 | Admin / Super Admin console (users, activity, migration, announcements) | ✅ Implemented |
 | Admin email template & automated-email management | ✅ Implemented |
-| Notifications (in-app) | ✅ Implemented |
-| Offline queueing & PWA install/update flow | ✅ Implemented |
+| Notifications (in-app list: account/security messages and announcements) | ✅ Implemented |
+| Web Push notifications (VAPID): security alerts, Google Drive alerts, bill/EMI reminders for Drive users | ✅ Implemented (off until VAPID keys are configured; see `docs/PUSH_NOTIFICATIONS.md`) |
+| Durable save outbox: non-blocking Save, pending/refused status, safe retries, per-account ownership | ✅ Implemented |
+| Dashboard aggregation endpoint (`GET /api/dashboard/home`) | ✅ Implemented |
+| Animated delete confirmation, category delete with dependency checks | ✅ Implemented |
+| Offline queueing, PWA install prompt (every browser sign-in + Settings), auto-updating service worker | ✅ Implemented |
 | Responsive/mobile-specific UI (separate mobile views) | ✅ Implemented |
 | Public SEO surface (`/`, `robots.txt`, `sitemap.xml`, `llms.txt`, OG/Twitter cards, JSON-LD) | ✅ Implemented |
 | Voice greetings on login/signup/sign-out | ✅ Implemented (optional — silently disabled if unconfigured) |
@@ -103,7 +107,8 @@ flowchart LR
 - React Hook Form + Zod (forms/validation)
 - Framer Motion (animation)
 - Recharts (charts)
-- `@ducanh2912/next-pwa` (PWA/service worker)
+- `@ducanh2912/next-pwa` (PWA/service worker), custom worker for push and background sync
+- Vitest, Testing Library, jsdom, fake-indexeddb (tests)
 - `@simplewebauthn/browser` (passkeys)
 
 **Backend**
@@ -114,6 +119,8 @@ flowchart LR
 - `@simplewebauthn/server` (passkeys)
 - `otplib` (TOTP 2FA), `qrcode`
 - `resend` (outbound email)
+- `web-push` (Web Push / VAPID)
+- Vitest (tests)
 - `exceljs`, `pdfkit`, `archiver` (export formats)
 
 ## 6. Frontend structure
@@ -163,6 +170,11 @@ Google Drive is the **primary persistent store for a user's financial data**, no
 - A dedicated `Penny Pilot` folder in the user's own Drive holds their data; the backend service layer (`services/drive/*`) handles the OAuth token refresh, folder bootstrap, and read/write operations.
 - Users may instead choose **"This device only"** storage, keeping data in the browser and skipping Drive entirely.
 
+### Push notifications and offline saves (summary)
+
+- **Push:** `/api/push` stores one subscription row per device (`push_subscriptions`), sends through `web-push` (VAPID) and de-duplicates reminders with `push_deliveries`. Bill reminders run hourly on the server for Google Drive users only; device-only data never reaches the server. Full details: `docs/PUSH_NOTIFICATIONS.md`.
+- **Saves:** in Google Drive mode, Save writes to a per-account outbox in IndexedDB, releases the form immediately and sends in the background with a stable idempotency key (stored with the record, so a retry cannot duplicate it). The UI shows pending/refused entries and says "saved to Google Drive" only after Drive confirms.
+
 ## 9. Admin / Super Admin Command Center
 
 A role-gated console (`ADMIN`, `SUPER_ADMIN`) separate from the user-facing app:
@@ -191,7 +203,7 @@ Rather than pure CSS responsiveness, mobile requests get a **dedicated component
 
 ## 12. SEO / public website architecture
 
-- **Public, indexable routes**: `/` (homepage), `/login`, `/signup`, `/forgot-password`, `/terms`, `/privacy-policy`.
+- **Public, indexable routes**: `/` (homepage), `/terms`, `/privacy-policy`, `/cookie-notice`, `/manual` (listed in `sitemap.xml`); `/login`, `/signup`, `/forgot-password` are reachable but `noindex`.
 - **Private, `noindex,nofollow` routes**: everything under the authenticated `(app)` and `(admin)` route groups, plus `/connect-drive`, `/setup-2fa`, `/admin-login`, `/403` — enforced both by `robots.txt` and by a page-level `robots` meta tag on the server layouts.
 - **`/robots.txt` and `/sitemap.xml`** are generated dynamically (`app/robots.ts`, `app/sitemap.ts`) from a single canonical `SITE_URL` (`lib/siteUrl.ts`), defaulting to `https://www.pennypilot.pro`.
 - **`/llms.txt`** gives AI crawlers a factual summary of the public product surface, explicitly excluding private/authenticated routes.
@@ -242,6 +254,8 @@ Names only — never commit actual secret values.
 | `RESEND_API_KEY`, `RESEND_FROM_EMAIL` | User-facing outbound email (optional) |
 | `SUPER_ADMIN_RESEND_API_KEY`, `SUPER_ADMIN_RESEND_FROM_EMAIL` | Super-admin-only outbound email (optional) |
 | `GOOGLE_TTS_API_KEY` | Voice greetings (optional; feature silently disabled if unset) |
+| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Web Push (optional; push is off if unset). Generate with `npx web-push generate-vapid-keys`; the private key is secret and never goes to the frontend. See `docs/PUSH_NOTIFICATIONS.md` |
+| `SAVE_TIMING` | Set to `1` to emit a `Server-Timing` header (phase durations only) on transaction saves in production |
 
 **Frontend** (`frontend/.env.local`)
 
@@ -290,10 +304,10 @@ personal-finance-dashboard-pro/
 
 ## 18. Current verification/testing status
 
-- No automated test suite (unit/integration/e2e) was found in either `frontend/` or `backend/`.
-- Type safety is enforced via `tsc --noEmit` in both projects, and `next lint` in the frontend.
-- Verification to date has been manual: production builds, `next lint`/`tsc`, and direct `curl`/browser checks of key flows (auth endpoints, SEO endpoints, CORS) against the live deployment.
-- **Recommended next step for contributors:** add automated tests for the auth flows (login/2FA/passkey/recovery) and the Drive-backed finance routes, since these currently rely entirely on manual verification.
+- **Automated tests (Vitest):** `npm test` in `backend/` (idempotency and save-path tests over an in-memory Drive, push delivery and routes, dashboard aggregation, delete dependency rules) and in `frontend/` (offline outbox and sync, pending-transaction views, logout guard, push support detection, install state, destructive-action UI, dashboard request de-duplication, cache invalidation map). CI runs typecheck and build; add `npm test` there to gate merges on them.
+- Type safety is enforced via `tsc --noEmit` in both projects, and `next lint` runs as part of `next build`.
+- **Not covered by automation:** real Google Drive latency, real-device push delivery and the installed-PWA experience. Verify these manually after a deploy (checklist in `docs/PUSH_NOTIFICATIONS.md`, and sign in, save, go offline, sign out with a pending entry).
+- Auth flows (login/2FA/passkey/recovery) still rely on manual verification.
 
 ## 19. Production URLs
 

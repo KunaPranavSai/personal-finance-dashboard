@@ -32,6 +32,10 @@ export const metadata: Metadata = {
     "bill reminders",
     "savings goals",
     "investment tracking",
+    "installable finance app",
+    "offline expense tracker",
+    "bill and EMI reminders",
+    "Google Drive finance tracker",
   ],
   authors: [{ name: "Penny Pilot" }],
   creator: "Penny Pilot",
@@ -87,7 +91,10 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0EA5A5",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#F0EDE4" },
+    { media: "(prefers-color-scheme: dark)", color: "#001621" },
+  ],
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",

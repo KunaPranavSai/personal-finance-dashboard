@@ -37,6 +37,14 @@ export const FAQ_ITEMS: FaqItem[] = [
     answer: "Yes. Penny Pilot is a Progressive Web App, so it works in any mobile browser and can be installed to your home screen.",
   },
   {
+    question: "Does Penny Pilot send notifications?",
+    answer: "Only if you turn them on. Optional push notifications cover account-security alerts, Google Drive access alerts and, in Google Drive mode, bill and EMI reminders. On iPhone they need the installed app. You can switch them off any time in Settings.",
+  },
+  {
+    question: "Does Penny Pilot work offline?",
+    answer: "Yes. In Google Drive mode, entries you save while offline are kept on your device and synced to Google Drive when you reconnect, and the app shows their status until Drive confirms them. In This Device Only mode your data already lives on your device.",
+  },
+  {
     question: "How do I get started with Penny Pilot?",
     answer: "Create a free account, choose your storage mode, and start logging your income, expenses, budgets, bills, and goals.",
   },

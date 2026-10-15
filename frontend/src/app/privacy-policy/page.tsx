@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/privacy-policy" },
 };
 
-const LAST_UPDATED = "October 6, 2026";
+const LAST_UPDATED = "October 15, 2026";
 const PLACEHOLDER_EMAIL = "superadminpennypilot@gmail.com";
 const PLACEHOLDER_ENTITY = "Pranav Sai Kuna. No physical mailing address provided.";
 
@@ -79,6 +79,32 @@ export default function PrivacyPolicyPage() {
         an administrator; codes you need to sign in or recover your account are always sent.
       </p>
 
+      <h3>1.6 Push Notifications (optional)</h3>
+      <p>
+        Push notifications are off until you turn them on in Settings, and your browser or phone separately asks for
+        permission when you do. If you turn them on for a device, we store in our database a record for that device: the
+        address your browser&apos;s push service gives us for it, the encryption keys needed to send to it, the name of
+        your browser and operating system, the categories you chose (security alerts, Google Drive alerts, bill and EMI
+        reminders), and technical timestamps such as when a push was last accepted. We use this record only to send you
+        the notifications you chose, and we remove it when you turn notifications off, sign out on that device, delete
+        your account, or the push service tells us the device is no longer valid.
+      </p>
+      <p>
+        Notifications are delivered through your browser vendor&apos;s push service (for example Google Firebase Cloud
+        Messaging, Apple Push Notification service or Mozilla). The message is encrypted for your device, but the push
+        service necessarily sees that a message was sent to your device and when. What a notification says can appear on
+        your lock screen: security alerts describe the event (for example a new sign-in), and bill reminders name the
+        bill and its due date but never show an amount.
+      </p>
+      <p>
+        <strong>Bill and EMI reminders are available only in Google Drive mode.</strong> To decide whether to remind you,
+        our server reads your bills from your own Google Drive at reminder time, and keeps only a small delivery record
+        (the bill&apos;s internal id, its due date and which reminder was sent) for up to 90 days so the same reminder is
+        not sent twice. In This Device Only mode the server cannot see your data and never receives it, so no reminders
+        are scheduled; security alerts still work. A reminder is only a reminder: it does not record or assume that a bill
+        has been paid.
+      </p>
+
       <h2>2. Google OAuth &amp; Google Drive Access</h2>
       <p>
         This section applies only if you choose Google Drive mode. If you choose This Device Only mode instead,
@@ -126,6 +152,16 @@ export default function PrivacyPolicyPage() {
         In This Device Only mode, your financial records are instead written directly to this browser&apos;s local
         IndexedDB storage, with no equivalent Drive-style automatic version history — you are responsible for
         exporting your own backups using the App&apos;s export feature.
+      </p>
+      <p>
+        <strong>Saving and syncing.</strong> In Google Drive mode, when you press Save the entry is first stored in a
+        queue on your own device (IndexedDB), then sent to Google Drive in the background. The app shows it as syncing and
+        reports it as saved to Google Drive only once Google Drive has confirmed it. If you are offline or the server is
+        unreachable it stays in the queue and is retried automatically. Each queued entry is tied to the account that
+        created it and is only ever sent while that same account is signed in; if you sign out before it has synced, it
+        stays on the device until you sign in to that account again or discard it. Clearing this site&apos;s data or
+        uninstalling the app removes the queue, so entries that have not synced can be lost. Each saved record also carries
+        a random technical marker used to prevent the same save from being stored twice.
       </p>
 
       <h2>4. Token &amp; Security Handling</h2>
@@ -207,6 +243,7 @@ export default function PrivacyPolicyPage() {
       <ul>
         <li><strong>Google (OAuth &amp; Google Drive)</strong> — used to authenticate your Drive connection and to store your financial data, as described above. See Google&apos;s own Privacy Policy for how Google handles data within your Google account.</li>
         <li><strong>Resend</strong> — an email-delivery provider used to send the transactional emails described in Section 1.5 (your email address and the message content are processed by Resend to deliver them).</li>
+        <li><strong>Browser push services (Google Firebase Cloud Messaging, Apple Push Notification service, Mozilla)</strong> — used only if you turn on push notifications, to deliver the encrypted notifications described in Section 1.6 to your device.</li>
         <li><strong>Hosting providers</strong> — the Penny Pilot backend and frontend are hosted on third-party cloud infrastructure providers, who process data only as needed to run the application (e.g. serving requests, storing the account database).</li>
       </ul>
       <p>
@@ -226,7 +263,9 @@ export default function PrivacyPolicyPage() {
           Cookie Notice
         </a>{" "}
         for a full list of what&apos;s stored and why, and use the Cookie Preferences link in the footer at any time
-        to change your choice for optional (non-essential) storage.
+        to change your choice for optional (non-essential) storage. Penny Pilot also keeps a small amount of app data on
+        your device that is not a cookie, such as the queue of entries waiting to sync (Section 3) and the app files cached
+        for offline use; the Cookie Notice lists these as well.
       </p>
 
       <h2>10. Your Rights</h2>

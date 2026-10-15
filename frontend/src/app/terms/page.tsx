@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/terms" },
 };
 
-const LAST_UPDATED = "October 6, 2026";
+const LAST_UPDATED = "October 15, 2026";
 const PLACEHOLDER_EMAIL = "superadminpennypilot@gmail.com";
 const PLACEHOLDER_ENTITY = "Pranav Sai Kuna";
 const GOVERNING_JURISDICTION = "India";
@@ -82,11 +82,28 @@ export default function TermsOfServicePage() {
         responsible for the security of this device/browser and for maintaining your own backups.
       </p>
 
+      <p>
+        <strong>Saving and syncing.</strong> In Google Drive mode, an entry you save is kept in a queue on your device until
+        Google Drive confirms it, and the App shows its status (syncing, waiting for a connection, retrying, or not saved).
+        Until it shows as confirmed, the only copy is on your device. Do not clear this site&apos;s data, uninstall the App or
+        sign out and abandon the device while entries are pending; doing so can permanently lose them. If the server
+        refuses an entry the App keeps it for you to correct or discard. Penny Pilot is not liable for entries lost because
+        pending data was removed from your device before it synced, except to the extent liability cannot be excluded by law.
+      </p>
+
       <h2>4A. Communications</h2>
       <p>
         By using the App you agree to receive the transactional emails described in the Privacy Policy (for example
         verification and sign-in codes and security notices). We do not send marketing email. Platform announcements
         appear inside the App.
+      </p>
+      <p>
+        If you choose to turn on push notifications, you agree that we may send you the notifications you selected (security
+        alerts, Google Drive access alerts and, in Google Drive mode, bill and EMI reminders) to that device, and you can turn
+        them off at any time in Settings or in your device or browser settings. Notifications and reminders are a convenience:
+        delivery depends on your device, operating system, browser, battery and network settings and on third-party push
+        services, so they may be delayed or not arrive. Do not rely on them as your only way to track due dates or account
+        security, and you remain responsible for paying your bills on time.
       </p>
 
       <h2>5. Service Availability</h2>

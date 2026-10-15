@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/cookie-notice" },
 };
 
-const LAST_UPDATED = "September 20, 2026";
+const LAST_UPDATED = "October 15, 2026";
 
 export default async function CookieNoticePage() {
   const supportEmail = await getSupportEmail();
@@ -59,6 +59,26 @@ export default async function CookieNoticePage() {
           use it offline, a service worker caches app files and a small amount of reference data (e.g. your
           category list) so the App still loads and works with a poor or offline connection. This is standard PWA
           application caching, not analytics or tracking, and holds no advertising identifiers.
+        </li>
+        <li>
+          <strong>Offline save queue (IndexedDB <code>penny-pilot-offline</code>)</strong> — in Google Drive mode, entries you
+          save are kept here until Google Drive confirms them, so they survive going offline, a reload or a closed tab. Each
+          entry is tied to the account that made it. It is removed once confirmed, or when you discard it or clear this
+          site&apos;s data.
+        </li>
+        <li>
+          <strong>Account tags for notifications and syncing (Cache Storage <code>pp-push-identity</code> and
+          <code>pp-queue-owner</code>)</strong> — opaque identifiers that let the app&apos;s background worker check which
+          account is signed in before it shows a notification or sends a queued entry, so nothing is shown or sent under the
+          wrong account. They hold no names, emails or financial data and are cleared when you sign out.
+        </li>
+        <li>
+          <strong>Install prompt choice (<code>sessionStorage</code>)</strong> — remembers that you dismissed the
+          &quot;install the app&quot; message for the current sign-in only.
+        </li>
+        <li>
+          <strong>Notification permission</strong> — is held by your browser, not by us. If you turn notifications on, a record
+          for your device is stored on our servers; see the Privacy Policy, Section 1.6.
         </li>
       </ul>
 

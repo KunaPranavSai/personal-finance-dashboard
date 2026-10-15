@@ -48,6 +48,7 @@ This manual is the official Penny Pilot handbook. It explains what Penny Pilot i
 36. [FAQ](#part-36-faq)
 37. [Quick Reference](#part-37-quick-reference)
 38. [Glossary](#part-38-glossary)
+39. [Install, Push Notifications, Saving & Syncing](#part-39-install-push-notifications-saving-syncing)
 
 ---
 
@@ -497,22 +498,13 @@ Penny Pilot includes a global search, available on both mobile and desktop.
 
 ## Part 20: Notifications
 
-Penny Pilot generates a small set of notification types based on your activity:
+Penny Pilot has three kinds of messages. See [Part 39](#part-39-install-push-notifications-saving-syncing) for how to turn on push notifications.
 
-| Type | What it's about |
-|---|---|
-| Budget Alert | A budget is near or over its limit |
-| Bill Due | A bill is coming due or overdue |
-| Goal Progress | Progress toward a savings goal |
-| Insight | A financial observation worth surfacing |
+**1. Push notifications (optional, on your device).** These arrive even when Penny Pilot is closed. They are off until you turn them on in Settings. They cover account-security alerts, Google Drive access alerts and, in Google Drive mode, bill and EMI reminders.
 
-**Unread/read status:** New notifications appear marked as unread. Opening or acting on one marks it read; you can also mark all as read at once.
+**2. The in-app notification list.** It holds personal account messages: new sign-ins, failed sign-in attempts and lockouts, changes to your password, PIN, User ID, two-factor authentication or passkeys, account deletion notices, and getting-started tips. Messages are grouped under Today, Yesterday and Earlier. Opening one marks it read, you can mark all as read, delete one, or clear all. Marking a message as read never means anything has been done about it. Budget-alert, bill-due, goal-progress and insight message types exist in the list, but Penny Pilot does not currently generate them there; bill reminders are sent as push notifications (Google Drive mode).
 
-**Navigating from a notification:** Selecting a notification takes you to the related page (for example, a bill notification opens Bills).
-
-**Clearing/dismissing:** You can delete an individual notification, or clear all notifications at once, from the Notifications screen.
-
-Penny Pilot also has a separate **Announcements** tab on the Notifications screen (on phones and on desktop) for platform-wide messages such as maintenance notices. Announcements are shown only inside the app. They are not emailed, and they have no read or dismissed state: they stay until they expire or an administrator removes them.
+**3. Announcements.** A separate tab on the Notifications screen shows platform-wide messages such as maintenance notices. Announcements are shown only inside the app, are not emailed, and have no read or dismissed state: they stay until they expire or an administrator removes them.
 
 ---
 
@@ -696,6 +688,8 @@ On mobile, Penny Pilot uses a bottom navigation bar with:
 
 **Sheets:** Forms (like adding an expense or a bill) open as a sheet that slides up from the bottom, rather than a separate page, this keeps you in context.
 
+**Installing the app:** Penny Pilot can be installed to your home screen. In a browser, an install message appears each time you sign in (and you can dismiss it for that sign-in). You can also install from **Settings → Install app**. On iPhone and iPad, tap Share and then Add to Home Screen. See [Part 39](#part-39-install-push-notifications-saving-syncing).
+
 **Safe areas and responsive behavior:** The mobile layout adjusts to your device's screen and safe areas (such as notches) automatically, and the same features are available whether you're using Penny Pilot in a mobile browser or as an installed app.
 
 ---
@@ -868,7 +862,11 @@ Reports reflect the change
 
 **When a budget, bill, goal, or investment is edited or deleted:** The same principle applies, the specific totals and dashboard sections that depend on that record (Budget usage, Upcoming Bills, Goal progress, Net Worth/Investment Growth, and the relevant Annual Cash Flow segment) update immediately to reflect the change.
 
-**Deleting a category:** A category cannot be deleted while transactions still reference it, to avoid leaving transactions without a category.
+**Deleting a category:** A category can now be deleted from Customizations (Categories), but only while no transaction or budget uses it. If something still uses it, Penny Pilot tells you how many records are in the way and you reassign or remove them first. Wallets and money sources follow the same rule in both Google Drive and This Device Only modes.
+
+**Confirming a delete:** Deleting asks you to confirm. The Delete button shows that it is working and shows "Deleted" only after the delete has actually completed. If it fails, the dialog stays open with the reason and a Try again button. Bills with recorded payments and goals with saved progress warn you that those are deleted with them; to keep a bill's history, mark it fully paid instead of deleting it.
+
+**Edits and new entries made in Google Drive mode:** Saving closes the form straight away and the entry syncs in the background. Until Google Drive confirms, it shows in the "Syncing to Google Drive" panel, not in your totals. If you edit the same transaction again before the first edit has synced, the form starts from your pending values so nothing is overwritten. See [Part 39](#part-39-install-push-notifications-saving-syncing).
 
 ---
 
@@ -967,6 +965,9 @@ The following are current limitations of Penny Pilot, based on the application a
 - Local-Only data does not sync across devices or browsers, it stays wherever it was created.
 - Penny Pilot does not connect directly to your bank; all transactions are entered manually.
 - Self-service account deletion is not currently available from within the app; account deletion requests are handled by contacting support directly.
+- Push notifications need a supported browser or device, a secure connection and your permission; on iPhone and iPad they work only from the installed app. Delivery is not guaranteed and depends on your device and network settings.
+- Bill and EMI reminders are sent only in Google Drive mode, because in This Device Only mode your data never reaches the server.
+- Until Google Drive confirms an entry, it exists only on your device. Clearing site data or uninstalling the app before it syncs can lose it.
 - Financial Health Score, budget status, and other figures are calculated from a fixed set of rules based on your own data. They are not personalized financial advice.
 
 ---
@@ -1142,6 +1143,55 @@ The following are current limitations of Penny Pilot, based on the application a
 
 ---
 
+## Part 39: Install, Push Notifications, Saving & Syncing
+
+### Installing the app
+
+- **Android, Windows, Mac (Chrome or Edge):** use the install message that appears each time you sign in from a browser, or go to **Settings → Install app** and tap Install.
+- **iPhone and iPad (Safari):** tap the Share button, then **Add to Home Screen**, and open Penny Pilot from the new icon.
+- Inside the installed app the install message does not appear. If your browser cannot install apps, Settings says so.
+- The installed app updates itself: it checks for a new version when you open it, when you come back to it, and every 30 minutes. If you are ever stuck on an old version, close the app completely and open it again.
+
+### Push notifications
+
+1. Open **Settings → Install & notifications** (on a phone: More → Settings → Preferences) and tap **Turn on**. Your device asks permission only at that moment.
+2. Choose what you want:
+   - **Security alerts**: new sign-ins and changes to your password, PIN, two-factor authentication or passkeys.
+   - **Google Drive alerts**: when Penny Pilot loses access to your Google Drive.
+   - **Bill & EMI reminders** (Google Drive mode only): 3 days before, 1 day before and on the due date, between 8 am and 8 pm India time, only for bills that still have an unpaid balance. The reminder names the bill and the date but never shows an amount, and it never marks the bill as paid.
+3. Tap **Send a test** to check that a notification reaches this device. Tap **Turn off** to stop notifications on this device.
+
+Good to know: notifications are per device; signing out removes this device from your account; on iPhone and iPad the app must be installed first; and delivery depends on your device, battery and network settings, so do not rely on notifications alone for due dates. In This Device Only mode there are no bill reminders, because the server never sees your data.
+
+### Saving and syncing (Google Drive mode)
+
+When you press **Save** on an income or expense, Penny Pilot stores the entry on your device first, closes the form straight away and sends it to Google Drive in the background. While it is waiting you can keep using the app.
+
+| What you see | What it means |
+|---|---|
+| **Syncing to Google Drive** | Stored on your device, being sent now. Not yet confirmed by Drive |
+| **Waiting for connection** | You are offline. It will send automatically when you reconnect |
+| **Retrying** | The server was busy or unreachable; it is trying again, with the reason shown |
+| **Saved to Drive, updating list** | Drive confirmed it; the lists are refreshing |
+| **Not saved** | The server refused it. Your entry is kept, with the reason, and you can **Try again** or **Discard** |
+| The toast **Saved to Google Drive** | Drive has confirmed the save |
+
+Pending entries appear in a "Syncing to Google Drive" strip on Home, Activity, Income and Expenses and are not counted in your totals until Drive confirms them. Retrying never creates a duplicate.
+
+**Signing out with entries still syncing:** Penny Pilot warns you. Choose **Stay signed in** to let them finish, or **Sign out anyway**: the entries stay on your device under your account and send only when you sign in to that same account again. They are never sent under a different account.
+
+In **This Device Only** mode, Save writes to your device immediately and says "saved on this device"; nothing is sent anywhere.
+
+### Troubleshooting
+
+- *I see an old version in the installed app:* close the app completely and reopen it; if needed, remove and reinstall it.
+- *Notifications do not arrive:* check Settings shows notifications are on for this device, that your phone or browser allows notifications for Penny Pilot, that battery or Focus modes are not blocking them, and tap Send a test. On iPhone the app must be installed.
+- *An entry says Not saved:* read the reason, correct what it mentions, then Try again, or Discard it if you no longer need it.
+
+---
+
+
+
 ## Documentation Coverage
 
 | Feature | Covered | Notes |
@@ -1190,4 +1240,4 @@ See [Part 35: Limitations](#part-35-limitations) for the full list. In summary: 
 
 ## Last Updated
 
-September 20, 2026
+October 15, 2026
