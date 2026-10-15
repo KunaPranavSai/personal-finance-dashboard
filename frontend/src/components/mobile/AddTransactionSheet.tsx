@@ -1,7 +1,8 @@
 "use client";
 
 import type { Category } from "@/types";
-import { persistTransaction, afterConfirmedSave, describeSaveFailure } from "@/lib/saveTransaction";
+import { pendingEditBody } from "@/lib/pendingTransactions";
+import { persistTransaction, afterConfirmedSave, describeSaveFailure, savedMessage } from "@/lib/saveTransaction";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
@@ -94,19 +95,28 @@ export function AddTransactionSheet({ open, onClose, editing, inline, forcedType
 
   useEffect(() => {
     if (!open) return;
+    let live = true;
     if (editing) {
-      setType(editing.type);
-      setDescription(editing.description);
-      setAmount(String(editing.amount));
-      setDate(editing.date.slice(0, 10));
-      setCategoryId(editing.categoryId ?? "");
-      setAccountId(editing.accountId ?? "");
-      setPaymentMethodTypeId(editing.paymentMethodTypeId ?? "");
-      setNotes(editing.notes ?? "");
-      setErrors({});
+      const fill = (src: Transaction) => {
+        setType(src.type);
+        setDescription(src.description);
+        setAmount(String(src.amount));
+        setDate(src.date.slice(0, 10));
+        setCategoryId(src.categoryId ?? "");
+        setAccountId(src.accountId ?? "");
+        setPaymentMethodTypeId(src.paymentMethodTypeId ?? "");
+        setNotes(src.notes ?? "");
+        setErrors({});
+      };
+      fill(editing);
+      // an earlier edit of this transaction may still be syncing: start from ITS values so this edit can't overwrite it
+      void pendingEditBody(editing.id).then((b) => live && b && fill({ ...editing, ...b } as Transaction));
     } else {
       reset();
     }
+    return () => {
+      live = false;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, editing]);
 
@@ -132,10 +142,11 @@ export function AddTransactionSheet({ open, onClose, editing, inline, forcedType
     mutationFn: (payload: Record<string, unknown>) =>
       persistTransaction({ payload, editingId: editing?.id, idempotencyKey: createIdempotencyKeyRef.current, kind: type === "INCOME" ? "income" : "expense" }),
     onSuccess: (result) => {
-      afterConfirmedSave(queryClient); // refreshes Home / Activity / Capital in the background; the save is already durable
+      // Device-only / confirmed: refresh dependents in the background. For "syncing" the refresh happens when Drive confirms (OfflineSyncManager).
+      if (result.state === "local" || result.state === "confirmed") afterConfirmedSave(queryClient);
       createIdempotencyKeyRef.current = generateIdempotencyKey();
       const label = type === "EXPENSE" ? "Expense" : "Income";
-      toast(isEditing ? "Transaction updated" : result.queued ? `${label} saved on this device. It will sync when you're back online.` : `${label} saved`, "success");
+      toast(savedMessage(result, label, isEditing), result.state === "syncing" || result.state === "offline" ? "info" : "success");
       reset();
       onClose();
     },

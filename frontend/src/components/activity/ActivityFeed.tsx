@@ -1,5 +1,7 @@
 "use client";
 
+import { PendingTransactionsStrip } from "@/components/pending/PendingTransactionsStrip";
+import { usePendingTransactions, type PendingRow } from "@/lib/pendingTransactions";
 import { invalidateFor, ALL_KINDS } from "@/lib/invalidate";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -125,9 +127,25 @@ export function ActivityFeed() {
   const activeCount = (filters.from ? 1 : 0) + (filters.to ? 1 : 0) + (filters.min ? 1 : 0) + (filters.max ? 1 : 0) + (filters.types.length > 1 ? 1 : 0);
   const railType = filters.types.length === 1 ? filters.types[0] : null;
   const isAll = filters.types.length === 0;
+  const pendingRows = usePendingTransactions(items.map((i) => i.sourceId));
+  // What the list below is showing right now (type + date + amount filters), so the strip doesn't contradict it.
+  const acceptPending = (r: PendingRow) => {
+    const t = r.type === "INCOME" ? "income" : "expense";
+    if (filters.types.length && !filters.types.includes(t)) return false;
+    const day = r.date.slice(0, 10);
+    if (filters.from && day < filters.from) return false;
+    if (filters.to && day > filters.to) return false;
+    if (filters.min && r.amount < Number(filters.min)) return false;
+    if (filters.max && r.amount > Number(filters.max)) return false;
+    return true;
+  };
   const open = (it: LedgerItem) => {
     if (it.type === "budget") router.push("/budget");
-    else if (it.type !== "saving") setEditing(it);
+    else if (it.type !== "saving") {
+      // an edit that is still syncing: open the form on top of the values the user submitted, not the stale confirmed ones
+      const pe = pendingRows.find((r) => r.mode === "edit" && r.targetId === it.sourceId && r.state !== "refused" && r.state !== "confirming");
+      setEditing(pe ? { ...it, record: { ...it.record, ...pe.body } } : it);
+    }
   };
   const closeEdit = () => { setEditing(null); qc.invalidateQueries({ queryKey: ["activity-feed"] }); };
   const kind = editing?.type;
@@ -150,6 +168,8 @@ export function ActivityFeed() {
           </button>
         ))}
       </div>
+
+      <PendingTransactionsStrip className="mb-3" knownServerIds={items.map((i) => i.sourceId)} accept={acceptPending} />
 
       {isLoading && <LoadingCard lines={5} />}
       {isError && !isLoading && <ErrorCard onRetry={() => refetch()} />}

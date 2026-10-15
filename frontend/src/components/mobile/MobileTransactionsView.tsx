@@ -1,5 +1,6 @@
 "use client";
 
+import { PendingTransactionsStrip } from "@/components/pending/PendingTransactionsStrip";
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -107,6 +108,8 @@ export function MobileTransactionsView({ initialType = "" }: { initialType?: "" 
         <h2>Activity</h2>
         <p>Every income &amp; expense, one place</p>
       </div>
+
+      <PendingTransactionsStrip className="mb-3" knownServerIds={items.map((t) => t.id)} accept={(r) => !type || r.type === type} />
 
       <div className="ppm-searchbar">
         <span aria-hidden="true">⌕</span>

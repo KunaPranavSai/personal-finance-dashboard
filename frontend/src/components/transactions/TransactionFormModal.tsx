@@ -1,6 +1,7 @@
 "use client";
 
-import { persistTransaction, afterConfirmedSave, describeSaveFailure } from "@/lib/saveTransaction";
+import { pendingEditBody } from "@/lib/pendingTransactions";
+import { persistTransaction, afterConfirmedSave, describeSaveFailure, savedMessage, type SaveResult } from "@/lib/saveTransaction";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -91,23 +92,31 @@ export function TransactionFormModal({
   });
 
   useEffect(() => {
+    let live = true;
     if (editing) {
-      reset({
-        date: editing.date.slice(0, 10),
-        description: editing.description,
-        amount: editing.amount,
-        type: editing.type,
-        categoryId: editing.categoryId,
-        merchant: editing.merchant ?? "",
-        accountId: editing.accountId ?? "",
-        paymentMethodTypeId: editing.paymentMethodTypeId ?? "",
-        notes: editing.notes ?? "",
-      });
+      const fill = (src: Transaction) =>
+        reset({
+          date: src.date.slice(0, 10),
+          description: src.description,
+          amount: src.amount,
+          type: src.type,
+          categoryId: src.categoryId,
+          merchant: src.merchant ?? "",
+          accountId: src.accountId ?? "",
+          paymentMethodTypeId: src.paymentMethodTypeId ?? "",
+          notes: src.notes ?? "",
+        });
+      fill(editing);
+      // an earlier edit of this transaction may still be syncing: start from ITS values so this edit can't overwrite it
+      void pendingEditBody(editing.id).then((b) => live && b && fill({ ...editing, ...b } as Transaction));
     } else {
       reset({ type: fixedType ?? "EXPENSE", date: new Date().toISOString().slice(0, 10), accountId: "", paymentMethodTypeId: "" });
       // A fresh (non-edit) form session is a new logical create attempt.
       createIdempotencyKeyRef.current = generateIdempotencyKey();
     }
+    return () => {
+      live = false;
+    };
   }, [editing, reset, open, fixedType]);
 
   const selectedType = watch("type");
@@ -127,13 +136,10 @@ export function TransactionFormModal({
       // Create succeeded — the next submission (if any) is a new attempt.
       if (!editing) createIdempotencyKeyRef.current = generateIdempotencyKey();
       // Dependent data (Home, Activity, Capital, budgets) refreshes in the background: the save is already durable.
-      afterConfirmedSave(queryClient);
-      if (result && typeof result === "object" && "queued" in result && result.queued) {
-        toast("You're offline — this will be saved automatically once you're back online.", "success");
-        context?.handle.success(`${context.label} queued — will sync when back online`);
-      } else {
-        context?.handle.success(editing ? `${context.label} updated` : `${context.label} added`);
-      }
+      if ((result as SaveResult).state === "local" || (result as SaveResult).state === "confirmed") afterConfirmedSave(queryClient); // "syncing": refreshed when Drive confirms
+      const r = result as SaveResult;
+      if (r.state === "syncing" || r.state === "offline") context?.handle.syncing(savedMessage(r, context.label, Boolean(editing)));
+      else context?.handle.success(savedMessage(r, context!.label, Boolean(editing)));
       onClose();
     },
     onError: (err, values, context) => {

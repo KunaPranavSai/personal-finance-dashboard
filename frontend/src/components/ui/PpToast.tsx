@@ -25,13 +25,15 @@ interface PpToastContextValue {
   start: (pendingMessage: string) => {
     success: (message: string) => void;
     error: (message: string) => void;
+    /** Still in progress in the background (e.g. syncing to Drive): keeps the spinner, never a check mark, fades after a few seconds. */
+    syncing: (message: string) => void;
   };
   /** One-shot toast with no pending phase, for cases that don't need it. */
   notify: (message: string, status?: "success" | "error") => void;
 }
 
 const PpToastContext = createContext<PpToastContextValue>({
-  start: () => ({ success: () => {}, error: () => {} }),
+  start: () => ({ success: () => {}, error: () => {}, syncing: () => {} }),
   notify: () => {},
 });
 
@@ -71,6 +73,11 @@ export function PpToastProvider({ children }: { children: ReactNode }) {
         error: (message: string) => {
           clearTimeout(safety);
           resolve(id, "error", message);
+        },
+        syncing: (message: string) => {
+          clearTimeout(safety);
+          setItems((prev) => prev.map((t) => (t.id === id ? { ...t, status: "pending", message } : t)));
+          setTimeout(() => remove(id), 3500);
         },
       };
     },

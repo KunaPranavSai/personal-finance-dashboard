@@ -15,7 +15,7 @@ export type QueuedEntity = "expense" | "income" | "budget" | "investment";
 export interface QueuedMutation {
   id: string;
   entity: QueuedEntity;
-  method: "POST";
+  method: "POST" | "PATCH";
   path: string; // e.g. "/api/transactions"
   body: unknown;
   createdAt: string;
@@ -31,6 +31,8 @@ export interface QueuedMutation {
    * never silently deleted: the user decides (retry or discard). */
   status?: "pending" | "rejected";
   lastError?: string;
+  /** id the server assigned, filled in when Drive confirmed a create (used to reconcile with refreshed lists) */
+  serverId?: string;
 }
 
 // Who the queue belongs to right now. Also mirrored into Cache Storage so the service worker (which has no
@@ -64,12 +66,18 @@ function openDb(): Promise<IDBDatabase> {
   });
 }
 
-export async function enqueueMutation(entity: QueuedEntity, path: string, body: unknown, idempotencyKey: string): Promise<QueuedMutation> {
+// Anything that shows queue state (banner, pending list) subscribes here and re-reads IndexedDB when it fires.
+const queueListeners = new Set<() => void>();
+export const onQueueChange = (cb: () => void) => (queueListeners.add(cb), () => void queueListeners.delete(cb));
+const notifyQueue = () => queueListeners.forEach((cb) => cb());
+
+let seq = 0;
+export async function enqueueMutation(entity: QueuedEntity, path: string, body: unknown, idempotencyKey: string, method: "POST" | "PATCH" = "POST"): Promise<QueuedMutation> {
   const db = await openDb();
   const item: QueuedMutation = {
-    id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    id: `${Date.now()}-${String(seq++).padStart(6, "0")}-${Math.random().toString(36).slice(2)}`, // sortable: same-millisecond saves keep their order
     entity,
-    method: "POST",
+    method,
     path,
     body,
     createdAt: new Date().toISOString(),
@@ -85,6 +93,7 @@ export async function enqueueMutation(entity: QueuedEntity, path: string, body: 
     tx.onerror = () => reject(tx.error);
   });
   db.close();
+  notifyQueue();
 
   // Ask the service worker to flush this in the background even if the tab
   // closes before connectivity returns. Silently no-ops where unsupported
@@ -111,7 +120,7 @@ export async function getQueuedMutations(): Promise<QueuedMutation[]> {
     req.onerror = () => reject(req.error);
   });
   db.close();
-  return items.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  return items.sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
 }
 
 export async function removeQueuedMutation(id: string): Promise<void> {
@@ -123,6 +132,7 @@ export async function removeQueuedMutation(id: string): Promise<void> {
     tx.onerror = () => reject(tx.error);
   });
   db.close();
+  notifyQueue();
 }
 
 export async function updateQueuedMutation(id: string, patch: Partial<QueuedMutation>): Promise<void> {
@@ -138,6 +148,7 @@ export async function updateQueuedMutation(id: string, patch: Partial<QueuedMuta
     tx.onerror = () => reject(tx.error);
   });
   db.close();
+  notifyQueue();
 }
 
 /** Items still waiting to sync (not counting rejected ones). */

@@ -56,7 +56,7 @@ async function getAll(): Promise<QueuedMutation[]> {
     req.onerror = () => reject(req.error);
   });
   db.close();
-  return items.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  return items.sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
 }
 
 async function remove(id: string): Promise<void> {

@@ -1,5 +1,6 @@
 "use client";
 
+import { useUnsyncedLogoutGuard } from "@/lib/logoutGuard";
 import { Moon, Sun, RefreshCw, Menu, Bell, User, Settings, Palette, LogOut } from "lucide-react";
 import { motion } from "framer-motion";
 import { useUiStore } from "@/store/uiStore";
@@ -20,6 +21,7 @@ export function Topbar({ title }: { title: string }) {
   const { toggleSidebar, unreadNotifications, setUnreadNotifications } = useUiStore();
   const { settings, updateSettings, resolvedTheme } = useSettingsContext();
   const { logout, user } = useAuth();
+  const unsyncedGuard = useUnsyncedLogoutGuard();
   const { toast } = useToast();
   const [avatarOpen, setAvatarOpen] = useState(false);
   const [imgError, setImgError] = useState(false);
@@ -67,6 +69,7 @@ export function Topbar({ title }: { title: string }) {
   }, [resolvedTheme, updateSettings]);
 
   const handleLogout = useCallback(async () => {
+    if (!(await unsyncedGuard())) return; // entries Drive hasn't confirmed: let the user stay signed in and finish
     setIsLoggingOut(true);
     setAvatarOpen(false);
     // Speak before the session is torn down, since this is a real
@@ -91,7 +94,7 @@ export function Topbar({ title }: { title: string }) {
     // the login screen. A full reload guarantees every last bit of that is
     // torn down and /login starts from a truly clean slate.
     window.location.href = "/login";
-  }, [logout, settings.preferences, toast]);
+  }, [logout, settings.preferences, toast, unsyncedGuard]);
 
   const displayName = profile?.name || "User";
   const displayEmail = profile?.email || "";

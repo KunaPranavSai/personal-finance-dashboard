@@ -1,5 +1,6 @@
 "use client";
 
+import { PendingTransactionsStrip } from "@/components/pending/PendingTransactionsStrip";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -386,6 +387,7 @@ function DashboardContent() {
               Recent Transactions
               <Link href="/transactions">View all</Link>
             </div>
+            <PendingTransactionsStrip className="mb-2" knownServerIds={(recentTxns?.items ?? []).map((t) => t.id)} accept={(r) => r.mode === "create" || r.state === "refused"} />
             {(recentTxns?.items ?? []).length === 0 ? (
               <p style={{ fontSize: 13, color: "var(--ppm-text-dim)" }}>No transactions yet — tap Add to log your first one.</p>
             ) : (
@@ -569,6 +571,7 @@ function DashboardContent() {
                   <Link href="/transactions" className="text-xs font-medium text-pp-accent hover:underline">View all</Link>
                 </CardHeader>
                 <CardContent>
+                  <PendingTransactionsStrip className="mb-3" knownServerIds={(recentTxns?.items ?? []).map((t) => t.id)} accept={(r) => r.mode === "create" || r.state === "refused"} />
                   {(recentTxns?.items ?? []).length === 0 ? (
                     <p className="text-sm text-pp-text-dim">No transactions yet — add your first one.</p>
                   ) : (

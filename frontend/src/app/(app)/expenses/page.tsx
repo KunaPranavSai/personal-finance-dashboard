@@ -1,5 +1,6 @@
 "use client";
 
+import { PendingTransactionsStrip } from "@/components/pending/PendingTransactionsStrip";
 import { useState, Suspense } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Topbar } from "@/components/layout/AppTopbar";
@@ -95,6 +96,7 @@ export default function ExpensesPage() {
         <Card>
           <CardContent className="pt-5">
             <Suspense fallback={<div className="h-64 animate-pulse rounded-lg bg-pp-surface-2" />}>
+              <PendingTransactionsStrip className="mb-4" accept={(r) => r.type === "EXPENSE" && r.state !== "confirming"} />
               <TransactionsTable fixedType="EXPENSE" onEdit={(tx) => { setEditing(tx); setModalOpen(true); }} />
             </Suspense>
           </CardContent>

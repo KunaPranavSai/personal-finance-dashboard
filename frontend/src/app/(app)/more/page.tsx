@@ -1,5 +1,6 @@
 "use client";
 
+import { useUnsyncedLogoutGuard } from "@/lib/logoutGuard";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -22,6 +23,7 @@ export default function MorePage() {
   const router = useRouter();
   const isMobile = useIsMobile();
   const { user, logout } = useAuth();
+  const unsyncedGuard = useUnsyncedLogoutGuard();
   const { data: profile } = useProfile();
   const { settings } = useSettingsContext();
   const { toast } = useToast();
@@ -43,6 +45,7 @@ export default function MorePage() {
     .join("") || "PP";
 
   const handleLogout = async () => {
+    if (!(await unsyncedGuard())) return; // entries Drive hasn't confirmed: let the user stay signed in and finish
     setLoggingOut(true);
     // Real user-initiated sign-out (a deliberate tap on this button) —
     // session expiry/forced logout never reach this handler.

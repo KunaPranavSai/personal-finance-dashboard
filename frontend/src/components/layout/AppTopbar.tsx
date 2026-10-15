@@ -4,6 +4,7 @@
 // stays untouched because the Admin/Super Admin panel imports it directly
 // per-page for its own header). Same behavior/props, approved Penny Pilot
 // palette instead of the legacy navy/teal/indigo "Midnight Cockpit" look.
+import { useUnsyncedLogoutGuard } from "@/lib/logoutGuard";
 import { Moon, Sun, RefreshCw, Menu, Bell, User, Settings, Palette, LogOut } from "lucide-react";
 import { motion } from "framer-motion";
 import { useUiStore } from "@/store/uiStore";
@@ -25,6 +26,7 @@ export function Topbar({ title }: { title: string }) {
   const { toggleSidebar, unreadNotifications, setUnreadNotifications } = useUiStore();
   const { settings, updateSettings, resolvedTheme } = useSettingsContext();
   const { logout, user } = useAuth();
+  const unsyncedGuard = useUnsyncedLogoutGuard();
   const { toast } = useToast();
   const [avatarOpen, setAvatarOpen] = useState(false);
   const [imgError, setImgError] = useState(false);
@@ -67,6 +69,7 @@ export function Topbar({ title }: { title: string }) {
   }, [resolvedTheme, updateSettings]);
 
   const handleLogout = useCallback(async () => {
+    if (!(await unsyncedGuard())) return; // entries Drive hasn't confirmed: let the user stay signed in and finish
     setIsLoggingOut(true);
     setAvatarOpen(false);
     const voiceEnabled = isVoiceGreetingsEnabled(settings.preferences);
@@ -79,7 +82,7 @@ export function Topbar({ title }: { title: string }) {
       await new Promise((resolve) => setTimeout(resolve, 500));
     }
     window.location.href = "/login";
-  }, [logout, settings.preferences, toast]);
+  }, [logout, settings.preferences, toast, unsyncedGuard]);
 
   const displayName = profile?.name || "User";
   const displayEmail = profile?.email || "";

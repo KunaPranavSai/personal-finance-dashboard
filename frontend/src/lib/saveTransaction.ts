@@ -2,24 +2,33 @@ import type { QueryClient } from "@tanstack/react-query";
 import { api, ApiClientError } from "./api";
 import { getStorageMode } from "./storage";
 import { postWithOfflineQueue } from "./offlineAwarePost";
+import { enqueueMutation, getQueueOwner } from "./offlineQueue";
+import { requestFlush } from "./offlineSync";
 import { createLocalTransaction, updateLocalTransaction } from "./services/transactionsService";
 import { errorCodeOf, toUserMessage } from "./errorMessage";
 import { invalidateFor } from "./invalidate";
 import { startSaveTiming } from "./saveTiming";
 
 /**
- * The critical path of "Save transaction", and nothing else.
+ * "Save transaction": what the click waits for, and what it does not.
  *
- *   validate (form) -> persist (this file) -> confirm -> [after confirmation, not awaited] refresh dependent data
+ * Device-only: the click waits for the IndexedDB commit (milliseconds) and the result is "local": saved on this
+ * device, not synced anywhere.
  *
- * - Drive mode: the confirmation is the server's answer, which is sent only after the data file is written in Drive.
- * - Device-only mode: the confirmation is the IndexedDB commit. It is local persistence, not server sync.
- * - Offline (Drive mode, create): the entry is stored in the offline queue and reported as "queued", never "saved".
- * - The same idempotency key is used for every attempt of one logical save, so a retry cannot create a second record;
- *   a second call with a key that is already in flight shares the first call's promise.
+ * Google Drive: the entry is first written to the durable local outbox (IndexedDB, owned by the signed-in account, with
+ * its idempotency key), the form is released immediately, and the authoritative write to Drive starts at once in the
+ * background worker (offlineSync.requestFlush). The result is "syncing", NOT "saved": the UI says so, and says "saved to
+ * Google Drive" only when the server confirms (see OfflineSyncManager). Because the outbox is durable, the save survives
+ * reloads, navigation, a closed tab and server restarts; retries reuse the same key, so they cannot create a second record.
+ *
+ * Fallback: if the outbox isn't ready (no signed-in owner yet), the old direct request is used and the click waits for it.
  */
+export type SaveState = "local" | "syncing" | "offline" | "confirmed";
+
 export interface SaveResult {
+  /** true = accepted into the outbox, not yet confirmed by Drive (also true when waiting for a connection) */
   queued: boolean;
+  state: SaveState;
   data?: unknown;
 }
 
@@ -46,14 +55,22 @@ export function persistTransaction(args: {
       let result: SaveResult;
       if (getStorageMode() === "local") {
         const data = editingId ? await updateLocalTransaction(editingId, payload) : await createLocalTransaction(payload);
-        result = { queued: false, data };
+        timing.mark("local-committed");
+        result = { queued: false, state: "local", data };
+      } else if (getQueueOwner()) {
+        await enqueueMutation(kind, editingId ? `/api/transactions/${editingId}` : "/api/transactions", payload, idempotencyKey, editingId ? "PATCH" : "POST");
+        timing.mark("queued"); // from here the user has an honest, durable answer: "syncing"
+        void requestFlush(); // authoritative write starts NOW, not after any timer
+        const offline = typeof navigator !== "undefined" && !navigator.onLine;
+        result = { queued: true, state: offline ? "offline" : "syncing" };
       } else if (editingId) {
-        result = { queued: false, data: await api.patch(`/api/transactions/${editingId}`, payload) };
+        result = { queued: false, state: "confirmed", data: await api.patch(`/api/transactions/${editingId}`, payload) };
       } else {
-        result = await postWithOfflineQueue(kind, "/api/transactions", payload, idempotencyKey);
+        const r = await postWithOfflineQueue(kind, "/api/transactions", payload, idempotencyKey);
+        result = r.queued ? { queued: true, state: "offline" } : { queued: false, state: "confirmed", data: r.data };
       }
       timing.mark("persisted");
-      timing.end(result.queued ? "queued" : "saved");
+      timing.end(result.state === "syncing" || result.state === "offline" ? "syncing" : "saved");
       return result;
     } catch (err) {
       timing.end(describeSaveFailure(err).uncertain ? "uncertain" : "failed");
@@ -64,6 +81,14 @@ export function persistTransaction(args: {
   })();
   inFlight.set(flightKey, run);
   return run;
+}
+
+/** Words for the toast right after Save. Never says "saved" for something Drive hasn't confirmed. */
+export function savedMessage(r: SaveResult, label: string, editing: boolean): string {
+  if (r.state === "local") return editing ? `${label} updated on this device` : `${label} saved on this device`;
+  if (r.state === "offline") return `${label} stored on this device. It will sync when you're back online.`;
+  if (r.state === "syncing") return editing ? `Updating ${label.toLowerCase()} in Google Drive…` : `Saving ${label.toLowerCase()} to Google Drive…`;
+  return editing ? `${label} updated` : `${label} saved`;
 }
 
 /**

@@ -5,7 +5,7 @@
  */
 export interface SaveTimingRecord {
   kind: string;
-  outcome: "saved" | "queued" | "failed" | "uncertain" | "deduped";
+  outcome: "saved" | "queued" | "syncing" | "confirmed" | "failed" | "uncertain" | "deduped";
   marks: Record<string, number>;
   total: number;
 }
@@ -34,4 +34,13 @@ export function startSaveTiming(kind: string) {
       if (process.env.NODE_ENV !== "test") console.debug("[save-timing]", JSON.stringify(rec));
     },
   };
+}
+
+/** The authoritative confirmation arrives after the form is gone (background sync). Records click -> confirmation, no data. */
+export function recordLate(kind: string, outcome: "confirmed" | "failed", msSinceClick: number) {
+  if (!enabled()) return;
+  const rec: SaveTimingRecord = { kind, outcome, marks: { "confirmed-after-click": Math.round(msSinceClick) }, total: Math.round(msSinceClick) };
+  const g = globalThis as unknown as { __ppSaveTimings?: SaveTimingRecord[] };
+  (g.__ppSaveTimings ??= []).push(rec);
+  if (process.env.NODE_ENV !== "test") console.debug("[save-timing]", JSON.stringify(rec));
 }

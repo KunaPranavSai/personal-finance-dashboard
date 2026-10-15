@@ -133,6 +133,34 @@ describe("critical save path", () => {
   });
 });
 
+describe("concurrent saves and the write cache", () => {
+  it("several different saves at once are all persisted exactly once (the per-collection lock + shared copy lose nothing)", async () => {
+    const u = await freshUser();
+    await Promise.all([1, 2, 3, 4, 5, 6].map((i) => createRecord(u, "transactions", tx(100 + i), { idempotencyKey: `k-par-${i}` })));
+    const inDrive = JSON.parse(stored(u)!.content).records as { amount: number }[];
+    expect(inDrive).toHaveLength(7);
+    expect(new Set(inDrive.map((r) => r.amount)).size).toBe(7);
+  });
+
+  it("read-your-write: a list right after a save already contains it (served from the refreshed copy, matching Drive)", async () => {
+    const u = await freshUser();
+    const rec = await createRecord(u, "transactions", tx(55), { idempotencyKey: "k-ryw" });
+    expect((await listRecords(u, "transactions")).some((r) => r.id === rec.id)).toBe(true);
+    invalidateAllCachesForUser(u);
+    expect((await listRecords(u, "transactions")).some((r) => r.id === rec.id)).toBe(true);
+  });
+
+  it("an update racing a create keeps both changes", async () => {
+    const u = await freshUser();
+    const [first] = await listRecords(u, "transactions");
+    await Promise.all([createRecord(u, "transactions", tx(77), { idempotencyKey: "k-race" }), updateRecord(u, "transactions", first.id, { amount: 999 })]);
+    const all = await listRecords(u, "transactions");
+    expect(all).toHaveLength(2);
+    expect(all.find((r) => r.id === first.id)?.amount).toBe(999);
+    expect(all.some((r) => r.amount === 77)).toBe(true);
+  });
+});
+
 describe("save timing diagnostics", () => {
   it("reports phase names and durations only, never record contents", async () => {
     const u = await freshUser();
