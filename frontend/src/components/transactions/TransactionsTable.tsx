@@ -16,6 +16,7 @@ import { EmptyState } from "../ui/EmptyState";
 import { usePpToast } from "../ui/PpToast";
 import { usePpConfirm } from "../ui/PpConfirm";
 import { Pencil, Trash2, Search, ArrowLeftRight } from "lucide-react";
+import { invalidateFor } from "@/lib/invalidate";
 
 export function TransactionsTable({
   onEdit,
@@ -52,8 +53,7 @@ export function TransactionsTable({
     onMutate: () => ({ handle: ppToast.start("Removing transaction…") }),
     onSuccess: (_data, _id, context) => {
       // See TransactionFormModal.tsx for why refetchType: "all" is needed here.
-      queryClient.invalidateQueries({ queryKey: ["transactions"], refetchType: "all" });
-      queryClient.invalidateQueries({ queryKey: ["dashboard-summary"], refetchType: "all" });
+      invalidateFor(queryClient, "transaction");
       context?.handle.success("Transaction deleted");
     },
     onError: (_err, _id, context) => {
@@ -142,7 +142,7 @@ export function TransactionsTable({
                           <Pencil className="h-3.5 w-3.5" />
                         </button>
                         <button
-                          onClick={async () => { if (await confirmDialog({ message: "Delete this transaction?" })) deleteMutation.mutate(tx.id); }}
+                          onClick={async () => { await confirmDialog({ message: "Delete this transaction? Totals, budgets and reports recalculate without it.", action: () => deleteMutation.mutateAsync(tx.id) }).catch(() => false); }}
                           className="rounded p-1.5 text-pp-text-dim hover:bg-vulcanico/10 hover:text-vulcanico dark:hover:bg-vulcanico/10"
                           aria-label="Delete"
                         >
@@ -182,7 +182,7 @@ export function TransactionsTable({
                       <Pencil className="h-3.5 w-3.5" />
                     </button>
                     <button
-                      onClick={async () => { if (await confirmDialog({ message: "Delete this transaction?" })) deleteMutation.mutate(tx.id); }}
+                      onClick={async () => { await confirmDialog({ message: "Delete this transaction? Totals, budgets and reports recalculate without it.", action: () => deleteMutation.mutateAsync(tx.id) }).catch(() => false); }}
                       className="rounded p-1.5 text-pp-text-dim hover:bg-vulcanico/10 hover:text-vulcanico dark:hover:bg-vulcanico/10"
                       aria-label="Delete"
                     >

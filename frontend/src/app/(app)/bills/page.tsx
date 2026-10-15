@@ -27,6 +27,7 @@ import { MobileShell } from "@/components/mobile/MobileShell";
 import { LoadingCard, ErrorCard, EmptyCard } from "@/components/mobile/MobileStates";
 import { BillFormSheet } from "@/components/mobile/BillFormSheet";
 import { ConfirmSheet } from "@/components/mobile/ConfirmSheet";
+import { invalidateFor } from "@/lib/invalidate";
 
 type MobileBillState = "PAID" | "PARTIALLY_PAID" | "OVERDUE" | "UNPAID";
 function mobileBillState(b: Bill): MobileBillState {
@@ -99,8 +100,7 @@ function BillModal({ open, editing, onClose }: {
     onMutate: () => ({ handle: ppToast.start("Saving bill…") }),
     onSuccess: (_result, _values, context) => {
       // dashboard-summary's upcomingBills reads this collection too.
-      queryClient.invalidateQueries({ queryKey: ["bills"], refetchType: "all" });
-      queryClient.invalidateQueries({ queryKey: ["dashboard-summary"], refetchType: "all" });
+      invalidateFor(queryClient, "bill");
       createIdempotencyKeyRef.current = generateIdempotencyKey();
       onClose(); reset(); context?.handle.success("Bill added");
     },
@@ -122,8 +122,7 @@ function BillModal({ open, editing, onClose }: {
     },
     onMutate: () => ({ handle: ppToast.start("Updating bill…") }),
     onSuccess: (_result, _values, context) => {
-      queryClient.invalidateQueries({ queryKey: ["bills"], refetchType: "all" });
-      queryClient.invalidateQueries({ queryKey: ["dashboard-summary"], refetchType: "all" });
+      invalidateFor(queryClient, "bill");
       onClose(); reset(); context?.handle.success("Bill updated");
     },
     onError: (err, _values, context) => {
@@ -229,8 +228,7 @@ export default function BillsPage() {
     },
     onMutate: () => ({ handle: ppToast.start("Removing bill…") }),
     onSuccess: (_data, _id, context) => {
-      queryClient.invalidateQueries({ queryKey: ["bills"], refetchType: "all" });
-      queryClient.invalidateQueries({ queryKey: ["dashboard-summary"], refetchType: "all" });
+      invalidateFor(queryClient, "bill");
       context?.handle.success("Bill deleted");
     },
     onError: (err, _id, context) => {
@@ -436,7 +434,7 @@ export default function BillsPage() {
                             <td className="py-2">
                               <div className="flex gap-1">
                                 <button onClick={() => { setEditing(b); setModalOpen(true); }} aria-label="Edit" className="rounded-lg p-1.5 text-pp-text-dim hover:bg-pp-surface-2 hover:text-pp-text/40 dark:hover:text-white"><Pencil className="h-3.5 w-3.5" /></button>
-                                <button onClick={async () => { if (await confirmDialog({ message: "Delete this bill?" })) deleteMutation.mutate(b.id); }} aria-label="Delete" className="rounded-lg p-1.5 hover:bg-vulcanico/10 dark:hover:bg-vulcanico/10"><Trash2 className="h-3.5 w-3.5 text-vulcanico" /></button>
+                                <button onClick={async () => { await confirmDialog({ message: Number(b.paidAmount) > 0 ? "Delete this bill? The payments recorded against it are deleted with it. To keep the history, edit the bill and mark it fully paid instead." : "Delete this bill?", action: () => deleteMutation.mutateAsync(b.id) }).catch(() => false); }} aria-label="Delete" className="rounded-lg p-1.5 hover:bg-vulcanico/10 dark:hover:bg-vulcanico/10"><Trash2 className="h-3.5 w-3.5 text-vulcanico" /></button>
                               </div>
                             </td>
                           </tr>
@@ -469,7 +467,7 @@ export default function BillsPage() {
                           </span>
                           <div className="flex shrink-0 gap-1">
                             <button onClick={() => { setEditing(b); setModalOpen(true); }} className="rounded-lg p-1.5 text-pp-text-dim hover:bg-pp-surface-2 hover:text-pp-text/40 dark:hover:text-white" aria-label="Edit"><Pencil className="h-3.5 w-3.5" /></button>
-                            <button onClick={async () => { if (await confirmDialog({ message: "Delete this bill?" })) deleteMutation.mutate(b.id); }} className="rounded-lg p-1.5 hover:bg-vulcanico/10 dark:hover:bg-vulcanico/10" aria-label="Delete"><Trash2 className="h-3.5 w-3.5 text-vulcanico" /></button>
+                            <button onClick={async () => { await confirmDialog({ message: Number(b.paidAmount) > 0 ? "Delete this bill? The payments recorded against it are deleted with it. To keep the history, edit the bill and mark it fully paid instead." : "Delete this bill?", action: () => deleteMutation.mutateAsync(b.id) }).catch(() => false); }} className="rounded-lg p-1.5 hover:bg-vulcanico/10 dark:hover:bg-vulcanico/10" aria-label="Delete"><Trash2 className="h-3.5 w-3.5 text-vulcanico" /></button>
                           </div>
                         </div>
                       </div>

@@ -11,6 +11,7 @@ router.get(
     const items = await prisma.notification.findMany({
       where: { userId: req.auth!.userId },
       orderBy: { createdAt: "desc" },
+      take: 200, // the UI polls this every 30s; the full history is never needed on screen
     });
     res.json({ items });
   })

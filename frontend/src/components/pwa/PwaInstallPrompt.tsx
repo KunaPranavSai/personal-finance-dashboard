@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Download, X } from "lucide-react";
+import { Download, Share, X } from "lucide-react";
 import {
-  canPromptInstall,
+  installSupport,
   isPwaInstalled,
   wasDismissedRecently,
   subscribeToInstallAvailability,
@@ -12,86 +12,78 @@ import {
   dismissInstallPrompt,
 } from "@/lib/pwaInstall";
 
-const DELAY_MS = 7000; // within the requested 5-10s window
+const DELAY_MS = 4000;
 
 /**
- * Shows the native install prompt, but only after login (this component is
- * mounted in the (app) shell, which only renders once authenticated), only
- * once conditions allow it, and after a short delay so it doesn't interrupt
- * the first thing the user sees post-login.
+ * Install nudge shown at EVERY sign-in from a browser (this component lives in the authenticated shell,
+ * which mounts fresh after login). It never shows inside the installed app. Dismissing hides it for the
+ * rest of this login only (sessionStorage, wiped on logout).
+ * - Chromium/Android: the real native install prompt.
+ * - iPhone/iPad Safari: there is no install API, so it shows the Share > Add to Home Screen steps
+ *   (which is also the only way iOS can receive web push).
  */
 export function PwaInstallPrompt() {
-  const [visible, setVisible] = useState(false);
-  const shownRef = useRef(false);
+  const [mode, setMode] = useState<null | "prompt" | "ios">(null);
 
   useEffect(() => {
     if (isPwaInstalled() || wasDismissedRecently()) return;
-
-    let timer: ReturnType<typeof setTimeout> | null = null;
-
-    const maybeShow = () => {
-      if (shownRef.current) return;
-      if (isPwaInstalled() || wasDismissedRecently()) return;
-      if (!canPromptInstall()) return;
-      shownRef.current = true;
-      setVisible(true);
+    let ready = false;
+    const evaluate = () => {
+      if (!ready || isPwaInstalled() || wasDismissedRecently()) return;
+      const s = installSupport();
+      if (s === "prompt" || s === "ios") setMode(s);
+      else setMode(null);
     };
-
-    // The install event may already have arrived (captured in root layout before login),
-    // or may still be pending — cover both by checking now and subscribing for later.
-    timer = setTimeout(maybeShow, DELAY_MS);
-    const unsubscribe = subscribeToInstallAvailability(() => {
-      if (timer === null) maybeShow();
-    });
-
+    const t = setTimeout(() => {
+      ready = true;
+      evaluate();
+    }, DELAY_MS);
+    // beforeinstallprompt can land after the delay; re-evaluate when it does
+    const unsubscribe = subscribeToInstallAvailability(evaluate);
     return () => {
-      if (timer) clearTimeout(timer);
+      clearTimeout(t);
       unsubscribe();
     };
   }, []);
 
   const handleInstall = async () => {
     const outcome = await triggerInstallPrompt();
-    if (outcome !== "unavailable") setVisible(false);
+    if (outcome !== "unavailable") setMode(null);
   };
-
   const handleDismiss = () => {
     dismissInstallPrompt();
-    setVisible(false);
+    setMode(null);
   };
 
   return (
     <AnimatePresence>
-      {visible && (
+      {mode && (
         <motion.div
           initial={{ opacity: 0, y: 40 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 40 }}
           transition={{ duration: 0.25 }}
-          className="fixed inset-x-4 bottom-4 z-[95] mx-auto flex max-w-sm items-center gap-3 rounded-xl border border-pp-border bg-pp-surface p-4 shadow-2xl dark:bg-pp-surface sm:inset-x-auto sm:right-4"
+          className="fixed inset-x-4 bottom-20 z-[95] mx-auto flex max-w-sm items-center gap-3 rounded-xl border border-pp-border bg-pp-surface p-4 shadow-2xl sm:inset-x-auto sm:bottom-4 sm:right-4"
           role="dialog"
           aria-label="Install Penny Pilot"
         >
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-pp-accent/10">
-            <Download className="h-5 w-5 text-pp-accent" />
+            {mode === "ios" ? <Share className="h-5 w-5 text-pp-accent" /> : <Download className="h-5 w-5 text-pp-accent" />}
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-sm font-medium text-pp-text">Install Penny Pilot</p>
-            <p className="text-xs text-pp-text-dim">Add it to your home screen for quick, app-like access.</p>
+            <p className="text-xs text-pp-text-dim">
+              {mode === "ios"
+                ? "Tap the Share button, then “Add to Home Screen”. Notifications need the installed app on iPhone."
+                : "Add it to your home screen for app-like access and push notifications."}
+            </p>
           </div>
-          <button
-            type="button"
-            onClick={handleInstall}
-            className="shrink-0 rounded-lg bg-pp-accent px-3 py-1.5 text-xs font-semibold text-white hover:bg-pp-accent/90"
-          >
-            Install
-          </button>
-          <button
-            type="button"
-            onClick={handleDismiss}
-            aria-label="Dismiss"
-            className="shrink-0 text-pp-text-dim hover:text-pp-text/40 dark:hover:text-white"
-          >
+          {mode === "prompt" && (
+            <button type="button" onClick={handleInstall} className="min-h-[36px] shrink-0 rounded-lg bg-pp-accent px-3 py-1.5 text-xs font-semibold text-pp-accent-ink hover:brightness-110">
+              Install
+            </button>
+          )}
+          <button type="button" onClick={handleDismiss} aria-label="Dismiss" className="shrink-0 p-1 text-pp-text-dim hover:text-pp-text">
             <X className="h-4 w-4" />
           </button>
         </motion.div>

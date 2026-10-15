@@ -14,6 +14,7 @@ import savingsRoutes from "./routes/savings.routes";
 import analyticsRoutes from "./routes/analytics.routes";
 import reportsRoutes from "./routes/reports.routes";
 import notificationsRoutes from "./routes/notifications.routes";
+import pushRoutes from "./routes/push.routes";
 import profileRoutes from "./routes/profile.routes";
 import settingsRoutes from "./routes/settings.routes";
 import exportRoutes from "./routes/export.routes";
@@ -175,6 +176,7 @@ export function createApp() {
 
   // Not financial data — stays Postgres-backed, no Drive gate needed.
   app.use("/api/notifications", authenticate, notificationsRoutes);
+  app.use("/api/push", authenticate, pushRoutes); // Web Push device registration; any signed-in account type
   app.use("/api/activity", authenticate, activityRoutes);
   app.use("/api/capital", authenticate, requireDriveConnected, capitalRoutes);
   app.use("/api/admin", authenticate, requireRole("SUPER_ADMIN", "ADMIN"), adminRoutes);

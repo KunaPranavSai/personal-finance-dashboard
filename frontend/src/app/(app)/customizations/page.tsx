@@ -263,7 +263,7 @@ function EntityManager({
                       <Pencil className="h-4 w-4" />
                     </button>
                     <button
-                      onClick={async () => { if (await confirmDialog({ message: `Delete "${item.name}"?` })) deleteMutation.mutate(item.id); }}
+                      onClick={async () => { await confirmDialog({ message: `Delete "${item.name}"?`, action: () => deleteMutation.mutateAsync(item.id) }).catch(() => false); }}
                       className="rounded-lg p-1.5 text-vulcanico hover:bg-vulcanico/10 dark:hover:bg-vulcanico/20"
                       aria-label={`Delete ${item.name}`}
                     >
@@ -373,6 +373,21 @@ function CategoriesManager() {
     onError: (_err, _values, context) => { context?.handle.error("Couldn't save subcategory — try again"); },
   });
 
+  const confirmDialog = usePpConfirm();
+  // Deleting a category is blocked (server and device-only alike) while transactions or budgets still use it,
+  // so history never loses its meaning; the error below says what to reassign.
+  const deleteCategory = useMutation({
+    mutationFn: async (id: string) => {
+      if (getStorageMode() === "local") {
+        const outcome = await getStorageProvider().remove("categories", id);
+        if (outcome.status !== "success") throw new Error(outcome.message);
+        return outcome.data;
+      }
+      return api.delete(`/api/categories/${id}`);
+    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["categories"], refetchType: "all" }); },
+  });
+
   const items = data?.items ?? [];
 
   return (
@@ -402,12 +417,22 @@ function CategoriesManager() {
                         {c.type}
                       </span>
                     </div>
-                    <button
-                      onClick={() => setSubcategoryTarget(c)}
-                      className="text-xs font-medium text-pp-accent hover:underline"
-                    >
-                      + Add subcategory
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => setSubcategoryTarget(c)}
+                        className="text-xs font-medium text-pp-accent hover:underline"
+                      >
+                        + Add subcategory
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={`Delete category ${c.name}`}
+                        onClick={async () => { await confirmDialog({ title: "Delete category?", message: `Delete "${c.name}"? It can only be deleted if no transactions or budgets use it.`, action: () => deleteCategory.mutateAsync(c.id) }).catch(() => false); }}
+                        className="rounded-lg p-1.5 hover:bg-vulcanico/10"
+                      >
+                        <Trash2 className="h-3.5 w-3.5 text-vulcanico" />
+                      </button>
+                    </div>
                   </div>
                   {c.subcategories.length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-1.5">

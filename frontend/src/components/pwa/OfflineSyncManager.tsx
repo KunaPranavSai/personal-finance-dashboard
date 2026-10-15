@@ -2,100 +2,161 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { WifiOff } from "lucide-react";
+import { AlertTriangle, WifiOff } from "lucide-react";
 import { useToast } from "@/components/ui/Toast";
-import { flushOfflineQueue } from "@/lib/offlineSync";
-import { countQueuedMutations } from "@/lib/offlineQueue";
+import { discardQueued, flushOfflineQueue, retryRejected } from "@/lib/offlineSync";
+import { countQueuedMutations, getRejectedMutations, setQueueOwner, type QueuedMutation } from "@/lib/offlineQueue";
 import { API_BASE_URL } from "@/lib/api";
+import { useAuth } from "@/lib/AuthContext";
+import { invalidateFor } from "@/lib/invalidate";
+import { DestructiveActionButton } from "@/components/ui/DestructiveActionButton";
 
-const INVALIDATE_KEYS = ["transactions", "dashboard-summary", "budgets", "investments", "category-breakdown"];
+const ENTITY_LABEL: Record<string, string> = { expense: "Expense", income: "Income", budget: "Budget", investment: "Investment" };
 
 /**
- * Renders nothing visible except an offline banner. Handles: showing a
- * persistent "you're offline" indicator, and flushing the IndexedDB
- * mutation queue (created by TransactionFormModal / BudgetFormModal /
- * InvestmentModal when a create fails while offline) as soon as the
- * connection returns — the Background Sync API registered in
- * offlineQueue.ts covers the case where the tab is closed, this covers
- * the common case of the same tab regaining connectivity.
+ * Offline banner + queue recovery. Handles: an offline indicator, flushing the IndexedDB queue (created when a
+ * create fails while offline) as soon as the connection returns, and a review list for items the server
+ * definitively refused. The Background Sync registration in offlineQueue.ts covers a closed tab; this covers the
+ * same tab regaining connectivity.
+ *
+ * Safety rules (see lib/offlineSync.ts): only the signed-in account's items are sent, the original idempotency key
+ * is reused, nothing is deleted before the server confirms it, and a refused item is kept for the user to decide.
  */
 export function OfflineSyncManager() {
   const [isOffline, setIsOffline] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
+  const [rejected, setRejected] = useState<QueuedMutation[]>([]);
+  const [reviewOpen, setReviewOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const syncing = useRef(false);
+  const owner = user?.uid ?? null;
 
-  const refreshPendingCount = useCallback(() => {
+  const refresh = useCallback(() => {
     countQueuedMutations().then(setPendingCount).catch(() => {});
+    getRejectedMutations().then(setRejected).catch(() => {});
   }, []);
 
   const sync = useCallback(async () => {
     if (syncing.current || !navigator.onLine) return;
     syncing.current = true;
     try {
-      const { synced, failed } = await flushOfflineQueue();
+      const { synced, rejected: newlyRejected } = await flushOfflineQueue();
       if (synced.length > 0) {
-        INVALIDATE_KEYS.forEach((key) => queryClient.invalidateQueries({ queryKey: [key] }));
+        invalidateFor(queryClient, "transaction", "budget", "investment");
         toast(`Synced ${synced.length} item${synced.length === 1 ? "" : "s"} saved while offline`, "success");
       }
-      if (failed.length > 0) {
-        toast(`${failed.length} offline item${failed.length === 1 ? "" : "s"} still pending sync`, "error");
+      // One message per newly refused batch, never per retry: retryable problems just keep the banner up.
+      if (newlyRejected.length > 0) {
+        toast(`${newlyRejected.length} offline change${newlyRejected.length === 1 ? " was" : "s were"} refused by the server. Open the banner to review.`, "error");
       }
     } finally {
       syncing.current = false;
-      refreshPendingCount();
+      refresh();
     }
-  }, [queryClient, toast, refreshPendingCount]);
+  }, [queryClient, toast, refresh]);
+
+  // Tell the queue (and, through Cache Storage, the service worker) which account is signed in.
+  useEffect(() => {
+    let live = true;
+    void setQueueOwner(owner).then(() => {
+      if (live && owner && navigator.onLine) void sync();
+    });
+    return () => {
+      live = false;
+    };
+  }, [owner, sync]);
 
   useEffect(() => {
     setIsOffline(!navigator.onLine);
-    refreshPendingCount();
+    refresh();
 
     const handleOnline = () => {
       setIsOffline(false);
-      sync();
+      void sync();
     };
     const handleOffline = () => setIsOffline(true);
-
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
 
-    // Tell the service worker where the API lives, so a Background Sync event
-    // firing after this tab has closed still knows where to flush the queue.
-    navigator.serviceWorker?.ready
-      .then((reg) => reg.active?.postMessage({ type: "SET_API_ORIGIN", origin: API_BASE_URL }))
-      .catch(() => {});
+    // Tell the service worker where the API lives, so a Background Sync event firing after this tab has closed knows where to flush.
+    navigator.serviceWorker?.ready.then((reg) => reg.active?.postMessage({ type: "SET_API_ORIGIN", origin: API_BASE_URL })).catch(() => {});
 
     const handleSwMessage = (event: MessageEvent) => {
       if (event.data?.type === "PENNY_PILOT_SYNC_COMPLETE") {
-        INVALIDATE_KEYS.forEach((key) => queryClient.invalidateQueries({ queryKey: [key] }));
-        refreshPendingCount();
+        invalidateFor(queryClient, "transaction", "budget", "investment");
+        refresh();
         toast(`Synced ${event.data.count} offline item${event.data.count === 1 ? "" : "s"}`, "success");
       }
     };
     navigator.serviceWorker?.addEventListener("message", handleSwMessage);
-
-    // Catch anything left queued from a previous session (e.g. tab closed before it could sync).
-    if (navigator.onLine) sync();
 
     return () => {
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
       navigator.serviceWorker?.removeEventListener("message", handleSwMessage);
     };
-  }, [sync, refreshPendingCount, queryClient, toast]);
+  }, [sync, refresh, queryClient, toast]);
 
-  if (!isOffline && pendingCount === 0) return null;
+  if (!isOffline && pendingCount === 0 && rejected.length === 0) return null;
 
   return (
-    <div className="fixed inset-x-0 top-0 z-[90] flex items-center justify-center gap-2 bg-turmeric px-3 py-1.5 pt-[max(0.375rem,env(safe-area-inset-top))] text-xs font-medium text-white">
-      <WifiOff className="h-3.5 w-3.5" />
-      {isOffline
-        ? pendingCount > 0
-          ? `You're offline — ${pendingCount} item${pendingCount === 1 ? "" : "s"} will sync automatically when you're back online.`
-          : "You're offline — changes you make will be saved and synced automatically."
-        : `Syncing ${pendingCount} offline item${pendingCount === 1 ? "" : "s"}…`}
-    </div>
+    <>
+      {(isOffline || pendingCount > 0) && (
+        <div role="status" className="fixed inset-x-0 top-0 z-[90] flex items-center justify-center gap-2 bg-turmeric px-3 py-1.5 pt-[max(0.375rem,env(safe-area-inset-top))] text-xs font-medium text-white">
+          <WifiOff className="h-3.5 w-3.5" aria-hidden="true" />
+          {isOffline
+            ? pendingCount > 0
+              ? `You're offline — ${pendingCount} item${pendingCount === 1 ? "" : "s"} will sync automatically when you're back online.`
+              : "You're offline — changes you make will be saved and synced automatically."
+            : `Syncing ${pendingCount} offline item${pendingCount === 1 ? "" : "s"}…`}
+        </div>
+      )}
+
+      {rejected.length > 0 && (
+        <div className="fixed inset-x-3 bottom-20 z-[91] mx-auto max-w-md rounded-xl border border-pp-border bg-pp-surface p-3 shadow-2xl sm:bottom-4 sm:left-auto sm:right-4">
+          <button type="button" onClick={() => setReviewOpen((o) => !o)} aria-expanded={reviewOpen} className="flex w-full min-h-[40px] items-center gap-2 text-left text-sm font-medium text-pp-text">
+            <AlertTriangle className="h-4 w-4 shrink-0 text-pp-critical" aria-hidden="true" />
+            {rejected.length} change{rejected.length === 1 ? "" : "s"} made offline couldn&apos;t be saved
+            <span className="ml-auto text-xs font-semibold text-pp-accent">{reviewOpen ? "Hide" : "Review"}</span>
+          </button>
+          {reviewOpen && (
+            <ul className="mt-2 max-h-64 space-y-2 overflow-y-auto">
+              {rejected.map((r) => (
+                <li key={r.id} className="rounded-lg border border-pp-border p-2.5 text-xs">
+                  <p className="font-semibold text-pp-text">
+                    {ENTITY_LABEL[r.entity] ?? r.entity} · {new Date(r.createdAt).toLocaleString()}
+                  </p>
+                  <p className="mt-0.5 text-pp-text-dim">{r.lastError ?? "The server refused this change."}</p>
+                  <div className="mt-2 flex gap-2">
+                    <button
+                      type="button"
+                      className="min-h-[36px] rounded-full border border-pp-border px-3 text-xs font-semibold text-pp-text hover:bg-pp-chip-bg"
+                      onClick={async () => {
+                        await retryRejected(r.id);
+                        refresh();
+                        void sync();
+                      }}
+                    >
+                      Try again
+                    </button>
+                    <DestructiveActionButton
+                      label="Discard"
+                      pendingLabel="Discarding…"
+                      className="!h-9 !min-w-0 !px-3 text-xs"
+                      onClick={async () => {
+                        await discardQueued(r.id);
+                        refresh();
+                      }}
+                    />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </>
   );
 }

@@ -41,11 +41,18 @@ function sumAmount(items: TransactionRecord[], type: "INCOME" | "EXPENSE", from?
     .reduce((s, t) => s + t.amount, 0);
 }
 
-export async function getDashboardSummary(req: Request, res: Response) {
-  const userId = req.auth!.userId;
-  const { start: curStart, end: curEnd } = monthRange(0);
-  const { start: prevStart, end: prevEnd } = monthRange(-1);
+interface DashboardData {
+  transactions: TransactionRecord[];
+  categories: CategoryRecord[];
+  budgets: BudgetRecord[];
+  investments: InvestmentRecord[];
+  bills: BillRecord[];
+  goals: GoalRecord[];
+}
 
+/** One parallel read of everything the Home screen derives from. The three endpoints below and the
+ * combined /home endpoint all go through this, so a number can only ever be computed one way. */
+async function loadDashboardData(userId: string): Promise<DashboardData> {
   const [transactions, categories, budgets, investments, bills, goals] = await Promise.all([
     listRecords<TransactionRecord>(userId, "transactions"),
     listRecords<CategoryRecord>(userId, "categories"),
@@ -54,6 +61,12 @@ export async function getDashboardSummary(req: Request, res: Response) {
     listRecords<BillRecord>(userId, "bills"),
     listRecords<GoalRecord>(userId, "goals"),
   ]);
+  return { transactions, categories, budgets, investments, bills, goals };
+}
+
+export function computeSummary({ transactions, categories, budgets, investments, bills, goals }: DashboardData) {
+  const { start: curStart, end: curEnd } = monthRange(0);
+  const { start: prevStart, end: prevEnd } = monthRange(-1);
 
   const totalIncome = sumAmount(transactions, "INCOME");
   const totalExpense = sumAmount(transactions, "EXPENSE");
@@ -123,7 +136,7 @@ export async function getDashboardSummary(req: Request, res: Response) {
     .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
     .slice(0, 5);
 
-  res.json({
+  return {
     kpis: {
       totalIncome,
       totalExpenses: totalExpense,
@@ -149,12 +162,14 @@ export async function getDashboardSummary(req: Request, res: Response) {
     },
     upcomingBills,
     goalCount: goals.length,
-  });
+  };
 }
 
-export async function getIncomeExpenseTrend(req: Request, res: Response) {
-  const userId = req.auth!.userId;
-  const transactions = await listRecords<TransactionRecord>(userId, "transactions");
+export async function getDashboardSummary(req: Request, res: Response) {
+  res.json(computeSummary(await loadDashboardData(req.auth!.userId)));
+}
+
+export function computeTrend(transactions: TransactionRecord[]) {
 
   const byMonth = new Map<string, { INCOME: number; EXPENSE: number }>();
   for (const t of transactions) {
@@ -171,15 +186,14 @@ export async function getIncomeExpenseTrend(req: Request, res: Response) {
       { month, type: "EXPENSE", total: String(totals.EXPENSE) },
     ]);
 
-  res.json({ items });
+  return { items };
 }
 
-export async function getCategoryBreakdown(req: Request, res: Response) {
-  const userId = req.auth!.userId;
-  const [transactions, categories] = await Promise.all([
-    listRecords<TransactionRecord>(userId, "transactions"),
-    listRecords<CategoryRecord>(userId, "categories"),
-  ]);
+export async function getIncomeExpenseTrend(req: Request, res: Response) {
+  res.json(computeTrend(await listRecords<TransactionRecord>(req.auth!.userId, "transactions")));
+}
+
+export function computeBreakdown(transactions: TransactionRecord[], categories: CategoryRecord[]) {
   const categoryMap = new Map(categories.map((c) => [c.id, c.name]));
 
   const totals = new Map<string, number>();
@@ -188,10 +202,25 @@ export async function getCategoryBreakdown(req: Request, res: Response) {
     totals.set(t.categoryId, (totals.get(t.categoryId) ?? 0) + t.amount);
   }
 
-  res.json({
+  return {
     items: [...totals.entries()].map(([categoryId, total]) => ({
       category: categoryMap.get(categoryId) ?? "Unknown",
       total,
     })),
-  });
+  };
+}
+
+export async function getCategoryBreakdown(req: Request, res: Response) {
+  const [transactions, categories] = await Promise.all([
+    listRecords<TransactionRecord>(req.auth!.userId, "transactions"),
+    listRecords<CategoryRecord>(req.auth!.userId, "categories"),
+  ]);
+  res.json(computeBreakdown(transactions, categories));
+}
+
+/** Summary + trend + category breakdown from ONE read of the user's collections (the Home screen used to make three
+ * requests that each re-read and re-filtered the same transactions). Same compute functions as the single endpoints. */
+export async function getDashboardHome(req: Request, res: Response) {
+  const data = await loadDashboardData(req.auth!.userId);
+  res.json({ summary: computeSummary(data), trend: computeTrend(data.transactions), breakdown: computeBreakdown(data.transactions, data.categories) });
 }

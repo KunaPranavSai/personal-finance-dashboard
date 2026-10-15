@@ -100,6 +100,8 @@ model User {
   bills          Bill[]
   goals          Goal[]
   notifications  Notification[]
+  pushSubscriptions PushSubscription[]
+  pushDeliveries    PushDelivery[]
   activityLogs   ActivityLog[]
   activityLogsAsTarget ActivityLog[] @relation("ActivityLogTarget")
   settings       AppSettings?
@@ -624,4 +626,43 @@ model PlatformSettings {
   updatedAt                   DateTime @updatedAt
 
   @@map("platform_settings")
+}
+
+// Web Push: one row per browser/device a user explicitly enabled notifications on. `endpoint` is the push
+// service URL (unguessable, so it is also the device handle). `categories` holds per-device opt-outs,
+// e.g. {"bills": false}; an absent key means on. Sent via VAPID (see services/push).
+model PushSubscription {
+  id            String    @id @default(cuid())
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId        String
+  endpoint      String    @unique
+  p256dh        String
+  auth          String
+  userAgent     String?
+  categories    Json      @default("{}")
+  failureCount  Int       @default(0)
+  lastSuccessAt DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("push_subscriptions")
+}
+
+// Delivery ledger + dedupe: (userId, dedupeKey) is claimed before sending so the same bill reminder for the
+// same due date can never be pushed twice, even across restarts or concurrent runs.
+model PushDelivery {
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  dedupeKey String
+  kind      String
+  status    String   @default("pending")
+  attempts  Int      @default(0)
+  lastError String?
+  createdAt DateTime @default(now())
+
+  @@unique([userId, dedupeKey])
+  @@index([createdAt])
+  @@map("push_deliveries")
 }

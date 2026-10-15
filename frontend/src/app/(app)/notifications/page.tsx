@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { usePpConfirm } from "@/components/ui/PpConfirm";
 import { Topbar } from "@/components/layout/Topbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/PpCard";
@@ -11,6 +11,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { api } from "@/lib/api";
 import { formatDateIN } from "@/lib/format";
 import { useNotifications } from "@/lib/reference";
+import { groupByDay, notifLabel, useNotificationActions } from "@/lib/notifications";
 import { Bell, CheckCheck, AlertTriangle, Receipt, TrendingUp, Lightbulb, Trash2, Megaphone, Wrench, ShieldAlert, Sparkles, Info } from "lucide-react";
 import { useIsMobile } from "@/lib/DeviceContext";
 import { MobileNotificationsView } from "@/components/mobile/MobileNotificationsView";
@@ -73,42 +74,19 @@ const typeIcons: Record<string, React.ReactNode> = {
   bill_due: <Receipt className="h-4 w-4 text-vulcanico" />,
   goal_progress: <TrendingUp className="h-4 w-4 text-pp-accent" />,
   insight: <Lightbulb className="h-4 w-4 text-turmeric" />,
-};
-
-const typeLabels: Record<string, string> = {
-  budget_alert: "Budget Alert",
-  bill_due: "Bill Due",
-  goal_progress: "Goal Progress",
-  insight: "Insight",
+  security: <ShieldAlert className="h-4 w-4 text-vulcanico" />,
+  welcome_tour: <Sparkles className="h-4 w-4 text-pp-accent" />,
+  info: <Info className="h-4 w-4 text-pp-accent" />,
 };
 
 export default function NotificationsPage() {
-  const queryClient = useQueryClient();
   const confirmDialog = usePpConfirm();
   const isMobile = useIsMobile();
   const [tab, setTab] = useState<"personal" | "announcements">("personal");
 
   const { data, isLoading } = useNotifications();
 
-  const markReadMutation = useMutation({
-    mutationFn: (id: string) => api.patch(`/api/notifications/${id}/read`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }),
-  });
-
-  const markAllReadMutation = useMutation({
-    mutationFn: () => api.post("/api/notifications/mark-all-read"),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }),
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => api.delete(`/api/notifications/${id}`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }),
-  });
-
-  const clearAllMutation = useMutation({
-    mutationFn: () => api.delete("/api/notifications"),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }),
-  });
+  const { markRead: markReadMutation, markAllRead: markAllReadMutation, remove: deleteMutation, clearAll: clearAllMutation } = useNotificationActions();
 
   const items = data?.items ?? [];
   const unreadCount = items.filter((n) => !n.read).length;
@@ -154,12 +132,12 @@ export default function NotificationsPage() {
           </p>
           <div className="flex gap-2">
             {unreadCount > 0 && (
-              <Button size="sm" variant="ghost" onClick={() => markAllReadMutation.mutate()}>
+              <Button size="sm" variant="ghost" disabled={markAllReadMutation.isPending} onClick={() => markAllReadMutation.mutate()}>
                 <CheckCheck className="h-4 w-4" /> Mark all read
               </Button>
             )}
             {items.length > 0 && (
-              <Button size="sm" variant="ghost" onClick={async () => { if (await confirmDialog({ title: "Clear all notifications?", message: "This removes every notification. You can't undo it.", confirmLabel: "Clear all", danger: true })) clearAllMutation.mutate(); }}>
+              <Button size="sm" variant="ghost" onClick={async () => { await confirmDialog({ title: "Clear all notifications?", message: "This removes every notification. You can't undo it.", confirmLabel: "Clear all", danger: true, successLabel: "Cleared", action: () => clearAllMutation.mutateAsync() }); }}>
                 <Trash2 className="h-4 w-4" /> Clear all
               </Button>
             )}
@@ -172,15 +150,19 @@ export default function NotificationsPage() {
             {isLoading ? (
               <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-16 animate-pulse rounded-lg bg-pp-surface-2" />)}</div>
             ) : items.length === 0 ? (
-              <EmptyState icon={Bell} title="No notifications yet" description="You'll see notifications here for budget alerts, bill reminders, and insights." />
+              <EmptyState icon={Bell} title="No notifications yet" description="Sign-in and security events, and account updates, will show up here." />
             ) : (
-              <div className="space-y-2">
-                {items.map((n) => (
+              <div className="space-y-4">
+                {groupByDay(items).map((g) => (
+                  <section key={g.label} aria-label={g.label}>
+                    <h3 className="mb-1 px-3 text-[11px] font-semibold uppercase tracking-wider text-pp-text-dim">{g.label}</h3>
+                    <div className="space-y-1">
+                {g.items.map((n) => (
                   <div key={n.id} className={`flex items-start gap-3 rounded-lg p-3 transition-colors ${n.read ? "" : "bg-pp-accent/5"}`}>
-                    <div className="mt-0.5">{typeIcons[n.type]}</div>
+                    <div className="mt-0.5">{typeIcons[n.type] ?? <Bell className="h-4 w-4 text-pp-text-dim" />}</div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-medium text-pp-text-dim">{typeLabels[n.type]}</span>
+                        <span className="text-xs font-medium text-pp-text-dim">{notifLabel(n.type)}</span>
                         {!n.read && <Badge tone="teal">New</Badge>}
                       </div>
                       <p className="text-sm font-medium text-pp-text">{n.title}</p>
@@ -198,6 +180,9 @@ export default function NotificationsPage() {
                       </button>
                     </div>
                   </div>
+                ))}
+                    </div>
+                  </section>
                 ))}
               </div>
             )}

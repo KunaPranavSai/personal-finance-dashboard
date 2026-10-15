@@ -5,6 +5,7 @@ import { initSessionRevocations } from "./lib/sessionRevocation";
 import { checkEnv } from "./lib/envCheck";
 import { startPlatformConfig } from "./lib/platformConfig";
 import { startAccountPurge } from "./lib/accountPurge";
+import { startBillReminders } from "./services/push/billReminders";
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 4000;
 
@@ -24,6 +25,7 @@ async function main() {
   }
 
   startAccountPurge(); // permanently deletes accounts whose 30-day deletion period has ended
+  startBillReminders(); // Web Push bill/EMI reminders (Drive users who enabled them); no-op without VAPID keys
   startPlatformConfig(); // System Settings values (email links, sender, rate limit, password rules...)
 
   const app = createApp();

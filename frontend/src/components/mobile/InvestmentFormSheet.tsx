@@ -9,6 +9,7 @@ import { generateIdempotencyKey } from "@/lib/idempotencyKey";
 import { INVESTMENT_CATEGORIES } from "@/lib/reference";
 import { MobileSheet } from "./MobileSheet";
 import type { Investment } from "@/types";
+import { invalidateFor } from "@/lib/invalidate";
 
 type Stored<T> = T & { createdAt: string; updatedAt: string; [k: string]: unknown };
 
@@ -83,8 +84,7 @@ export function InvestmentFormSheet({ open, onClose, inline, editing }: Investme
         : api.post<Investment>("/api/investments", payload, createKeyRef.current);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["investments"] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] });
+      invalidateFor(queryClient, "investment");
       toast(isEditing ? "Investment updated" : "Investment added", "success");
       onClose();
     },

@@ -100,6 +100,8 @@ export function ExportPreviewModal({
     try {
       await downloadExport(format, toast, range, selectedTypes);
       onClose();
+    } catch {
+      // downloadExport already told the user what went wrong; keep the modal open so they can retry
     } finally {
       setDownloading(false);
     }

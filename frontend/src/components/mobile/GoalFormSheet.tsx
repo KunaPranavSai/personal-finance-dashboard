@@ -9,6 +9,7 @@ import { generateIdempotencyKey } from "@/lib/idempotencyKey";
 import { GOAL_CATEGORIES } from "@/lib/reference";
 import { MobileSheet } from "./MobileSheet";
 import type { Goal } from "@/types";
+import { invalidateFor } from "@/lib/invalidate";
 
 type Stored<T> = T & { createdAt: string; updatedAt: string; [k: string]: unknown };
 
@@ -63,8 +64,7 @@ export function GoalFormSheet({ open, onClose, inline, editing }: GoalFormSheetP
       return isEditing ? api.patch<Goal>(`/api/goals/${editing!.id}`, payload) : api.post<Goal>("/api/goals", payload, createKeyRef.current);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["goals"] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] });
+      invalidateFor(queryClient, "goal");
       toast(isEditing ? "Goal updated" : "Goal created", "success");
       onClose();
     },

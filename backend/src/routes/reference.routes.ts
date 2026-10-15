@@ -41,6 +41,25 @@ router.post(
   })
 );
 
+router.delete(
+  "/categories/:id",
+  asyncHandler(async (req, res) => {
+    const id = safeParam(req, "id");
+    const userId = req.auth!.userId;
+    const existing = await getRecord<CategoryRecord>(userId, "categories", id);
+    if (!existing) throw new ApiError(404, "Category not found");
+    // History must keep its meaning: a category that transactions or budgets still point at cannot be removed.
+    const [transactions, budgets] = await Promise.all([listRecords<TransactionRecord>(userId, "transactions"), listRecords<DriveRecord & { categoryId?: string }>(userId, "budgets")]);
+    const tx = transactions.filter((t) => t.categoryId === id).length;
+    const bu = budgets.filter((b) => b.categoryId === id).length;
+    if (tx + bu > 0) {
+      throw new ApiError(400, `Cannot delete category used by ${tx} transaction(s) and ${bu} budget(s). Reassign or remove them first.`, "RECORD_IN_USE");
+    }
+    await deleteRecord(userId, "categories", id);
+    res.json({ success: true });
+  })
+);
+
 router.post(
   "/categories/:id/subcategories",
   validateBody(z.object({ name: z.string().min(1) })),
@@ -98,7 +117,7 @@ router.delete(
     if (!existing) throw new ApiError(404, "Account not found");
     const transactions = await listRecords<TransactionRecord>(userId, "transactions");
     const linked = transactions.filter((t) => t.accountId === id).length;
-    if (linked > 0) throw new ApiError(400, `Cannot delete account with ${linked} linked transaction(s). Archive instead.`);
+    if (linked > 0) throw new ApiError(400, `Cannot delete account with ${linked} linked transaction(s). Reassign or remove them first.`);
     await deleteRecord(userId, "accounts", id);
     res.json({ success: true });
   })

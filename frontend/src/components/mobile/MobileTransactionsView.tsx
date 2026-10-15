@@ -16,6 +16,7 @@ import { useSettingsContext } from "@/lib/SettingsContext";
 import { Receipt, Wallet, SlidersHorizontal, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import { formatCurrency, formatDateIN } from "@/lib/format";
 import type { Transaction, PaginatedResponse, EntryType } from "@/types";
+import { invalidateFor } from "@/lib/invalidate";
 
 type SortBy = "date" | "amount" | "description";
 type SortDir = "asc" | "desc";
@@ -93,11 +94,7 @@ export function MobileTransactionsView({ initialType = "" }: { initialType?: "" 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => (getStorageMode() === "local" ? deleteLocalTransaction(id) : api.delete(`/api/transactions/${id}`)),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["transactions"] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] });
-      queryClient.invalidateQueries({ queryKey: ["income-expense-trend"] });
-      queryClient.invalidateQueries({ queryKey: ["category-breakdown"] });
-      queryClient.invalidateQueries({ queryKey: ["budgets"] });
+      invalidateFor(queryClient, "transaction");
       setDeleteTarget(null);
     },
   });

@@ -4,9 +4,10 @@
 // when it's shown (post-login only) instead of letting Chrome/Edge show it
 // unprompted the moment install criteria are met.
 
-const DISMISS_KEY = "pfd-pwa-install-dismissed-at";
-const INSTALLED_KEY = "pfd-pwa-installed";
-const DISMISS_COOLDOWN_MS = 60 * 60 * 1000; // 1 hour
+// Dismissal lasts for the current login only: sessionStorage is wiped on logout (clientDataCleanup), so the
+// prompt comes back at every sign-in from a browser. The old 1-hour localStorage cooldown and the permanent
+// "installed" flag are gone: a stale flag (app uninstalled later) silently disabled the prompt forever.
+const DISMISS_KEY = "pfd-pwa-install-dismissed";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>;
@@ -15,6 +16,7 @@ interface BeforeInstallPromptEvent extends Event {
 
 let deferredPrompt: BeforeInstallPromptEvent | null = null;
 let captured = false;
+let installedThisSession = false;
 const listeners = new Set<() => void>();
 
 function notify() {
@@ -33,11 +35,7 @@ export function initPwaInstallCapture() {
   });
 
   window.addEventListener("appinstalled", () => {
-    try {
-      localStorage.setItem(INSTALLED_KEY, "1");
-    } catch {
-      // ignore
-    }
+    installedThisSession = true;
     deferredPrompt = null;
     notify();
   });
@@ -45,11 +43,7 @@ export function initPwaInstallCapture() {
 
 export function isPwaInstalled(): boolean {
   if (typeof window === "undefined") return false;
-  try {
-    if (localStorage.getItem(INSTALLED_KEY) === "1") return true;
-  } catch {
-    // ignore
-  }
+  if (installedThisSession) return true;
   if (window.matchMedia?.("(display-mode: standalone)").matches) return true;
   // iOS Safari's PWA-standalone flag
   if ((window.navigator as Navigator & { standalone?: boolean }).standalone) return true;
@@ -62,12 +56,26 @@ export function canPromptInstall(): boolean {
 
 export function wasDismissedRecently(): boolean {
   try {
-    const raw = localStorage.getItem(DISMISS_KEY);
-    if (!raw) return false;
-    return Date.now() - Number(raw) < DISMISS_COOLDOWN_MS;
+    return sessionStorage.getItem(DISMISS_KEY) === "1";
   } catch {
     return false;
   }
+}
+
+/** iPhone/iPad Safari (and iPadOS desktop-mode): no install event exists; the user adds it from the Share sheet. */
+export function isIos(): boolean {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent;
+  return /iPad|iPhone|iPod/.test(ua) || (ua.includes("Macintosh") && navigator.maxTouchPoints > 1);
+}
+
+/** What the UI can honestly offer right now. */
+export type InstallSupport = "installed" | "prompt" | "ios" | "unsupported";
+export function installSupport(): InstallSupport {
+  if (isPwaInstalled()) return "installed";
+  if (canPromptInstall()) return "prompt";
+  if (isIos()) return "ios";
+  return "unsupported";
 }
 
 export function subscribeToInstallAvailability(cb: () => void): () => void {
@@ -77,7 +85,7 @@ export function subscribeToInstallAvailability(cb: () => void): () => void {
 
 export function dismissInstallPrompt() {
   try {
-    localStorage.setItem(DISMISS_KEY, String(Date.now()));
+    sessionStorage.setItem(DISMISS_KEY, "1");
   } catch {
     // ignore
   }
@@ -91,11 +99,7 @@ export async function triggerInstallPrompt(): Promise<"accepted" | "dismissed" |
   if (choice.outcome === "dismissed") {
     dismissInstallPrompt();
   } else {
-    try {
-      localStorage.setItem(INSTALLED_KEY, "1");
-    } catch {
-      // ignore
-    }
+    installedThisSession = true;
   }
   deferredPrompt = null;
   notify();

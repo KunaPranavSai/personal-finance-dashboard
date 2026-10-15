@@ -452,6 +452,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Never let client-storage cleanup race or block the logout request
     // itself — the server-side session invalidation (cookie clear + session
     // version bump) always completes first.
+    // remove this device from the account while the session still exists, so its notifications stop with the login
+    await import("./push").then((m) => m.forgetPushDevice()).catch(() => {});
+    await import("./offlineQueue").then((m) => m.setQueueOwner(null)).catch(() => {});
     await apiFetch("/api/auth/logout", { method: "POST" }).catch(() => {});
     setUser(null);
     await clearClientSensitiveStorage();

@@ -1,5 +1,6 @@
 "use client";
 
+import { invalidateFor, ALL_KINDS } from "@/lib/invalidate";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -116,7 +117,7 @@ export function ActivityFeed() {
       await api.delete(`/api/${src.path}/${it.sourceId}`);
     },
     onSuccess: () => {
-      for (const k of ["activity-feed", "transactions", "bills", "budgets", "investments", "goals", "dashboard-summary"]) qc.invalidateQueries({ queryKey: [k] });
+      invalidateFor(qc, ...ALL_KINDS);
       setDeleting(null);
     },
   });

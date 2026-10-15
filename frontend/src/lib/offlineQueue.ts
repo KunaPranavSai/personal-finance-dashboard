@@ -23,6 +23,31 @@ export interface QueuedMutation {
    * on every later flush of this queued item so a duplicate create can never
    * result from retrying the same queued mutation more than once. */
   idempotencyKey: string;
+  /** uid of the account that made the change. A queued write is only ever sent under that same account. */
+  owner?: string;
+  /** failed sync attempts that were retryable (network, 5xx, 429...) */
+  attempts?: number;
+  /** "rejected": the server definitively refused it (validation, conflict). Never retried automatically and
+   * never silently deleted: the user decides (retry or discard). */
+  status?: "pending" | "rejected";
+  lastError?: string;
+}
+
+// Who the queue belongs to right now. Also mirrored into Cache Storage so the service worker (which has no
+// access to React state) can refuse to flush another account's queued writes.
+export const OWNER_CACHE = "pp-queue-owner";
+export const OWNER_KEY = "/__pp_queue_owner";
+let currentOwner: string | null = null;
+export const getQueueOwner = () => currentOwner;
+export async function setQueueOwner(uid: string | null): Promise<void> {
+  currentOwner = uid;
+  try {
+    const cache = await caches.open(OWNER_CACHE);
+    if (uid) await cache.put(OWNER_KEY, new Response(uid));
+    else await cache.delete(OWNER_KEY);
+  } catch {
+    /* Cache Storage unavailable: the SW then skips owner-tagged items (safe default) */
+  }
 }
 
 function openDb(): Promise<IDBDatabase> {
@@ -49,6 +74,9 @@ export async function enqueueMutation(entity: QueuedEntity, path: string, body: 
     body,
     createdAt: new Date().toISOString(),
     idempotencyKey,
+    owner: currentOwner ?? undefined,
+    attempts: 0,
+    status: "pending",
   };
   await new Promise<void>((resolve, reject) => {
     const tx = db.transaction(STORE_NAME, "readwrite");
@@ -97,7 +125,26 @@ export async function removeQueuedMutation(id: string): Promise<void> {
   db.close();
 }
 
+export async function updateQueuedMutation(id: string, patch: Partial<QueuedMutation>): Promise<void> {
+  const db = await openDb();
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, "readwrite");
+    const store = tx.objectStore(STORE_NAME);
+    const get = store.get(id);
+    get.onsuccess = () => {
+      if (get.result) store.put({ ...get.result, ...patch, id });
+    };
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+  db.close();
+}
+
+/** Items still waiting to sync (not counting rejected ones). */
 export async function countQueuedMutations(): Promise<number> {
-  const items = await getQueuedMutations();
-  return items.length;
+  return (await getQueuedMutations()).filter((i) => i.status !== "rejected").length;
+}
+
+export async function getRejectedMutations(): Promise<QueuedMutation[]> {
+  return (await getQueuedMutations()).filter((i) => i.status === "rejected");
 }

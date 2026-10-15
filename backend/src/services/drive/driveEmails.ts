@@ -40,6 +40,9 @@ export async function emailDriveReauthRequired(connectionId: string, userId: str
     // Claim the notification atomically: only the request that flips the marker from null sends the email.
     const claimed = await prisma.backupConnection.updateMany({ where: { id: connectionId, reauthNotifiedAt: null }, data: { reauthNotifiedAt: new Date() } });
     if (claimed.count === 0) return;
+    void import("../push").then((m) =>
+      m.sendPushToUser(userId, { kind: "backup", title: "Reconnect Google Drive", body: "Penny Pilot lost access to your Google Drive. Reconnect to keep your data syncing.", url: "/settings?tab=data", tag: "drive-reauth", urgency: "high" })
+    );
     const user = await who(userId);
     if (user) await sendAutomatedEmail({ triggerKey: "drive_disconnected", userId, to: user.email, vars: { name: user.name || "there" } });
   } catch (err) {

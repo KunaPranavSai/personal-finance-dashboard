@@ -1,5 +1,7 @@
 ﻿"use client";
 
+import { InstallAppCard } from "@/components/pwa/InstallAppCard";
+import { PushNotificationsCard } from "@/components/pwa/PushNotificationsCard";
 import { Suspense, useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -1281,7 +1283,7 @@ function SettingsContent() {
 
   const renderTab = () => {
     switch (activeTab) {
-      case "preferences": return <div className="space-y-6">{part("appearance")}{part("notifications")}</div>;
+      case "preferences": return <div className="space-y-6">{part("appearance")}<InstallAppCard /><PushNotificationsCard />{part("notifications")}</div>;
       case "data": return part("backup");
       case "account": {
         const row = "flex items-center gap-3 rounded-lg border border-pp-border px-4 py-3 text-sm font-medium text-pp-text transition-colors hover:bg-pp-surface-2";

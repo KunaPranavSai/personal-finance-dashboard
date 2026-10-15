@@ -23,7 +23,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { useIsMobile } from "@/lib/DeviceContext";
 import { api } from "@/lib/api";
 import { getStorageMode, getStorageProvider } from "@/lib/storage";
-import { getLocalDashboardSummary, getLocalIncomeExpenseTrend, getLocalCategoryBreakdown } from "@/lib/services/dashboardService";
+import { getLocalDashboardSummary, getLocalIncomeExpenseTrend, getLocalCategoryBreakdown, fetchDashboardHome } from "@/lib/services/dashboardService";
 import { listLocalTransactions } from "@/lib/services/transactionsService";
 import { formatCurrency, formatCompactCurrency, formatPercent, formatDateIN, cn } from "@/lib/format";
 import { useSettingsContext } from "@/lib/SettingsContext";
@@ -84,10 +84,10 @@ function DashboardContent() {
   const fCompact = (v: number) => formatCompactCurrency(v, cur);
   const { data: summary, isLoading, isError: summaryIsError, refetch: refetchSummary } = useQuery({
     queryKey: ["dashboard-summary"],
-    queryFn: () => (getStorageMode() === "local" ? getLocalDashboardSummary() : api.get<DashboardSummary>("/api/dashboard/summary")),
+    queryFn: () => (getStorageMode() === "local" ? getLocalDashboardSummary() : fetchDashboardHome().then((h) => h.summary)),
   });
 
-  const { data: recentTxns } = useQuery({
+  const { data: recentTxns, isError: recentErr, refetch: refetchRecent } = useQuery({
     queryKey: ["transactions", "recent-3"],
     queryFn: () =>
       getStorageMode() === "local"
@@ -95,22 +95,20 @@ function DashboardContent() {
         : api.get<PaginatedResponse<Transaction>>("/api/transactions?page=1&pageSize=3&sortBy=date&sortDir=desc"),
   });
 
-  const { data: trend } = useQuery({
+  const { data: trend, isError: trendErr, refetch: refetchTrend } = useQuery({
     queryKey: ["income-expense-trend"],
     queryFn: () =>
       getStorageMode() === "local"
         ? getLocalIncomeExpenseTrend()
-        : api.get<{ items: { month: string; type: string; total: string }[] }>("/api/dashboard/trend/income-expense"),
+        : fetchDashboardHome().then((h) => h.trend),
   });
 
-  const { data: breakdown } = useQuery({
+  const { data: breakdown, isError: breakdownErr, refetch: refetchBreakdown } = useQuery({
     queryKey: ["category-breakdown"],
     queryFn: () =>
       getStorageMode() === "local"
         ? getLocalCategoryBreakdown()
-        : api.get<{ items: { category: string; total: number }[] }>(
-      "/api/dashboard/breakdown/category"
-    ),
+        : fetchDashboardHome().then((h) => h.breakdown),
   });
 
   // Real Investments/Goals data for the Annual Cash Flow allocation bar —
@@ -142,6 +140,24 @@ function DashboardContent() {
   const trendData = Array.from(trendByMonth.values()).sort((a, b) => a.month.localeCompare(b.month));
 
   const hasError = !summary && !isLoading;
+  // Secondary sections fail independently of the summary. Without this they silently render as
+  // "no data", which reads as "you have nothing" instead of "this didn't load".
+  const failedSections = [
+    !trend && trendErr && "income & expense trend",
+    !breakdown && breakdownErr && "category breakdown",
+    !recentTxns && recentErr && "recent activity",
+  ].filter(Boolean) as string[];
+  const retryFailed = () => {
+    if (!trend && trendErr) void refetchTrend();
+    if (!breakdown && breakdownErr) void refetchBreakdown();
+    if (!recentTxns && recentErr) void refetchRecent();
+  };
+  const partialFailure = failedSections.length > 0 && (
+    <div role="alert" className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-pp-border bg-pp-surface px-4 py-3 text-sm text-pp-text">
+      <span>Couldn&apos;t load {failedSections.join(", ")}. The rest of your dashboard is up to date.</span>
+      <button type="button" onClick={retryFailed} className="min-h-[36px] rounded-full bg-pp-accent px-4 text-xs font-semibold text-pp-accent-ink">Retry</button>
+    </div>
+  );
   // AuthContext's user.name is the primary source (kept live via
   // updateUserName after a profile save — see profile/page.tsx); the
   // ["profile"] query is a defensive fallback in case that context hasn't
@@ -265,6 +281,7 @@ function DashboardContent() {
     return (
       <MobileShell title="Penny Pilot" subtitle="Smart Money Management">
         <MonthlyAuditBanner />
+        {partialFailure && <div style={{ marginBottom: 12 }}>{partialFailure}</div>}
         <div style={{ fontSize: "1.15rem", fontWeight: 800, color: "var(--ppm-text)", marginBottom: 12 }}>
           {homeGreeting}
         </div>
@@ -423,6 +440,7 @@ function DashboardContent() {
           </div>
         ) : (
           <>
+            {partialFailure}
             {/* Row 1: Net Worth + Financial Intelligence — the same two
                 pieces mobile stacks into one card, given room to sit
                 side by side. */}

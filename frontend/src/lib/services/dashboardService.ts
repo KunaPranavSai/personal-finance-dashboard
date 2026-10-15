@@ -3,6 +3,8 @@
 // client-side over IndexedDB collections instead of Drive-stored ones, so the KPI cards, trend
 // chart and category breakdown all work identically in both storage modes.
 import { getStorageProvider } from "@/lib/storage";
+import { api, ApiClientError } from "@/lib/api";
+import { financialEpoch } from "@/lib/invalidate";
 import type { DashboardSummary, Transaction, Category, Budget, Investment, Bill, Goal } from "@/types";
 
 type Stored<T> = T & { createdAt: string; updatedAt: string; [k: string]: unknown };
@@ -33,8 +35,21 @@ async function loadAll() {
   return { transactions, categories, budgets, investments, bills, goals };
 }
 
+/** Home asks for summary, trend and breakdown at the same moment. Share ONE read of the six collections between them
+ * (same epoch only, see financialEpoch) instead of three. */
+let pendingLocal: { epoch: number; p: ReturnType<typeof loadAll> } | null = null;
+function loadAllShared() {
+  const e = financialEpoch();
+  if (pendingLocal && pendingLocal.epoch === e) return pendingLocal.p;
+  const p = loadAll();
+  const entry = { epoch: e, p };
+  pendingLocal = entry;
+  void p.then(() => (pendingLocal === entry ? (pendingLocal = null) : 0), () => (pendingLocal === entry ? (pendingLocal = null) : 0));
+  return p;
+}
+
 export async function getLocalDashboardSummary(): Promise<DashboardSummary> {
-  const { transactions, categories, budgets, investments, bills, goals } = await loadAll();
+  const { transactions, categories, budgets, investments, bills, goals } = await loadAllShared();
   const { start: curStart, end: curEnd } = monthRange(0);
   const { start: prevStart, end: prevEnd } = monthRange(-1);
 
@@ -133,8 +148,7 @@ export async function getLocalDashboardSummary(): Promise<DashboardSummary> {
 }
 
 export async function getLocalIncomeExpenseTrend(): Promise<{ items: { month: string; type: string; total: string }[] }> {
-  const provider = getStorageProvider();
-  const transactions = await provider.list<Stored<Transaction>>("transactions");
+  const { transactions } = await loadAllShared();
   const byMonth = new Map<string, { INCOME: number; EXPENSE: number }>();
   for (const t of transactions) {
     const month = new Date(t.date).toISOString().slice(0, 7);
@@ -152,11 +166,7 @@ export async function getLocalIncomeExpenseTrend(): Promise<{ items: { month: st
 }
 
 export async function getLocalCategoryBreakdown(): Promise<{ items: { category: string; total: number }[] }> {
-  const provider = getStorageProvider();
-  const [transactions, categories] = await Promise.all([
-    provider.list<Stored<Transaction>>("transactions"),
-    provider.list<Stored<Category>>("categories"),
-  ]);
+  const { transactions, categories } = await loadAllShared();
   const categoryMap = new Map(categories.map((c) => [c.id, c.name]));
   const totals = new Map<string, number>();
   for (const t of transactions) {
@@ -164,4 +174,35 @@ export async function getLocalCategoryBreakdown(): Promise<{ items: { category: 
     totals.set(t.categoryId, (totals.get(t.categoryId) ?? 0) + Number(t.amount));
   }
   return { items: [...totals.entries()].map(([categoryId, total]) => ({ category: categoryMap.get(categoryId) ?? "Unknown", total })) };
+}
+
+
+// ─── Drive mode: one request for the whole Home payload ────────────────────────
+export interface DashboardHome {
+  summary: DashboardSummary;
+  trend: { items: { month: string; type: string; total: string }[] };
+  breakdown: { items: { category: string; total: number }[] };
+}
+
+let pendingHome: { epoch: number; p: Promise<DashboardHome> } | null = null;
+
+/** Summary, trend and breakdown share this single request (3 HTTP calls -> 1). Concurrent callers in the same
+ * epoch get the same promise. Falls back to the three classic endpoints if the server predates /home (deploy skew). */
+export function fetchDashboardHome(): Promise<DashboardHome> {
+  const e = financialEpoch();
+  if (pendingHome && pendingHome.epoch === e) return pendingHome.p;
+  const p = api.get<DashboardHome>("/api/dashboard/home").catch(async (err) => {
+    if (!(err instanceof ApiClientError) || err.status !== 404) throw err;
+    const [summary, trend, breakdown] = await Promise.all([
+      api.get<DashboardSummary>("/api/dashboard/summary"),
+      api.get<DashboardHome["trend"]>("/api/dashboard/trend/income-expense"),
+      api.get<DashboardHome["breakdown"]>("/api/dashboard/breakdown/category"),
+    ]);
+    return { summary, trend, breakdown };
+  });
+  const entry = { epoch: e, p };
+  pendingHome = entry;
+  const clear = () => void (pendingHome === entry && (pendingHome = null));
+  void p.then(clear, clear);
+  return p;
 }

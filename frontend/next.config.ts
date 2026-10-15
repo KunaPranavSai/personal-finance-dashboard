@@ -25,12 +25,15 @@ const withPWA = withPWAInit({
     skipWaiting: false, // let the user confirm via the update-available prompt instead of hijacking an open tab
     cleanupOutdatedCaches: true, // versioned cache: old precaches are removed automatically on activate
     runtimeCaching: [
-      // Dashboard summary/trend endpoints: serve last-known data instantly, refresh in the background.
+      // Dashboard endpoints: network first, cache only as the offline/slow-network fallback. StaleWhileRevalidate
+      // answered refetches after a confirmed write with the PRE-write response, so Home showed old totals right after saving.
+      // (The cache is wiped on logout, see clientDataCleanup.)
       {
         urlPattern: new RegExp(`^${apiOrigin}/api/dashboard/.*`),
-        handler: "StaleWhileRevalidate",
+        handler: "NetworkFirst",
         options: {
           cacheName: "api-dashboard",
+          networkTimeoutSeconds: 4,
           expiration: { maxEntries: 32, maxAgeSeconds: 60 * 60 * 24 }, // 1 day
           cacheableResponse: { statuses: [0, 200] },
         },

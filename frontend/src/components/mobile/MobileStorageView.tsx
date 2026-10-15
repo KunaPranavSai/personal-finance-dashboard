@@ -1,5 +1,6 @@
 "use client";
 
+import { invalidateFor, ALL_KINDS } from "@/lib/invalidate";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -115,6 +116,9 @@ export function MobileStorageView() {
     mutationFn: () => api.post(`/api/drive/restore/${restoreCollection}`, { revisionId: selectedRevision, confirm: true }),
     onSuccess: () => {
       toast(`${COLLECTION_LABELS[restoreCollection] ?? "Data"} restored`, "success");
+      // restored data replaced a collection on Drive: every financial view and lookup is now stale
+      invalidateFor(queryClient, ...ALL_KINDS);
+      for (const k of ["categories", "accounts", "payment-methods"]) void queryClient.invalidateQueries({ queryKey: [k] });
       setRestoreConfirmOpen(false);
       setRestoreOpen(false);
       setSelectedRevision(null);

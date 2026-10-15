@@ -13,6 +13,7 @@ import { usePpToast } from "../ui/PpToast";
 import { usePpConfirm } from "../ui/PpConfirm";
 import { Trash2, Wallet, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/format";
+import { invalidateFor } from "@/lib/invalidate";
 
 /** Tiered glow styling for the progress bar fill, per the Midnight Cockpit
  * spec: 0-70% safe (cyan-emerald), 71-90% warning (amber), 91%+ critical
@@ -57,8 +58,7 @@ export function BudgetTable({ periodKey }: { periodKey: string }) {
     mutationFn: (id: string) => (getStorageMode() === "local" ? deleteLocalBudget(id) : api.delete(`/api/budgets/${id}`)),
     onMutate: () => ({ handle: ppToast.start("Removing budget…") }),
     onSuccess: (_data, _id, context) => {
-      queryClient.invalidateQueries({ queryKey: ["budgets"], refetchType: "all" });
-      queryClient.invalidateQueries({ queryKey: ["dashboard-summary"], refetchType: "all" });
+      invalidateFor(queryClient, "budget");
       context?.handle.success("Budget deleted");
     },
     onError: (_err, _id, context) => {
@@ -135,7 +135,7 @@ export function BudgetTable({ periodKey }: { periodKey: string }) {
               </td>
               <td className="px-4 py-3">
                 <button
-                  onClick={async () => { if (await confirmDialog({ message: "Delete this budget?" })) deleteMutation.mutate(b.id); }}
+                  onClick={async () => { await confirmDialog({ message: "Delete this budget? Only the spending limit is removed. Your transactions are not affected.", action: () => deleteMutation.mutateAsync(b.id) }).catch(() => false); }}
                   className="rounded p-1.5 text-pp-text-dim hover:bg-vulcanico/10 hover:text-vulcanico"
                   aria-label="Delete"
                 >

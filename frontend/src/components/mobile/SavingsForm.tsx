@@ -1,5 +1,6 @@
 "use client";
 
+import { invalidateFor } from "@/lib/invalidate";
 import { FormEvent, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
@@ -43,7 +44,7 @@ export function SavingsForm({ onDone, onCreateGoal }: { onDone: () => void; onCr
       await api.patch(`/api/goals/${goal!.id}`, { currentAmount: next });
     },
     onSuccess: () => {
-      for (const k of ["goals", "capital-summary", "activity-feed", "dashboard-summary"]) qc.invalidateQueries({ queryKey: [k] });
+      invalidateFor(qc, "goal");
       toast("Savings added", "success");
       onDone();
     },

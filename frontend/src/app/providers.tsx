@@ -1,7 +1,7 @@
 "use client";
 
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useRef, useState } from "react";
 import { MotionConfig } from "framer-motion";
 import { SettingsProvider } from "@/lib/SettingsContext";
 import { ToastProvider } from "@/components/ui/Toast";
@@ -28,6 +28,26 @@ function ImpersonationBanner() {
   );
 }
 
+/**
+ * React-Query keys carry no user id, so the cache must never outlive the signed-in identity:
+ * on logout or a user switch, cancel in-flight requests (their results would land in the new
+ * session) and drop every cached response. Fresh login (null -> user) needs nothing: logout already cleared.
+ */
+function QueryCacheScope() {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+  const prev = useRef<string | null>(null);
+  useEffect(() => {
+    const id = user?.uid ?? null;
+    if (prev.current !== null && prev.current !== id) {
+      void qc.cancelQueries();
+      qc.clear();
+    }
+    prev.current = id;
+  }, [user?.uid, qc]);
+  return null;
+}
+
 export function Providers({ children, isMobile }: { children: React.ReactNode; isMobile: boolean }) {
   const [client] = useState(
     () =>
@@ -51,6 +71,7 @@ export function Providers({ children, isMobile }: { children: React.ReactNode; i
     <QueryClientProvider client={client}>
       <DeviceProvider isMobile={isMobile}>
         <AuthProvider>
+          <QueryCacheScope />
           <SettingsProvider>
             <ToastProvider>
               <SessionManagerProvider>

@@ -15,6 +15,7 @@ import { createLocalBudget } from "@/lib/services/budgetsService";
 import { useToast } from "../ui/Toast";
 import { usePpToast } from "../ui/PpToast";
 import type { Budget } from "@/types";
+import { invalidateFor } from "@/lib/invalidate";
 
 const schema = z.object({
   categoryId: z.string().min(1, "Choose a category for this budget."),
@@ -55,8 +56,7 @@ export function BudgetFormModal({
     onMutate: () => ({ handle: ppToast.start("Saving budget…") }),
     onSuccess: (result, _values, context) => {
       // dashboard-summary's budgetUtilizationPct reads this collection too.
-      queryClient.invalidateQueries({ queryKey: ["budgets"], refetchType: "all" });
-      queryClient.invalidateQueries({ queryKey: ["dashboard-summary"], refetchType: "all" });
+      invalidateFor(queryClient, "budget");
       createIdempotencyKeyRef.current = generateIdempotencyKey();
       if (result && typeof result === "object" && "queued" in result && result.queued) {
         toast("You're offline — this will be saved automatically once you're back online.", "success");

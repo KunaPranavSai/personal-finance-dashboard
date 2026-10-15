@@ -9,6 +9,7 @@ import { generateIdempotencyKey } from "@/lib/idempotencyKey";
 import { BILL_TYPES } from "@/lib/reference";
 import { MobileSheet } from "./MobileSheet";
 import type { Bill } from "@/types";
+import { invalidateFor } from "@/lib/invalidate";
 
 type Stored<T> = T & { createdAt: string; updatedAt: string; [k: string]: unknown };
 
@@ -83,8 +84,7 @@ export function BillFormSheet({ open, onClose, inline, editing }: BillFormSheetP
         : api.post<Bill>("/api/bills", payload, createKeyRef.current);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["bills"] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] });
+      invalidateFor(queryClient, "bill");
       toast(isEditing ? "Bill updated" : "Bill added", "success");
       onClose();
     },

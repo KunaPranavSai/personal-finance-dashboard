@@ -14,6 +14,16 @@ function toOutcome<T>(err: unknown): MutationOutcome<T> {
   return { status: "failure", code, message };
 }
 
+/** What still points at a record that must not be deleted (mirrors backend/src/routes/reference.routes.ts). */
+const LINKED_FROM: Partial<Record<StorageCollection, { label: string; from: { collection: StorageCollection; field: string; noun: string }[] }>> = {
+  accounts: { label: "wallet", from: [{ collection: "transactions", field: "accountId", noun: "transaction" }] },
+  paymentMethods: { label: "money source", from: [{ collection: "transactions", field: "paymentMethodTypeId", noun: "transaction" }] },
+  categories: {
+    label: "category",
+    from: [{ collection: "transactions", field: "categoryId", noun: "transaction" }, { collection: "budgets", field: "categoryId", noun: "budget" }],
+  },
+};
+
 /** "This Device Only" storage — IndexedDB-backed, no server round-trip for
  * financial data at all. Every write is a durable local transaction (see
  * localDb.ts), so unlike Drive there's no "unknown outcome" case: IndexedDB
@@ -69,6 +79,19 @@ export class LocalStorageProvider implements StorageProvider {
 
   async remove(collection: StorageCollection, id: string): Promise<MutationOutcome<{ id: string }>> {
     try {
+      // Same dependency rule the Drive backend enforces (routes/reference.routes.ts): a wallet or money
+      // source that transactions still point at must not be deleted, or those transactions lose their link.
+      const dep = LINKED_FROM[collection];
+      if (dep) {
+        const found: string[] = [];
+        for (const f of dep.from) {
+          const n = (await idbGetAll<Record<string, unknown>>(f.collection)).filter((r) => r[f.field] === id).length;
+          if (n > 0) found.push(`${n} linked ${f.noun}(s)`);
+        }
+        if (found.length > 0) {
+          return { status: "failure", code: "RECORD_IN_USE", message: `Cannot delete ${dep.label} with ${found.join(" and ")}. Reassign or remove them first.` };
+        }
+      }
       await idbDelete(collection, id);
       return { status: "success", data: { id } };
     } catch (err) {

@@ -19,6 +19,7 @@ import { listLocalBudgets, deleteLocalBudget } from "@/lib/services/budgetsServi
 import { useSettingsContext } from "@/lib/SettingsContext";
 import { formatCurrency } from "@/lib/format";
 import type { Budget } from "@/types";
+import { invalidateFor } from "@/lib/invalidate";
 
 function currentPeriodKey() {
   const now = new Date();
@@ -64,8 +65,7 @@ export default function BudgetPage() {
   const deleteMutation = useMutation({
     mutationFn: (id: string) => (getStorageMode() === "local" ? deleteLocalBudget(id) : api.delete(`/api/budgets/${id}`)),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["budgets"] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] });
+      invalidateFor(queryClient, "budget");
       setDeleteTarget(null);
     },
   });

@@ -180,7 +180,17 @@ async function saveCollectionFile(userId: string, accessToken: string, dataFolde
 // inserting a duplicate — this is what actually prevents duplicate writes; the
 // per-collection lock above only prevents lost *updates*, not duplicate *creates*.
 const IDEMPOTENCY_TTL_MS = 5 * 60 * 1000;
-const idempotencyCache = new Map<string, { record: DriveRecord; expiresAt: number }>();
+const idempotencyCache = new Map<string, { record: DriveRecord; expiresAt: number; payloadHash: string }>();
+const hashPayload = (data: unknown) => crypto.createHash("sha256").update(JSON.stringify(data)).digest("hex");
+/** Contract: same key + same payload -> the original record (retry-safe). Same key + DIFFERENT payload -> 409. */
+function idempotentHit<T>(userId: string, collection: CollectionName, key: string, payloadHash: string): T | null {
+  const hit = idempotencyCache.get(idempotencyKeyFor(userId, collection, key));
+  if (!hit || hit.expiresAt <= Date.now()) return null;
+  if (hit.payloadHash !== payloadHash) {
+    throw new ApiError(409, "This request reuses an idempotency key that was already used for a different request.", "IDEMPOTENCY_KEY_REUSED");
+  }
+  return hit.record as T;
+}
 function idempotencyKeyFor(userId: string, collection: CollectionName, key: string): string {
   return `${userId}:${collection}:${key}`;
 }
@@ -217,13 +227,20 @@ export async function createRecord<T extends DriveRecord = DriveRecord>(
   data: Omit<T, "id" | "createdAt" | "updatedAt">,
   opts?: CreateOptions
 ): Promise<T> {
+  const payloadHash = opts?.idempotencyKey ? hashPayload(data) : "";
   if (opts?.idempotencyKey) {
-    const cached = idempotencyCache.get(idempotencyKeyFor(userId, collection, opts.idempotencyKey));
-    if (cached && cached.expiresAt > Date.now()) return cached.record as T;
+    const hit = idempotentHit<T>(userId, collection, opts.idempotencyKey, payloadHash);
+    if (hit) return hit;
   }
 
   return withLock(`${userId}:${collection}`, () =>
     withWorkspace(userId, async ({ accessToken, dataFolderId, metadataFolderId }) => {
+      // Re-check under the lock: two concurrent requests with the same key both miss the pre-lock check above,
+      // and the second one runs only after the first has stored its record.
+      if (opts?.idempotencyKey) {
+        const hit = idempotentHit<T>(userId, collection, opts.idempotencyKey, payloadHash);
+        if (hit) return hit;
+      }
       const file = await loadCollectionFile(userId, accessToken, dataFolderId, metadataFolderId, collection, { bypassCache: true });
       const now = new Date().toISOString();
       const record = { ...data, id: crypto.randomUUID(), createdAt: now, updatedAt: now } as unknown as T;
@@ -231,7 +248,7 @@ export async function createRecord<T extends DriveRecord = DriveRecord>(
       await saveCollectionFile(userId, accessToken, dataFolderId, metadataFolderId, collection, file);
 
       if (opts?.idempotencyKey) {
-        idempotencyCache.set(idempotencyKeyFor(userId, collection, opts.idempotencyKey), { record, expiresAt: Date.now() + IDEMPOTENCY_TTL_MS });
+        idempotencyCache.set(idempotencyKeyFor(userId, collection, opts.idempotencyKey), { record, expiresAt: Date.now() + IDEMPOTENCY_TTL_MS, payloadHash });
       }
       return record;
     })

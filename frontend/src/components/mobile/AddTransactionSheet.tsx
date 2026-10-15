@@ -12,6 +12,7 @@ import { useToast } from "@/components/ui/Toast";
 import { generateIdempotencyKey } from "@/lib/idempotencyKey";
 import { MobileSheet } from "./MobileSheet";
 import type { Transaction } from "@/types";
+import { invalidateFor } from "@/lib/invalidate";
 
 type EntryType = "EXPENSE" | "INCOME";
 
@@ -135,13 +136,7 @@ export function AddTransactionSheet({ open, onClose, editing, inline, forcedType
         : api.post("/api/transactions", payload, createIdempotencyKeyRef.current);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["transactions"] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] });
-      queryClient.invalidateQueries({ queryKey: ["income-expense-trend"] });
-      queryClient.invalidateQueries({ queryKey: ["category-breakdown"] });
-      queryClient.invalidateQueries({ queryKey: ["budgets"] });
-      queryClient.invalidateQueries({ queryKey: ["activity-feed"] });
-      queryClient.invalidateQueries({ queryKey: ["smart-history"] });
+      invalidateFor(queryClient, "transaction");
       createIdempotencyKeyRef.current = generateIdempotencyKey();
       toast(isEditing ? "Transaction updated" : `${type === "EXPENSE" ? "Expense" : "Income"} saved`, "success");
       reset();

@@ -1,5 +1,6 @@
 "use client";
 
+import { invalidateFor, ALL_KINDS } from "@/lib/invalidate";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams, useRouter } from "next/navigation";
@@ -101,6 +102,9 @@ export function GoogleDriveBackupCard() {
     mutationFn: () => api.post(`/api/drive/restore/${restoreCollection}`, { revisionId: selectedRevision, confirm: true }),
     onSuccess: () => {
       toast(`${COLLECTION_LABELS[restoreCollection ?? ""] ?? "Data"} restored`, "success");
+      // restored data replaced a collection on Drive: every financial view and lookup is now stale
+      invalidateFor(queryClient, ...ALL_KINDS);
+      for (const k of ["categories", "accounts", "payment-methods"]) void queryClient.invalidateQueries({ queryKey: [k] });
       setRestoreCollection(null); setSelectedRevision(null); setRevisionPreview(null);
     },
     onError: (err) => toast(err instanceof Error ? err.message : "Restore failed", "error"),

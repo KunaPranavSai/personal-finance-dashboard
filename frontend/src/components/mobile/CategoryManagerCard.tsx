@@ -3,7 +3,8 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import { getStorageMode } from "@/lib/storage";
+import { getStorageMode, getStorageProvider } from "@/lib/storage";
+import { ConfirmSheet } from "./ConfirmSheet";
 import { useCategories, createLocalCategory, createLocalSubcategory } from "@/lib/reference";
 import { MobileSheet } from "./MobileSheet";
 import { LoadingCard, EmptyCard } from "./MobileStates";
@@ -13,12 +14,9 @@ import type { Category } from "@/types";
 type EntryType = "INCOME" | "EXPENSE";
 
 /**
- * Mobile equivalent of the desktop `CategoriesManager`. The backend only
- * exposes CREATE for categories/subcategories (POST /api/categories,
- * POST /api/categories/:id/subcategories) — there is no rename or delete
- * route, so this screen deliberately offers none, matching the desktop
- * page's own read-mostly behavior instead of inventing destructive actions
- * the API can't perform.
+ * Mobile equivalent of the desktop `CategoriesManager`: create, add subcategory, and delete. A category that
+ * transactions or budgets still use cannot be deleted (server and device-only alike); the sheet shows what to
+ * reassign instead of failing silently.
  */
 export function CategoryManagerCard() {
   const queryClient = useQueryClient();
@@ -56,6 +54,19 @@ export function CategoryManagerCard() {
     onSuccess: () => { invalidate(); setSubcategoryTarget(null); setSubName(""); },
   });
 
+  const [deleteTarget, setDeleteTarget] = useState<Category | null>(null);
+  const deleteCategory = useMutation({
+    mutationFn: async (id: string) => {
+      if (getStorageMode() === "local") {
+        const outcome = await getStorageProvider().remove("categories", id);
+        if (outcome.status !== "success") throw new Error(outcome.message);
+        return outcome.data;
+      }
+      return api.delete(`/api/categories/${id}`);
+    },
+    onSuccess: () => { invalidate(); setDeleteTarget(null); },
+  });
+
   const items = data?.items ?? [];
 
   return (
@@ -78,9 +89,22 @@ export function CategoryManagerCard() {
               {(c.subcategories ?? []).map((s) => <span className="ppm-chip" key={s.id} style={{ cursor: "default" }}>{s.name}</span>)}
             </div>
           )}
-          <button type="button" className="ppm-link-btn" style={{ marginTop: 10 }} onClick={() => setSubcategoryTarget(c)}>+ Add subcategory</button>
+          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 10 }}>
+            <button type="button" className="ppm-link-btn" onClick={() => setSubcategoryTarget(c)}>+ Add subcategory</button>
+            <button type="button" className="ppm-link-btn" style={{ color: "var(--ppm-critical)" }} onClick={() => { deleteCategory.reset(); setDeleteTarget(c); }}>Delete</button>
+          </div>
         </div>
       ))}
+
+      <ConfirmSheet
+        open={Boolean(deleteTarget)}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={() => deleteTarget && deleteCategory.mutate(deleteTarget.id)}
+        title="Delete category"
+        message={`Delete "${deleteTarget?.name ?? ""}"? It can only be deleted if no transactions or budgets use it.`}
+        isPending={deleteCategory.isPending}
+        errorMessage={deleteCategory.isError ? (deleteCategory.error as Error).message : null}
+      />
 
       <MobileSheet open={categorySheetOpen} onClose={() => setCategorySheetOpen(false)} title="New Category">
         <form onSubmit={(e: FormEvent) => { e.preventDefault(); if (newName.trim()) createCategory.mutate({ name: newName.trim(), type: newType }); }}>

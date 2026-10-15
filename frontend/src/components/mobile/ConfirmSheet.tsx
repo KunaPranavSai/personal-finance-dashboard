@@ -1,6 +1,7 @@
 "use client";
 
 import { MobileSheet } from "./MobileSheet";
+import { DestructiveActionButton } from "@/components/ui/DestructiveActionButton";
 
 interface ConfirmSheetProps {
   open: boolean;
@@ -25,9 +26,13 @@ export function ConfirmSheet({ open, onClose, onConfirm, title, message, confirm
           <button type="button" className="ppm-sheet-cancel" style={{ marginTop: 0 }} onClick={onClose} disabled={isPending}>
             Cancel
           </button>
-          <button type="button" className="ppm-danger-btn" onClick={onConfirm} disabled={isPending}>
-            {isPending ? "Deleting…" : confirmLabel}
-          </button>
+          <DestructiveActionButton
+            className="flex-1"
+            label={confirmLabel}
+            pendingLabel="Deleting…"
+            status={isPending ? "pending" : errorMessage ? "error" : "idle"}
+            onClick={onConfirm}
+          />
         </div>
       </div>
     </MobileSheet>

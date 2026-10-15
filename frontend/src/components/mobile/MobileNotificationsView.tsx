@@ -1,26 +1,24 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { MobileShell } from "@/components/mobile/MobileShell";
 import { LoadingCard, EmptyCard } from "@/components/mobile/MobileStates";
 import { ConfirmSheet } from "@/components/mobile/ConfirmSheet";
 import { api } from "@/lib/api";
 import { useNotifications } from "@/lib/reference";
 import { formatDateIN } from "@/lib/format";
-import { AlertTriangle, Receipt, Target, Lightbulb, Bell, Trash2, Megaphone, Check } from "lucide-react";
+import { groupByDay, notifLabel, useNotificationActions } from "@/lib/notifications";
+import { AlertTriangle, Receipt, Target, Lightbulb, Bell, Trash2, Megaphone, Check, ShieldAlert, Sparkles, Info } from "lucide-react";
 
 const TYPE_ICON: Record<string, React.ReactNode> = {
   budget_alert: <AlertTriangle size={18} />,
   bill_due: <Receipt size={18} />,
   goal_progress: <Target size={18} />,
   insight: <Lightbulb size={18} />,
-};
-const TYPE_LABEL: Record<string, string> = {
-  budget_alert: "Budget Alert",
-  bill_due: "Bill Due",
-  goal_progress: "Goal Progress",
-  insight: "Insight",
+  security: <ShieldAlert size={18} />,
+  welcome_tour: <Sparkles size={18} />,
+  info: <Info size={18} />,
 };
 
 interface AnnouncementItem { id: string; title: string; body: string; type: string; priority: string; publishAt: string | null; createdAt: string }
@@ -59,27 +57,15 @@ function MobileAnnouncements() {
  * desktop page (mark one/all read, delete one/clear all), reached from the
  * bell icon in every MobileShell app bar. */
 export function MobileNotificationsView() {
-  const queryClient = useQueryClient();
   const { data, isLoading } = useNotifications();
   const [clearAllOpen, setClearAllOpen] = useState(false);
   const [tab, setTab] = useState<"personal" | "announcements">("personal");
 
-  const markReadMutation = useMutation({
-    mutationFn: (id: string) => api.patch(`/api/notifications/${id}/read`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }),
-  });
-  const markAllReadMutation = useMutation({
-    mutationFn: () => api.post("/api/notifications/mark-all-read"),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }),
-  });
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => api.delete(`/api/notifications/${id}`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }),
-  });
-  const clearAllMutation = useMutation({
-    mutationFn: () => api.delete("/api/notifications"),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["notifications"] }); setClearAllOpen(false); },
-  });
+  const { markRead: markReadMutation, markAllRead: markAllReadMutation, remove: deleteMutation, clearAll: clearAllBase } = useNotificationActions();
+  const clearAllMutation = {
+    isPending: clearAllBase.isPending,
+    mutate: () => clearAllBase.mutate(undefined, { onSuccess: () => setClearAllOpen(false) }),
+  };
 
   const items = data?.items ?? [];
   const unreadCount = items.filter((n) => !n.read).length;
@@ -105,17 +91,21 @@ export function MobileNotificationsView() {
       {tab === "personal" && <>
       {isLoading && <LoadingCard lines={4} />}
       {!isLoading && items.length === 0 && (
-        <EmptyCard icon={<Bell size={22} />} title="No notifications yet" subtitle="You'll see budget alerts, bill reminders and insights here." />
+        <EmptyCard icon={<Bell size={22} />} title="No notifications yet" subtitle="Sign-in and security events, and account updates, will show up here." />
       )}
 
       {!isLoading && items.length > 0 && (
-        <div className="ppm-card">
-          {items.map((n) => (
+        <>
+          {groupByDay(items).map((g) => (
+            <section key={g.label} aria-label={g.label}>
+              <div className="ppm-meta" style={{ margin: "8px 4px 4px", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".06em" }}>{g.label}</div>
+              <div className="ppm-card">
+                {g.items.map((n) => (
             <div className="ppm-list-item" key={n.id} style={{ alignItems: "flex-start", background: n.read ? "transparent" : "var(--ppm-chip-bg)", borderRadius: n.read ? 0 : 12, cursor: "default" }}>
               <div className="ppm-ic" aria-hidden="true">{TYPE_ICON[n.type] ?? <Bell size={18} />}</div>
               <div className="ppm-info">
                 <div className="ppm-meta" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  {TYPE_LABEL[n.type] ?? n.type}
+                  {notifLabel(n.type)}
                   {!n.read && <span className="ppm-badge">New</span>}
                 </div>
                 <div className="ppm-name">{n.title}</div>
@@ -129,8 +119,11 @@ export function MobileNotificationsView() {
                 <button type="button" className="ppm-row-action" aria-label="Delete" onClick={() => deleteMutation.mutate(n.id)}><Trash2 size={15} /></button>
               </div>
             </div>
+                ))}
+              </div>
+            </section>
           ))}
-        </div>
+        </>
       )}
       </>}
 

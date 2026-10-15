@@ -27,6 +27,7 @@ import { MobileShell } from "@/components/mobile/MobileShell";
 import { LoadingCard, ErrorCard, EmptyCard } from "@/components/mobile/MobileStates";
 import { GoalFormSheet } from "@/components/mobile/GoalFormSheet";
 import { ConfirmSheet } from "@/components/mobile/ConfirmSheet";
+import { invalidateFor } from "@/lib/invalidate";
 
 const goalSchema = z.object({
   name: z.string().min(1, "Name is required").max(100),
@@ -69,8 +70,7 @@ function GoalModal({ open, editing, onClose }: {
     onMutate: () => ({ handle: ppToast.start("Saving goal…") }),
     onSuccess: (_result, _values, context) => {
       // dashboard-summary's emergencyFund/goalCount read this collection too.
-      queryClient.invalidateQueries({ queryKey: ["goals"], refetchType: "all" });
-      queryClient.invalidateQueries({ queryKey: ["dashboard-summary"], refetchType: "all" });
+      invalidateFor(queryClient, "goal");
       createIdempotencyKeyRef.current = generateIdempotencyKey();
       onClose(); reset(); context?.handle.success("Goal added");
     },
@@ -90,8 +90,7 @@ function GoalModal({ open, editing, onClose }: {
     },
     onMutate: () => ({ handle: ppToast.start("Updating goal…") }),
     onSuccess: (_result, _values, context) => {
-      queryClient.invalidateQueries({ queryKey: ["goals"], refetchType: "all" });
-      queryClient.invalidateQueries({ queryKey: ["dashboard-summary"], refetchType: "all" });
+      invalidateFor(queryClient, "goal");
       onClose(); reset(); context?.handle.success("Goal updated");
     },
     onError: (err, _values, context) => {
@@ -185,8 +184,7 @@ export default function GoalsPage() {
     },
     onMutate: () => ({ handle: ppToast.start("Removing goal…") }),
     onSuccess: (_data, _id, context) => {
-      queryClient.invalidateQueries({ queryKey: ["goals"], refetchType: "all" });
-      queryClient.invalidateQueries({ queryKey: ["dashboard-summary"], refetchType: "all" });
+      invalidateFor(queryClient, "goal");
       context?.handle.success("Goal deleted");
     },
     onError: (err, _id, context) => {
@@ -302,7 +300,7 @@ export default function GoalsPage() {
                       </div>
                       <div className="flex gap-1 shrink-0">
                         <button onClick={() => { setEditing(g); setModalOpen(true); }} aria-label="Edit" className="rounded-lg p-1.5 hover:bg-pp-surface-2"><Pencil className="h-3.5 w-3.5" /></button>
-                        <button onClick={async () => { if (await confirmDialog({ message: "Delete this goal?" })) deleteMutation.mutate(g.id); }} aria-label="Delete" className="rounded-lg p-1.5 hover:bg-vulcanico/10"><Trash2 className="h-3.5 w-3.5 text-vulcanico" /></button>
+                        <button onClick={async () => { await confirmDialog({ message: Number(g.currentAmount) > 0 ? "Delete this goal? The progress you have saved toward it is deleted with it." : "Delete this goal?", action: () => deleteMutation.mutateAsync(g.id) }).catch(() => false); }} aria-label="Delete" className="rounded-lg p-1.5 hover:bg-vulcanico/10"><Trash2 className="h-3.5 w-3.5 text-vulcanico" /></button>
                       </div>
                     </div>
                     <div className="mt-3">

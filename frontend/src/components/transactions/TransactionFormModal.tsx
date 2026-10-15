@@ -19,6 +19,7 @@ import { postWithOfflineQueue } from "@/lib/offlineAwarePost";
 import { generateIdempotencyKey } from "@/lib/idempotencyKey";
 import { useToast } from "../ui/Toast";
 import { usePpToast } from "../ui/PpToast";
+import { invalidateFor } from "@/lib/invalidate";
 
 /** Shared by all three "+ Add New…" quick-create mutations below: creates a
  * reference record through the active storage provider (Drive REST API or
@@ -134,10 +135,7 @@ export function TransactionFormModal({
       // this same page is a real bug repro: with the default, its query was invalidated but
       // did not actually refetch until a manual page reload, leaving a stale total on screen
       // right after a create/edit even though the write itself succeeded and persisted.
-      queryClient.invalidateQueries({ queryKey: ["transactions"] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] });
-      queryClient.invalidateQueries({ queryKey: ["activity-feed"] });
-      queryClient.invalidateQueries({ queryKey: ["smart-history"] });
+      invalidateFor(queryClient, "transaction");
       if (result && typeof result === "object" && "queued" in result && result.queued) {
         toast("You're offline — this will be saved automatically once you're back online.", "success");
         context?.handle.success(`${context.label} queued — will sync when back online`);

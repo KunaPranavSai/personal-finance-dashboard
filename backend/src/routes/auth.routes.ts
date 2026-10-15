@@ -455,7 +455,7 @@ router.post(
       void logActivity(req, "login_failed", locked ? "Wrong password — account locked" : "Wrong password", user.id);
       void createNotification(user.id, "security", locked ? "Account locked" : "Failed login attempt", locked
         ? `Your account was locked for ${LOCKOUT_DURATION_MS / 60000} minutes after ${attempts} failed login attempts.`
-        : "A login attempt with an incorrect password was made on your account.");
+        : "A login attempt with an incorrect password was made on your account.", locked ? {} : { dedupeUnreadWithinMs: 10 * 60 * 1000 }); // a guessing run is one event, not one row per attempt
       res.status(locked ? 423 : 401).json({
         error: locked
           ? `Too many failed attempts. Your account is locked for ${LOCKOUT_DURATION_MS / 60000} minutes.`

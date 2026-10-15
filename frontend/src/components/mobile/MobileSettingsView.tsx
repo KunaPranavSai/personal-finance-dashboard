@@ -1,5 +1,7 @@
 "use client";
 
+import { InstallAppCard } from "@/components/pwa/InstallAppCard";
+import { PushNotificationsCard } from "@/components/pwa/PushNotificationsCard";
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -158,7 +160,11 @@ export function MobileSettingsView() {
         </div>
       </div>
       <div className="ppm-card" style={{ marginTop: 14 }}>
-        <div className="ppm-section-label">Notifications</div>
+        <div className="ppm-section-label">Install &amp; notifications</div>
+        <div style={{ display: "grid", gap: 12, marginBottom: 12 }}>
+          <InstallAppCard />
+          <PushNotificationsCard />
+        </div>
         <button type="button" className="ppm-list-item" onClick={() => setNotifsOpen(true)}>{row(<Bell size={18} />, "Notification Preferences", "Reminders and alerts")}</button>
       </div>
       </>)}

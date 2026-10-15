@@ -10,6 +10,7 @@ import { generateIdempotencyKey } from "@/lib/idempotencyKey";
 import { useExpenseCategories } from "@/lib/reference";
 import { MobileSheet } from "./MobileSheet";
 import type { Budget } from "@/types";
+import { invalidateFor } from "@/lib/invalidate";
 
 interface BudgetFormSheetProps {
   open: boolean;
@@ -48,8 +49,7 @@ export function BudgetFormSheet({ open, onClose, inline, periodKey }: BudgetForm
         ? createLocalBudget(payload)
         : api.post<Budget>("/api/budgets", payload, createKeyRef.current),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["budgets"] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] });
+      invalidateFor(queryClient, "budget");
       toast("Budget created", "success");
       onClose();
     },

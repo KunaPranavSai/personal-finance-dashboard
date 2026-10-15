@@ -6,6 +6,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { SwipeSidebarHandler } from "@/components/layout/SwipeSidebarHandler";
 import { OfflineSyncManager } from "@/components/pwa/OfflineSyncManager";
+import { PushIdentitySync } from "@/components/pwa/PushIdentitySync";
 import { PwaInstallPrompt } from "@/components/pwa/PwaInstallPrompt";
 import { Footer } from "@/components/layout/Footer";
 import { DataInit } from "@/components/DataInit";
@@ -162,6 +163,7 @@ export function AppShellLayoutClient({ children }: { children: React.ReactNode }
           <DataInit />
             <OnboardingTourHost />
           <OfflineSyncManager />
+          <PushIdentitySync />
           <PwaInstallPrompt />
           <SwipeSidebarHandler />
           <Sidebar />

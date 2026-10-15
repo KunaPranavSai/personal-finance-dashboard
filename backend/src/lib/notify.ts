@@ -34,8 +34,22 @@ export async function notifySuperAdminByEmail(subject: string, html: string): Pr
 }
 
 /** Create an in-app notification for a specific user. Failures never break the calling request. */
-export async function createNotification(userId: string, type: string, title: string, message: string): Promise<void> {
+export async function createNotification(
+  userId: string,
+  type: string,
+  title: string,
+  message: string,
+  /** Skip when an identical notification is still unread and newer than this many ms (repeats of one ongoing event). */
+  opts: { dedupeUnreadWithinMs?: number } = {}
+): Promise<void> {
   try {
+    if (opts.dedupeUnreadWithinMs) {
+      const dup = await prisma.notification.findFirst({
+        where: { userId, type, title, message, read: false, createdAt: { gte: new Date(Date.now() - opts.dedupeUnreadWithinMs) } },
+        select: { id: true },
+      });
+      if (dup) return;
+    }
     await prisma.notification.create({ data: { userId, type, title, message } });
   } catch (err) {
     console.error("Failed to create notification:", err);
@@ -76,6 +90,8 @@ export async function notifySecurityEvent(
   opts: { req?: import("express").Request; email?: false | { key: string; vars?: Record<string, string> } } = {}
 ): Promise<void> {
   await createNotification(userId, type, title, message);
+  // Primary delivery is a mobile push (no-op unless the user enabled notifications on a device and VAPID is configured).
+  void import("../services/push").then((m) => m.sendPushToUser(userId, { kind: "security", title, body: message, url: "/settings?tab=security", urgency: "high" }));
   try {
     const { sendAutomatedEmail } = await import("../services/email/automation");
     const { whenLabel } = await import("./emailLayout");

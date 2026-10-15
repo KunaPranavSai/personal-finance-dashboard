@@ -30,6 +30,7 @@ import { MobileShell } from "@/components/mobile/MobileShell";
 import { LoadingCard, ErrorCard, EmptyCard } from "@/components/mobile/MobileStates";
 import { InvestmentFormSheet } from "@/components/mobile/InvestmentFormSheet";
 import { ConfirmSheet } from "@/components/mobile/ConfirmSheet";
+import { invalidateFor } from "@/lib/invalidate";
 
 const MOBILE_DOT_COLORS = ["var(--ppm-positive)", "var(--ppm-warning)", "var(--ppm-critical)", "var(--ppm-accent)"];
 
@@ -83,8 +84,7 @@ function InvestmentModal({ open, editing, onClose }: {
     onSuccess: (result, _values, context) => {
       // dashboard-summary's netWorth includes portfolio value — must be invalidated here too,
       // or Net Worth on the dashboard silently shows a stale figure after adding an investment.
-      queryClient.invalidateQueries({ queryKey: ["investments"], refetchType: "all" });
-      queryClient.invalidateQueries({ queryKey: ["dashboard-summary"], refetchType: "all" });
+      invalidateFor(queryClient, "investment");
       createIdempotencyKeyRef.current = generateIdempotencyKey();
       onClose();
       reset();
@@ -107,8 +107,7 @@ function InvestmentModal({ open, editing, onClose }: {
     },
     onMutate: () => ({ handle: ppToast.start("Updating investment…") }),
     onSuccess: (_result, _values, context) => {
-      queryClient.invalidateQueries({ queryKey: ["investments"], refetchType: "all" });
-      queryClient.invalidateQueries({ queryKey: ["dashboard-summary"], refetchType: "all" });
+      invalidateFor(queryClient, "investment");
       onClose(); reset(); context?.handle.success("Investment updated");
     },
     onError: (err, _values, context) => {
@@ -223,8 +222,7 @@ export default function InvestmentsPage() {
     },
     onMutate: () => ({ handle: ppToast.start("Removing investment…") }),
     onSuccess: (_data, _id, context) => {
-      queryClient.invalidateQueries({ queryKey: ["investments"], refetchType: "all" });
-      queryClient.invalidateQueries({ queryKey: ["dashboard-summary"], refetchType: "all" });
+      invalidateFor(queryClient, "investment");
       context?.handle.success("Investment deleted");
     },
     onError: (err, id, context) => {
@@ -475,7 +473,7 @@ export default function InvestmentsPage() {
                           <td className="py-2">
                             <div className="flex gap-1">
                               <button onClick={() => { setEditing(inv); setModalOpen(true); }} aria-label="Edit" className="rounded-lg p-1.5 text-pp-text-dim hover:bg-pp-surface-2 hover:text-pp-text/40 dark:hover:text-white"><Pencil className="h-3.5 w-3.5" /></button>
-                              <button onClick={async () => { if (await confirmDialog({ message: "Delete this investment?" })) deleteMutation.mutate(inv.id); }} aria-label="Delete" className="rounded-lg p-1.5 hover:bg-vulcanico/10 dark:hover:bg-vulcanico/10"><Trash2 className="h-3.5 w-3.5 text-vulcanico" /></button>
+                              <button onClick={async () => { await confirmDialog({ message: "Delete this investment? Its holdings and value history are removed, and portfolio totals recalculate without it.", action: () => deleteMutation.mutateAsync(inv.id) }).catch(() => false); }} aria-label="Delete" className="rounded-lg p-1.5 hover:bg-vulcanico/10 dark:hover:bg-vulcanico/10"><Trash2 className="h-3.5 w-3.5 text-vulcanico" /></button>
                             </div>
                           </td>
                         </tr>
@@ -508,7 +506,7 @@ export default function InvestmentsPage() {
                           </div>
                           <div className="flex shrink-0 gap-1">
                             <button onClick={() => { setEditing(inv); setModalOpen(true); }} className="rounded-lg p-1.5 text-pp-text-dim hover:bg-pp-surface-2 hover:text-pp-text/40 dark:hover:text-white" aria-label="Edit"><Pencil className="h-3.5 w-3.5" /></button>
-                            <button onClick={async () => { if (await confirmDialog({ message: "Delete this investment?" })) deleteMutation.mutate(inv.id); }} className="rounded-lg p-1.5 hover:bg-vulcanico/10 dark:hover:bg-vulcanico/10" aria-label="Delete"><Trash2 className="h-3.5 w-3.5 text-vulcanico" /></button>
+                            <button onClick={async () => { await confirmDialog({ message: "Delete this investment? Its holdings and value history are removed, and portfolio totals recalculate without it.", action: () => deleteMutation.mutateAsync(inv.id) }).catch(() => false); }} className="rounded-lg p-1.5 hover:bg-vulcanico/10 dark:hover:bg-vulcanico/10" aria-label="Delete"><Trash2 className="h-3.5 w-3.5 text-vulcanico" /></button>
                           </div>
                         </div>
                       </div>
