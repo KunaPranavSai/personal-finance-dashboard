@@ -1,6 +1,7 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { Check, Loader2, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/format";
 
@@ -37,6 +38,14 @@ export function DestructiveActionButton({
   className?: string;
 }) {
   const busy = status === "pending";
+  // "The bin swallows the label": when the press starts the operation, a decorative copy of the old label flies into
+  // the bin while the bin gulps. The real (accessible) text swaps instantly, so assistive tech and tests see no delay.
+  const prev = useRef<{ status: DestructiveStatus; text: string }>({ status, text: label });
+  const [ghost, setGhost] = useState<string | null>(null);
+  useEffect(() => {
+    if (prev.current.status === "idle" && status === "pending") setGhost(prev.current.text);
+    prev.current = { status, text: { idle: label, pending: pendingLabel, success: successLabel, error: errorLabel }[status] };
+  }, [status, label, pendingLabel, successLabel, errorLabel]);
   const text = { idle: label, pending: pendingLabel, success: successLabel, error: errorLabel }[status];
   return (
     <motion.button
@@ -53,7 +62,7 @@ export function DestructiveActionButton({
         className,
       )}
     >
-      <span aria-hidden="true" className="flex h-4 w-4 items-center justify-center">
+      <motion.span aria-hidden="true" className="flex h-4 w-4 items-center justify-center" animate={busy ? { scale: [1, 1.35, 1] } : { scale: 1 }} transition={{ duration: 0.35 }}>
         {busy ? (
           <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" />
         ) : status === "success" ? (
@@ -71,8 +80,24 @@ export function DestructiveActionButton({
             <path d="M10 11v6M14 11v6" />
           </svg>
         )}
+      </motion.span>
+      <span className="relative">
+        {text}
+        <AnimatePresence>
+          {ghost && (
+            <motion.span
+              aria-hidden="true"
+              className="pointer-events-none absolute left-0 top-0 whitespace-nowrap"
+              initial={{ opacity: 1, x: 0, scale: 1 }}
+              animate={{ opacity: 0, x: -26, scale: 0.25 }}
+              transition={{ duration: 0.35, ease: "easeIn" }}
+              onAnimationComplete={() => setGhost(null)}
+            >
+              {ghost}
+            </motion.span>
+          )}
+        </AnimatePresence>
       </span>
-      <span>{text}</span>
       <span role="status" aria-live="polite" className="sr-only">
         {status === "pending" ? pendingLabel : status === "success" ? successLabel : status === "error" ? "Failed. You can try again." : ""}
       </span>
